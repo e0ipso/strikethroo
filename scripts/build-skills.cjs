@@ -26,6 +26,21 @@ const SKILL_ENTRYPOINTS = [
     skill: 'task-create-plan',
     out: 'get-next-plan-id.cjs',
   },
+  {
+    src: 'src/skill-scripts/find-task-manager-root.ts',
+    skill: 'task-generate-tasks',
+    out: 'find-task-manager-root.cjs',
+  },
+  {
+    src: 'src/skill-scripts/validate-plan-blueprint.ts',
+    skill: 'task-generate-tasks',
+    out: 'validate-plan-blueprint.cjs',
+  },
+  {
+    src: 'src/skill-scripts/get-next-task-id.ts',
+    skill: 'task-generate-tasks',
+    out: 'get-next-task-id.cjs',
+  },
 ];
 
 const nodeTarget = `node${process.versions.node.split('.')[0]}`;

@@ -34,7 +34,8 @@
     "dist",
     "tests",
     "**/*.test.ts",
-    "**/*.spec.ts"
+    "**/*.spec.ts",
+    "src/skill-scripts/**"
   ],
   "ts-node": {
     "esm": false,

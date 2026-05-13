@@ -76,6 +76,9 @@ temp/
 templates/commands/tasks/*.toml
 .jest-cache
 
+# Generated skill script bundles
+templates/skills/*/scripts/
+
 # Worktrees
 /worktrees
 review.xml

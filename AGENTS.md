@@ -276,6 +276,33 @@ All templates are authored in Markdown and automatically converted to assistant-
 
 ---
 
+## Skills Layer
+
+The repository ships Agent Skills under `templates/skills/<skill-name>/`. Skills are assistant-agnostic — a single `SKILL.md` works for every assistant that supports the Agent Skills format. Skill directories are flat (no nested skills).
+
+The first skill is `task-create-plan` (`templates/skills/task-create-plan/`), which encodes the same plan-creation workflow the existing `/tasks:create-plan` command performs. The command and the skill coexist; the command path is unchanged.
+
+### TypeScript source of truth
+
+Executable logic each skill needs at runtime is authored once in TypeScript under `src/skill-scripts/`. Shared helpers (frontmatter parsing, plan/archive scanning, root discovery) live in `src/skill-scripts/shared/` so future skills can reuse them. The subtree type-checks via `tsconfig.skill-scripts.json` and lints with the rest of `src/`, but its output is produced by the bundler, not by `tsc`. The main `tsconfig.json` excludes `src/skill-scripts/**` from emit so `dist/` stays the CLI's domain.
+
+### Build pipeline
+
+`npm run build` runs the TypeScript compile and then `npm run build:skills`, which:
+
+1. Type-checks `src/skill-scripts/` with `tsc --noEmit -p tsconfig.skill-scripts.json`.
+2. Invokes `scripts/build-skills.cjs`, an `esbuild`-driven script that bundles each registered entrypoint into a self-contained `.cjs` file inside the corresponding skill's `scripts/` directory.
+
+The entrypoint → skill mapping is the `SKILL_ENTRYPOINTS` array at the top of `scripts/build-skills.cjs`. To add a future skill: drop a TypeScript entrypoint under `src/skill-scripts/`, add an entry to `SKILL_ENTRYPOINTS`, and `npm run build` produces the bundled `.cjs` alongside the skill. No other plumbing changes are needed.
+
+Generated `.cjs` files under `templates/skills/*/scripts/` are git-ignored. They ship in the published npm package via the existing `files: ["templates/"]` entry in `package.json` (verify with `npm pack --dry-run`).
+
+### Distribution
+
+How skills reach user projects (init copy, registry, manual install) is currently deferred. `npx . init` does not copy skills today; the existing `init` flow is unchanged. The skill artifact in this repository is standards-compliant and portable, so any future distribution mechanism can use it unchanged.
+
+---
+
 ## Directory Structure and Organization
 
 ### Core Directory Structure

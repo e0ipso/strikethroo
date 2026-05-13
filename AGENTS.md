@@ -280,7 +280,7 @@ All templates are authored in Markdown and automatically converted to assistant-
 
 The repository ships Agent Skills under `templates/skills/<skill-name>/`. Skills are assistant-agnostic — a single `SKILL.md` works for every assistant that supports the Agent Skills format. Skill directories are flat (no nested skills).
 
-The first skill is `task-create-plan` (`templates/skills/task-create-plan/`), which encodes the same plan-creation workflow the existing `/tasks:create-plan` command performs. The command and the skill coexist; the command path is unchanged.
+The first skill is `task-create-plan` (`templates/skills/task-create-plan/`), which encodes the same plan-creation workflow the existing `/tasks:create-plan` command performs. The second shipping skill is `task-generate-tasks` (`templates/skills/task-generate-tasks/`), which encodes the same task-decomposition workflow the existing `/tasks:generate-tasks` command performs. Each skill coexists with its corresponding command; the command paths are unchanged.
 
 ### TypeScript source of truth
 

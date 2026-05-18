@@ -599,3 +599,61 @@ describe('task-execute-blueprint bundle smoke check', () => {
     expect(branches).toContain('feature/3--alpha');
   });
 });
+
+describe('task-refine-plan bundle smoke check', () => {
+  let tempDir: string;
+  let fixtureSkillDir: string;
+
+  beforeAll(() => {
+    execFileSync('npm', ['run', 'build:skills'], {
+      cwd: REPO_ROOT,
+      stdio: 'pipe',
+    });
+  });
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-smoke-refine-'));
+    const tm = path.join(tempDir, '.ai', 'task-manager');
+    fs.mkdirSync(tm, { recursive: true });
+    fs.writeFileSync(
+      path.join(tm, '.init-metadata.json'),
+      JSON.stringify({ version: '1.0.0' })
+    );
+    const planDir = path.join(tm, 'plans', '03--alpha');
+    fs.mkdirSync(planDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(planDir, 'plan-03--alpha.md'),
+      '---\nid: 3\nsummary: "alpha"\ncreated: 2026-01-01\n---\n'
+    );
+
+    fixtureSkillDir = path.join(tempDir, 'task-refine-plan');
+    fs.cpSync(
+      path.join(REPO_ROOT, 'templates', 'skills', 'task-refine-plan'),
+      fixtureSkillDir,
+      { recursive: true }
+    );
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  test('find-task-manager-root.cjs resolves the fixture root', () => {
+    const script = path.join(fixtureSkillDir, 'scripts', 'find-task-manager-root.cjs');
+    const cwd = path.join(tempDir, '.ai', 'task-manager', 'plans', '03--alpha');
+    const stdout = execFileSync('node', [script], { cwd, encoding: 'utf8' }).trim();
+    expect(path.resolve(stdout)).toBe(path.resolve(path.join(tempDir, '.ai', 'task-manager')));
+  });
+
+  test('validate-plan-blueprint.cjs returns plan file path', () => {
+    const script = path.join(fixtureSkillDir, 'scripts', 'validate-plan-blueprint.cjs');
+    const cwd = tempDir;
+    const stdout = execFileSync('node', [script, '3', 'planFile'], {
+      cwd,
+      encoding: 'utf8',
+    }).trim();
+    expect(path.resolve(stdout)).toBe(
+      path.resolve(path.join(tempDir, '.ai', 'task-manager', 'plans', '03--alpha', 'plan-03--alpha.md'))
+    );
+  });
+});

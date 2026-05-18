@@ -70,7 +70,6 @@ temp/
 
 # AI and Claude specific
 /.ai/task-manager
-/.claude/settings.local.json
 
 # Generated TOML files (these are created on-the-fly from MD templates)
 templates/commands/tasks/*.toml
@@ -82,3 +81,8 @@ templates/skills/*/scripts/
 # Worktrees
 /worktrees
 review.xml
+
+# AI Assistants
+.opencode
+.cursor
+.claude

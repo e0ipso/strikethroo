@@ -657,3 +657,437 @@ describe('task-refine-plan bundle smoke check', () => {
     );
   });
 });
+
+const buildTaskFixture = (
+  root: string,
+  planId: number,
+  planName: string,
+  tasks: Array<{ id: number; status: string; dependencies: number[] }>
+): void => {
+  const tm = path.join(root, '.ai', 'task-manager');
+  fs.mkdirSync(tm, { recursive: true });
+  fs.writeFileSync(
+    path.join(tm, '.init-metadata.json'),
+    JSON.stringify({ version: 'test' })
+  );
+  const paddedPlanId = String(planId).padStart(2, '0');
+  const planDir = path.join(tm, 'plans', `${paddedPlanId}--${planName}`);
+  fs.mkdirSync(planDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(planDir, `plan-${paddedPlanId}--${planName}.md`),
+    `---\nid: ${planId}\nsummary: "${planName}"\ncreated: 2026-01-01\n---\n`
+  );
+  const tasksDir = path.join(planDir, 'tasks');
+  fs.mkdirSync(tasksDir, { recursive: true });
+  for (const task of tasks) {
+    const depsStr =
+      task.dependencies.length > 0
+        ? `dependencies: [${task.dependencies.join(', ')}]`
+        : 'dependencies: []';
+    fs.writeFileSync(
+      path.join(tasksDir, `${String(task.id).padStart(2, '0')}--task-${task.id}.md`),
+      `---\nid: ${task.id}\nstatus: "${task.status}"\n${depsStr}\n---\n# Task ${task.id}\n`
+    );
+  }
+};
+
+describe('task-execute-task bundle smoke check', () => {
+  let tempDir: string;
+  let fixtureSkillDir: string;
+
+  beforeAll(() => {
+    execFileSync('npm', ['run', 'build:skills'], {
+      cwd: REPO_ROOT,
+      stdio: 'pipe',
+    });
+  });
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-smoke-exec-task-'));
+    buildTaskFixture(tempDir, 3, 'alpha', [
+      { id: 1, status: 'completed', dependencies: [] },
+      { id: 2, status: 'pending', dependencies: [1] },
+    ]);
+
+    fixtureSkillDir = path.join(tempDir, 'task-execute-task');
+    fs.cpSync(
+      path.join(REPO_ROOT, 'templates', 'skills', 'task-execute-task'),
+      fixtureSkillDir,
+      { recursive: true }
+    );
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  test('find-task-manager-root.cjs resolves fixture root', () => {
+    const script = path.join(fixtureSkillDir, 'scripts', 'find-task-manager-root.cjs');
+    const cwd = path.join(tempDir, '.ai', 'task-manager', 'plans', '03--alpha');
+    const stdout = execFileSync('node', [script], { cwd, encoding: 'utf8' }).trim();
+    expect(path.resolve(stdout)).toBe(
+      path.resolve(path.join(tempDir, '.ai', 'task-manager'))
+    );
+  });
+
+  test('validate-plan-blueprint.cjs returns plan file path', () => {
+    const script = path.join(fixtureSkillDir, 'scripts', 'validate-plan-blueprint.cjs');
+    const cwd = tempDir;
+    const stdout = execFileSync('node', [script, '3', 'planFile'], {
+      cwd,
+      encoding: 'utf8',
+    }).trim();
+    expect(path.resolve(stdout)).toBe(
+      path.resolve(
+        path.join(tempDir, '.ai', 'task-manager', 'plans', '03--alpha', 'plan-03--alpha.md')
+      )
+    );
+  });
+
+  test('check-task-dependencies.cjs reports resolved deps', () => {
+    const script = path.join(fixtureSkillDir, 'scripts', 'check-task-dependencies.cjs');
+    const cwd = tempDir;
+    const result = execFileSync('node', [script, '3', '2'], {
+      cwd,
+      encoding: 'utf8',
+      env: { ...process.env, NO_COLOR: '1' },
+    });
+    expect(result).toContain('All dependencies are resolved');
+  });
+
+  test('check-task-dependencies.cjs reports unresolved deps', () => {
+    const script = path.join(fixtureSkillDir, 'scripts', 'check-task-dependencies.cjs');
+    const depFile = path.join(
+      tempDir,
+      '.ai',
+      'task-manager',
+      'plans',
+      '03--alpha',
+      'tasks',
+      '01--task-1.md'
+    );
+    const original = fs.readFileSync(depFile, 'utf8');
+    fs.writeFileSync(depFile, original.replace('status: "completed"', 'status: "failed"'));
+    try {
+      const cwd = tempDir;
+      let exitCode: number | null = null;
+      let output = '';
+      try {
+        output = execFileSync('node', [script, '3', '2'], {
+          cwd,
+          encoding: 'utf8',
+          env: { ...process.env, NO_COLOR: '1' },
+        });
+      } catch (e: any) {
+        exitCode = e.status ?? null;
+        output = (e.stdout || '') + (e.stderr || '');
+      }
+      expect(exitCode).toBe(1);
+      expect(output).toContain('unresolved');
+    } finally {
+      fs.writeFileSync(depFile, original);
+    }
+  });
+});
+
+describe('task-execute-task cross-validation', () => {
+  let tempDir: string;
+
+  beforeAll(() => {
+    execFileSync('npm', ['run', 'build:skills'], {
+      cwd: REPO_ROOT,
+      stdio: 'pipe',
+    });
+  });
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-xval-exec-task-'));
+    buildTaskFixture(tempDir, 42, 'cross-validation', [
+      { id: 1, status: 'completed', dependencies: [] },
+      { id: 2, status: 'pending', dependencies: [1] },
+    ]);
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  test('bundled and legacy scripts produce identical exit codes on resolved deps', () => {
+    const bundledScript = path.join(
+      REPO_ROOT,
+      'templates',
+      'skills',
+      'task-execute-task',
+      'scripts',
+      'check-task-dependencies.cjs'
+    );
+    const legacyScript = path.join(
+      REPO_ROOT,
+      'templates',
+      'ai-task-manager',
+      'config',
+      'scripts',
+      'check-task-dependencies.cjs'
+    );
+
+    let bundledExit = 0;
+    let bundledStdout = '';
+    try {
+      bundledStdout = execFileSync('node', [bundledScript, '42', '2'], {
+        cwd: tempDir,
+        encoding: 'utf8',
+        env: { ...process.env, NO_COLOR: '1' },
+      });
+    } catch (e: any) {
+      bundledExit = e.status ?? 1;
+      bundledStdout = e.stdout || '';
+    }
+
+    let legacyExit = 0;
+    let legacyStdout = '';
+    try {
+      legacyStdout = execFileSync('node', [legacyScript, '42', '2'], {
+        cwd: tempDir,
+        encoding: 'utf8',
+        env: { ...process.env, NO_COLOR: '1' },
+      });
+    } catch (e: any) {
+      legacyExit = e.status ?? 1;
+      legacyStdout = e.stdout || '';
+    }
+
+    expect(bundledExit).toBe(legacyExit);
+    expect(bundledExit).toBe(0);
+    expect(bundledStdout).toContain('All dependencies are resolved');
+    expect(legacyStdout).toContain('All dependencies are resolved');
+  });
+
+  test('bundled and legacy scripts produce identical exit codes on unresolved deps', () => {
+    const depFile = path.join(
+      tempDir,
+      '.ai',
+      'task-manager',
+      'plans',
+      '42--cross-validation',
+      'tasks',
+      '01--task-1.md'
+    );
+    const original = fs.readFileSync(depFile, 'utf8');
+    fs.writeFileSync(depFile, original.replace('status: "completed"', 'status: "failed"'));
+
+    const bundledScript = path.join(
+      REPO_ROOT,
+      'templates',
+      'skills',
+      'task-execute-task',
+      'scripts',
+      'check-task-dependencies.cjs'
+    );
+    const legacyScript = path.join(
+      REPO_ROOT,
+      'templates',
+      'ai-task-manager',
+      'config',
+      'scripts',
+      'check-task-dependencies.cjs'
+    );
+
+    let bundledExit = 0;
+    let bundledOutput = '';
+    try {
+      bundledOutput = execFileSync('node', [bundledScript, '42', '2'], {
+        cwd: tempDir,
+        encoding: 'utf8',
+        env: { ...process.env, NO_COLOR: '1' },
+      });
+    } catch (e: any) {
+      bundledExit = e.status ?? 1;
+      bundledOutput = (e.stdout || '') + (e.stderr || '');
+    }
+
+    let legacyExit = 0;
+    let legacyOutput = '';
+    try {
+      legacyOutput = execFileSync('node', [legacyScript, '42', '2'], {
+        cwd: tempDir,
+        encoding: 'utf8',
+        env: { ...process.env, NO_COLOR: '1' },
+      });
+    } catch (e: any) {
+      legacyExit = e.status ?? 1;
+      legacyOutput = (e.stdout || '') + (e.stderr || '');
+    }
+
+    expect(bundledExit).toBe(legacyExit);
+    expect(bundledExit).toBe(1);
+    expect(bundledOutput).toContain('unresolved');
+    expect(legacyOutput).toContain('unresolved');
+
+    fs.writeFileSync(depFile, original);
+  });
+});
+
+describe('check-task-dependencies scenarios', () => {
+  let tempDir: string;
+
+  beforeAll(() => {
+    execFileSync('npm', ['run', 'build:skills'], {
+      cwd: REPO_ROOT,
+      stdio: 'pipe',
+    });
+  });
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-deps-scenario-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  test('no dependencies', () => {
+    buildTaskFixture(tempDir, 1, 'no-deps', [
+      { id: 1, status: 'pending', dependencies: [] },
+    ]);
+    const script = path.join(
+      REPO_ROOT,
+      'templates',
+      'skills',
+      'task-execute-task',
+      'scripts',
+      'check-task-dependencies.cjs'
+    );
+    const result = execFileSync('node', [script, '1', '1'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+      env: { ...process.env, NO_COLOR: '1' },
+    });
+    expect(result).toContain('no dependencies');
+  });
+
+  test('all completed', () => {
+    buildTaskFixture(tempDir, 2, 'all-completed', [
+      { id: 1, status: 'completed', dependencies: [] },
+      { id: 2, status: 'pending', dependencies: [1] },
+    ]);
+    const script = path.join(
+      REPO_ROOT,
+      'templates',
+      'skills',
+      'task-execute-task',
+      'scripts',
+      'check-task-dependencies.cjs'
+    );
+    const result = execFileSync('node', [script, '2', '2'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+      env: { ...process.env, NO_COLOR: '1' },
+    });
+    expect(result).toContain('All dependencies are resolved');
+  });
+
+  test('one failed', () => {
+    buildTaskFixture(tempDir, 3, 'one-failed', [
+      { id: 1, status: 'failed', dependencies: [] },
+      { id: 2, status: 'pending', dependencies: [1] },
+    ]);
+    const script = path.join(
+      REPO_ROOT,
+      'templates',
+      'skills',
+      'task-execute-task',
+      'scripts',
+      'check-task-dependencies.cjs'
+    );
+    let exitCode: number | null = null;
+    let stdout = '';
+    try {
+      stdout = execFileSync('node', [script, '3', '2'], {
+        cwd: tempDir,
+        encoding: 'utf8',
+        env: { ...process.env, NO_COLOR: '1' },
+      });
+    } catch (e: any) {
+      exitCode = e.status ?? null;
+      stdout = e.stdout || '';
+    }
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain('failed');
+  });
+
+  test('one in-progress', () => {
+    buildTaskFixture(tempDir, 4, 'one-in-progress', [
+      { id: 1, status: 'in-progress', dependencies: [] },
+      { id: 2, status: 'pending', dependencies: [1] },
+    ]);
+    const script = path.join(
+      REPO_ROOT,
+      'templates',
+      'skills',
+      'task-execute-task',
+      'scripts',
+      'check-task-dependencies.cjs'
+    );
+    let exitCode: number | null = null;
+    let stdout = '';
+    try {
+      stdout = execFileSync('node', [script, '4', '2'], {
+        cwd: tempDir,
+        encoding: 'utf8',
+        env: { ...process.env, NO_COLOR: '1' },
+      });
+    } catch (e: any) {
+      exitCode = e.status ?? null;
+      stdout = e.stdout || '';
+    }
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain('in-progress');
+  });
+
+  test('task not found', () => {
+    buildTaskFixture(tempDir, 5, 'task-not-found', [
+      { id: 1, status: 'completed', dependencies: [] },
+    ]);
+    const script = path.join(
+      REPO_ROOT,
+      'templates',
+      'skills',
+      'task-execute-task',
+      'scripts',
+      'check-task-dependencies.cjs'
+    );
+    let exitCode: number | null = null;
+    try {
+      execFileSync('node', [script, '5', '99'], {
+        cwd: tempDir,
+        encoding: 'utf8',
+        env: { ...process.env, NO_COLOR: '1' },
+      });
+    } catch (e: any) {
+      exitCode = e.status ?? null;
+    }
+    expect(exitCode).toBe(1);
+  });
+
+  test('plan not found', () => {
+    const script = path.join(
+      REPO_ROOT,
+      'templates',
+      'skills',
+      'task-execute-task',
+      'scripts',
+      'check-task-dependencies.cjs'
+    );
+    let exitCode: number | null = null;
+    try {
+      execFileSync('node', [script, '999', '1'], {
+        cwd: tempDir,
+        encoding: 'utf8',
+        env: { ...process.env, NO_COLOR: '1' },
+      });
+    } catch (e: any) {
+      exitCode = e.status ?? null;
+    }
+    expect(exitCode).toBe(1);
+  });
+});

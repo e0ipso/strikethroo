@@ -20,6 +20,10 @@ import {
   getAllPlans,
   computeNextPlanId,
 } from '../skill-scripts/shared/plan-scan';
+import {
+  _sanitizeBranchName,
+  _extractPlanName,
+} from '../skill-scripts/create-feature-branch';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const SKILL_DIR = path.join(
@@ -251,5 +255,347 @@ describe('skill bundle smoke check', () => {
     } finally {
       fs.rmSync(mdOnly, { recursive: true, force: true });
     }
+  });
+});
+
+describe('create-feature-branch helpers', () => {
+  test('_sanitizeBranchName lowercases and sanitizes', () => {
+    expect(_sanitizeBranchName('Hello World!!!')).toBe('hello-world');
+    expect(_sanitizeBranchName('---test---')).toBe('test');
+    expect(_sanitizeBranchName('a'.repeat(70))).toBe('a'.repeat(60));
+  });
+
+  test('_extractPlanName extracts name from id--name pattern', () => {
+    expect(
+      _extractPlanName('/some/path/70--task-execute-blueprint-skill')
+    ).toBe('task-execute-blueprint-skill');
+    expect(_extractPlanName('/some/path/unknown')).toBe('unknown');
+  });
+});
+
+describe('create-feature-branch integration', () => {
+  let tempDir: string;
+
+  const buildGitFixture = (
+    root: string,
+    planName: string,
+    planId: number
+  ): string => {
+    const tm = path.join(root, '.ai', 'task-manager');
+    fs.mkdirSync(tm, { recursive: true });
+    fs.writeFileSync(
+      path.join(tm, '.init-metadata.json'),
+      JSON.stringify({ version: 'test' })
+    );
+    const planDir = path.join(tm, 'plans', `${planId}--${planName}`);
+    fs.mkdirSync(planDir, { recursive: true });
+    const planFile = path.join(planDir, `plan-${planId}--${planName}.md`);
+    fs.writeFileSync(
+      planFile,
+      `---\nid: ${planId}\nsummary: "${planName}"\ncreated: 2026-01-01\n---\n`
+    );
+    execFileSync('git', ['init', '-b', 'main'], {
+      cwd: root,
+      stdio: 'pipe',
+    });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], {
+      cwd: root,
+      stdio: 'pipe',
+    });
+    execFileSync('git', ['config', 'user.name', 'Test'], {
+      cwd: root,
+      stdio: 'pipe',
+    });
+    fs.writeFileSync(path.join(root, 'init.txt'), 'init');
+    execFileSync('git', ['add', '.'], { cwd: root, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'init'], { cwd: root, stdio: 'pipe' });
+    return planFile;
+  };
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'feature-branch-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  test('creates feature branch from clean main', () => {
+    const planFile = buildGitFixture(tempDir, 'my-test-plan', 42);
+    const bundledScript = path.join(
+      REPO_ROOT,
+      'templates',
+      'skills',
+      'task-execute-blueprint',
+      'scripts',
+      'create-feature-branch.cjs'
+    );
+    const result = execFileSync('node', [bundledScript, planFile], {
+      cwd: tempDir,
+      encoding: 'utf8',
+    });
+    expect(result).toContain('Created and switched to branch: feature/42--my-test-plan');
+    const branches = execFileSync('git', ['branch', '--list'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+    });
+    expect(branches).toContain('feature/42--my-test-plan');
+  });
+
+  test('skips branch creation when not on main', () => {
+    const planFile = buildGitFixture(tempDir, 'my-test-plan', 42);
+    execFileSync('git', ['checkout', '-b', 'other-branch'], {
+      cwd: tempDir,
+      stdio: 'pipe',
+    });
+    const bundledScript = path.join(
+      REPO_ROOT,
+      'templates',
+      'skills',
+      'task-execute-blueprint',
+      'scripts',
+      'create-feature-branch.cjs'
+    );
+    const result = execFileSync('node', [bundledScript, planFile], {
+      cwd: tempDir,
+      encoding: 'utf8',
+    });
+    expect(result).toContain('Not on main/master branch');
+    expect(result).toContain('Proceeding without creating a new branch');
+  });
+
+  test('errors when uncommitted changes exist on main', () => {
+    const planFile = buildGitFixture(tempDir, 'my-test-plan', 42);
+    fs.writeFileSync(path.join(tempDir, 'dirty.txt'), 'dirty');
+    const bundledScript = path.join(
+      REPO_ROOT,
+      'templates',
+      'skills',
+      'task-execute-blueprint',
+      'scripts',
+      'create-feature-branch.cjs'
+    );
+    let exitCode: number | null = null;
+    try {
+      execFileSync('node', [bundledScript, planFile], {
+        cwd: tempDir,
+        encoding: 'utf8',
+      });
+    } catch (e: any) {
+      exitCode = e.status ?? null;
+    }
+    expect(exitCode).toBe(1);
+  });
+
+  test('reuses existing branch', () => {
+    const planFile = buildGitFixture(tempDir, 'my-test-plan', 42);
+    execFileSync('git', ['checkout', '-b', 'feature/42--my-test-plan'], {
+      cwd: tempDir,
+      stdio: 'pipe',
+    });
+    execFileSync('git', ['checkout', 'main'], { cwd: tempDir, stdio: 'pipe' });
+    const bundledScript = path.join(
+      REPO_ROOT,
+      'templates',
+      'skills',
+      'task-execute-blueprint',
+      'scripts',
+      'create-feature-branch.cjs'
+    );
+    const result = execFileSync('node', [bundledScript, planFile], {
+      cwd: tempDir,
+      encoding: 'utf8',
+    });
+    expect(result).toContain('already exists');
+    expect(result).toContain('Proceeding with existing branch');
+  });
+});
+
+describe('create-feature-branch cross-validation', () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'feature-branch-xval-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  test('bundled and legacy scripts produce identical branch names and exit codes', () => {
+    const tm = path.join(tempDir, '.ai', 'task-manager');
+    fs.mkdirSync(tm, { recursive: true });
+    fs.writeFileSync(
+      path.join(tm, '.init-metadata.json'),
+      JSON.stringify({ version: 'test' })
+    );
+    const planDir = path.join(tm, 'plans', '42--cross-validation-plan');
+    fs.mkdirSync(planDir, { recursive: true });
+    const planFile = path.join(planDir, 'plan-42--cross-validation-plan.md');
+    fs.writeFileSync(
+      planFile,
+      '---\nid: 42\nsummary: "cross-validation-plan"\ncreated: 2026-01-01\n---\n'
+    );
+
+    execFileSync('git', ['init', '-b', 'main'], {
+      cwd: tempDir,
+      stdio: 'pipe',
+    });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], {
+      cwd: tempDir,
+      stdio: 'pipe',
+    });
+    execFileSync('git', ['config', 'user.name', 'Test'], {
+      cwd: tempDir,
+      stdio: 'pipe',
+    });
+    fs.writeFileSync(path.join(tempDir, 'init.txt'), 'init');
+    execFileSync('git', ['add', '.'], { cwd: tempDir, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'init'], { cwd: tempDir, stdio: 'pipe' });
+
+    const legacyScript = path.join(
+      REPO_ROOT,
+      'templates',
+      'ai-task-manager',
+      'config',
+      'scripts',
+      'create-feature-branch.cjs'
+    );
+    const bundledScript = path.join(
+      REPO_ROOT,
+      'templates',
+      'skills',
+      'task-execute-blueprint',
+      'scripts',
+      'create-feature-branch.cjs'
+    );
+
+    let legacyResult = '';
+    let legacyError = false;
+    try {
+      legacyResult = execFileSync('node', [legacyScript, planFile], {
+        cwd: tempDir,
+        encoding: 'utf8',
+      });
+    } catch (e: any) {
+      legacyResult = e.stdout || '';
+      legacyError = true;
+    }
+
+    let bundledResult = '';
+    let bundledError = false;
+    try {
+      bundledResult = execFileSync('node', [bundledScript, planFile], {
+        cwd: tempDir,
+        encoding: 'utf8',
+      });
+    } catch (e: any) {
+      bundledResult = e.stdout || '';
+      bundledError = true;
+    }
+
+    expect(legacyError).toBe(false);
+    expect(bundledError).toBe(false);
+    expect(legacyResult).toContain('feature/42--cross-validation-plan');
+    expect(bundledResult).toContain('feature/42--cross-validation-plan');
+
+    const branches = execFileSync('git', ['branch', '--list'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+    });
+    expect(branches).toContain('feature/42--cross-validation-plan');
+  });
+});
+
+describe('task-execute-blueprint bundle smoke check', () => {
+  let tempDir: string;
+  let fixtureSkillDir: string;
+
+  beforeAll(() => {
+    execFileSync('npm', ['run', 'build:skills'], {
+      cwd: REPO_ROOT,
+      stdio: 'pipe',
+    });
+  });
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-smoke-exec-'));
+    const tm = path.join(tempDir, '.ai', 'task-manager');
+    fs.mkdirSync(tm, { recursive: true });
+    fs.writeFileSync(
+      path.join(tm, '.init-metadata.json'),
+      JSON.stringify({ version: 'test' })
+    );
+    const planDir = path.join(tm, 'plans', '03--alpha');
+    fs.mkdirSync(planDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(planDir, 'plan-03--alpha.md'),
+      '---\nid: 3\nsummary: "alpha"\ncreated: 2026-01-01\n---\n'
+    );
+
+    fixtureSkillDir = path.join(tempDir, 'task-execute-blueprint');
+    fs.cpSync(
+      path.join(REPO_ROOT, 'templates', 'skills', 'task-execute-blueprint'),
+      fixtureSkillDir,
+      { recursive: true }
+    );
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  test('find-task-manager-root.cjs resolves fixture root', () => {
+    const script = path.join(fixtureSkillDir, 'scripts', 'find-task-manager-root.cjs');
+    const cwd = path.join(tempDir, '.ai', 'task-manager', 'plans', '03--alpha');
+    const stdout = execFileSync('node', [script], { cwd, encoding: 'utf8' }).trim();
+    expect(path.resolve(stdout)).toBe(path.resolve(path.join(tempDir, '.ai', 'task-manager')));
+  });
+
+  test('validate-plan-blueprint.cjs returns plan file path', () => {
+    const script = path.join(fixtureSkillDir, 'scripts', 'validate-plan-blueprint.cjs');
+    const cwd = tempDir;
+    const stdout = execFileSync('node', [script, '3', 'planFile'], {
+      cwd,
+      encoding: 'utf8',
+    }).trim();
+    expect(path.resolve(stdout)).toBe(
+      path.resolve(path.join(tempDir, '.ai', 'task-manager', 'plans', '03--alpha', 'plan-03--alpha.md'))
+    );
+  });
+
+  test('create-feature-branch.cjs creates expected branch', () => {
+    const script = path.join(fixtureSkillDir, 'scripts', 'create-feature-branch.cjs');
+    const planFile = path.join(
+      tempDir,
+      '.ai',
+      'task-manager',
+      'plans',
+      '03--alpha',
+      'plan-03--alpha.md'
+    );
+    execFileSync('git', ['init', '-b', 'main'], { cwd: tempDir, stdio: 'pipe' });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], {
+      cwd: tempDir,
+      stdio: 'pipe',
+    });
+    execFileSync('git', ['config', 'user.name', 'Test'], {
+      cwd: tempDir,
+      stdio: 'pipe',
+    });
+    fs.writeFileSync(path.join(tempDir, 'init.txt'), 'init');
+    execFileSync('git', ['add', '.'], { cwd: tempDir, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'init'], { cwd: tempDir, stdio: 'pipe' });
+
+    const stdout = execFileSync('node', [script, planFile], {
+      cwd: tempDir,
+      encoding: 'utf8',
+    });
+    expect(stdout).toContain('feature/3--alpha');
+    const branches = execFileSync('git', ['branch', '--list'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+    });
+    expect(branches).toContain('feature/3--alpha');
   });
 });

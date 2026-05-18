@@ -25,6 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   vim \
   tree \
   python3-yaml \
+  libxml2-utils \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Ensure default node user has access to /usr/local/share
@@ -38,6 +39,10 @@ RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhisto
   && mkdir /commandhistory \
   && touch /commandhistory/.bash_history \
   && chown -R $USERNAME /commandhistory
+
+# Pre-create directories that will be needed for bind mounts
+RUN mkdir -p /home/$USERNAME/.config/opencode && chown -R $USERNAME:$USERNAME /home/$USERNAME/.config/opencode
+RUN mkdir -p /home/$USERNAME/.local/share/opencode && chown -R $USERNAME:$USERNAME /home/$USERNAME/.local/share/opencode
 
 # Set `DEVCONTAINER` environment variable to help with orientation
 ENV DEVCONTAINER=true
@@ -59,5 +64,5 @@ ENV PATH=$PATH:/usr/local/share/npm-global/bin
 ENV EDITOR=vim
 ENV VISUAL=vim
 
-# Install Claude
-RUN curl -fsSL https://claude.ai/install.sh | bash
+# Install OpenCode
+RUN curl -fsSL https://opencode.ai/install | bash

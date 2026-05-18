@@ -1,11 +1,10 @@
 {
-  "name": "Claude Code Sandbox",
+  "name": "OpenCode Sandbox",
   "build": {
     "dockerfile": "Dockerfile",
     "args": {
       "BASE_IMAGE": "node:24",
-      "TZ": "${localEnv:TZ:Europe/Madrid}",
-      "CLAUDE_CODE_VERSION": "latest"
+      "TZ": "${localEnv:TZ:Europe/Madrid}"
     }
   },
   "runArgs": [
@@ -15,7 +14,6 @@
   "customizations": {
     "vscode": {
       "extensions": [
-        "anthropic.claude-code",
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
         "eamodio.gitlens"
@@ -46,16 +44,28 @@
   },
   "remoteUser": "node",
   "mounts": [
-    "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
-    "source=${localEnv:HOME}/.claude/CLAUDE.md,target=/home/node/.claude/CLAUDE.md,readonly,type=bind,consistency=cached",
+    "source=opencode-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
+
+    "source=${localEnv:HOME}/.agents/AGENTS.md,target=/home/node/.config/opencode/AGENTS.md,readonly,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.agents/agents,target=/home/node/.config/opencode/agents,readonly,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.agents/skills,target=/home/node/.config/opencode/skills,readonly,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.config/opencode/opencode.jsonc,target=/home/node/.config/opencode/opencode.jsonc,readonly,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.config/opencode/plugin,target=/home/node/.config/opencode/plugin,readonly,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.config/opencode/node_modules,target=/home/node/.config/opencode/node_modules,readonly,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.cache/opencode,target=/home/node/.cache/opencode,type=bind,consistency=cached",
+    "source=opencode-data-${devcontainerId},target=/home/node/.local/share/opencode,type=volume",
+    "source=${localEnv:HOME}/.local/share/opencode/auth.json,target=/home/node/.local/share/opencode/auth.json,readonly,type=bind,consistency=cached",
+
+
+    "source=${localEnv:HOME}/.claude/CLAUDE.md,target=/home/node/.claude/CLAUDE.md,type=bind,consistency=cached",
     "source=${localEnv:HOME}/.claude.json,target=/home/node/.claude.json,type=bind,consistency=cached",
-    "source=${localEnv:HOME}/.claude/settings.json,target=/home/node/.claude/settings.json,readonly,type=bind,consistency=cached",
-    "source=${localEnv:HOME}/.claude/skills,target=/home/node/.claude/skills,readonly,type=bind,consistency=cached",
-    "source=${localEnv:HOME}/.claude/commands,target=/home/node/.claude/commands,readonly,type=bind,consistency=cached",
-    "source=${localEnv:HOME}/.claude/hooks,target=/home/node/.claude/hooks,readonly,type=bind,consistency=cached",
-    "source=${localEnv:HOME}/.config/gh/hosts.yml,target=/home/node/.config/gh/hosts.yml,readonly,type=bind,consistency=cached",
-    "source=${localEnv:HOME}/.gitconfig,target=/home/node/.gitconfig,readonly,type=bind,consistency=cached",
-    "source=${localEnv:SSH_AUTH_SOCK},target=/ssh-agent,readonly,type=bind"
+    "source=${localEnv:HOME}/.claude/settings.json,target=/home/node/.claude/settings.json,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.claude/skills,target=/home/node/.claude/skills,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.claude/hooks,target=/home/node/.claude/hooks,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.claude/commands,target=/home/node/.claude/commands,type=bind,consistency=cached",
+
+    "source=${localEnv:HOME}/.config/gh/hosts.yml,target=/home/node/.config/gh/hosts.yml,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.gitconfig,target=/home/node/.gitconfig,type=bind,consistency=cached"
   ],
   "containerEnv": {
     "NODE_OPTIONS": "--max-old-space-size=4096",
@@ -65,6 +75,7 @@
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
-  "postStartCommand": "curl -fsSL https://claude.ai/install.sh | bash",
+  "postCreateCommand": "true",
+  "postStartCommand": "opencode upgrade",
   "waitFor": "postStartCommand"
 }

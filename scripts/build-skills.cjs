@@ -81,6 +81,31 @@ const SKILL_ENTRYPOINTS = [
     skill: 'task-execute-task',
     out: 'check-task-dependencies.cjs',
   },
+  {
+    src: 'src/skill-scripts/find-task-manager-root.ts',
+    skill: 'task-full-workflow',
+    out: 'find-task-manager-root.cjs',
+  },
+  {
+    src: 'src/skill-scripts/get-next-plan-id.ts',
+    skill: 'task-full-workflow',
+    out: 'get-next-plan-id.cjs',
+  },
+  {
+    src: 'src/skill-scripts/validate-plan-blueprint.ts',
+    skill: 'task-full-workflow',
+    out: 'validate-plan-blueprint.cjs',
+  },
+  {
+    src: 'src/skill-scripts/get-next-task-id.ts',
+    skill: 'task-full-workflow',
+    out: 'get-next-task-id.cjs',
+  },
+  {
+    src: 'src/skill-scripts/create-feature-branch.ts',
+    skill: 'task-full-workflow',
+    out: 'create-feature-branch.cjs',
+  },
 ];
 
 const nodeTarget = `node${process.versions.node.split('.')[0]}`;

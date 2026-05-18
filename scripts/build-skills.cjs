@@ -56,6 +56,16 @@ const SKILL_ENTRYPOINTS = [
     skill: 'task-execute-blueprint',
     out: 'create-feature-branch.cjs',
   },
+  {
+    src: 'src/skill-scripts/find-task-manager-root.ts',
+    skill: 'task-refine-plan',
+    out: 'find-task-manager-root.cjs',
+  },
+  {
+    src: 'src/skill-scripts/validate-plan-blueprint.ts',
+    skill: 'task-refine-plan',
+    out: 'validate-plan-blueprint.cjs',
+  },
 ];
 
 const nodeTarget = `node${process.versions.node.split('.')[0]}`;

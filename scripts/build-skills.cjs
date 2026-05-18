@@ -66,6 +66,21 @@ const SKILL_ENTRYPOINTS = [
     skill: 'task-refine-plan',
     out: 'validate-plan-blueprint.cjs',
   },
+  {
+    src: 'src/skill-scripts/find-task-manager-root.ts',
+    skill: 'task-execute-task',
+    out: 'find-task-manager-root.cjs',
+  },
+  {
+    src: 'src/skill-scripts/validate-plan-blueprint.ts',
+    skill: 'task-execute-task',
+    out: 'validate-plan-blueprint.cjs',
+  },
+  {
+    src: 'src/skill-scripts/check-task-dependencies.ts',
+    skill: 'task-execute-task',
+    out: 'check-task-dependencies.cjs',
+  },
 ];
 
 const nodeTarget = `node${process.versions.node.split('.')[0]}`;

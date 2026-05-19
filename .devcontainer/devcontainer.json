@@ -46,16 +46,17 @@
   "mounts": [
     "source=opencode-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
 
-    "source=${localEnv:HOME}/.agents/AGENTS.md,target=/home/node/.config/opencode/AGENTS.md,readonly,type=bind,consistency=cached",
-    "source=${localEnv:HOME}/.agents/agents,target=/home/node/.config/opencode/agents,readonly,type=bind,consistency=cached",
-    "source=${localEnv:HOME}/.agents/skills,target=/home/node/.config/opencode/skills,readonly,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.agents/AGENTS.md,target=/home/node/.agents/AGENTS.md,readonly,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.agents/agents,target=/home/node/.agents/agents,readonly,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.agents/skills,target=/home/node/.agents/skills,readonly,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.agents/hooks,target=/home/node/.agents/hooks,readonly,type=bind,consistency=cached",
+
     "source=${localEnv:HOME}/.config/opencode/opencode.jsonc,target=/home/node/.config/opencode/opencode.jsonc,readonly,type=bind,consistency=cached",
     "source=${localEnv:HOME}/.config/opencode/plugin,target=/home/node/.config/opencode/plugin,readonly,type=bind,consistency=cached",
     "source=${localEnv:HOME}/.config/opencode/node_modules,target=/home/node/.config/opencode/node_modules,readonly,type=bind,consistency=cached",
     "source=${localEnv:HOME}/.cache/opencode,target=/home/node/.cache/opencode,type=bind,consistency=cached",
     "source=opencode-data-${devcontainerId},target=/home/node/.local/share/opencode,type=volume",
     "source=${localEnv:HOME}/.local/share/opencode/auth.json,target=/home/node/.local/share/opencode/auth.json,readonly,type=bind,consistency=cached",
-
 
     "source=${localEnv:HOME}/.claude/CLAUDE.md,target=/home/node/.claude/CLAUDE.md,type=bind,consistency=cached",
     "source=${localEnv:HOME}/.claude.json,target=/home/node/.claude.json,type=bind,consistency=cached",
@@ -76,6 +77,6 @@
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
   "postCreateCommand": "true",
-  "postStartCommand": "opencode upgrade",
+  "postStartCommand": "opencode upgrade; claude upgrade",
   "waitFor": "postStartCommand"
 }

@@ -74,12 +74,28 @@ reference it when refining the plan.
 
 ### 5. Clarification Loop
 
-Select the clarification mode based on the invocation context:
+**Default to Interactive Clarification.** Only switch to **Autonomous
+Clarification** when the trigger is unambiguous and beyond reasonable doubt.
+Treat ambiguity as a vote for Interactive: asking a question the user
+cannot answer is recoverable; making silent assumptions when the user
+expected to be consulted is not.
 
-- If the user is present and the interaction is live, use **Interactive
-  Clarification**.
-- If the user is not present, the workflow is automated, or the user has
-  explicitly requested autonomous resolution, use **Autonomous Clarification**.
+Switch to Autonomous Clarification only if at least one of the following
+holds without interpretation:
+
+- The user's request contains an explicit, unambiguous mode keyword such
+  as "auto", "autonomous", "non-interactive", "without asking me", "don't
+  ask", or equivalent phrasing that names the mode by intent.
+- An upstream orchestrator (for example the `task-full-workflow` skill)
+  has declared autonomous operation for this invocation in the prompt
+  passed to this skill.
+- The invocation is the `/tasks:refine-plan-auto` slash command (the
+  `-auto` suffix is itself the unambiguous selector).
+
+If none of the above holds, use Interactive Clarification even when the
+user's presence is uncertain. Do not infer autonomous mode from indirect
+signals such as terse prompts, scripted-looking input, or absence of
+recent user messages.
 
 After the clarification loop completes, append all new findings to the
 "Plan Clarifications" section in the plan document using the existing format

@@ -73,7 +73,7 @@ function _getNextTaskId(inputId) {
 // Get plan ID from command line argument
 if (require.main === module) {
   const inputId = process.argv[2];
-  console.log(_getNextTaskId(inputId));
+  process.stdout.write(`${_getNextTaskId(inputId)}\n`);
 }
 
 module.exports = {

@@ -41,7 +41,7 @@ function _getNextPlanId() {
 
 // Output the next plan ID if run directly
 if (require.main === module) {
-  console.log(_getNextPlanId());
+  process.stdout.write(`${_getNextPlanId()}\n`);
 }
 
 module.exports = {

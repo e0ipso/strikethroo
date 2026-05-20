@@ -11,6 +11,16 @@ import * as path from 'path';
 import { InitMetadata } from './types';
 
 /**
+ * Current workspace schema version baked into this CLI build.
+ *
+ * Bumped only when the `.ai/task-manager/` workspace shape changes
+ * incompatibly (renamed hook, new required template, restructured directory).
+ * Skill bundles read this constant at build time to enforce a runtime
+ * schema-mismatch check against the workspace they're invoked against.
+ */
+export const CURRENT_WORKSPACE_SCHEMA_VERSION = 1;
+
+/**
  * Calculate SHA-256 hash of a file
  * @param filePath - Absolute path to the file
  * @returns SHA-256 hash as hex string
@@ -44,6 +54,11 @@ export async function loadMetadata(metadataPath: string): Promise<InitMetadata |
     // Validate metadata structure
     if (!metadata.version || !metadata.timestamp || !metadata.files) {
       return null;
+    }
+
+    // Backfill workspaceSchemaVersion for older workspaces missing the field
+    if (typeof metadata.workspaceSchemaVersion !== 'number') {
+      metadata.workspaceSchemaVersion = 1;
     }
 
     return metadata;

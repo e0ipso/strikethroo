@@ -13,7 +13,7 @@ const fs = require('fs');
 const esbuild = require('esbuild');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
-const SKILLS_ROOT = path.join(REPO_ROOT, 'templates', 'skills');
+const SKILLS_ROOT = path.join(REPO_ROOT, 'skills');
 
 const SKILL_ENTRYPOINTS = [
   {

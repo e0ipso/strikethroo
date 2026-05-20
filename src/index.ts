@@ -8,7 +8,7 @@
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import chalk from 'chalk';
-import { InitOptions, Assistant, CommandResult, ConflictResolution } from './types';
+import { InitOptions, Assistant, CommandResult, ConflictResolution, InitMetadata } from './types';
 import {
   parseAssistants,
   validateAssistants,
@@ -16,7 +16,13 @@ import {
   readAndProcessTemplate,
   writeProcessedTemplate,
 } from './utils';
-import { calculateFileHash, loadMetadata, saveMetadata, getPackageVersion } from './metadata';
+import {
+  calculateFileHash,
+  loadMetadata,
+  saveMetadata,
+  getPackageVersion,
+  CURRENT_WORKSPACE_SCHEMA_VERSION,
+} from './metadata';
 import { detectConflicts } from './conflict-detector';
 import { promptForConflicts } from './prompts';
 
@@ -181,6 +187,11 @@ export async function init(options: InitOptions): Promise<CommandResult> {
     console.log(`\n${chalk.green('✓')} AI Task Manager initialized successfully!`);
     console.log(chalk.gray(DIVIDER));
 
+    // Post-init nudge directing users to install the task skills
+    console.log(
+      '\nNext: run `npx skills add e0ipso/ai-task-manager` to install the task skills for your assistant(s).'
+    );
+
     // Add documentation link
     console.log(`\n  📚 Documentation: ${chalk.cyan('https://mateuaguilo.com/ai-task-manager')}\n`);
 
@@ -334,8 +345,9 @@ async function createMetadata(
   }
 
   // Create metadata object
-  const metadata = {
+  const metadata: InitMetadata = {
     version: getPackageVersion(),
+    workspaceSchemaVersion: CURRENT_WORKSPACE_SCHEMA_VERSION,
     timestamp: new Date().toISOString(),
     files,
   };

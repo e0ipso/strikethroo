@@ -42,6 +42,7 @@
   },
   "files": [
     "dist/",
+    "skills/",
     "templates/",
     "LICENSE"
   ],

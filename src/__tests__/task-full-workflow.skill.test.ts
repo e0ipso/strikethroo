@@ -12,7 +12,6 @@ import { execFileSync } from 'child_process';
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const SKILL_DIR = path.join(
   REPO_ROOT,
-  'templates',
   'skills',
   'task-full-workflow'
 );

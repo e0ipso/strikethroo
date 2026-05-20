@@ -248,6 +248,10 @@ export interface InitMetadata {
    */
   version: string;
   /**
+   * Workspace schema version. Bumped only when .ai/task-manager/ shape changes incompatibly.
+   */
+  workspaceSchemaVersion: number;
+  /**
    * Timestamp of last init operation
    */
   timestamp: string;

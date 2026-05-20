@@ -1,0 +1,62 @@
+# release-skills.yml
+# Purpose: when a v* tag is pushed, build the skill bundles and rewrite the tag
+# to point at a detached commit that includes the built .cjs files. This makes
+# the tagged ref a self-contained installable input for
+# `npx skills add e0ipso/ai-task-manager@<tag>` while keeping `main` free of
+# build output.
+#
+# Maintainer note: commits authored by this workflow are labeled
+# `[release-bundle]` in the subject. They are not on `main` and are reachable
+# only from a tag ref. Seeing such a commit in `git log <tag>` is expected; it
+# should never appear in `git log main`.
+name: Release skills
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and tag skill bundles
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Configure git identity
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Stage built bundles
+        run: git add -f skills/*/scripts/*.cjs
+
+      - name: Create release commit
+        run: |
+          TAG="${GITHUB_REF##*/}"
+          SRC_SHA="$(git rev-parse HEAD)"
+          git commit -m "[release-bundle] ${TAG}" -m "Source: ${SRC_SHA}"
+
+      - name: Move tag to release commit and push
+        run: |
+          TAG="${GITHUB_REF##*/}"
+          git tag -f "${TAG}" HEAD
+          git push --force-with-lease origin "refs/tags/${TAG}"

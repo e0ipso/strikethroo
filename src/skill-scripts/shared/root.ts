@@ -1,6 +1,15 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+declare const EXPECTED_WORKSPACE_SCHEMA_VERSION: number;
+
+// In the bundled .cjs, esbuild's `define` substitutes the identifier with an
+// integer literal. In direct TS execution (ts-jest), the ambient declaration
+// has no runtime value; the `typeof` guard avoids a ReferenceError and falls
+// back to the initial schema version.
+const EXPECTED_SCHEMA: number =
+  typeof EXPECTED_WORKSPACE_SCHEMA_VERSION !== 'undefined' ? EXPECTED_WORKSPACE_SCHEMA_VERSION : 1;
+
 const isValidTaskManagerRoot = (taskManagerPath: string): boolean => {
   try {
     if (!fs.existsSync(taskManagerPath)) return false;
@@ -29,8 +38,35 @@ const getParentPaths = (currentPath: string, acc: string[] = []): string[] => {
   return getParentPaths(parentPath, nextAcc);
 };
 
+const checkWorkspaceSchema = (metadataPath: string): void => {
+  let metadata: { workspaceSchemaVersion?: unknown };
+  try {
+    metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+  } catch {
+    return;
+  }
+  const actual =
+    typeof metadata.workspaceSchemaVersion === 'number' ? metadata.workspaceSchemaVersion : 1;
+  if (actual === EXPECTED_SCHEMA) return;
+  if (actual < EXPECTED_SCHEMA) {
+    process.stderr.write(
+      `Workspace schema v${actual} is older than this skill requires (v${EXPECTED_SCHEMA}). ` +
+        'Re-run `npx @e0ipso/ai-task-manager init` with the latest CLI to update.\n'
+    );
+  } else {
+    process.stderr.write(
+      `This skill (built for workspace schema v${EXPECTED_SCHEMA}) is older than the workspace (v${actual}). ` +
+        'Re-run `npx skills add e0ipso/ai-task-manager` to update skills.\n'
+    );
+  }
+  process.exit(1);
+};
+
 export const findTaskManagerRoot = (startPath: string = process.cwd()): string | null => {
   const paths = getParentPaths(startPath);
   const found = paths.find(p => getTaskManagerAt(p));
-  return found ? getTaskManagerAt(found) : null;
+  if (!found) return null;
+  const root = getTaskManagerAt(found);
+  if (root) checkWorkspaceSchema(path.join(root, '.init-metadata.json'));
+  return root;
 };

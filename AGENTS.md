@@ -299,7 +299,35 @@ Generated `.cjs` files under `skills/*/scripts/` are git-ignored on `main` and f
 
 ### Distribution
 
-How skills reach user projects (init copy, registry, manual install) is currently deferred. `npx . init` does not copy skills today; the existing `init` flow is unchanged. The skill artifact in this repository is standards-compliant and portable, so any future distribution mechanism can use it unchanged.
+Skills are distributed via [vercel-labs/skills](https://github.com/vercel-labs/skills), a generic Anthropic-adjacent installer that walks any GitHub repo's `skills/` directory and places files into per-agent dirs. Users run `npx skills add e0ipso/ai-task-manager` (or `…@<tag>` to pin) and the installer reads the tagged release ref. `npx @e0ipso/ai-task-manager init` does **not** copy skills — it bootstraps the `.ai/task-manager/` workspace only. The two channels are independently re-runnable; the only coupling point is the schema-version contract below.
+
+### Schema Version Contract
+
+`.ai/task-manager/.init-metadata.json` carries a `workspaceSchemaVersion` integer (initial value `1`). It is distinct from the CLI's `version` string and changes only when the workspace shape (hook names, required templates, directory structure) changes incompatibly. The single source of truth is `CURRENT_WORKSPACE_SCHEMA_VERSION` in `src/metadata.ts`.
+
+Skills bake an `EXPECTED_WORKSPACE_SCHEMA_VERSION` literal into each shipped `.cjs` bundle via esbuild's `define`. At runtime, the resolver in `src/skill-scripts/shared/root.ts` compares the workspace value against the baked value:
+
+- **Workspace older than skill** (`<actual>` < `<expected>`):
+  `Workspace schema v<N> is older than this skill requires (v<M>). Re-run \`npx @e0ipso/ai-task-manager init\` with the latest CLI to update.`
+- **Workspace newer than skill** (`<actual>` > `<expected>`):
+  `This skill (built for workspace schema v<M>) is older than the workspace (v<N>). Re-run \`npx skills add e0ipso/ai-task-manager\` to update skills.`
+
+Absent `workspaceSchemaVersion` values in older metadata files are backfilled to `1` on read by both the CLI loader and the skill-side check, so already-deployed workspaces are not broken by the field's introduction. Bump the constant only when the workspace shape genuinely changes incompatibly; the documented upgrade path is to re-run `init` (no dedicated `migrate` subcommand exists).
+
+A post-build smoke assertion in `scripts/build-skills.cjs` fails the build if the literal string `EXPECTED_WORKSPACE_SCHEMA_VERSION` survives substitution into any bundled `.cjs` file — catching mistakes where the identifier reference would silently fall back to the runtime default.
+
+### GitHub Releases
+
+`.github/workflows/release-skills.yml` is triggered by `v*` tag pushes. It runs the full build (`npm ci && npm run build`) and force-adds the otherwise git-ignored `skills/*/scripts/*.cjs` files into a detached release commit, then force-moves the tag to point at that commit. `main` stays bundle-free; the tagged ref is self-contained so `npx skills add e0ipso/ai-task-manager@<tag>` resolves a fully buildable input.
+
+Verify the invariant:
+
+```bash
+git ls-tree -r v<tag> -- 'skills/*/scripts/*.cjs'   # expect: bundles listed
+git ls-tree -r main -- 'skills/*/scripts/*.cjs'     # expect: empty
+```
+
+Release commits are labeled `[release-bundle]` in the subject. They are reachable only from a tag, never from `main`. If you see one in `git log main`, something has gone wrong with the workflow.
 
 ---
 

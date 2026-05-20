@@ -11,18 +11,19 @@ Transform complex AI prompts into organized, executable workflows through custom
 
 ## 🚀 Quick Start
 
-```bash
-# Initialize for your preferred AI assistant
-npx @e0ipso/ai-task-manager init --assistants claude
-npx @e0ipso/ai-task-manager init --assistants cursor
-npx @e0ipso/ai-task-manager init --assistants gemini
-npx @e0ipso/ai-task-manager init --assistants opencode
-npx @e0ipso/ai-task-manager init --assistants codex
-npx @e0ipso/ai-task-manager init --assistants github
+This project ships in two parts: the **skills** (installed by [vercel-labs/skills](https://github.com/vercel-labs/skills)) and the **workspace** (initialized by this CLI). Run both:
 
-# Or configure multiple assistants
-npx @e0ipso/ai-task-manager init --assistants claude,cursor,gemini,opencode,codex,github
+```bash
+# 1. Install the task skills for your assistant
+npx skills add e0ipso/ai-task-manager
+
+# 2. Initialize the .ai/task-manager/ workspace
+npx @e0ipso/ai-task-manager init --assistants claude --destination-directory .
 ```
+
+The skills give your assistant the workflow commands; the CLI bootstraps `.ai/task-manager/` with hooks, templates, and the hash-tracked diff-on-conflict UX. Each step is independently re-runnable. See [MIGRATION.md](./MIGRATION.md) for upgrade flows and recovery from schema-mismatch errors.
+
+Configure other assistants by swapping the `--assistants` value (`cursor`, `gemini`, `opencode`, `codex`, `github`) or by passing a comma-separated list (`claude,cursor,gemini`).
 
 ## ✨ Key Benefits
 

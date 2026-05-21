@@ -5,7 +5,8 @@
  *
  * To add a future skill: add a TypeScript entrypoint under
  * src/skill-scripts/, register it in SKILL_ENTRYPOINTS below, and
- * `npm run build` will produce the bundled .cjs alongside the skill.
+ * `npm run build` will produce the bundled .cjs under
+ * templates/assistant/skills/<skill>/scripts/.
  */
 
 const path = require('path');
@@ -13,7 +14,7 @@ const fs = require('fs');
 const esbuild = require('esbuild');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
-const SKILLS_ROOT = path.join(REPO_ROOT, 'skills');
+const SKILLS_ROOT = path.join(REPO_ROOT, 'templates', 'assistant', 'skills');
 
 // Read the schema-version constant from the freshly compiled metadata module.
 // `npm run build` runs `tsc` before this script, so `dist/metadata.js` exists.

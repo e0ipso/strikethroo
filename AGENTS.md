@@ -278,9 +278,9 @@ All templates are authored in Markdown and automatically converted to assistant-
 
 ## Skills Layer
 
-The repository ships Agent Skills under `skills/<skill-name>/` at the repo root. Skills are assistant-agnostic — a single `SKILL.md` works for every assistant that supports the Agent Skills format. Skill directories are flat (no nested skills).
+The repository ships Agent Skills under `templates/assistant/skills/<name>/` at the repo root. There is no top-level `skills/` directory; authored content and compiled `.cjs` bundles coexist under each per-skill directory, with `scripts/` reserved for compiled output. Skills are assistant-agnostic — a single `SKILL.md` works for every assistant that supports the Agent Skills format. Skill directories are flat (no nested skills).
 
-The first skill is `task-create-plan` (`skills/task-create-plan/`), which encodes the same plan-creation workflow the existing `/tasks:create-plan` command performs. The second shipping skill is `task-generate-tasks` (`skills/task-generate-tasks/`), which encodes the same task-decomposition workflow the existing `/tasks:generate-tasks` command performs. The third shipping skill is `task-execute-blueprint` (`skills/task-execute-blueprint/`), which encodes the same execution-orchestration workflow the existing `/tasks:execute-blueprint` command performs. The fourth shipping skill is `task-refine-plan` (`skills/task-refine-plan/`), which encodes the same plan-refinement workflow the existing `/tasks:refine-plan` and `/tasks:refine-plan-auto` commands perform. The fifth shipping skill is `task-execute-task` (`skills/task-execute-task/`), which encodes the same single-task execution workflow the existing `/tasks:execute-task` command performs. The sixth shipping skill is `task-full-workflow` (`skills/task-full-workflow/`), which encodes the same end-to-end orchestration workflow the existing `/tasks:full-workflow` command performs: three-phase sequential execution (plan creation, task generation, blueprint execution) with context passing, progress indicators, and auto-generation fallback. Each skill coexists with its corresponding command; the command paths are unchanged.
+The first skill is `task-create-plan` (`templates/assistant/skills/task-create-plan/`), which encodes the same plan-creation workflow the existing `/tasks:create-plan` command performs. The second shipping skill is `task-generate-tasks` (`templates/assistant/skills/task-generate-tasks/`), which encodes the same task-decomposition workflow the existing `/tasks:generate-tasks` command performs. The third shipping skill is `task-execute-blueprint` (`templates/assistant/skills/task-execute-blueprint/`), which encodes the same execution-orchestration workflow the existing `/tasks:execute-blueprint` command performs. The fourth shipping skill is `task-refine-plan` (`templates/assistant/skills/task-refine-plan/`), which encodes the same plan-refinement workflow the existing `/tasks:refine-plan` and `/tasks:refine-plan-auto` commands perform. The fifth shipping skill is `task-execute-task` (`templates/assistant/skills/task-execute-task/`), which encodes the same single-task execution workflow the existing `/tasks:execute-task` command performs. The sixth shipping skill is `task-full-workflow` (`templates/assistant/skills/task-full-workflow/`), which encodes the same end-to-end orchestration workflow the existing `/tasks:full-workflow` command performs: three-phase sequential execution (plan creation, task generation, blueprint execution) with context passing, progress indicators, and auto-generation fallback. Each skill coexists with its corresponding command; the command paths are unchanged.
 
 ### TypeScript source of truth
 
@@ -291,15 +291,17 @@ Executable logic each skill needs at runtime is authored once in TypeScript unde
 `npm run build` runs the TypeScript compile and then `npm run build:skills`, which:
 
 1. Type-checks `src/skill-scripts/` with `tsc --noEmit -p tsconfig.skill-scripts.json`.
-2. Invokes `scripts/build-skills.cjs`, an `esbuild`-driven script that bundles each registered entrypoint into a self-contained `.cjs` file inside the corresponding skill's `scripts/` directory.
+2. Invokes `scripts/build-skills.cjs`, an `esbuild`-driven script that bundles each registered entrypoint into a self-contained `.cjs` file emitted directly into `templates/assistant/skills/<skill>/scripts/`. There is no copy pass — source and output share the same per-skill tree.
 
-The entrypoint → skill mapping is the `SKILL_ENTRYPOINTS` array at the top of `scripts/build-skills.cjs`, which currently registers six shipping skills. To add a future skill: drop a TypeScript entrypoint under `src/skill-scripts/`, add an entry to `SKILL_ENTRYPOINTS`, and `npm run build` produces the bundled `.cjs` alongside the skill. No other plumbing changes are needed.
+The entrypoint → skill mapping is the `SKILL_ENTRYPOINTS` array at the top of `scripts/build-skills.cjs`, which currently registers six shipping skills. To add a future skill: drop a TypeScript entrypoint under `src/skill-scripts/`, add an entry to `SKILL_ENTRYPOINTS`, add the skill's path to `.claude-plugin/plugin.json`, and `npm run build` produces the bundled `.cjs` alongside the skill. No other plumbing changes are needed.
 
-Generated `.cjs` files under `skills/*/scripts/` are git-ignored on `main` and force-added only at release tags by the `release-skills.yml` workflow. They ship in the published npm package via the `files: ["skills/"]` entry in `package.json` (verify with `npm pack --dry-run`).
+Generated `.cjs` files under `templates/assistant/skills/*/scripts/` are git-ignored on `main` (via the `templates/assistant/skills/*/scripts/` rule in `.gitignore`) and force-added only at release tags by the `release-skills.yml` workflow. They ship in the published npm package via the `files: ["templates/"]` entry in `package.json`, which already covers all skill content; the previously separate `"skills/"` entry was removed when the top-level `skills/` directory was eliminated (verify with `npm pack --dry-run`).
 
 ### Distribution
 
-Skills are distributed via [vercel-labs/skills](https://github.com/vercel-labs/skills), a generic Anthropic-adjacent installer that walks any GitHub repo's `skills/` directory and places files into per-agent dirs. Users run `npx skills add e0ipso/ai-task-manager` (or `…@<tag>` to pin) and the installer reads the tagged release ref. `npx @e0ipso/ai-task-manager init` does **not** copy skills — it bootstraps the `.ai/task-manager/` workspace only. The two channels are independently re-runnable; the only coupling point is the schema-version contract below.
+Skills are distributed via [vercel-labs/skills](https://github.com/vercel-labs/skills), a generic Anthropic-adjacent installer. It discovers skills in this repo by reading `.claude-plugin/plugin.json` at the repo root, which declares each skill's path under `templates/assistant/skills/<name>/`. The manifest is a JSON file with a `skills:` array of `./templates/assistant/skills/<name>` entries (the leading `./` is required) and an optional `name` grouping label. Users run `npx skills add e0ipso/ai-task-manager` (or `…@<tag>` to pin) and the installer reads the tagged release ref. `npx @e0ipso/ai-task-manager init` does **not** copy skills — it bootstraps the `.ai/task-manager/` workspace only. The two channels are independently re-runnable; the only coupling point is the schema-version contract below.
+
+Note the semantic distinction between the three sibling directories under `templates/assistant/`: `templates/assistant/skills/` is build/install-time content read by the installer at `npx skills add` time, while `templates/assistant/agents/` and `templates/assistant/commands/` are per-project init-time content copied into `.<assistant>/...` by `npx . init`. The CLI's `init` does not read `templates/assistant/skills/`.
 
 ### Schema Version Contract
 
@@ -318,13 +320,13 @@ A post-build smoke assertion in `scripts/build-skills.cjs` fails the build if th
 
 ### GitHub Releases
 
-`.github/workflows/release-skills.yml` is triggered by `v*` tag pushes. It runs the full build (`npm ci && npm run build`) and force-adds the otherwise git-ignored `skills/*/scripts/*.cjs` files into a detached release commit, then force-moves the tag to point at that commit. `main` stays bundle-free; the tagged ref is self-contained so `npx skills add e0ipso/ai-task-manager@<tag>` resolves a fully buildable input.
+`.github/workflows/release-skills.yml` is triggered by `v*` tag pushes. It runs the full build (`npm ci && npm run build`) and force-adds the otherwise git-ignored `templates/assistant/skills/*/scripts/` directory contents into a detached release commit, then force-moves the tag to point at that commit. `main` stays bundle-free; the tagged ref is self-contained so `npx skills add e0ipso/ai-task-manager@<tag>` resolves a fully buildable input.
 
 Verify the invariant:
 
 ```bash
-git ls-tree -r v<tag> -- 'skills/*/scripts/*.cjs'   # expect: bundles listed
-git ls-tree -r main -- 'skills/*/scripts/*.cjs'     # expect: empty
+git ls-tree -r v<tag> -- 'templates/assistant/skills/*/scripts/*.cjs'   # expect: bundles listed
+git ls-tree -r main -- 'templates/assistant/skills/*/scripts/*.cjs'     # expect: empty
 ```
 
 Release commits are labeled `[release-bundle]` in the subject. They are reachable only from a tag, never from `main`. If you see one in `git log main`, something has gone wrong with the workflow.

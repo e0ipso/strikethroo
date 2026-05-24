@@ -11,11 +11,6 @@
 export type Assistant = 'claude' | 'codex' | 'cursor' | 'gemini' | 'github' | 'opencode';
 
 /**
- * Template format types for different assistants
- */
-export type TemplateFormat = 'md' | 'toml';
-
-/**
  * Options for the init command
  */
 export interface InitOptions {

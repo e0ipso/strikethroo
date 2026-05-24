@@ -9,13 +9,7 @@ import * as fs from 'fs-extra';
 import * as path from 'path';
 import chalk from 'chalk';
 import { InitOptions, Assistant, CommandResult, ConflictResolution, InitMetadata } from './types';
-import {
-  parseAssistants,
-  validateAssistants,
-  getTemplateFormat,
-  readAndProcessTemplate,
-  writeProcessedTemplate,
-} from './utils';
+import { parseAssistants, validateAssistants } from './utils';
 import {
   calculateFileHash,
   loadMetadata,
@@ -147,38 +141,13 @@ export async function init(options: InitOptions): Promise<CommandResult> {
       console.log(`    ${chalk.blue('●')} ${file}`);
     }
 
-    // Assistant-specific files (dynamically listed)
-    for (const assistant of assistants) {
-      const assistantLabel = assistant.charAt(0).toUpperCase() + assistant.slice(1);
-
-      if (assistant === 'github') {
-        console.log(chalk.cyan(`  ${assistantLabel} Copilot Prompts:`));
-        const files = await collectFiles(resolvePath(baseDir, '.github/prompts'));
-        for (const file of files) {
+    // Claude agents (only Claude gets per-assistant artifacts)
+    if (assistants.includes('claude')) {
+      const agentFiles = await collectFiles(resolvePath(baseDir, '.claude/agents'));
+      if (agentFiles.length > 0) {
+        console.log(chalk.cyan('  Claude Agents:'));
+        for (const file of agentFiles) {
           console.log(`    ${chalk.blue('●')} ${file}`);
-        }
-      } else if (assistant === 'codex') {
-        console.log(chalk.cyan(`  ${assistantLabel} Prompts:`));
-        const files = await collectFiles(resolvePath(baseDir, '.codex/prompts'));
-        for (const file of files) {
-          console.log(`    ${chalk.blue('●')} ${file}`);
-        }
-      } else {
-        const commandsPath = assistant === 'opencode' ? 'command' : 'commands';
-        console.log(chalk.cyan(`  ${assistantLabel} Commands:`));
-        const cmdFiles = await collectFiles(resolvePath(baseDir, `.${assistant}/${commandsPath}`));
-        for (const file of cmdFiles) {
-          console.log(`    ${chalk.blue('●')} ${file}`);
-        }
-
-        // Show agents separately (currently Claude-only)
-        const agentsDir = resolvePath(baseDir, `.${assistant}/agents`);
-        const agentFiles = await collectFiles(agentsDir);
-        if (agentFiles.length > 0) {
-          console.log(chalk.cyan(`  ${assistantLabel} Agents:`));
-          for (const file of agentFiles) {
-            console.log(`    ${chalk.blue('●')} ${file}`);
-          }
         }
       }
     }
@@ -194,26 +163,6 @@ export async function init(options: InitOptions): Promise<CommandResult> {
 
     // Add documentation link
     console.log(`\n  📚 Documentation: ${chalk.cyan('https://mateuaguilo.com/ai-task-manager')}\n`);
-
-    // Add Codex-specific post-init message
-    if (assistants.includes('codex')) {
-      console.log(formatSectionHeader('Codex CLI Setup Instructions'));
-      console.log(chalk.yellow('  For Codex CLI users:'));
-      console.log(
-        `    ${chalk.blue('●')} Copy or symlink files from .codex/prompts/ to ~/.codex/prompts/`
-      );
-      console.log(`    ${chalk.blue('●')} Restart your Codex session to load the new commands`);
-      console.log('');
-      console.log(chalk.cyan('  Commands will be available as:'));
-      console.log(`    ${chalk.gray('●')} /prompts:tasks-create-plan`);
-      console.log(`    ${chalk.gray('●')} /prompts:tasks-generate-tasks`);
-      console.log(`    ${chalk.gray('●')} /prompts:tasks-execute-blueprint`);
-      console.log(`    ${chalk.gray('●')} /prompts:tasks-full-workflow`);
-      console.log(`    ${chalk.gray('●')} /prompts:tasks-refine-plan`);
-      console.log(`    ${chalk.gray('●')} /prompts:tasks-execute-task`);
-      console.log(`    ${chalk.gray('●')} /prompts:tasks-fix-broken-tests`);
-      console.log('');
-    }
 
     // Show suggested workflow help text
     await displayWorkflowHelp();
@@ -376,134 +325,26 @@ async function applyResolutions(
 }
 
 /**
- * Create directory structure and copy templates for a specific assistant
+ * Create directory structure and copy templates for a specific assistant.
+ *
+ * Only Claude receives per-assistant artifacts (the agents directory).
+ * All other assistants rely on the skills installed via `npx skills add`.
  */
 async function createAssistantStructure(assistant: Assistant, baseDir: string): Promise<void> {
-  const sourceDir = getTemplatePath('assistant');
-  const assistantDir = resolvePath(baseDir, `.${assistant}`);
-
-  // Check if source template directory exists
-  if (!(await exists(sourceDir))) {
-    throw new Error(`Template directory not found: ${sourceDir}`);
-  }
-
-  // GitHub uses .github/prompts/ directory with .prompt.md extension
-  if (assistant === 'github') {
-    // Create .github/prompts directory
-    const promptsDir = resolvePath(baseDir, '.github', 'prompts');
-    await fs.ensureDir(promptsDir);
-
-    // Copy and process all template files
-    const templateFiles = [
-      'create-plan.md',
-      'create-plan-auto.md',
-      'refine-plan.md',
-      'refine-plan-auto.md',
-      'generate-tasks.md',
-      'execute-task.md',
-      'execute-blueprint.md',
-      'fix-broken-tests.md',
-      'full-workflow.md',
-    ];
-
-    const templateFormat = getTemplateFormat(assistant);
-
-    for (const file of templateFiles) {
-      const sourcePath = resolvePath(sourceDir, 'commands', 'tasks', file);
-      const commandName = file.replace('.md', '');
-      const destFileName = `tasks-${commandName}.prompt.md`;
-      const destPath = resolvePath(promptsDir, destFileName);
-
-      // Read and process the template with GitHub-specific conversion
-      const processedContent = await readAndProcessTemplate(sourcePath, templateFormat, assistant);
-
-      // Write processed content to destination
-      await writeProcessedTemplate(processedContent, destPath);
-    }
-
+  if (assistant !== 'claude') {
+    console.log(
+      chalk.gray(
+        `    ${assistant}: no files emitted — install skills with \`npx skills add e0ipso/ai-task-manager\``
+      )
+    );
     return;
   }
 
-  // Codex uses flat directory structure with renamed files
-  if (assistant === 'codex') {
-    // Create flat directory structure
-    const promptsDir = resolvePath(baseDir, '.codex', 'prompts');
-    await fs.ensureDir(promptsDir);
+  const sourceAgentsDir = getTemplatePath(path.join('assistant', 'agents'));
+  const targetAgentsDir = resolvePath(baseDir, '.claude', 'agents');
 
-    // Copy and rename templates
-    const templateFiles = [
-      'create-plan.md',
-      'create-plan-auto.md',
-      'generate-tasks.md',
-      'execute-blueprint.md',
-      'execute-task.md',
-      'fix-broken-tests.md',
-      'full-workflow.md',
-      'refine-plan.md',
-      'refine-plan-auto.md',
-    ];
-
-    const templateFormat = getTemplateFormat(assistant);
-
-    for (const file of templateFiles) {
-      const sourcePath = resolvePath(sourceDir, 'commands', 'tasks', file);
-      const destFileName = `tasks-${file}`;
-      const destPath = resolvePath(promptsDir, destFileName);
-
-      // Read and process the template
-      const processedContent = await readAndProcessTemplate(sourcePath, templateFormat);
-
-      // Write processed content to destination
-      await writeProcessedTemplate(processedContent, destPath);
-    }
-
-    return;
-  }
-
-  // Determine correct commands directory name based on assistant type
-  // OpenCode uses 'command' (singular) while Claude and Gemini use 'commands' (plural)
-  const commandsPath = assistant === 'opencode' ? 'command' : 'commands';
-
-  // Copy template structure with correct directory naming
-  const sourceCommandsDir = resolvePath(sourceDir, 'commands');
-  const targetCommandsDir = resolvePath(assistantDir, commandsPath);
-
-  // Copy the commands directory to the correct location
-  if (await exists(sourceCommandsDir)) {
-    await fs.copy(sourceCommandsDir, targetCommandsDir);
-  }
-
-  // Copy agent files for Claude (agents are Claude-specific)
-  if (assistant === 'claude') {
-    const sourceAgentsDir = resolvePath(sourceDir, 'agents');
-    const targetAgentsDir = resolvePath(assistantDir, 'agents');
-
-    if (await exists(sourceAgentsDir)) {
-      await fs.copy(sourceAgentsDir, targetAgentsDir);
-    }
-  }
-
-  // Determine template format based on assistant type
-  const templateFormat = getTemplateFormat(assistant);
-
-  // If target format is different from source (md), process files in place
-  if (templateFormat !== 'md') {
-    const tasksDir = resolvePath(assistantDir, `${commandsPath}/tasks`);
-    const files = await fs.readdir(tasksDir);
-
-    for (const file of files.filter(f => f.endsWith('.md'))) {
-      const mdPath = resolvePath(tasksDir, file);
-      const newPath = resolvePath(tasksDir, file.replace('.md', `.${templateFormat}`));
-
-      // Read and process the template
-      const processedContent = await readAndProcessTemplate(mdPath, templateFormat);
-
-      // Write processed content to new file
-      await writeProcessedTemplate(processedContent, newPath);
-
-      // Remove original .md file
-      await fs.remove(mdPath);
-    }
+  if (await exists(sourceAgentsDir)) {
+    await fs.copy(sourceAgentsDir, targetAgentsDir);
   }
 }
 
@@ -520,40 +361,15 @@ export async function isInitialized(baseDir?: string): Promise<boolean> {
  */
 export async function getInitInfo(baseDir?: string): Promise<{
   hasAiTaskManager: boolean;
-  hasClaudeConfig: boolean;
-  hasGeminiConfig: boolean;
-  hasOpencodeConfig: boolean;
-  hasCodexConfig: boolean;
-  hasCursorConfig: boolean;
-  hasGithubConfig: boolean;
-  assistants: Assistant[];
+  hasClaudeAgents: boolean;
 }> {
   const targetDir = baseDir || '.';
   const hasAiTaskManager = await exists(resolvePath(targetDir, '.ai/task-manager'));
-  const hasClaudeConfig = await exists(resolvePath(targetDir, '.claude/commands/tasks'));
-  const hasGeminiConfig = await exists(resolvePath(targetDir, '.gemini/commands/tasks'));
-  const hasOpencodeConfig = await exists(resolvePath(targetDir, '.opencode/command/tasks'));
-  const hasCodexConfig = await exists(resolvePath(targetDir, '.codex/prompts'));
-  const hasCursorConfig = await exists(resolvePath(targetDir, '.cursor/commands/tasks'));
-  const hasGithubConfig = await exists(resolvePath(targetDir, '.github/prompts'));
-
-  const assistants: Assistant[] = [];
-  if (hasClaudeConfig) assistants.push('claude');
-  if (hasGeminiConfig) assistants.push('gemini');
-  if (hasOpencodeConfig) assistants.push('opencode');
-  if (hasCodexConfig) assistants.push('codex');
-  if (hasCursorConfig) assistants.push('cursor');
-  if (hasGithubConfig) assistants.push('github');
+  const hasClaudeAgents = await exists(resolvePath(targetDir, '.claude/agents'));
 
   return {
     hasAiTaskManager,
-    hasClaudeConfig,
-    hasGeminiConfig,
-    hasOpencodeConfig,
-    hasCodexConfig,
-    hasCursorConfig,
-    hasGithubConfig,
-    assistants,
+    hasClaudeAgents,
   };
 }
 
@@ -563,62 +379,19 @@ export async function getInitInfo(baseDir?: string): Promise<{
 async function displayWorkflowHelp(): Promise<void> {
   console.log(formatSectionHeader('Suggested Workflow'));
 
-  // One-Time Setup
-  console.log(chalk.cyan.bold('  One-Time Setup'));
-  console.log(
-    chalk.gray('  ────────────────────────────────────────────────────────────────────────────────')
-  );
-  console.log(`  Review and tweak AI Task Manager config prompts to match your project:`);
-  console.log(`    ${chalk.blue('●')} ${chalk.gray('.ai/task-manager/config/')}`);
+  console.log(`  ${chalk.cyan('●')} Install the task skills:`);
+  console.log(`      ${chalk.gray('npx skills add e0ipso/ai-task-manager')}`);
   console.log('');
-
-  // Automated Workflow
-  console.log(chalk.cyan.bold('  Automated Workflow (Recommended for Simple Tasks)'));
+  console.log(`  ${chalk.cyan('●')} Ask your assistant to plan, decompose, then execute.`);
   console.log(
-    chalk.gray('  ────────────────────────────────────────────────────────────────────────────────')
+    `    The skills cover plan creation, refinement, task generation, and blueprint execution.`
   );
   console.log('');
-  console.log(`  Execute:`);
-  console.log(`      ${chalk.gray('/tasks:full-workflow Update product page with...')}`);
-  console.log('');
-  console.log(`  This automatically:`);
-  console.log(`    ${chalk.green('✓')} Creates the plan (with clarification prompts)`);
-  console.log(`    ${chalk.green('✓')} Generates tasks`);
-  console.log(`    ${chalk.green('✓')} Executes the blueprint`);
-  console.log(`    ${chalk.green('✓')} Archives the completed plan`);
-  console.log('');
-  console.log(`  ${chalk.blue('●')} Best for: Straightforward implementations`);
-  console.log('');
-
-  // Manual Workflow
-  console.log(chalk.cyan.bold('  Manual Workflow (Recommended for Complex Tasks)'));
-  console.log(
-    chalk.gray('  ────────────────────────────────────────────────────────────────────────────────')
-  );
-  console.log('');
-  console.log(`  ${chalk.blue('1.')} Create a plan:`);
-  console.log(`      ${chalk.gray('/tasks:create-plan Create an authentication...')}`);
-  console.log('');
-  console.log(`  ${chalk.blue('2.')} Provide additional context if the assistant needs it`);
+  console.log(`  ${chalk.cyan('●')} Review intermediate artifacts between steps:`);
+  console.log(`      ${chalk.gray('.ai/task-manager/plans/')}`);
   console.log('');
   console.log(
-    `  ${chalk.blue('3.')} ${chalk.yellow.bold('MANUALLY REVIEW THE PLAN')} ${chalk.yellow("(don't skip this!)")}`
+    chalk.yellow(`💡 Reviewing the plan and the task list before execution is recommended.`)
   );
-  console.log(`      ${chalk.gray('Find it in: .ai/task-manager/plans/01--*/plan-[0-9]*--*.md')}`);
-  console.log('');
-  console.log(`  ${chalk.blue('4.')} Create the tasks for the plan:`);
-  console.log(`      ${chalk.gray('/tasks:generate-tasks 1')}`);
-  console.log('');
-  console.log(
-    `  ${chalk.blue('5.')} ${chalk.yellow.bold('REVIEW THE TASKS LIST')} ${chalk.yellow('(avoid scope creep!)')}`
-  );
-  console.log(`      ${chalk.gray('Find them in: .ai/task-manager/plans/01--*/tasks/')}`);
-  console.log('');
-  console.log(`  ${chalk.blue('6.')} Execute the tasks:`);
-  console.log(`      ${chalk.gray('/tasks:execute-blueprint 1')}`);
-  console.log('');
-  console.log(`  ${chalk.blue('7.')} Review the implementation and generated tests`);
-  console.log('');
-  console.log(chalk.yellow(`💡 Pro tip: The manual review steps are crucial for success!`));
   console.log('');
 }

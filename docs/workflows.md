@@ -10,6 +10,8 @@ description: "Advanced workflow patterns and plan mode integration"
 
 AI Task Manager supports multiple workflow patterns to match your development style and project needs. This guide demonstrates advanced usage beyond the basic three-phase workflow.
 
+All patterns are driven through the installed Agent Skills (`task-create-plan`, `task-refine-plan`, `task-generate-tasks`, `task-execute-blueprint`, `task-full-workflow`, `fix-broken-tests`). You invoke each phase by asking your assistant in plain language; the matching skill loads automatically based on intent.
+
 ## Pattern 1: Plan Mode Integration
 
 **The most powerful workflow pattern**: Combine your AI assistant's native "plan mode" with AI Task Manager's structured execution.
@@ -35,9 +37,9 @@ AI Task Manager excels at:
 flowchart LR
     A[User Request] --> B[Plan Mode<br/>Brainstorming]
     B --> C[Review Output]
-    C --> D[Copy to<br/>create-plan]
+    C --> D[Feed into<br/>task-create-plan skill]
     D --> E[Structured<br/>Refinement]
-    E --> F[Generate Tasks]
+    E --> F[Decompose Tasks]
     F --> G[Execute Blueprint]
 
     style A fill:#ffebee
@@ -70,42 +72,31 @@ Review the plan mode output and identify what you actually need:
 - Keep: User auth, post CRUD, basic search
 - Remove: Comment system (not requested), complex tag management, rate limiting (premature optimization)
 
-**Step 3: Feed Refined Requirements to create-plan**
-```bash
-/tasks:create-plan Build a REST API for blog management with:
-- User authentication using JWT tokens
-- CRUD operations for blog posts (title, content, author, publish date)
-- Basic search by title and content
-- Use existing database schema from /db/schema.sql
-```
+**Step 3: Feed Refined Requirements to the Plan Skill**
+
+Ask your assistant to create a task-manager plan with the refined requirements, for example:
+
+> Build a REST API for blog management with user authentication using JWT tokens, CRUD operations for blog posts (title, content, author, publish date), basic search by title and content, and the existing database schema from /db/schema.sql.
+
+The `task-create-plan` skill takes over from here.
 
 **Step 4: AI Task Manager Structures the Work**
 
-AI Task Manager now:
+The skill now:
 - Asks clarifying questions specific to your context
 - Creates a focused plan without unnecessary features
 - Documents technical decisions
 - Identifies risks and success criteria
 
 **Step 4b: Refine the Plan with a Second Assistant (Optional)**
-```bash
-/tasks:refine-plan 1
-```
 
-Let another assistant interrogate the plan, ask for missing context, and immediately apply refinements before generating tasks. This keeps the plan consistent while enabling a "two-agent" feedback loop.
+Ask another assistant (or the same one in a new session) to refine plan 1. The `task-refine-plan` skill interrogates the plan, asks for missing context, and immediately applies refinements before task generation. This enables a "two-agent" feedback loop while keeping the plan consistent.
 
 **Step 5: Continue with Standard Workflow**
-```bash
-# Review plan at .ai/task-manager/plans/01--blog-api/
-# Edit if needed
 
-/tasks:generate-tasks 1
-# Review tasks, remove any scope creep
-# Edit dependencies if needed
-
-/tasks:execute-blueprint 1
-# AI executes validated, scoped tasks
-```
+- Review the plan at `.ai/task-manager/plans/01--blog-api/` and edit if needed.
+- Ask your assistant to decompose plan 1 (`task-generate-tasks` skill). Review the tasks and remove any scope creep.
+- Ask your assistant to execute the blueprint for plan 1 (`task-execute-blueprint` skill). The skill executes validated, scoped tasks phase by phase.
 
 ### Benefits of This Hybrid Approach
 
@@ -139,7 +130,7 @@ flowchart TD
     B --> C{Needs Changes?}
     C -->|Yes| D[Edit Plan File]
     D --> A
-    C -->|No| E[Generate Tasks]
+    C -->|No| E[Decompose Tasks]
     E --> F[Review Tasks]
     F --> G{Needs Changes?}
     G -->|Yes| H[Edit Task Files]
@@ -161,52 +152,28 @@ flowchart TD
 ### Step-by-Step Process
 
 **Phase 1: Plan Refinement**
-```bash
-# Create initial plan
-/tasks:create-plan "Build user dashboard with analytics"
 
-# Run a plan refinement session to capture clarifications and tighten scope
-/tasks:refine-plan 1
-
-# Review generated plan
-# Edit .ai/task-manager/plans/01--dashboard/plan-01--dashboard.md
-# Refine objectives, add constraints, clarify scope
-
-# If major changes needed, regenerate:
-/tasks:create-plan "Build user dashboard with analytics. Focus on: daily active users, session duration, conversion funnel. Use Chart.js for visualization."
-```
+- Ask your assistant to create a task-manager plan for "Build user dashboard with analytics" (the `task-create-plan` skill loads).
+- Ask the assistant (or a different one) to refine plan 1 (`task-refine-plan` skill). Capture clarifications and tighten the scope.
+- Review the generated plan and edit `.ai/task-manager/plans/01--dashboard/plan-01--dashboard.md` directly: refine objectives, add constraints, clarify scope.
+- If major changes are needed, ask the assistant to create a new plan with the tightened brief, for example: "Build user dashboard with analytics. Focus on daily active users, session duration, and conversion funnel. Use Chart.js for visualization."
 
 **Phase 2: Task Refinement**
-```bash
-# Generate tasks from refined plan
-/tasks:generate-tasks 1
 
-# Review tasks in .ai/task-manager/plans/01--dashboard/tasks/
-# Common adjustments:
-# - Remove tasks outside core scope
-# - Split overly complex tasks
-# - Adjust dependencies
-# - Modify acceptance criteria
-
-# If needed, manually edit task files and regenerate blueprint:
-# (Edit individual task .md files)
-# Tasks are automatically picked up by execute-blueprint
-```
+- Ask your assistant to decompose plan 1 (`task-generate-tasks` skill).
+- Review tasks in `.ai/task-manager/plans/01--dashboard/tasks/`. Common adjustments:
+  - Remove tasks outside core scope
+  - Split overly complex tasks
+  - Adjust dependencies
+  - Modify acceptance criteria
+- If needed, edit individual task files manually — they are picked up automatically by the execute step.
 
 **Phase 3: Execution Monitoring and Adjustment**
-```bash
-# Execute with monitoring
-/tasks:execute-blueprint 1
 
-# Check status periodically
-npx @e0ipso/ai-task-manager status
-
-# If tests fail after implementation:
-/tasks:fix-broken-tests "npm test"
-
-# Review implementation quality
-# Commit and continue
-```
+- Ask your assistant to execute the blueprint for plan 1 (`task-execute-blueprint` skill).
+- Check status periodically with `npx @e0ipso/ai-task-manager status`.
+- If tests fail after implementation, ask your assistant to fix the broken tests by running `npm test` (the `fix-broken-tests` skill enforces test integrity).
+- Review implementation quality, commit, and continue.
 
 ### Best Practices for Iterative Refinement
 
@@ -222,46 +189,23 @@ npx @e0ipso/ai-task-manager status
 ### Session Management Strategy
 
 **Session 1: Planning and Initial Setup**
-```bash
-# Day 1: Create comprehensive plan
-/tasks:create-plan "Build e-commerce platform with product catalog, shopping cart, checkout, and payment processing"
 
-# Review plan (this may take hours for complex projects)
-# Refine and document decisions
-
-# Generate tasks
-/tasks:generate-tasks 1
-
-# Review all tasks (identify phases you'll tackle first)
-# Note: Don't feel pressured to execute everything immediately
-```
+- Day 1: Ask your assistant to create a plan for a large project (e.g., "Build e-commerce platform with product catalog, shopping cart, checkout, and payment processing"). The `task-create-plan` skill takes you through clarifications.
+- Review the plan carefully (this may take hours for complex projects) and document decisions.
+- Ask your assistant to decompose the plan (`task-generate-tasks` skill).
+- Review all tasks and identify the phases you'll tackle first. Don't feel pressured to execute everything immediately.
 
 **Session 2-N: Phased Execution**
-```bash
-# Day 2: Start with foundational tasks
-npx @e0ipso/ai-task-manager status
-# Shows: 15 tasks pending, 0 completed
 
-/tasks:execute-blueprint 1
-# AI executes Phase 1 (database schema, models)
-# Commit results
-
-# End of session: Check status
-npx @e0ipso/ai-task-manager status
-# Shows: 10 tasks pending, 5 completed (Phase 1)
-```
+- Day 2: Check status with `npx @e0ipso/ai-task-manager status`. You should see something like "15 tasks pending, 0 completed".
+- Ask your assistant to execute the blueprint for plan 1 (`task-execute-blueprint` skill). Phase 1 (database schema, models) runs and commits results.
+- End of session: re-check status. You might see "10 tasks pending, 5 completed (Phase 1)".
 
 **Resuming After Days/Weeks**
-```bash
-# New session: Resume where you left off
-npx @e0ipso/ai-task-manager status
 
-# Review completed tasks to refresh context
-cat .ai/task-manager/plans/01--ecommerce/tasks/01--database-schema.md
-
-# Continue execution (picks up where it left off)
-/tasks:execute-blueprint 1
-```
+- New session: review `npx @e0ipso/ai-task-manager status`.
+- Read recently completed task documents to refresh context, e.g. `.ai/task-manager/plans/01--ecommerce/tasks/01--database-schema.md`.
+- Ask your assistant to continue executing the blueprint for plan 1; the skill picks up where it left off.
 
 ### Pausing and Resuming Best Practices
 
@@ -274,17 +218,16 @@ cat .ai/task-manager/plans/01--ecommerce/tasks/01--database-schema.md
 1. **Review status dashboard**: `npx @e0ipso/ai-task-manager status`
 2. **Check task dependencies**: Verify prerequisites are complete
 3. **Refresh context**: Read recently completed task documents
-4. **Continue execution**: `/tasks:execute-blueprint [plan-id]` picks up automatically
+4. **Continue execution**: Ask your assistant to execute the blueprint for the plan; the skill picks up automatically.
 
 ### Archiving Completed Plans
 
 ```bash
 # When plan is fully complete:
-mv .ai/task-manager/plans/01--ecommerce .ai/task-manager/archive/
-
-# Archived plans remain accessible but don't clutter active workspace
-# Status dashboard shows them in "Archived Plans" section
+npx @e0ipso/ai-task-manager plan archive 1
 ```
+
+Archived plans remain accessible but don't clutter the active workspace. The status dashboard shows them in the "Archived Plans" section.
 
 ## Pattern 4: Parallel Development with Dependencies
 
@@ -342,27 +285,17 @@ graph TD
 git clone project-repo
 cd project-repo
 # .ai/task-manager/ already in repository (shared configuration)
+# Both developers install the skills locally:
+npx skills add e0ipso/ai-task-manager
 ```
 
 **Backend Developer Workflow:**
-```bash
-# Focus on backend tasks
-# Review blueprint: .ai/task-manager/plans/01--feature/plan-01--feature.md
-# Identify backend tasks (skills: ["database", "api-endpoints"])
-
-# Execute only backend phases
-# AI Task Manager's skill-based assignment handles routing
-```
+- Focus on backend tasks: review the blueprint in `.ai/task-manager/plans/01--feature/plan-01--feature.md` and identify backend tasks (skills: `["database", "api-endpoints"]`).
+- Execute only the backend phases via the `task-execute-blueprint` skill; AI Task Manager's skill-based assignment handles routing.
 
 **Frontend Developer Workflow:**
-```bash
-# Focus on frontend tasks
-# Review same blueprint
-# Identify frontend tasks (skills: ["react-components", "ui"])
-
-# Execute frontend phases
-# Dependencies ensure backend is ready first
-```
+- Focus on frontend tasks: review the same blueprint and identify frontend tasks (skills: `["react-components", "ui"]`).
+- Execute the frontend phases via the `task-execute-blueprint` skill; dependencies ensure the backend is ready first.
 
 **Coordination:**
 - **Shared Plan**: Both developers work from same plan document
@@ -384,31 +317,16 @@ cd project-repo
 ### Two-Plan Strategy
 
 **Plan 1: Spike/Research Plan**
-```bash
-# Create exploratory plan
-/tasks:create-plan "Research authentication approaches for multi-tenant SaaS: evaluate JWT vs session-based vs OAuth2 delegation. Create proof-of-concept for chosen approach."
 
-/tasks:generate-tasks 1
-# Tasks focused on research, prototyping, documentation
-# Low quality gates (no tests, quick implementations)
-
-/tasks:execute-blueprint 1
-# Execute research tasks
-# Result: Decision document and POC code
-```
+- Ask your assistant to create an exploratory plan, for example: "Research authentication approaches for multi-tenant SaaS: evaluate JWT vs session-based vs OAuth2 delegation. Create proof-of-concept for chosen approach."
+- Ask the assistant to decompose plan 1; tasks should focus on research, prototyping, and documentation, with low quality gates (no tests, quick implementations).
+- Ask the assistant to execute the blueprint for plan 1. Result: a decision document and POC code.
 
 **Plan 2: Production Implementation Plan**
-```bash
-# Based on spike results, create production plan
-/tasks:create-plan "Implement JWT-based authentication with refresh tokens for multi-tenant SaaS using findings from Plan 1. Follow production standards: tests, error handling, security hardening."
 
-/tasks:generate-tasks 2
-# Tasks focused on production quality
-# High quality gates (tests, security, documentation)
-
-/tasks:execute-blueprint 2
-# Execute production tasks using spike learnings
-```
+- Based on spike results, ask your assistant to create a production plan, for example: "Implement JWT-based authentication with refresh tokens for multi-tenant SaaS using findings from Plan 1. Follow production standards: tests, error handling, security hardening."
+- Ask the assistant to decompose plan 2; tasks should focus on production quality with high quality gates (tests, security, documentation).
+- Ask the assistant to execute the blueprint for plan 2 using the spike learnings.
 
 ### Benefits of Spike Pattern
 
@@ -453,15 +371,15 @@ Document your team's preferred patterns in `TASK_MANAGER.md`:
 
 ### Standard Feature Development
 1. Use plan mode for initial brainstorming
-2. Create structured plan with /tasks:create-plan
+2. Ask the assistant to create a structured task-manager plan
 3. Review plan with product owner
-4. Generate and review tasks
+4. Decompose and review tasks
 5. Execute in phases with PR per phase
 
 ### Bug Fixes
 1. Skip plan mode (requirements clear)
 2. Create minimal plan (reproduce, fix, test)
-3. Generate max 3 tasks
+3. Decompose into max 3 tasks
 4. Execute immediately
 5. Hot-fix deployment
 ```

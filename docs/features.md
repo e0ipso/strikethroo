@@ -41,23 +41,16 @@ AI Task Manager provides comprehensive tools for structured AI-assisted developm
 - **YAML Frontmatter**: Structured metadata for plans, tasks, and execution tracking
 - **Customizable Sections**: Add domain-specific content while preserving core structure
 - **Variable Substitution**: Dynamic content based on context (plan ID, task ID, arguments)
-- **Format Adaptation**: Automatic conversion between Markdown (Claude, Open Code) and TOML (Gemini)
 
 **Learn more**: See the [Customization Guide](customization.html) for template modification examples.
 
 ## 🤝 Multi-Assistant Support
 
-Configure support for multiple coding assistants simultaneously:
+The workflow is delivered through assistant-agnostic Agent Skills installed via `npx skills add e0ipso/ai-task-manager`. A single skill works for every assistant that supports the Agent Skills format, so there is no per-assistant command surface to install or maintain.
 
-- **🎭 Claude**: Anthropic's Claude AI via [claude.ai/code](https://claude.ai/code) - Markdown-based commands
-- **💎 Gemini**: Google's Gemini AI via CLI - TOML-based commands
-- **📝 Open Code**: Open source assistants - Markdown-based commands
-- **🔧 Codex**: Codex CLI - Markdown-based prompts with flat structure
-- **🐙 GitHub Copilot**: VS Code/JetBrains IDE integration - Prompt files
+All assistants share the same task management structure under `.ai/task-manager/`. Initialize once per project, install the skills for each developer's assistant, and team members can collaborate using different assistants on the same plans.
 
-All assistants share the same task management structure while using assistant-specific command formats. Initialize multiple assistants in a single project for team flexibility.
-
-**Note**: See [AGENTS.md](https://github.com/e0ipso/ai-task-manager/blob/main/AGENTS.md) for detailed setup instructions, especially for Codex-specific workflow and GitHub Copilot IDE requirements.
+**Note**: See [AGENTS.md](https://github.com/e0ipso/ai-task-manager/blob/main/AGENTS.md) for detailed setup instructions.
 
 ## 🔄 Workflow Orchestration
 
@@ -94,14 +87,10 @@ flowchart TD
 
 ### Automated End-to-End Execution
 
-For streamlined development, the full-workflow command automates all three phases:
-
-```bash
-/tasks:full-workflow Create user authentication system with JWT tokens
-```
+For streamlined development, the `task-full-workflow` skill automates all three phases. Ask your assistant to run the full task-manager workflow for a feature (for example, "Create user authentication system with JWT tokens"), and the skill chains plan creation, task generation, and blueprint execution together.
 
 **Benefits:**
-- **Single Command**: Entire workflow from plan to execution
+- **Single Invocation**: Entire workflow from plan to execution
 - **Reduced Friction**: No manual phase transitions
 - **Faster Iteration**: Ideal for clear requirements
 - **Automatic Archival**: Completed plans moved to archive
@@ -130,7 +119,7 @@ For streamlined development, the full-workflow command automates all three phase
 - **Acceptance Criteria**: Checkbox-based validation requirements for each task
 - **Progress Tracking**: Real-time status updates (pending → in_progress → completed/failed)
 - **Error Handling**: Graceful failure recovery with remediation workflows via POST_ERROR_DETECTION hook
-- **Test Integrity**: fix-broken-tests command enforces proper test fixes, not workarounds
+- **Test Integrity**: the `fix-broken-tests` skill enforces proper test fixes, not workarounds
 
 ### Progress Monitoring & Dashboard
 
@@ -199,12 +188,10 @@ Organized workspace with clear separation of concerns:
 ├── config/             # Customizable hooks and templates
 └── .init-metadata.json # Conflict detection tracking
 
-.claude/commands/       # Claude-specific commands (if configured)
-.gemini/commands/       # Gemini-specific commands (if configured)
-.opencode/commands/     # Open Code commands (if configured)
-.codex/prompts/         # Codex prompts (if configured)
-.github/prompts/        # GitHub Copilot prompts (if configured)
+.claude/agents/         # Claude agents (if --assistants claude)
 ```
+
+The workflow itself is delivered through Agent Skills installed via `npx skills add e0ipso/ai-task-manager`. Skills are not copied into the project tree; they live wherever your assistant manages them.
 
 ## 🚀 Performance & Scalability
 

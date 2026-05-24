@@ -8,63 +8,65 @@ description: "Installing and configuring AI Task Manager"
 
 # 📦 Installation & Setup
 
-AI Task Manager initializes quickly with a single command, creating all necessary configuration files and directory structure for your project.
+AI Task Manager initializes quickly with two commands: one to bootstrap the shared task-manager workspace in your project, and one to install the workflow skills for your assistant.
 
 ## Prerequisites
 
 - **Node.js**: Version 14.0 or higher
 - **npm**: Comes with Node.js
-- **AI Assistant**: Active subscription to Claude, Cursor, Gemini, GitHub Copilot, Codex, or access to Open Code
+- **AI Assistant**: An assistant that supports the Agent Skills format
 
 ## Installation
 
-No global installation required. Use `npx` to run AI Task Manager directly:
+No global installation required. Use `npx` to run both steps directly:
+
+### Step 1: Bootstrap the Workspace
 
 ```bash
 npx @e0ipso/ai-task-manager init --assistants claude
 ```
 
-## Assistant Configuration
+This creates the shared `.ai/task-manager/` directory (plans, archive, config) and copies the Claude agents into `.claude/agents/`.
 
-The `--assistants` flag is **required** when initializing. You must specify which AI assistant(s) you want to configure.
-
-### Single Assistant Setup
+### Step 2: Install the Workflow Skills
 
 ```bash
-# Claude only (for use with claude.ai/code)
+npx skills add e0ipso/ai-task-manager
+```
+
+This installs the Agent Skills that implement the workflow. Skills are the sole delivery channel for the task-manager workflow: they load automatically when their description matches your intent, and they are assistant-agnostic — a single skill works for every assistant that supports the Agent Skills format.
+
+To pin a specific release:
+
+```bash
+npx skills add e0ipso/ai-task-manager@<tag>
+```
+
+## The `--assistants` Flag
+
+The `--assistants` flag is **required** when running `init`. It controls which per-assistant artifacts the CLI copies in addition to the shared workspace.
+
+Today, only Claude has per-assistant artifacts (agents under `.claude/agents/`). Non-Claude assistants get the shared workspace only and rely entirely on the installed skills:
+
+```bash
+# Claude (copies .ai/task-manager/ + .claude/agents/)
 npx @e0ipso/ai-task-manager init --assistants claude
 
-# Cursor only (for use with Cursor IDE)
-npx @e0ipso/ai-task-manager init --assistants cursor
-
-# Gemini only (for use with Gemini CLI)
+# Other assistants (copies .ai/task-manager/ only; rely on skills)
 npx @e0ipso/ai-task-manager init --assistants gemini
-
-# Open Code only (for open source assistants)
-npx @e0ipso/ai-task-manager init --assistants opencode
-
-# Codex only (for use with Codex CLI)
-npx @e0ipso/ai-task-manager init --assistants codex
-
-# GitHub Copilot only (for use in VS Code/JetBrains IDEs)
-npx @e0ipso/ai-task-manager init --assistants github
 ```
 
-### Multiple Assistants
-
-Configure multiple assistants for team flexibility:
+You can pass multiple assistants in a single run:
 
 ```bash
-npx @e0ipso/ai-task-manager init --assistants claude,cursor,gemini,opencode,codex,github
+npx @e0ipso/ai-task-manager init --assistants claude,gemini,opencode,codex,github,cursor
 ```
 
-All assistants share the same task management structure (plans, tasks, configurations) while using assistant-specific command formats.
-
-**Note**: For Codex-specific workflow and GitHub Copilot IDE requirements, see [AGENTS.md](https://github.com/e0ipso/ai-task-manager/blob/main/AGENTS.md) in the repository.
+All assistants share the same task management structure (plans, tasks, configurations).
 
 ### Custom Destination Directory
 
-By default, AI Task Manager initializes in the current working directory. Use `--destination-directory` to specify an alternative location:
+By default, `init` writes into the current working directory. Use `--destination-directory` to target an alternative location:
 
 ```bash
 npx @e0ipso/ai-task-manager init \
@@ -74,7 +76,7 @@ npx @e0ipso/ai-task-manager init \
 
 ## Directory Structure
 
-When you initialize, the following structure is created:
+After running both commands, the project layout looks like this:
 
 ```
 project-root/
@@ -83,7 +85,7 @@ project-root/
 │       ├── plans/                 # Active plans (empty initially)
 │       ├── archive/               # Completed plans (empty initially)
 │       ├── config/
-│       │   ├── TASK_MANAGER.md   # Project context (customize this!)
+│       │   ├── TASK_MANAGER.md    # Project context (customize this!)
 │       │   ├── hooks/             # Lifecycle hooks
 │       │   │   ├── PRE_PLAN.md
 │       │   │   ├── PRE_PHASE.md
@@ -103,63 +105,18 @@ project-root/
 │       │       ├── get-next-plan-id.cjs
 │       │       └── get-next-task-id.cjs
 │       └── .init-metadata.json    # File conflict detection tracking
-├── .claude/                       # Claude files (if --assistants claude)
-│   └── commands/tasks/
-│       ├── create-plan.md
-│       ├── refine-plan.md
-│       ├── generate-tasks.md
-│       ├── execute-blueprint.md
-│       ├── execute-task.md
-│       └── fix-broken-tests.md
-├── .cursor/                       # Cursor files (if --assistants cursor)
-│   └── commands/tasks/
-│       ├── create-plan.md
-│       ├── refine-plan.md
-│       ├── generate-tasks.md
-│       ├── execute-blueprint.md
-│       ├── execute-task.md
-│       └── fix-broken-tests.md
-├── .gemini/                       # Gemini files (if --assistants gemini)
-│   └── commands/tasks/
-│       ├── create-plan.toml       # TOML format for Gemini
-│       ├── refine-plan.toml
-│       ├── generate-tasks.toml
-│       ├── execute-blueprint.toml
-│       ├── execute-task.toml
-│       └── fix-broken-tests.toml
-├── .opencode/                     # Open Code files (if --assistants opencode)
-│   └── commands/tasks/
-│       ├── create-plan.md
-│       ├── refine-plan.md
-│       ├── generate-tasks.md
-│       ├── execute-blueprint.md
-│       ├── execute-task.md
-│       └── fix-broken-tests.md
-├── .codex/                        # Codex files (if --assistants codex)
-│   └── prompts/
-│       ├── tasks-create-plan.md
-│       ├── tasks-refine-plan.md
-│       ├── tasks-generate-tasks.md
-│       ├── tasks-execute-blueprint.md
-│       ├── tasks-execute-task.md
-│       ├── tasks-fix-broken-tests.md
-│       └── tasks-full-workflow.md
-└── .github/                       # GitHub Copilot files (if --assistants github)
-    └── prompts/
-        ├── tasks-create-plan.prompt.md
-        ├── tasks-refine-plan.prompt.md
-        ├── tasks-generate-tasks.prompt.md
-        ├── tasks-execute-blueprint.prompt.md
-        ├── tasks-execute-task.prompt.md
-        ├── tasks-fix-broken-tests.prompt.md
-        └── tasks-full-workflow.prompt.md
+└── .claude/                       # Claude agents (if --assistants claude)
+    └── agents/
+        └── plan-creator.md
 ```
+
+The installed skills live wherever your assistant manages them; they are not copied into the project tree.
 
 ## Updating Configuration
 
 ### Re-running init
 
-Re-run the init command to update configuration files to the latest version:
+Re-run the init command to update the workspace files to the latest version:
 
 ```bash
 npx @e0ipso/ai-task-manager init --assistants claude
@@ -185,6 +142,10 @@ npx @e0ipso/ai-task-manager init --assistants claude --force
 
 The `config/scripts/` directory is **never** overwritten by init, even in force mode. Your custom ID generation logic is always preserved.
 
+### Updating Skills
+
+Re-run `npx skills add e0ipso/ai-task-manager` to pull the latest skills. The two channels (CLI init and skills installer) are independently re-runnable.
+
 ## Verification
 
 Verify successful installation:
@@ -197,31 +158,10 @@ ls -la .ai/task-manager/
 
 You should see: `plans/`, `archive/`, `config/`
 
-### 2. Check Assistant Commands
+### 2. Check Claude Agents (if you ran `--assistants claude`)
 
-**For Claude:**
 ```bash
-ls -la .claude/commands/tasks/
-```
-
-**For Cursor:**
-```bash
-ls -la .cursor/commands/tasks/
-```
-
-**For Gemini:**
-```bash
-ls -la .gemini/commands/tasks/
-```
-
-**For Codex:**
-```bash
-ls -la .codex/prompts/
-```
-
-**For GitHub Copilot:**
-```bash
-ls -la .github/prompts/
+ls -la .claude/agents/
 ```
 
 ### 3. Test Status Command
@@ -231,6 +171,10 @@ npx @e0ipso/ai-task-manager status
 ```
 
 Should show: "No active plans found" (until you create your first plan)
+
+### 4. Confirm Skills Are Installed
+
+Open your assistant and ask it to create a task-manager plan. The `task-create-plan` skill should load automatically based on intent.
 
 ## Customizing for Your Project
 
@@ -261,18 +205,4 @@ See the [Customization Guide](customization.html) for:
 - **[How It Works](architecture.html)**: Understand the three-phase system
 - **[Customization Guide](customization.html)**: Tailor AI Task Manager to your project
 
-Ready to create your first plan:
-
-```bash
-# In Claude, Gemini, or Open Code:
-/tasks:create-plan "Your project description here"
-
-# In Cursor:
-/tasks/create-plan Your project description here
-
-# In Codex:
-/prompts:tasks-create-plan "Your project description here"
-
-# In GitHub Copilot (VS Code/JetBrains):
-/tasks-create-plan Your project description here
-```
+Ready to create your first plan? Simply ask your assistant to plan a feature — the installed skills will pick up the request, drop the plan into `.ai/task-manager/plans/`, and walk you through review, decomposition, and execution.

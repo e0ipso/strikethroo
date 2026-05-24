@@ -38,7 +38,7 @@ Most coding assistants (Claude, Gemini, GitHub Copilot, etc.) offer a "plan mode
 
 ## How AI Task Manager Solves This
 
-AI Task Manager augments "plan mode". It does **not** replace it. In fact, the output of "plan mode" is often a great way to start a plan. Copy the output of "plan mode" to the `/tasks:create-plan` command.
+AI Task Manager augments "plan mode". It does **not** replace it. In fact, the output of "plan mode" is often a great way to start a plan. Feed the output of "plan mode" to your assistant when you ask it to create a task-manager plan (the `task-create-plan` skill).
 
 AI Task Manager transforms the planning process through **progressive refinement** with **mandatory human gates**:
 
@@ -88,18 +88,9 @@ Each phase has a focused context, preventing cognitive overload.
 - Human discovers issues during/after execution
 
 **AI Task Manager:**
-```bash
-/tasks:create-plan "Build authentication system"
-# → Review .ai/task-manager/plans/01--auth/plan-01--auth.md
-# → Edit plan if needed
-
-/tasks:generate-tasks 1
-# → Review .ai/task-manager/plans/01--auth/tasks/*.md
-# → Remove unnecessary tasks, adjust scope
-
-/tasks:execute-blueprint 1
-# → AI executes only reviewed, approved tasks
-```
+1. Ask your assistant to create a task-manager plan for "Build authentication system" — the `task-create-plan` skill writes `.ai/task-manager/plans/01--auth/plan-01--auth.md`. Review and edit the plan if needed.
+2. Ask your assistant to decompose plan 1 — the `task-generate-tasks` skill writes the tasks under `.ai/task-manager/plans/01--auth/tasks/`. Review them and remove unnecessary tasks or adjust scope.
+3. Ask your assistant to execute the blueprint for plan 1 — the `task-execute-blueprint` skill executes only reviewed, approved tasks.
 
 You control what gets built at each phase.
 
@@ -161,7 +152,7 @@ Task 5: Create authentication middleware
   → Specialized middleware agent
 ```
 
-Each task is assigned 1-2 specific skills, and during execution (`/tasks:execute-blueprint`), specialized agents are deployed for each task based on their skill requirements. This enables:
+Each task is assigned 1-2 specific skills, and during blueprint execution (the `task-execute-blueprint` skill), specialized agents are deployed for each task based on their skill requirements. This enables:
 - **Parallel execution**: Independent tasks run simultaneously
 - **Domain expertise**: Each agent focuses on its specialization
 - **Better quality**: Skill-specific context produces better results
@@ -200,22 +191,11 @@ You: Wait, I only needed basic CRUD for posts!
 **Result:** 2 hours of work, 80% unnecessary code
 
 **AI Task Manager Workflow:**
-```bash
-You: /tasks:create-plan "Build a REST API for a blog with CRUD operations"
 
-# AI creates plan → you review → AI proposes too much
-# You edit plan → remove auth, caching, rate limiting
+1. You ask your assistant to create a task-manager plan for "Build a REST API for a blog with CRUD operations". The `task-create-plan` skill writes the plan; you review it and remove auth, caching, and rate limiting (not requested).
+2. You ask your assistant to decompose plan 1. The `task-generate-tasks` skill produces 12 tasks; you review them and remove 5 advanced-feature tasks.
+3. You ask your assistant to execute the blueprint for plan 1. The `task-execute-blueprint` skill implements exactly the 7 approved tasks. Each task is atomic, testable, and traceable.
 
-You: /tasks:generate-tasks 1
-
-# AI generates 12 tasks → you review → still too much
-# You remove 5 tasks related to advanced features
-
-You: /tasks:execute-blueprint 1
-
-# AI implements exactly the 7 approved tasks
-# Each task is atomic, testable, and traceable
-```
 **Result:** 45 minutes of work, 100% necessary code
 
 ## Specialized Agent Architecture
@@ -307,12 +287,7 @@ No API keys, no pay-per-token charges, no additional service subscriptions requi
 
 ### What file formats does it support?
 
-AI Task Manager uses:
-- **Markdown (.md)** for Claude, Open Code, Codex, and GitHub Copilot commands
-- **TOML (.toml)** for Gemini commands
-- **Markdown (.md)** for all configuration files (hooks, templates, plans, tasks)
-
-All formats are automatically generated from a single source during initialization.
+AI Task Manager uses Markdown (`.md`) for all configuration files (hooks, templates, plans, tasks). The workflow itself is delivered as assistant-agnostic Agent Skills, so there are no per-assistant format conversions to worry about.
 
 ### Can I customize the workflow?
 

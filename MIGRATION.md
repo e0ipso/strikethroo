@@ -1,5 +1,7 @@
 # Migration
 
+> **Heads up — slash commands removed in this release.** Earlier versions of `@e0ipso/ai-task-manager` shipped per-assistant slash-command templates (`.claude/commands/tasks/`, `.gemini/commands/tasks/`, `.codex/prompts/tasks-*`, `.github/prompts/tasks-*.prompt.md`, `.cursor/commands/tasks/`, `.opencode/command/tasks/`). Those are no longer generated. The workflow now ships exclusively as Agent Skills installed via `npx skills add e0ipso/ai-task-manager`. If you have those directories on disk from a previous `init` run, you can delete them — `init` no longer regenerates them and the equivalent skills already cover every workflow they provided.
+
 This project ships in two channels:
 
 1. **Skills** — installed by [vercel-labs/skills](https://github.com/vercel-labs/skills) (pin: `TODO: verify latest release` at the time you adopt this guide).

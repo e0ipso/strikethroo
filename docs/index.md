@@ -29,25 +29,24 @@ Traditional AI assistant "plan mode" features create plans and immediately execu
 ## Quick Start
 
 ```bash
-# Initialize for your preferred AI assistant (claude, gemini, opencode, codex, or github)
+# 1. Bootstrap the shared task-manager workspace in your project
 npx @e0ipso/ai-task-manager init --assistants claude
 
-# The init command creates:
-# - Custom slash commands for your assistant
-# - Configurable hooks for validation gates
-# - Customizable templates for plans and tasks
-# - Directory structure for task management
+# 2. Install the workflow skills for your assistant
+npx skills add e0ipso/ai-task-manager
 ```
 
-Supports Claude, Gemini, Open Code, Codex, and GitHub Copilot. See [AGENTS.md](https://github.com/e0ipso/ai-task-manager/blob/main/AGENTS.md) for detailed assistant-specific instructions.
+The first command creates `.ai/task-manager/` (plans, archive, config) and copies the Claude agents. The second command installs the Agent Skills that implement the workflow (`task-create-plan`, `task-generate-tasks`, `task-execute-blueprint`, and more). Skills are assistant-agnostic and load automatically when their description matches your intent.
+
+See [AGENTS.md](https://github.com/e0ipso/ai-task-manager/blob/main/AGENTS.md) for detailed assistant-specific instructions.
 
 ## The Three-Phase Workflow
 
 ```mermaid
 flowchart LR
-    A[Complex User Request] --> B[📝 create-plan]
-    B --> C[📋 generate-tasks]
-    C --> D[🚀 execute-blueprint]
+    A[Complex User Request] --> B[📝 Plan]
+    B --> C[📋 Decompose]
+    C --> D[🚀 Execute]
     D --> E[Structured Implementation]
 
     style A fill:#ffebee
@@ -57,11 +56,11 @@ flowchart LR
     style D fill:#e3f2fd
 ```
 
-1. **📝 Create Plan**: Define objectives, clarify requirements, outline technical approach
-2. **📋 Generate Tasks**: Break plan into atomic tasks with dependencies and skill assignments
-3. **🚀 Execute Blueprint**: Implement tasks in phases with validation gates
+1. **📝 Create Plan**: Ask your assistant to plan — the `task-create-plan` skill defines objectives, clarifies requirements, and outlines the technical approach
+2. **📋 Generate Tasks**: Ask your assistant to decompose the plan — the `task-generate-tasks` skill breaks it into atomic tasks with dependencies and skill assignments
+3. **🚀 Execute Blueprint**: Ask your assistant to execute — the `task-execute-blueprint` skill implements tasks in phases with validation gates
 
-Each phase includes **mandatory human review**, ensuring you control scope and quality throughout.
+Each phase includes **mandatory human review** of the files written into `.ai/task-manager/plans/`, ensuring you control scope and quality throughout.
 
 ## Next Steps
 
@@ -86,10 +85,4 @@ Each phase includes **mandatory human review**, ensuring you control scope and q
 
 ## Supported Assistants
 
-| Assistant | Interface | Format |
-|-----------|-----------|--------|
-| 🎭 **Claude** | [claude.ai/code](https://claude.ai/code) | Markdown |
-| 💎 **Gemini** | Gemini CLI | TOML |
-| 📝 **Open Code** | Open source | Markdown |
-
-Works within your existing AI subscriptions—no additional API keys or costs required.
+Skills are assistant-agnostic and work anywhere the Agent Skills format is supported. Works within your existing AI subscriptions — no additional API keys or costs required.

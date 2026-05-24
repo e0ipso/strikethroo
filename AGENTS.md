@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file provides comprehensive guidance to AI assistants when working with this repository. It serves as the primary context source for AI-assisted development across multiple platforms (Claude, Codex, Cursor, Gemini, GitHub Copilot, Open Code).
+This file provides comprehensive guidance to AI assistants when working with this repository. It serves as the primary context source for AI-assisted development.
 
 ## Quick Start Guide
 
@@ -13,18 +13,12 @@ npm run build && npm start init --assistants claude
 npm run dev           # Watch mode compilation
 npm test              # Run test suite
 npm run lint:fix      # Auto-fix code style issues
-
-# Post-implementation validation
-/tasks:fix-broken-tests "npm test"    # Fix failing tests after changes
 ```
 
 ### Project Initialization
 ```bash
-# Single assistant
+# Bootstrap the .ai/task-manager/ workspace (Claude agents copied too)
 npx . init --assistants claude --destination-directory /path/to/project
-
-# Multiple assistants
-npx . init --assistants claude,gemini,cursor,codex --destination-directory /path/to/project
 
 # Update existing (customizations auto-protected)
 npx . init --assistants claude --destination-directory /path/to/project
@@ -33,7 +27,7 @@ npx . init --assistants claude --destination-directory /path/to/project
 npx . init --assistants claude --destination-directory /path/to/project --force
 ```
 
-**Codex CLI Workflow**: After initialization, Codex requires an additional step. Copy the generated files from `.codex/prompts/` to `~/.codex/prompts/` in your home directory, then restart Codex to load the commands. Commands are invoked as `/prompts:tasks-create-plan`, `/prompts:tasks-generate-tasks`, etc.
+The workflow itself is delivered as Agent Skills, not slash commands. Install them once with `npx skills add e0ipso/ai-task-manager`; users then invoke the workflow by intent and the matching skill auto-loads.
 
 ### File Conflict Detection
 
@@ -56,7 +50,7 @@ This CLI tool initializes AI-assisted development environments with hierarchical
 - **Cognitive Load Management**: Prevents AI context overload through staged processing
 - **Scope Control**: Enforces YAGNI principles and prevents feature creep
 - **Quality Assurance**: Ensures working code through integrity-focused testing
-- **Multi-Assistant Support**: Unified workflow across Claude, Codex, Cursor, Gemini, GitHub, and Open Code platforms
+- **Assistant-Agnostic Delivery**: Skills work uniformly across any assistant that supports the Agent Skills format
 
 ---
 
@@ -64,27 +58,29 @@ This CLI tool initializes AI-assisted development environments with hierarchical
 
 ### Three-Phase Progressive Refinement
 
-The system implements a specialized workflow optimized for AI cognitive constraints:
+The system implements a specialized workflow optimized for AI cognitive constraints. Each phase is delivered as an Agent Skill that the assistant auto-loads when the user's request matches its description.
 
-#### Phase 1: Strategic Planning (`/tasks:create-plan`)
+#### Phase 1: Strategic Planning (`task-create-plan` skill)
 - **Focus**: Context gathering and requirement clarification
 - **Output**: Comprehensive plan with mandatory clarification gates
 - **Prevents**: Assumption-based planning and scope ambiguity
 
-#### Phase 2: Task Decomposition (`/tasks:generate-tasks`)  
+#### Phase 2: Task Decomposition (`task-generate-tasks` skill)
 - **Focus**: Breaking complexity into atomic units
 - **Output**: Dependency-mapped tasks with skill assignments
 - **Enforces**: 20-30% task reduction and 1-2 skill maximum per task
 
-#### Phase 3: Execution (`/tasks:execute-blueprint`)
+#### Phase 3: Execution (`task-execute-blueprint` skill)
 - **Focus**: Current task implementation with minimal context
 - **Output**: Working functionality with validation gates
 - **Implements**: Dependency-aware parallelism and quality control
 
-#### Plan Review Loop (`/tasks:refine-plan`)
+#### Plan Review Loop (`task-refine-plan` skill)
 - **Focus**: Run a feedback cycle between assistants by interrogating an existing plan
 - **Output**: Updated plan document with clarified requirements, refreshed diagrams, and documented outstanding questions
-- **Purpose**: Acts as the bridge between plan creation and task generation when you want a second assistant to "red team" the plan, ask questions, and immediately apply the refinements
+- **Purpose**: Bridges plan creation and task generation when a second assistant should "red team" the plan, ask questions, and apply the refinements
+
+The end-to-end `task-full-workflow` skill chains all three phases for hands-off runs. The `task-execute-task` skill handles single-task execution.
 
 ### Key Design Principles
 
@@ -108,179 +104,18 @@ The system implements a specialized workflow optimized for AI cognitive constrai
 
 ---
 
-## Orchestration Pattern: Runtime Prompt Composition
-
-### Overview
-
-The orchestration commands (`/tasks:full-workflow` and `/tasks:execute-blueprint`) use a runtime prompt-composition pattern instead of invoking slash commands recursively. This architectural approach enables uninterrupted workflow execution from start to finish without requiring user intervention between steps.
-
-**Key Innovation**: Rather than calling `/tasks:create-plan` via the SlashCommand tool (which triggers a wait-for-user-input behavior), orchestrators embed the complete prompt content from `create-plan.md` directly inline with dynamic variable substitution.
-
-### The Problem: SlashCommand Recursion
-
-**Traditional Pattern (Problematic)**:
-```mermaid
-graph TB
-    A[User: /tasks:full-workflow] --> B[Orchestrator]
-    B --> C[SlashCommand: /tasks:create-plan]
-    C --> D[Prompt Expansion]
-    D --> E[WAIT FOR USER INPUT ❌]
-    E --> F[User types 'continue']
-    F --> G[SlashCommand: /tasks:generate-tasks]
-    G --> H[WAIT FOR USER INPUT ❌]
-
-    style E fill:#ffcccc
-    style H fill:#ffcccc
-```
-
-**Issue**: Each SlashCommand invocation expands the prompt and triggers Claude Code's built-in wait-for-user-input behavior. This breaks automated workflows, requiring manual "continue" commands at each transition point.
-
-**Failed Mitigation Attempts**:
-- State management through shared context files
-- Authoritative prompt instructions ("DO NOT wait for user input")
-- Various prompt engineering techniques
-
-None succeeded because the issue is architectural: the SlashCommand tool's execution model fundamentally treats each invocation as a discrete interaction.
-
-### The Solution: Prompt Composition
-
-**Composition Pattern (Solution)**:
-```mermaid
-graph TB
-    A[User: /tasks:full-workflow] --> B[Orchestrator Command]
-    B --> C[Embedded: create-plan.md prompt]
-    B --> D[Embedded: generate-tasks.md prompt]
-    B --> E[Embedded: execute-blueprint.md prompt]
-    C --> F[Single Unified Execution]
-    D --> F
-    E --> F
-    F --> G[Step 1: Plan ⬛⬜⬜]
-    G --> H[Step 2: Tasks ⬛⬛⬜]
-    H --> I[Step 3: Execute ⬛⬛⬛]
-    I --> J[Complete ✓]
-
-    style J fill:#ccffcc
-```
-
-**Implementation**: The orchestrator template files directly include the complete prompt content from each sub-command, with:
-- Dynamic variable substitution (user input → `$ARGUMENTS`, extracted Plan ID → `$1`)
-- Context passing instructions between sections
-- Progress indicators for user visibility (without pausing execution)
-- Structured output parsing to extract data for subsequent steps
-
-### How Orchestration Works
-
-The `/tasks:full-workflow` command embeds all three phases (plan, tasks, execute) into a single prompt with progress indicators, avoiding the wait-for-user-input delays of recursive slash commands. The `/tasks:execute-blueprint` command auto-generates missing tasks before execution.
-
-### Context Passing Between Steps
-
-Information flows through the workflow via structured output parsing:
-
-1. **User Input → Step 1**: User prompt becomes `$ARGUMENTS` in create-plan section
-2. **Step 1 → Step 2**: Create-plan outputs structured format:
-   ```
-   ---
-   Plan Summary:
-   - Plan ID: 51
-   - Plan File: /path/to/plan-51--name.md
-   ```
-   Orchestrator extracts `51` and uses as `$1` in generate-tasks section
-3. **Step 2 → Step 3**: Generate-tasks outputs task count for progress tracking
-4. **Continuous Flow**: All steps execute sequentially without pausing
-
-### When to Use Each Pattern
-
-#### Use Standalone Commands When:
-
-- **Running single workflow steps independently**: Execute just plan creation or just task generation
-- **User review is needed between steps**: Manual approval workflow where the user wants to review the plan before generating tasks
-- **Debugging or testing individual components**: Isolate a specific command for troubleshooting
-- **Iterative refinement**: Make adjustments to a plan or tasks before proceeding to execution
-- **Cross-assistant plan reviews are required**: Have a second assistant interrogate an existing plan with `/tasks:refine-plan [planId]` before kicking off task generation
-
-**Examples**:
-```bash
-# Create plan for manual review before proceeding
-/tasks:create-plan "Implement user authentication system"
-
-# Create plan without user interaction (scripted/automated workflows)
-/tasks:create-plan-auto "Implement user authentication system"
-
-# Run a plan refinement session before generating tasks
-/tasks:refine-plan 51
-
-# Refine plan without user interaction (scripted/automated workflows)
-/tasks:refine-plan-auto 51
-
-# Generate tasks after reviewing and adjusting the plan
-/tasks:generate-tasks 51
-
-# Execute a pre-approved and reviewed blueprint
-/tasks:execute-blueprint 51
-```
-
-#### Use Auto (Non-Interactive) Commands When:
-
-- **Scripted or automated workflows**: No user is available to respond to clarification questions
-- **CI/CD pipelines**: Plan creation/refinement runs as part of an automated pipeline
-- **Batch processing**: Creating or refining multiple plans without manual intervention
-- **The assistant should resolve ambiguity autonomously**: By inspecting the codebase, docs, and project context instead of asking the user
-
-The `-auto` variants (`/tasks:create-plan-auto`, `/tasks:refine-plan-auto`) behave identically to their interactive counterparts except they skip the user feedback loop. Instead of asking clarifying questions and waiting for answers, they resolve gaps by inspecting the codebase and documenting assumptions in the Plan Clarifications table.
-
-#### Use Orchestration Commands When:
-
-- **Executing the complete workflow without interruption**: Full automation from idea to implementation
-- **Plan is already conceptually approved**: User has confidence in the approach and wants immediate execution
-- **Rapid prototyping or experimentation**: Quick iterations where the implementation can be reviewed after completion
-- **Batch processing multiple features**: Running several full workflows sequentially in automated pipelines
-
-**Examples**:
-```bash
-# Full automated workflow from concept to completion
-/tasks:full-workflow "Add dark mode toggle to application settings"
-
-# Execute a plan that might need task generation first
-/tasks:execute-blueprint 51  # Auto-generates tasks if missing
-```
-
-### Progress Indicators
-
-**Scope**: Progress indicators are used **only in the full-workflow command** to show progress across its three major steps. The execute-blueprint command has its own phase-based progress tracking and does not need additional indicators.
-
-**Format**:
-```
-⬛⬜⬜ 33% - Step 1/3: Plan Creation Complete
-⬛⬛⬜ 66% - Step 2/3: Task Generation Complete
-⬛⬛⬛ 100% - Step 3/3: Blueprint Execution Complete
-```
-
-**Purpose**: Provide clear visual feedback about workflow status without interrupting execution. These are informational only and do not pause the workflow.
-
-### Backward Compatibility
-
-The composition pattern maintains full backward compatibility:
-
-- **Individual commands remain unchanged**: `/tasks:create-plan`, `/tasks:refine-plan`, `/tasks:generate-tasks`, and `/tasks:execute-blueprint` continue to function as standalone slash commands
-- **Existing workflows unaffected**: Projects using manual step-by-step workflows see no changes in behavior
-- **Template system intact**: All template processing, variable substitution, and format conversion (Markdown/TOML) work identically
-- **Approval methods preserved**: Both `approval_method_plan` and `approval_method_tasks` function correctly in all contexts
-
----
-
-## Architecture Overview
-
-### Template System
-
-All templates are authored in Markdown and automatically converted to assistant-specific formats (TOML for Gemini, Markdown for others). Variables are transformed during processing: `$ARGUMENTS` → `{{args}}` for Gemini, `$1` → `{{plan_id}}`, etc.
-
----
-
 ## Skills Layer
 
 The repository ships Agent Skills under `templates/assistant/skills/<name>/` at the repo root. There is no top-level `skills/` directory; authored content and compiled `.cjs` bundles coexist under each per-skill directory, with `scripts/` reserved for compiled output. Skills are assistant-agnostic — a single `SKILL.md` works for every assistant that supports the Agent Skills format. Skill directories are flat (no nested skills).
 
-The first skill is `task-create-plan` (`templates/assistant/skills/task-create-plan/`), which encodes the same plan-creation workflow the existing `/tasks:create-plan` command performs. The second shipping skill is `task-generate-tasks` (`templates/assistant/skills/task-generate-tasks/`), which encodes the same task-decomposition workflow the existing `/tasks:generate-tasks` command performs. The third shipping skill is `task-execute-blueprint` (`templates/assistant/skills/task-execute-blueprint/`), which encodes the same execution-orchestration workflow the existing `/tasks:execute-blueprint` command performs. The fourth shipping skill is `task-refine-plan` (`templates/assistant/skills/task-refine-plan/`), which encodes the same plan-refinement workflow the existing `/tasks:refine-plan` and `/tasks:refine-plan-auto` commands perform. The fifth shipping skill is `task-execute-task` (`templates/assistant/skills/task-execute-task/`), which encodes the same single-task execution workflow the existing `/tasks:execute-task` command performs. The sixth shipping skill is `task-full-workflow` (`templates/assistant/skills/task-full-workflow/`), which encodes the same end-to-end orchestration workflow the existing `/tasks:full-workflow` command performs: three-phase sequential execution (plan creation, task generation, blueprint execution) with context passing, progress indicators, and auto-generation fallback. Each skill coexists with its corresponding command; the command paths are unchanged.
+The shipping skills are:
+
+- `task-create-plan` (`templates/assistant/skills/task-create-plan/`) — strategic plan creation with mandatory clarification gates.
+- `task-generate-tasks` (`templates/assistant/skills/task-generate-tasks/`) — task decomposition with dependency mapping and skill assignments.
+- `task-execute-blueprint` (`templates/assistant/skills/task-execute-blueprint/`) — execution orchestration across all tasks in a plan.
+- `task-refine-plan` (`templates/assistant/skills/task-refine-plan/`) — plan refinement loop with interactive and autonomous clarification modes.
+- `task-execute-task` (`templates/assistant/skills/task-execute-task/`) — single-task execution.
+- `task-full-workflow` (`templates/assistant/skills/task-full-workflow/`) — end-to-end orchestration chaining the three phases (plan creation, task generation, blueprint execution) with context passing, progress indicators, and auto-generation fallback.
 
 ### TypeScript source of truth
 
@@ -301,7 +136,7 @@ Generated `.cjs` files under `templates/assistant/skills/*/scripts/` are git-ign
 
 Skills are distributed via [vercel-labs/skills](https://github.com/vercel-labs/skills), a generic Anthropic-adjacent installer. It discovers skills in this repo by reading `.claude-plugin/plugin.json` at the repo root, which declares each skill's path under `templates/assistant/skills/<name>/`. The manifest is a JSON file with a `skills:` array of `./templates/assistant/skills/<name>` entries (the leading `./` is required) and an optional `name` grouping label. Users run `npx skills add e0ipso/ai-task-manager` (or `…@<tag>` to pin) and the installer reads the tagged release ref. `npx @e0ipso/ai-task-manager init` does **not** copy skills — it bootstraps the `.ai/task-manager/` workspace only. The two channels are independently re-runnable; the only coupling point is the schema-version contract below.
 
-Note the semantic distinction between the three sibling directories under `templates/assistant/`: `templates/assistant/skills/` is build/install-time content read by the installer at `npx skills add` time, while `templates/assistant/agents/` and `templates/assistant/commands/` are per-project init-time content copied into `.<assistant>/...` by `npx . init`. The CLI's `init` does not read `templates/assistant/skills/`.
+Note the semantic distinction between the two sibling directories under `templates/assistant/`: `templates/assistant/skills/` is build/install-time content read by the installer at `npx skills add` time, while `templates/assistant/agents/` is per-project init-time content copied into `.claude/agents/` by `npx . init`. The CLI's `init` does not read `templates/assistant/skills/`.
 
 ### Schema Version Contract
 
@@ -338,7 +173,7 @@ Release commits are labeled `[release-bundle]` in the subject. They are reachabl
 ### Core Directory Structure
 ```
 project/
-├── .ai/task-manager/              # Shared configuration (all assistants)
+├── .ai/task-manager/              # Shared workspace (assistant-agnostic)
 │   ├── plans/                     # Active plans with tasks/
 │   │   └── 28--plan-name/
 │   │       ├── plan-28--plan-name.md
@@ -351,33 +186,10 @@ project/
 │   │   ├── scripts/               # ID generation (get-next-plan-id.cjs, etc)
 │   │   ├── hooks/                 # Lifecycle hooks (PRE_PLAN, POST_PLAN, PRE_PHASE, POST_PHASE, PRE_TASK_ASSIGNMENT, PRE_TASK_EXECUTION, POST_TASK_GENERATION_ALL, POST_EXECUTION, POST_ERROR_DETECTION)
 │   │   └── templates/             # Customizable (PLAN_TEMPLATE.md, TASK_TEMPLATE.md)
-└── .<assistant>/...               # See Assistant-Specific Differences table below
+└── .claude/agents/                # Claude-only sub-agents copied by `init`
 ```
 
-### Assistant-Specific Differences
-
-| Assistant | Directory | File Naming | Command Prefix | Format | Setup Required | Notes |
-|-----------|-----------|-------------|----------------|--------|----------------|-------|
-| **Claude** | `.claude/commands/tasks/` | `create-plan.md` | `/tasks:` | Markdown | None | Auto-discovered, native `$ARGUMENTS` |
-| **Codex** | `.codex/prompts/` (flat) | `tasks-create-plan.md` | `/prompts:` | Markdown | Manual copy to `~/.codex/prompts/`, restart CLI | Requires lowercase bash variables |
-| **Cursor** | `.cursor/commands/tasks/` | `create-plan.md` | `/tasks/` | Markdown | None | Auto-discovered, beta feature |
-| **Gemini** | `.gemini/commands/tasks/` | `create-plan.toml` | `/tasks:` | TOML | None | Auto-converted from Markdown templates |
-| **GitHub** | `.github/prompts/` (flat) | `tasks-create-plan.prompt.md` | `/tasks-` | Markdown | None | VS Code/JetBrains only, public preview |
-| **Open Code** | `.opencode/command/tasks/` | `create-plan.md` | `/tasks:` | Markdown | None | Auto-discovered, native `$ARGUMENTS` |
-
-**Important**: Bash variables in templates must use lowercase (`task_count`, `plan_id`) for Codex compatibility.
-
-**Common Command Examples** (adjust prefix per assistant):
-```bash
-/tasks:create-plan "Add user authentication"
-/tasks:create-plan-auto "Add user authentication"  # Non-interactive variant
-/tasks:refine-plan 51
-/tasks:refine-plan-auto 51                          # Non-interactive variant
-/tasks:generate-tasks 51
-/tasks:execute-blueprint 51
-/tasks:full-workflow "Implement dark mode"
-/tasks:fix-broken-tests "npm test"
-```
+The workflow itself is delivered through Agent Skills (installed via `npx skills add e0ipso/ai-task-manager`). The CLI's `init` does not emit per-assistant command or prompt directories.
 
 ### Archive System and Lifecycle Management
 
@@ -398,54 +210,7 @@ DEBUG=true node .ai/task-manager/config/scripts/get-next-plan-id.cjs
 
 ---
 
-## Enhanced Features and Commands
-
-### Refine-Plan Command
-
-#### Why It Exists
-
-The `/tasks:refine-plan [planId]` command enables a feedback loop between multiple LLMs (or between an LLM and a human). One assistant creates the initial plan, then the refine-plan command lets another assistant:
-- Load the plan context directly from the plan file in `.ai/task-manager/plans/`
-- Inspect the document section-by-section, highlighting gaps, contradictions, or gold-plated scope
-- Ask targeted clarifying questions and log the answers back into the "Plan Clarifications" table
-- Apply edits directly in the plan file while preserving the original plan ID and template structure
-- Append a change log so downstream assistants understand what changed during refinement
-
-#### Usage
-
-```bash
-# Interrogate and refine an existing plan
-/tasks:refine-plan 41
-```
-
-Use this to have a second assistant review, question, and improve a plan before task generation. The refine-plan command runs validation hooks and allows direct plan edits while preserving the plan ID and structure.
-
-### Fix-Broken-Tests Command
-
-#### Critical Integrity Requirements
-
-The fix-broken-tests command enforces strict integrity standards to prevent "test cheating":
-
-**❌ Absolutely Forbidden Practices**:
-- Adding environment checks to bypass test execution
-- Modifying test assertions to match broken implementation  
-- Implementing test-environment-specific code in source
-- Disabling or commenting out failing tests
-- ANY workaround that doesn't fix the actual bug
-
-**✅ Required Approach**:
-- Find root cause in source code
-- Fix the actual bug in implementation
-- Ensure tests pass because code truly works
-
-#### Usage Examples
-```bash
-# Fix tests after feature implementation
-/tasks:fix-broken-tests "npm test"
-
-# Fix specific test file
-/tasks:fix-broken-tests "jest src/__tests__/user-auth.test.ts"
-```
+## Supporting Utilities
 
 ### ID Generation
 
@@ -513,17 +278,7 @@ npm run prepublishOnly        # Pre-publish validation (auto-runs)
 
 ### Adding New Assistant Support
 
-To add a new AI assistant, update these files:
-
-1. **src/types.ts**: Add to `Assistant` type union
-2. **src/utils.ts**: Update three functions:
-   - `getTemplateFormat()`: Return 'md' or 'toml'
-   - `getAssistantConfig()`: Add directory config `{ dir: '...', subdir: 'tasks' | null }`
-   - `getCommandFileName()`: Define file naming convention (if non-standard)
-3. **src/__tests__/**: Add integration tests
-4. **AGENTS.md**: Update assistant comparison table and examples
-
-**Example** (Cursor): Nested structure `.cursor/commands/tasks/`, Markdown format, standard file names (`create-plan.md`), auto-discovery, `/tasks/` prefix
+Skills are assistant-agnostic — any assistant that supports the Agent Skills format consumes the same `SKILL.md` content. No code or template changes are required to support a new assistant. Users install skills via `npx skills add e0ipso/ai-task-manager`.
 
 ## Template Customization
 
@@ -576,13 +331,13 @@ Edit base templates at:
 **Best Practices**:
 - Maintain YAML frontmatter format
 - Preserve core metadata fields
-- **Use lowercase for bash variables** (`task_count`, `plan_id`) - Codex compatibility requirement
+- Use lowercase for bash variables (`task_count`, `plan_id`)
 - Template placeholders `$ARGUMENTS` and `$1` are exceptions (not bash variables)
 
 **Validate changes**:
 ```bash
 npm run build
-node dist/cli.js init --assistants claude,gemini,opencode,codex --destination-directory /tmp/test
+node dist/cli.js init --assistants claude --destination-directory /tmp/test
 ```
 
 ---
@@ -601,14 +356,14 @@ DEBUG=true node .ai/task-manager/config/scripts/get-next-plan-id.cjs
 **Solutions**: Verify directory structure, check file permissions, align ID sources
 
 #### Template Processing Errors
-**Symptoms**: Malformed TOML, missing variables, conversion failures
+**Symptoms**: Malformed frontmatter, missing variables
 **Debugging**: Check template syntax, validate frontmatter format, verify variable names
-**Solutions**: Use standard frontmatter, test variable substitution, validate against schema
+**Solutions**: Use standard frontmatter, test variable substitution
 
-#### Assistant Integration Issues
-**Symptoms**: Commands not found, format errors, execution failures
-**Debugging**: Verify assistant directory creation, check template format conversion
-**Solutions**: Rebuild templates, validate format mapping, check file permissions
+#### Skill Schema-Version Mismatches
+**Symptoms**: Skill bundles refuse to run with a workspace-vs-skill version error
+**Debugging**: Read the error message — it names the direction of the mismatch
+**Solutions**: Re-run `npx @e0ipso/ai-task-manager init` (workspace behind skill) or `npx skills add e0ipso/ai-task-manager` (skill behind workspace)
 
 ### Error Handling Architecture
 

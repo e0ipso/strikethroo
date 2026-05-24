@@ -21,9 +21,9 @@ npx skills add e0ipso/ai-task-manager
 npx @e0ipso/ai-task-manager init --assistants claude --destination-directory .
 ```
 
-The skills give your assistant the workflow commands; the CLI bootstraps `.ai/task-manager/` with hooks, templates, and the hash-tracked diff-on-conflict UX. Each step is independently re-runnable. See [MIGRATION.md](./MIGRATION.md) for upgrade flows and recovery from schema-mismatch errors.
+The skills give your assistant the planning, decomposition, and execution workflow; the CLI bootstraps `.ai/task-manager/` with hooks, templates, and the hash-tracked diff-on-conflict UX. Each step is independently re-runnable. See [MIGRATION.md](./MIGRATION.md) for upgrade flows and recovery from schema-mismatch errors.
 
-Configure other assistants by swapping the `--assistants` value (`cursor`, `gemini`, `opencode`, `codex`, `github`) or by passing a comma-separated list (`claude,cursor,gemini`).
+The CLI's `init` only emits the shared workspace plus Claude agents. Other assistants rely entirely on the installed skills.
 
 ## ✨ Key Benefits
 
@@ -46,16 +46,20 @@ Comprehensive guides covering:
 
 ## 🔄 Workflow Preview
 
-**Automated Workflow (Recommended for Beginners):**
-```bash
-/tasks:full-workflow Create user authentication system
-```
+Once the skills are installed, invoke the workflow by intent — the assistant auto-loads the matching skill. There are no slash commands to memorize.
 
-**Manual Workflow (Full Control):**
-1. **📝 Create a plan** → `/tasks:create-plan Create user authentication system`
-2. **🔍 Refine the plan** → `/tasks:refine-plan 1` (have a second assistant review the plan, ask clarifying questions, and update the document before tasks are created)
-3. **📋 Generate tasks** → `/tasks:generate-tasks 1`
-4. **🚀 Execute blueprint** → `/tasks:execute-blueprint 1`
+**Automated end-to-end run:**
+
+> "Run the full workflow to create a user authentication system."
+
+The `task-full-workflow` skill handles plan creation, task generation, and blueprint execution in a single pass.
+
+**Step-by-step (for manual review between phases):**
+
+1. **📝 Create a plan** → "Create a plan for a user authentication system" (`task-create-plan` skill)
+2. **🔍 Refine the plan** → "Refine plan 1" (`task-refine-plan` skill — useful when a second assistant should red-team the plan)
+3. **📋 Generate tasks** → "Generate tasks for plan 1" (`task-generate-tasks` skill)
+4. **🚀 Execute blueprint** → "Execute the blueprint for plan 1" (`task-execute-blueprint` skill)
 5. **📊 Monitor progress** → `npx @e0ipso/ai-task-manager status`
 6. **🗂️ Manage plans** → `npx @e0ipso/ai-task-manager plan show 1`
 

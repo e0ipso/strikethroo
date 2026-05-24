@@ -8,7 +8,7 @@ description: "Day-to-day workflow with AI Task Manager"
 
 # 🔄 Basic Workflow Guide
 
-This guide covers the day-to-day development workflow using AI Task Manager. Follow these steps for consistent, high-quality implementations.
+This guide covers the day-to-day development workflow using AI Task Manager. The workflow is delivered through Agent Skills installed via `npx skills add e0ipso/ai-task-manager`; you invoke each step by asking your assistant in plain language, and the matching skill loads automatically.
 
 ## One-Time Setup
 
@@ -34,13 +34,11 @@ See the [Customization Guide](customization.html) for detailed examples.
 
 ## Daily Development Workflow
 
+Install skills, then ask your assistant to plan, decompose, and execute. Review the artifacts in `.ai/task-manager/plans/` between steps. The short version: each phase corresponds to a skill (`task-create-plan`, `task-generate-tasks`, `task-execute-blueprint`), and skills load on intent — you do not type slash commands.
+
 ### Automated Workflow (Alternative)
 
-For a streamlined experience, use the automated workflow command that handles all three phases:
-
-```bash
-/tasks:full-workflow Create user authentication with email/password and JWT tokens
-```
+For a streamlined experience, ask your assistant to run the full task-manager workflow end-to-end. The `task-full-workflow` skill chains the three phases together:
 
 **What happens:**
 - Creates plan with clarification questions (Phase 1)
@@ -53,24 +51,22 @@ For a streamlined experience, use the automated workflow command that handles al
 - Prefer automation over manual review gates
 - Quick prototyping or straightforward features
 
-**When to use manual workflow:**
+**When to use the step-by-step workflow:**
 - Complex features needing careful planning review
 - Requirements need significant refinement
 - Want to review/edit tasks before execution
 
-For the manual workflow, follow the step-by-step process below.
+For the step-by-step workflow, follow the process below.
 
 ### Step 1: Create a Plan
 
-Start any new feature or project by creating a structured plan:
+Start any new feature or project by asking your assistant to plan it, for example:
 
-```bash
-/tasks:create-plan Create user authentication with email/password and JWT tokens
-```
+> Use the task-manager workflow to plan user authentication with email/password and JWT tokens.
 
-**What happens:**
-- AI asks clarifying questions about your requirements
-- Creates comprehensive plan document with:
+The `task-create-plan` skill loads and:
+- Asks clarifying questions about your requirements
+- Creates a comprehensive plan document with:
   - Clarified requirements
   - Technical approach
   - Risk considerations
@@ -80,7 +76,7 @@ Start any new feature or project by creating a structured plan:
 
 ### Step 2: Provide Additional Context (Optional)
 
-If the AI needs more information:
+If the assistant needs more information:
 
 ```
 The authentication should:
@@ -90,17 +86,12 @@ The authentication should:
 - Follow OAuth 2.0 best practices for token handling
 ```
 
-AI updates the plan with this additional context.
+The assistant updates the plan with this additional context.
 
 ### Step 3: Invite a Plan Reviewer (Optional but Recommended)
 
-Run the plan refinement loop whenever you want a second assistant to interrogate the plan and apply updates automatically:
+Ask a second assistant (or the same one in a new session) to refine plan 1. The `task-refine-plan` skill:
 
-```bash
-/tasks:refine-plan 1
-```
-
-**What happens:**
 - Loads assistant configuration and validates the plan path
 - Reviews every section for gaps (context, technical design, risks, scope creep)
 - Asks targeted clarifying questions and logs answers inside the "Plan Clarifications" table
@@ -123,17 +114,12 @@ Open the plan document and verify:
 
 ### Step 5: Generate Tasks
 
-Once the plan is reviewed and approved:
+Once the plan is reviewed and approved, ask your assistant to decompose plan 1 into tasks. The `task-generate-tasks` skill:
 
-```bash
-/tasks:generate-tasks 1
-```
-
-**What happens:**
-- AI breaks plan into atomic tasks
-- Each task assigned 1-2 technical skills
-- Dependencies mapped automatically
-- Execution blueprint generated with phases
+- Breaks the plan into atomic tasks
+- Assigns each task 1-2 technical skills
+- Maps dependencies automatically
+- Generates an execution blueprint with phases
 
 **Tasks location**: `.ai/task-manager/plans/01--user-authentication/tasks/`
 
@@ -155,20 +141,15 @@ Review all generated tasks in `.ai/task-manager/plans/01--user-authentication/ta
 
 ### Step 7: Execute the Blueprint
 
-After reviewing and approving tasks:
+After reviewing and approving tasks, ask your assistant to execute the blueprint for plan 1. The `task-execute-blueprint` skill:
 
-```bash
-/tasks:execute-blueprint 1
-```
+- Executes tasks phase by phase
+- Runs independent tasks in parallel within each phase
+- Invokes the POST_PHASE hook to validate quality after each phase
+- Creates commits automatically for each phase
+- Reports updates as phases complete
 
-**What happens:**
-- AI executes tasks phase by phase
-- Independent tasks run in parallel within each phase
-- POST_PHASE hook validates quality after each phase
-- Commits created automatically for each phase
-- You receive updates as phases complete
-
-**Note**: If you forgot to run `/tasks:generate-tasks`, execute-blueprint will automatically generate tasks and the blueprint for you before starting execution.
+**Note**: If you skipped Step 5, the execute-blueprint skill will automatically generate tasks and the blueprint for you before starting execution.
 
 ### Step 8: Monitor Progress
 
@@ -188,13 +169,8 @@ npx @e0ipso/ai-task-manager status
 
 ### Step 9: Fix Broken Tests (If Needed)
 
-If tests fail after implementation:
+If tests fail after implementation, ask your assistant to fix the broken tests by running `npm test` (or your project's test command). The `fix-broken-tests` skill enforces test integrity — it will **NOT** allow:
 
-```bash
-/tasks:fix-broken-tests npm test
-```
-
-**Critical**: This command enforces test integrity. It will **NOT** allow:
 - Skipping tests
 - Modifying assertions to match broken code
 - Adding environment checks to bypass tests
@@ -332,7 +308,7 @@ Helps you:
 Keep active workspace clean:
 
 ```bash
-mv .ai/task-manager/plans/01--completed-feature .ai/task-manager/archive/
+npx @e0ipso/ai-task-manager plan archive 01
 ```
 
 Archived plans:
@@ -340,32 +316,6 @@ Archived plans:
 - Don't clutter status dashboard
 - Preserve implementation history
 - Can be referenced for future work
-
-## Keyboard Shortcuts (In AI Assistants)
-
-**Claude Code:**
-- `/tasks:create-plan` - Start new plan
-- `/tasks:generate-tasks [id]` - Generate tasks for plan
-- `/tasks:execute-blueprint [id]` - Execute plan
-- `/tasks:fix-broken-tests [command]` - Fix test failures
-
-**Gemini CLI:**
-Same commands, TOML format configuration
-
-**Open Code:**
-Same commands, Markdown format configuration
-
-**Codex CLI:**
-- `/prompts:tasks-create-plan` - Start new plan
-- `/prompts:tasks-generate-tasks [id]` - Generate tasks for plan
-- `/prompts:tasks-execute-blueprint [id]` - Execute plan
-- `/prompts:tasks-fix-broken-tests [command]` - Fix test failures
-
-**GitHub Copilot (VS Code/JetBrains):**
-- `/tasks-create-plan` - Start new plan
-- `/tasks-generate-tasks [id]` - Generate tasks for plan
-- `/tasks-execute-blueprint [id]` - Execute plan
-- `/tasks-fix-broken-tests [command]` - Fix test failures
 
 ## Plan Management Commands
 

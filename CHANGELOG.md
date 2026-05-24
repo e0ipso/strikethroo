@@ -1,3 +1,8 @@
+## 2.0.0 (2026-05-21)
+
+* feat!: remove slash-command surface; the project is now skills-only. Install the workflow via `npx skills add e0ipso/ai-task-manager`. Users with `.claude/commands/tasks/`, `.gemini/commands/tasks/`, `.codex/prompts/tasks-*`, `.github/prompts/tasks-*.prompt.md`, `.cursor/commands/tasks/`, or `.opencode/command/tasks/` left over from prior `init` runs can delete them — they are no longer regenerated and the equivalent skills cover every workflow they provided.
+* feat!: remove the `claude-exec` CLI subcommand. It existed only to invoke slash commands and has no purpose in a skills-only project.
+
 ## 1.36.0 (2026-04-21)
 
 * feat(init): create archive directory on init ([944f0cb](https://github.com/e0ipso/ai-task-manager/commit/944f0cb))

@@ -10,7 +10,6 @@ import { Command } from 'commander';
 import { init } from './index';
 import { status } from './status';
 import { showPlan, archivePlan, deletePlan } from './plan';
-import { claudeExec } from './exec';
 import { InitOptions } from './types';
 
 const program = new Command();
@@ -185,37 +184,6 @@ planCommand
         );
         process.exit(1);
       }
-    }
-  });
-
-// Claude-exec command: validate and execute multiple plans sequentially
-program
-  .command('claude-exec <plan-ids>')
-  .description('Validate and execute multiple plans sequentially using Claude Code CLI')
-  .action(async (planIdsStr: string) => {
-    try {
-      const planIds = planIdsStr.split(',').map(id => {
-        const num = parseInt(id.trim(), 10);
-        if (isNaN(num)) {
-          console.error(`Invalid plan ID: ${id.trim()}. Must be a number.`);
-          process.exit(1);
-        }
-        return num;
-      });
-
-      const result = await claudeExec(planIds);
-
-      if (result.success) {
-        process.exit(0);
-      } else {
-        if (result.message) {
-          console.error(result.message);
-        }
-        process.exit(1);
-      }
-    } catch (error) {
-      console.error(`Unexpected error: ${error instanceof Error ? error.message : String(error)}`);
-      process.exit(1);
     }
   });
 

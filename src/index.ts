@@ -141,7 +141,6 @@ export async function init(options: InitOptions): Promise<CommandResult> {
       console.log(`    ${chalk.blue('●')} ${file}`);
     }
 
-    // Claude agents (only Claude gets per-assistant artifacts)
     if (assistants.includes('claude')) {
       const agentFiles = await collectFiles(resolvePath(baseDir, '.claude/agents'));
       if (agentFiles.length > 0) {
@@ -318,12 +317,6 @@ async function applyResolutions(
   }
 }
 
-/**
- * Create directory structure and copy templates for a specific assistant.
- *
- * Only Claude receives per-assistant artifacts (the agents directory).
- * All other assistants rely on the skills installed via `npx skills add`.
- */
 async function createAssistantStructure(assistant: Assistant, baseDir: string): Promise<void> {
   if (assistant !== 'claude') {
     console.log(

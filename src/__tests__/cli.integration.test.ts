@@ -1,10 +1,10 @@
 /**
  * CLI Integration Tests
  *
- * Tests the surviving CLI behaviour after the slash-command channel was removed.
- * The CLI now bootstraps `.ai/task-manager/` for every assistant and copies
- * Claude agents into `.claude/agents/` only when claude is selected. All other
- * assistants rely on Agent Skills installed via `npx skills add`.
+ * Tests CLI behaviour for the skills-only architecture.
+ * The CLI bootstraps `.ai/task-manager/` and copies Claude agents into
+ * `.claude/agents/`. Task skills are installed separately via
+ * `npx skills add e0ipso/ai-task-manager`.
  */
 
 import { execSync } from 'child_process';

@@ -109,21 +109,6 @@ describe('Conflict Detection Integration Tests', () => {
       expect(metadata?.files['config/hooks/POST_PHASE.md']).toBeDefined();
     });
 
-    it('should not track scripts directory in metadata', async () => {
-      const result = await init({
-        assistants: 'claude',
-        destinationDirectory: testDir,
-      });
-
-      expect(result.success).toBe(true);
-
-      const metadataPath = path.join(testDir, '.ai/task-manager/.init-metadata.json');
-      const metadata = await loadMetadata(metadataPath);
-
-      // Check that scripts files are NOT tracked
-      const scriptFiles = Object.keys(metadata?.files || {}).filter(f => f.includes('scripts/'));
-      expect(scriptFiles.length).toBe(0);
-    });
   });
 
   describe('Re-initialization with no changes', () => {

@@ -26,11 +26,6 @@ async function getConfigFiles(destDir: string): Promise<string[]> {
       const fullPath = path.join(dir, entry.name);
       const relativePath = path.relative(relativeTo, fullPath);
 
-      // Skip scripts directory (not user-editable)
-      if (relativePath.startsWith('config/scripts') || relativePath.includes('/scripts/')) {
-        continue;
-      }
-
       if (entry.isDirectory()) {
         await walkDir(fullPath, relativeTo);
       } else if (entry.isFile()) {

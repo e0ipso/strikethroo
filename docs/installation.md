@@ -101,9 +101,6 @@ project-root/
 │       │   │   ├── TASK_TEMPLATE.md
 │       │   │   ├── BLUEPRINT_TEMPLATE.md
 │       │   │   └── EXECUTION_SUMMARY_TEMPLATE.md
-│       │   └── scripts/           # ID generation scripts
-│       │       ├── get-next-plan-id.cjs
-│       │       └── get-next-task-id.cjs
 │       └── .init-metadata.json    # File conflict detection tracking
 └── .claude/                       # Claude agents (if --assistants claude)
     └── agents/
@@ -137,10 +134,6 @@ npx @e0ipso/ai-task-manager init --assistants claude --force
 ```
 
 **Warning**: Force mode overwrites ALL files, including your customizations. Back up custom hooks and templates first!
-
-### Protected Files
-
-The `config/scripts/` directory is **never** overwritten by init, even in force mode. Your custom ID generation logic is always preserved.
 
 ### Updating Skills
 

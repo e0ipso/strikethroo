@@ -252,18 +252,12 @@ async function createMetadata(
 ): Promise<void> {
   const files: Record<string, string> = {};
 
-  // Get all config files (excluding scripts directory)
   async function walkDir(dir: string, relativeTo: string): Promise<void> {
     const entries = await fs.readdir(dir, { withFileTypes: true });
 
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
       const relativePath = path.relative(relativeTo, fullPath);
-
-      // Skip scripts directory
-      if (relativePath.startsWith('config/scripts') || relativePath.includes('/scripts/')) {
-        continue;
-      }
 
       // Skip README.md (always overwrite on init/re-init)
       if (relativePath === 'README.md') {

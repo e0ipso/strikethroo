@@ -26,25 +26,7 @@ Select agents based on:
 
 ## Skills Extraction and Agent Detection
 
-Read task skills and select appropriate task-specific agent:
-
-```bash
-# Extract skills from task frontmatter
-TASK_SKILLS=$(node "$root/config/scripts/extract-task-skills.cjs" "$TASK_FILE")
-
-echo "Task skills required: $TASK_SKILLS"
-
-# Check for available sub-agents across assistant directories
-AGENT_FOUND=false
-for assistant_dir in .claude .gemini .opencode; do
-    if [ -d "$assistant_dir/agents" ] && [ -n "$(ls $assistant_dir/agents 2>/dev/null)" ]; then
-        echo "Available sub-agents detected in $assistant_dir - will match to task requirements"
-        AGENT_FOUND=true
-        break
-    fi
-done
-
-if [ "$AGENT_FOUND" = false ]; then
-    echo "Using general-purpose agent for task execution"
-fi
-```
+1. Read the `skills` array from the task's YAML frontmatter directly.
+2. Check for available sub-agents across assistant directories (`.claude/agents`, `.gemini/agents`, `.opencode/agents`).
+3. If matching sub-agents are found, select the most appropriate one based on the task's required skills.
+4. If no sub-agents are available or none match, use a general-purpose agent for task execution.

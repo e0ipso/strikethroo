@@ -34,7 +34,6 @@ The workflow itself is delivered as Agent Skills, not slash commands. Install th
 The init command uses hash-based tracking to protect user customizations:
 - Creates `.ai/task-manager/.init-metadata.json` with SHA-256 file hashes
 - Compares current vs original hashes to detect user modifications
-- Excludes `config/scripts/` directory from tracking
 - Use `--force` flag to bypass prompts in automation
 
 ---
@@ -183,7 +182,6 @@ project/
 │   ├── archive/                   # Completed plans
 │   ├── config/
 │   │   ├── TASK_MANAGER.md        # Project context
-│   │   ├── scripts/               # ID generation (get-next-plan-id.cjs, etc)
 │   │   ├── hooks/                 # Lifecycle hooks (PRE_PLAN, POST_PLAN, PRE_PHASE, POST_PHASE, PRE_TASK_ASSIGNMENT, PRE_TASK_EXECUTION, POST_TASK_GENERATION_ALL, POST_EXECUTION, POST_ERROR_DETECTION)
 │   │   └── templates/             # Customizable (PLAN_TEMPLATE.md, TASK_TEMPLATE.md)
 └── .claude/agents/                # Claude-only sub-agents copied by `init`
@@ -203,23 +201,6 @@ The workflow itself is delivered through Agent Skills (installed via `npx skills
 ```bash
 # Manual archival after completion
 mv .ai/task-manager/plans/25--completed-plan .ai/task-manager/archive/
-
-# Validation of archive integrity
-DEBUG=true node .ai/task-manager/config/scripts/get-next-plan-id.cjs
-```
-
----
-
-## Supporting Utilities
-
-### ID Generation
-
-```bash
-# Generate next plan ID with debug logging
-DEBUG=true node .ai/task-manager/config/scripts/get-next-plan-id.cjs
-
-# Generate next task ID for specific plan
-node .ai/task-manager/config/scripts/get-next-task-id.cjs 28
 ```
 
 ---
@@ -345,15 +326,6 @@ node dist/cli.js init --assistants claude --destination-directory /tmp/test
 ## Error Handling and Troubleshooting
 
 ### Common Issues and Solutions
-
-#### ID Generation Problems
-**Symptoms**: ID conflicts, missing plans, inconsistent numbering
-**Debugging**:
-```bash
-# Enable comprehensive debug logging
-DEBUG=true node .ai/task-manager/config/scripts/get-next-plan-id.cjs
-```
-**Solutions**: Verify directory structure, check file permissions, align ID sources
 
 #### Template Processing Errors
 **Symptoms**: Malformed frontmatter, missing variables

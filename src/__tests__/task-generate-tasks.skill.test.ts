@@ -2,7 +2,6 @@
  * Integration tests for the task-generate-tasks skill:
  *   1. Direct TypeScript helper tests (resolvePlan, computeNextTaskId).
  *   2. Bundle smoke checks of the three .cjs files shipped with the skill.
- *   3. Output parity with the legacy reference get-next-task-id.cjs.
  */
 
 import * as fs from 'fs';
@@ -21,15 +20,6 @@ const SKILL_DIR = path.join(
   'skills',
   'task-generate-tasks'
 );
-const REFERENCE_NEXT_TASK_ID_CJS = path.join(
-  REPO_ROOT,
-  'templates',
-  'ai-task-manager',
-  'config',
-  'scripts',
-  'get-next-task-id.cjs'
-);
-
 const writeFile = (filePath: string, contents: string): void => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, contents);
@@ -211,7 +201,7 @@ describe('task-generate-tasks bundle smoke', () => {
     expect(blueprintOut).toBe('no');
   });
 
-  test('get-next-task-id.cjs matches the reference .cjs output', () => {
+  test('get-next-task-id.cjs bundled script produces correct output', () => {
     const bundledScript = path.join(
       fixtureSkillDir,
       'scripts',
@@ -221,11 +211,6 @@ describe('task-generate-tasks bundle smoke', () => {
       cwd: tempDir,
       encoding: 'utf8',
     }).trim();
-    const reference = execFileSync('node', [REFERENCE_NEXT_TASK_ID_CJS, '12'], {
-      cwd: tempDir,
-      encoding: 'utf8',
-    }).trim();
-    expect(bundled).toBe(reference);
     expect(bundled).toBe('4');
   });
 });

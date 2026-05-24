@@ -215,16 +215,12 @@ For more sophisticated patterns, see [Workflow Patterns](workflows.html):
 
 **Error**: Plan or task ID conflicts or missing IDs
 
-**Debugging**:
-```bash
-DEBUG=true node .ai/task-manager/config/scripts/get-next-plan-id.cjs
-```
-
 **Solutions**:
 - Verify directory structure intact (.ai/task-manager/plans/)
 - Check file permissions on plans directory
 - Ensure plan documents have proper frontmatter with `id:` field
 - Align directory names with plan IDs (e.g., `01--name` matches `id: 1`)
+- Reinstall skills (`npx skills add e0ipso/ai-task-manager`) if ID generation fails
 
 ### Jekyll Build Errors in Documentation
 
@@ -250,10 +246,7 @@ bundle exec jekyll serve # Run locally
 - Review dependency graph in plan's execution blueprint
 - Check task frontmatter for `dependencies: [list]`
 - Verify circular dependencies don't exist
-- Run dependency validation:
-  ```bash
-  node .ai/task-manager/config/scripts/check-task-dependencies.cjs 1 2
-  ```
+- Dependency validation is handled automatically by the `task-execute-task` and `task-execute-blueprint` skills
 
 ### Customization Not Applied
 

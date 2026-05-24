@@ -1,13 +1,12 @@
 /**
  * Integration tests for the centralized skill-scripts TypeScript source
- * and the bundled .cjs artifacts under templates/assistant/skills/task-create-plan/.
+ * and the bundled .cjs artifacts under templates/assistant/skills/.
  *
  * Covers:
  *   1. Plan ID allocation across plans/ and archive/, mixing .md and .html.
  *   2. Task-manager root discovery from a nested working directory.
  *   3. Bundle smoke check: generated .cjs files execute self-contained
- *      from a fixture that contains only the skill, and their output
- *      matches the reference .cjs in templates/ai-task-manager/.
+ *      from a fixture that contains only the skill.
  */
 
 import * as fs from 'fs';
@@ -27,14 +26,6 @@ import {
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const SKILL_DIR = path.join(REPO_ROOT, 'templates', 'assistant', 'skills', 'task-create-plan');
-const REFERENCE_CJS = path.join(
-  REPO_ROOT,
-  'templates',
-  'ai-task-manager',
-  'config',
-  'scripts',
-  'get-next-plan-id.cjs'
-);
 
 const writeFile = (filePath: string, contents: string): void => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -192,64 +183,19 @@ describe('skill bundle smoke check', () => {
     );
   });
 
-  test('get-next-plan-id.cjs matches the reference .cjs output', () => {
+  test('get-next-plan-id.cjs bundled script produces correct output', () => {
     const bundledScript = path.join(
       fixtureSkillDir,
       'scripts',
       'get-next-plan-id.cjs'
     );
-    const fixtureCwd = tempDir;
 
     const bundledOut = execFileSync('node', [bundledScript], {
-      cwd: fixtureCwd,
+      cwd: tempDir,
       encoding: 'utf8',
     }).trim();
 
-    const referenceOut = execFileSync('node', [REFERENCE_CJS], {
-      cwd: fixtureCwd,
-      encoding: 'utf8',
-    }).trim();
-
-    // The bundled script recognizes .html plans, the reference only .md.
-    // Cross-validate on a markdown-only fixture so both produce identical
-    // output (proving the helpers are semantically aligned for the shared
-    // surface area).
     expect(parseInt(bundledOut, 10)).toBe(8);
-
-    // Reference .cjs only counts .md plans, so it sees ids [2, 3] → next 4.
-    expect(parseInt(referenceOut, 10)).toBe(4);
-
-    // Now create a markdown-only fixture and verify exact agreement.
-    const mdOnly = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-mdonly-'));
-    try {
-      const tm = path.join(mdOnly, '.ai', 'task-manager');
-      fs.mkdirSync(tm, { recursive: true });
-      fs.writeFileSync(
-        path.join(tm, '.init-metadata.json'),
-        JSON.stringify({ version: 'test' })
-      );
-      writeFile(
-        path.join(tm, 'plans', '03--alpha', 'plan-03--alpha.md'),
-        '---\nid: 3\nsummary: "a"\ncreated: 2026-01-01\n---\n'
-      );
-      writeFile(
-        path.join(tm, 'archive', '02--gamma', 'plan-02--gamma.md'),
-        '---\nid: 2\nsummary: "g"\ncreated: 2026-01-03\n---\n'
-      );
-
-      const bundled = execFileSync('node', [bundledScript], {
-        cwd: mdOnly,
-        encoding: 'utf8',
-      }).trim();
-      const reference = execFileSync('node', [REFERENCE_CJS], {
-        cwd: mdOnly,
-        encoding: 'utf8',
-      }).trim();
-      expect(bundled).toBe(reference);
-      expect(bundled).toBe('4');
-    } finally {
-      fs.rmSync(mdOnly, { recursive: true, force: true });
-    }
   });
 });
 
@@ -407,103 +353,6 @@ describe('create-feature-branch integration', () => {
     });
     expect(result).toContain('already exists');
     expect(result).toContain('Proceeding with existing branch');
-  });
-});
-
-describe('create-feature-branch cross-validation', () => {
-  let tempDir: string;
-
-  beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'feature-branch-xval-'));
-  });
-
-  afterEach(() => {
-    fs.rmSync(tempDir, { recursive: true, force: true });
-  });
-
-  test('bundled and legacy scripts produce identical branch names and exit codes', () => {
-    const tm = path.join(tempDir, '.ai', 'task-manager');
-    fs.mkdirSync(tm, { recursive: true });
-    fs.writeFileSync(
-      path.join(tm, '.init-metadata.json'),
-      JSON.stringify({ version: 'test' })
-    );
-    const planDir = path.join(tm, 'plans', '42--cross-validation-plan');
-    fs.mkdirSync(planDir, { recursive: true });
-    const planFile = path.join(planDir, 'plan-42--cross-validation-plan.md');
-    fs.writeFileSync(
-      planFile,
-      '---\nid: 42\nsummary: "cross-validation-plan"\ncreated: 2026-01-01\n---\n'
-    );
-
-    execFileSync('git', ['init', '-b', 'main'], {
-      cwd: tempDir,
-      stdio: 'pipe',
-    });
-    execFileSync('git', ['config', 'user.email', 'test@test.com'], {
-      cwd: tempDir,
-      stdio: 'pipe',
-    });
-    execFileSync('git', ['config', 'user.name', 'Test'], {
-      cwd: tempDir,
-      stdio: 'pipe',
-    });
-    fs.writeFileSync(path.join(tempDir, 'init.txt'), 'init');
-    execFileSync('git', ['add', '.'], { cwd: tempDir, stdio: 'pipe' });
-    execFileSync('git', ['commit', '-m', 'init'], { cwd: tempDir, stdio: 'pipe' });
-
-    const legacyScript = path.join(
-      REPO_ROOT,
-      'templates',
-      'ai-task-manager',
-      'config',
-      'scripts',
-      'create-feature-branch.cjs'
-    );
-    const bundledScript = path.join(
-      REPO_ROOT,
-      'templates',
-      'assistant',
-      'skills',
-      'task-execute-blueprint',
-      'scripts',
-      'create-feature-branch.cjs'
-    );
-
-    let legacyResult = '';
-    let legacyError = false;
-    try {
-      legacyResult = execFileSync('node', [legacyScript, planFile], {
-        cwd: tempDir,
-        encoding: 'utf8',
-      });
-    } catch (e: any) {
-      legacyResult = e.stdout || '';
-      legacyError = true;
-    }
-
-    let bundledResult = '';
-    let bundledError = false;
-    try {
-      bundledResult = execFileSync('node', [bundledScript, planFile], {
-        cwd: tempDir,
-        encoding: 'utf8',
-      });
-    } catch (e: any) {
-      bundledResult = e.stdout || '';
-      bundledError = true;
-    }
-
-    expect(legacyError).toBe(false);
-    expect(bundledError).toBe(false);
-    expect(legacyResult).toContain('feature/42--cross-validation-plan');
-    expect(bundledResult).toContain('feature/42--cross-validation-plan');
-
-    const branches = execFileSync('git', ['branch', '--list'], {
-      cwd: tempDir,
-      encoding: 'utf8',
-    });
-    expect(branches).toContain('feature/42--cross-validation-plan');
   });
 });
 
@@ -787,145 +636,6 @@ describe('task-execute-task bundle smoke check', () => {
     } finally {
       fs.writeFileSync(depFile, original);
     }
-  });
-});
-
-describe('task-execute-task cross-validation', () => {
-  let tempDir: string;
-
-  beforeAll(() => {
-    execFileSync('npm', ['run', 'build:skills'], {
-      cwd: REPO_ROOT,
-      stdio: 'pipe',
-    });
-  });
-
-  beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-xval-exec-task-'));
-    buildTaskFixture(tempDir, 42, 'cross-validation', [
-      { id: 1, status: 'completed', dependencies: [] },
-      { id: 2, status: 'pending', dependencies: [1] },
-    ]);
-  });
-
-  afterEach(() => {
-    fs.rmSync(tempDir, { recursive: true, force: true });
-  });
-
-  test('bundled and legacy scripts produce identical exit codes on resolved deps', () => {
-    const bundledScript = path.join(
-      REPO_ROOT,
-      'templates',
-      'assistant',
-      'skills',
-      'task-execute-task',
-      'scripts',
-      'check-task-dependencies.cjs'
-    );
-    const legacyScript = path.join(
-      REPO_ROOT,
-      'templates',
-      'ai-task-manager',
-      'config',
-      'scripts',
-      'check-task-dependencies.cjs'
-    );
-
-    let bundledExit = 0;
-    let bundledStdout = '';
-    try {
-      bundledStdout = execFileSync('node', [bundledScript, '42', '2'], {
-        cwd: tempDir,
-        encoding: 'utf8',
-        env: { ...process.env, NO_COLOR: '1' },
-      });
-    } catch (e: any) {
-      bundledExit = e.status ?? 1;
-      bundledStdout = e.stdout || '';
-    }
-
-    let legacyExit = 0;
-    let legacyStdout = '';
-    try {
-      legacyStdout = execFileSync('node', [legacyScript, '42', '2'], {
-        cwd: tempDir,
-        encoding: 'utf8',
-        env: { ...process.env, NO_COLOR: '1' },
-      });
-    } catch (e: any) {
-      legacyExit = e.status ?? 1;
-      legacyStdout = e.stdout || '';
-    }
-
-    expect(bundledExit).toBe(legacyExit);
-    expect(bundledExit).toBe(0);
-    expect(bundledStdout).toContain('All dependencies are resolved');
-    expect(legacyStdout).toContain('All dependencies are resolved');
-  });
-
-  test('bundled and legacy scripts produce identical exit codes on unresolved deps', () => {
-    const depFile = path.join(
-      tempDir,
-      '.ai',
-      'task-manager',
-      'plans',
-      '42--cross-validation',
-      'tasks',
-      '01--task-1.md'
-    );
-    const original = fs.readFileSync(depFile, 'utf8');
-    fs.writeFileSync(depFile, original.replace('status: "completed"', 'status: "failed"'));
-
-    const bundledScript = path.join(
-      REPO_ROOT,
-      'templates',
-      'assistant',
-      'skills',
-      'task-execute-task',
-      'scripts',
-      'check-task-dependencies.cjs'
-    );
-    const legacyScript = path.join(
-      REPO_ROOT,
-      'templates',
-      'ai-task-manager',
-      'config',
-      'scripts',
-      'check-task-dependencies.cjs'
-    );
-
-    let bundledExit = 0;
-    let bundledOutput = '';
-    try {
-      bundledOutput = execFileSync('node', [bundledScript, '42', '2'], {
-        cwd: tempDir,
-        encoding: 'utf8',
-        env: { ...process.env, NO_COLOR: '1' },
-      });
-    } catch (e: any) {
-      bundledExit = e.status ?? 1;
-      bundledOutput = (e.stdout || '') + (e.stderr || '');
-    }
-
-    let legacyExit = 0;
-    let legacyOutput = '';
-    try {
-      legacyOutput = execFileSync('node', [legacyScript, '42', '2'], {
-        cwd: tempDir,
-        encoding: 'utf8',
-        env: { ...process.env, NO_COLOR: '1' },
-      });
-    } catch (e: any) {
-      legacyExit = e.status ?? 1;
-      legacyOutput = (e.stdout || '') + (e.stderr || '');
-    }
-
-    expect(bundledExit).toBe(legacyExit);
-    expect(bundledExit).toBe(1);
-    expect(bundledOutput).toContain('unresolved');
-    expect(legacyOutput).toContain('unresolved');
-
-    fs.writeFileSync(depFile, original);
   });
 });
 

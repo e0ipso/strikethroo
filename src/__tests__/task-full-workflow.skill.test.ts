@@ -1,7 +1,6 @@
 /**
  * Integration tests for the task-full-workflow skill bundles.
- * Covers the five generated .cjs scripts with fixture-based smoke tests
- * and cross-validates against legacy reference scripts where applicable.
+ * Covers the five generated .cjs scripts with fixture-based smoke tests.
  */
 
 import * as fs from 'fs';
@@ -17,39 +16,6 @@ const SKILL_DIR = path.join(
   'skills',
   'task-full-workflow'
 );
-const REFERENCE_NEXT_PLAN_ID_CJS = path.join(
-  REPO_ROOT,
-  'templates',
-  'ai-task-manager',
-  'config',
-  'scripts',
-  'get-next-plan-id.cjs'
-);
-const REFERENCE_NEXT_TASK_ID_CJS = path.join(
-  REPO_ROOT,
-  'templates',
-  'ai-task-manager',
-  'config',
-  'scripts',
-  'get-next-task-id.cjs'
-);
-const REFERENCE_VALIDATE_BLUEPRINT_CJS = path.join(
-  REPO_ROOT,
-  'templates',
-  'ai-task-manager',
-  'config',
-  'scripts',
-  'validate-plan-blueprint.cjs'
-);
-const REFERENCE_CREATE_FEATURE_BRANCH_CJS = path.join(
-  REPO_ROOT,
-  'templates',
-  'ai-task-manager',
-  'config',
-  'scripts',
-  'create-feature-branch.cjs'
-);
-
 const writeFile = (filePath: string, contents: string): void => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, contents);
@@ -231,130 +197,3 @@ describe('task-full-workflow bundle smoke', () => {
   });
 });
 
-describe('task-full-workflow cross-validation', () => {
-  let tempDir: string;
-
-  beforeAll(() => {
-    execFileSync('npm', ['run', 'build:skills'], {
-      cwd: REPO_ROOT,
-      stdio: 'pipe',
-    });
-  });
-
-  beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tfw-xval-'));
-  });
-
-  afterEach(() => {
-    fs.rmSync(tempDir, { recursive: true, force: true });
-  });
-
-  test('get-next-plan-id.cjs matches legacy reference output', () => {
-    buildFixtureRoot(tempDir);
-    const bundledScript = path.join(SKILL_DIR, 'scripts', 'get-next-plan-id.cjs');
-    const bundled = execFileSync('node', [bundledScript], {
-      cwd: tempDir,
-      encoding: 'utf8',
-      env: { ...process.env, NO_COLOR: '1' },
-    }).trim();
-    const legacy = execFileSync('node', [REFERENCE_NEXT_PLAN_ID_CJS], {
-      cwd: tempDir,
-      encoding: 'utf8',
-      env: { ...process.env, NO_COLOR: '1' },
-    }).trim();
-    expect(bundled).toBe(legacy);
-    expect(bundled).toBe('1');
-  });
-
-  test('validate-plan-blueprint.cjs matches legacy reference output', () => {
-    const tm = buildFixtureRoot(tempDir);
-    const planDir = path.join(tm, 'plans', '05--sample');
-    fs.mkdirSync(planDir, { recursive: true });
-    const planFile = path.join(planDir, 'plan-05--sample.md');
-    fs.writeFileSync(
-      planFile,
-      '---\nid: 5\nsummary: "sample"\ncreated: 2026-01-01\n---\n'
-    );
-    const bundledScript = path.join(
-      SKILL_DIR,
-      'scripts',
-      'validate-plan-blueprint.cjs'
-    );
-    const bundled = execFileSync('node', [bundledScript, '5', 'planFile'], {
-      cwd: tempDir,
-      encoding: 'utf8',
-    }).trim();
-    const legacy = execFileSync(
-      'node',
-      [REFERENCE_VALIDATE_BLUEPRINT_CJS, '5', 'planFile'],
-      {
-        cwd: tempDir,
-        encoding: 'utf8',
-      }
-    ).trim();
-    expect(bundled).toBe(legacy);
-    expect(path.resolve(bundled)).toBe(path.resolve(planFile));
-  });
-
-  test('get-next-task-id.cjs matches legacy reference output', () => {
-    buildPlanWithTasks(tempDir, 7, 'sample', [1, 2]);
-    const bundledScript = path.join(SKILL_DIR, 'scripts', 'get-next-task-id.cjs');
-    const bundled = execFileSync('node', [bundledScript, '7'], {
-      cwd: tempDir,
-      encoding: 'utf8',
-      env: { ...process.env, NO_COLOR: '1' },
-    }).trim();
-    const legacy = execFileSync('node', [REFERENCE_NEXT_TASK_ID_CJS, '7'], {
-      cwd: tempDir,
-      encoding: 'utf8',
-      env: { ...process.env, NO_COLOR: '1' },
-    }).trim();
-    expect(bundled).toBe(legacy);
-    expect(bundled).toBe('3');
-  });
-
-  test('create-feature-branch.cjs matches legacy branch naming and behavior', () => {
-    const planFile = buildGitFixture(tempDir, 'cross-validation', 11);
-    const bundledScript = path.join(
-      SKILL_DIR,
-      'scripts',
-      'create-feature-branch.cjs'
-    );
-    const legacyScript = path.join(REFERENCE_CREATE_FEATURE_BRANCH_CJS);
-
-    let bundledResult = '';
-    let bundledError = false;
-    try {
-      bundledResult = execFileSync('node', [bundledScript, planFile], {
-        cwd: tempDir,
-        encoding: 'utf8',
-      });
-    } catch (e: any) {
-      bundledResult = e.stdout || '';
-      bundledError = true;
-    }
-
-    let legacyResult = '';
-    let legacyError = false;
-    try {
-      legacyResult = execFileSync('node', [legacyScript, planFile], {
-        cwd: tempDir,
-        encoding: 'utf8',
-      });
-    } catch (e: any) {
-      legacyResult = e.stdout || '';
-      legacyError = true;
-    }
-
-    expect(bundledError).toBe(false);
-    expect(legacyError).toBe(false);
-    expect(bundledResult).toContain('feature/11--cross-validation');
-    expect(legacyResult).toContain('feature/11--cross-validation');
-
-    const branches = execFileSync('git', ['branch', '--list'], {
-      cwd: tempDir,
-      encoding: 'utf8',
-    });
-    expect(branches).toContain('feature/11--cross-validation');
-  });
-});

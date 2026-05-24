@@ -89,8 +89,8 @@ holds without interpretation:
 - An upstream orchestrator (for example the `task-full-workflow` skill)
   has declared autonomous operation for this invocation in the prompt
   passed to this skill.
-- The invocation is the `/tasks:refine-plan-auto` slash command (the
-  `-auto` suffix is itself the unambiguous selector).
+- The skill is invoked in auto mode (for example by the `task-full-workflow`
+  orchestrator or by a caller that explicitly requests autonomous operation).
 
 If none of the above holds, use Interactive Clarification even when the
 user's presence is uncertain. Do not infer autonomous mode from indirect

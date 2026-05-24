@@ -1,7 +1,7 @@
 # Task Manager General Information
 
-This document contains important information that is common to all the /task:*
-commands for AI assistants.
+This document contains important information that is common to all the
+task-manager skills your AI assistant uses to plan, decompose, and execute work.
 
 ## Types of Documents
 
@@ -66,7 +66,7 @@ Plans follow a lifecycle that maintains workspace organization:
 
 1. **Active Plans**: When created, plans are placed in the `plans/` directory where they remain while being worked on.
 
-2. **Completed Plans**: Upon successful execution of a blueprint (via `/tasks:execute-blueprint`), the entire plan directory is automatically moved from `plans/` to `archive/`.
+2. **Completed Plans**: Upon successful execution of a blueprint (via the `task-execute-blueprint` skill), the entire plan directory is automatically moved from `plans/` to `archive/`.
 
 3. **Archive Directory**: The `archive/` directory serves as permanent storage for completed work. This separation keeps the active workspace clean while preserving completed plans for reference.
 

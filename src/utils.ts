@@ -62,3 +62,105 @@ export function validateHarnesses(harnesses: Harness[]): void {
     }
   }
 }
+
+// --- Template processing utilities ---
+
+export interface MarkdownFrontmatter {
+  [key: string]: string;
+}
+
+/**
+ * Extract YAML frontmatter and body from a markdown string.
+ * Returns an empty frontmatter object when no fences are found.
+ */
+export function parseFrontmatter(content: string): {
+  frontmatter: MarkdownFrontmatter;
+  body: string;
+} {
+  const frontmatterRegex = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n([\s\S]*))?$/;
+  const match = content.match(frontmatterRegex);
+
+  if (!match) {
+    return { frontmatter: {}, body: content };
+  }
+
+  const frontmatter: MarkdownFrontmatter = {};
+  const lines = (match[1] || '').split('\n');
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const colonIndex = trimmed.indexOf(':');
+    if (colonIndex === -1) continue;
+    const key = trimmed.substring(0, colonIndex).trim();
+    const value = trimmed.substring(colonIndex + 1).trim();
+    frontmatter[key] = value.replace(/^["']|["']$/g, '');
+  }
+
+  return { frontmatter, body: (match[2] || '').trimStart() };
+}
+
+/**
+ * Escape a string for use inside a TOML basic (double-quoted) string.
+ */
+export function escapeTomlString(str: string): string {
+  return str
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t');
+}
+
+/**
+ * Escape a string for use inside a TOML multi-line basic (triple-quoted) string.
+ */
+export function escapeTomlTripleQuotedString(str: string): string {
+  return str.replace(/\\\\/g, '\\\\\\\\').replace(/"""/g, '"\\""');
+}
+
+/**
+ * Convert a canonical agent markdown template (with YAML frontmatter
+ * containing `name` and `description`) into Codex's TOML agent format.
+ */
+export function convertAgentMdToToml(mdContent: string): string {
+  const { frontmatter, body } = parseFrontmatter(mdContent);
+  const name = escapeTomlString(frontmatter.name || '');
+  const description = escapeTomlString((frontmatter.description || '').trim());
+  const instructions = escapeTomlTripleQuotedString(body.trim());
+
+  return [
+    `name = "${name}"`,
+    `description = "${description}"`,
+    `developer_instructions = """`,
+    instructions,
+    `"""`,
+    '',
+  ].join('\n');
+}
+
+export interface AgentFormatInfo {
+  format: 'md' | 'toml';
+  extension: string;
+  directory: string;
+}
+
+/**
+ * Return the agent file format, extension, and target directory for a harness.
+ */
+export function getAgentFormat(harness: Harness): AgentFormatInfo {
+  switch (harness) {
+    case 'codex':
+      return { format: 'toml', extension: '.toml', directory: '.codex/agents' };
+    case 'github':
+      return { format: 'md', extension: '.agent.md', directory: '.github/agents' };
+    case 'claude':
+      return { format: 'md', extension: '.md', directory: '.claude/agents' };
+    case 'gemini':
+      return { format: 'md', extension: '.md', directory: '.gemini/agents' };
+    case 'cursor':
+      return { format: 'md', extension: '.md', directory: '.cursor/agents' };
+    case 'opencode':
+      return { format: 'md', extension: '.md', directory: '.opencode/agents' };
+  }
+}

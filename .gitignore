@@ -76,7 +76,7 @@ templates/commands/tasks/*.toml
 .jest-cache
 
 # Generated skill script bundles
-templates/assistant/skills/*/scripts/
+templates/harness/skills/*/scripts/
 
 # Worktrees
 /worktrees

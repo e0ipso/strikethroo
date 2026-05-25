@@ -47,7 +47,7 @@ jobs:
           git config user.email 'github-actions[bot]@users.noreply.github.com'
 
       - name: Stage built bundles
-        run: git add -f templates/assistant/skills/*/scripts/
+        run: git add -f templates/harness/skills/*/scripts/
 
       - name: Create release commit
         run: |

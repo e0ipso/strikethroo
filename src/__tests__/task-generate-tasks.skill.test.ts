@@ -16,7 +16,7 @@ const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const SKILL_DIR = path.join(
   REPO_ROOT,
   'templates',
-  'assistant',
+  'harness',
   'skills',
   'task-generate-tasks'
 );

@@ -1,11 +1,11 @@
 {
   "name": "ai-task-manager",
   "skills": [
-    "./templates/assistant/skills/task-create-plan",
-    "./templates/assistant/skills/task-execute-blueprint",
-    "./templates/assistant/skills/task-execute-task",
-    "./templates/assistant/skills/task-full-workflow",
-    "./templates/assistant/skills/task-generate-tasks",
-    "./templates/assistant/skills/task-refine-plan"
+    "./templates/harness/skills/task-create-plan",
+    "./templates/harness/skills/task-execute-blueprint",
+    "./templates/harness/skills/task-execute-task",
+    "./templates/harness/skills/task-full-workflow",
+    "./templates/harness/skills/task-generate-tasks",
+    "./templates/harness/skills/task-refine-plan"
   ]
 }

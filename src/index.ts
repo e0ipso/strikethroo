@@ -327,7 +327,7 @@ async function createHarnessStructure(harness: Harness, baseDir: string): Promis
     return;
   }
 
-  const sourceAgentsDir = getTemplatePath(path.join('assistant', 'agents'));
+  const sourceAgentsDir = getTemplatePath(path.join('harness', 'agents'));
   const targetAgentsDir = resolvePath(baseDir, '.claude', 'agents');
 
   if (await exists(sourceAgentsDir)) {

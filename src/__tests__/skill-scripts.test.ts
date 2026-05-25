@@ -1,6 +1,6 @@
 /**
  * Integration tests for the centralized skill-scripts TypeScript source
- * and the bundled .cjs artifacts under templates/assistant/skills/.
+ * and the bundled .cjs artifacts under templates/harness/skills/.
  *
  * Covers:
  *   1. Plan ID allocation across plans/ and archive/, mixing .md and .html.
@@ -25,7 +25,7 @@ import {
 } from '../skill-scripts/create-feature-branch';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const SKILL_DIR = path.join(REPO_ROOT, 'templates', 'assistant', 'skills', 'task-create-plan');
+const SKILL_DIR = path.join(REPO_ROOT, 'templates', 'harness', 'skills', 'task-create-plan');
 
 const writeFile = (filePath: string, contents: string): void => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -266,7 +266,7 @@ describe('create-feature-branch integration', () => {
     const bundledScript = path.join(
       REPO_ROOT,
       'templates',
-      'assistant',
+      'harness',
       'skills',
       'task-execute-blueprint',
       'scripts',
@@ -293,7 +293,7 @@ describe('create-feature-branch integration', () => {
     const bundledScript = path.join(
       REPO_ROOT,
       'templates',
-      'assistant',
+      'harness',
       'skills',
       'task-execute-blueprint',
       'scripts',
@@ -313,7 +313,7 @@ describe('create-feature-branch integration', () => {
     const bundledScript = path.join(
       REPO_ROOT,
       'templates',
-      'assistant',
+      'harness',
       'skills',
       'task-execute-blueprint',
       'scripts',
@@ -341,7 +341,7 @@ describe('create-feature-branch integration', () => {
     const bundledScript = path.join(
       REPO_ROOT,
       'templates',
-      'assistant',
+      'harness',
       'skills',
       'task-execute-blueprint',
       'scripts',
@@ -384,7 +384,7 @@ describe('task-execute-blueprint bundle smoke check', () => {
 
     fixtureSkillDir = path.join(tempDir, 'task-execute-blueprint');
     fs.cpSync(
-      path.join(REPO_ROOT, 'templates', 'assistant', 'skills', 'task-execute-blueprint'),
+      path.join(REPO_ROOT, 'templates', 'harness', 'skills', 'task-execute-blueprint'),
       fixtureSkillDir,
       { recursive: true }
     );
@@ -477,7 +477,7 @@ describe('task-refine-plan bundle smoke check', () => {
 
     fixtureSkillDir = path.join(tempDir, 'task-refine-plan');
     fs.cpSync(
-      path.join(REPO_ROOT, 'templates', 'assistant', 'skills', 'task-refine-plan'),
+      path.join(REPO_ROOT, 'templates', 'harness', 'skills', 'task-refine-plan'),
       fixtureSkillDir,
       { recursive: true }
     );
@@ -560,7 +560,7 @@ describe('task-execute-task bundle smoke check', () => {
 
     fixtureSkillDir = path.join(tempDir, 'task-execute-task');
     fs.cpSync(
-      path.join(REPO_ROOT, 'templates', 'assistant', 'skills', 'task-execute-task'),
+      path.join(REPO_ROOT, 'templates', 'harness', 'skills', 'task-execute-task'),
       fixtureSkillDir,
       { recursive: true }
     );
@@ -664,7 +664,7 @@ describe('check-task-dependencies scenarios', () => {
     const script = path.join(
       REPO_ROOT,
       'templates',
-      'assistant',
+      'harness',
       'skills',
       'task-execute-task',
       'scripts',
@@ -686,7 +686,7 @@ describe('check-task-dependencies scenarios', () => {
     const script = path.join(
       REPO_ROOT,
       'templates',
-      'assistant',
+      'harness',
       'skills',
       'task-execute-task',
       'scripts',
@@ -708,7 +708,7 @@ describe('check-task-dependencies scenarios', () => {
     const script = path.join(
       REPO_ROOT,
       'templates',
-      'assistant',
+      'harness',
       'skills',
       'task-execute-task',
       'scripts',
@@ -738,7 +738,7 @@ describe('check-task-dependencies scenarios', () => {
     const script = path.join(
       REPO_ROOT,
       'templates',
-      'assistant',
+      'harness',
       'skills',
       'task-execute-task',
       'scripts',
@@ -767,7 +767,7 @@ describe('check-task-dependencies scenarios', () => {
     const script = path.join(
       REPO_ROOT,
       'templates',
-      'assistant',
+      'harness',
       'skills',
       'task-execute-task',
       'scripts',
@@ -790,7 +790,7 @@ describe('check-task-dependencies scenarios', () => {
     const script = path.join(
       REPO_ROOT,
       'templates',
-      'assistant',
+      'harness',
       'skills',
       'task-execute-task',
       'scripts',

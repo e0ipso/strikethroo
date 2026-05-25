@@ -27,6 +27,6 @@ Select agents based on:
 ## Skills Extraction and Agent Detection
 
 1. Read the `skills` array from the task's YAML frontmatter directly.
-2. Check for available sub-agents in harness-specific agent directories (e.g., `.claude/agents/`, `.gemini/agents/`, `.codex/agents/`, `.cursor/agents/`, `.github/agents/`, `.opencode/agents/`).
+2. Check for available sub-agents in your harness's agents directory.
 3. If matching sub-agents are found, select the most appropriate one based on the task's required skills.
 4. If no sub-agents are available or none match, use a general-purpose agent for task execution.

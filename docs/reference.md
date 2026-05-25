@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Reference
-nav_order: 7
+nav_order: 5
 description: "Glossary, CLI reference, and frequently asked questions"
 ---
 
@@ -16,8 +16,8 @@ Glossary of canonical terms, CLI command reference, and answers to frequently as
 | Term | Definition |
 |------|-----------|
 | **Work order** | The user's request describing what they want accomplished. Input to the system. |
-| **Plan** | The comprehensive document the LLM produces by refining the work order. Covers requirements, architecture, risks, and success criteria. Output of Phase 1. |
-| **Execution blueprint** | The structured output of task generation (Phase 2). Contains all tasks organized into phases with dependency mappings. |
+| **Plan** | The comprehensive document the LLM produces by refining the work order. Covers requirements, architecture, risks, and success criteria. Output of the planning step. |
+| **Execution blueprint** | The structured output of task generation. Contains all tasks organized into phases with dependency mappings. |
 | **Phase** | A group of tasks within the execution blueprint. Tasks within a phase execute in parallel; phases execute in sequence. This is the unit of parallelism. |
 | **Task** | An atomic unit of work within a phase. Has 1-2 skills, acceptance criteria, and dependencies. Executed by a sub-agent with clean context. |
 | **Sub-agent** | A specialized AI agent that executes a single task with focused, clean context. Not the main conversation agent. |
@@ -33,7 +33,7 @@ The following terms appeared in earlier documentation and should not be used in 
 
 | Retired Term | Replacement |
 |-------------|-------------|
-| Progressive refinement | Three-phase workflow |
+| Progressive refinement | Three-step workflow |
 | Validation gates | Review gates (for human review) or quality gates (for automated checks) |
 | Cognitive overload | Use concrete explanations of context management (e.g., "context window limits", "context isolation between phases") |
 
@@ -112,7 +112,7 @@ Displays summary statistics (total plans, active/archived counts, completion rat
 npx skills add e0ipso/ai-task-manager
 ```
 
-Installs the Agent Skills that implement the three-phase workflow. Skills are fetched from the repository's tagged release via the `.claude-plugin/plugin.json` manifest.
+Installs the Agent Skills that implement the three-step workflow. Skills are fetched from the repository's tagged release via the `.claude-plugin/plugin.json` manifest.
 
 **Pin a specific version:**
 
@@ -136,12 +136,12 @@ Removes the installed Agent Skills. The `.ai/task-manager/` workspace, plans, an
 
 | Skill | Purpose |
 |-------|---------|
-| `task-create-plan` | Phase 1: Strategic plan creation with mandatory clarification gates. |
-| `task-generate-tasks` | Phase 2: Task decomposition with dependency mapping and skill assignments. |
-| `task-execute-blueprint` | Phase 3: Execution orchestration across all tasks in a plan. |
+| `task-create-plan` | Strategic plan creation with mandatory clarification gates. |
+| `task-generate-tasks` | Task decomposition with dependency mapping and skill assignments. |
+| `task-execute-blueprint` | Execution orchestration across all tasks in a plan. |
 | `task-refine-plan` | Plan refinement loop with interactive and autonomous clarification modes. |
 | `task-execute-task` | Single-task execution with dependency and status checks. |
-| `task-full-workflow` | End-to-end orchestration chaining all three phases. |
+| `task-full-workflow` | End-to-end orchestration chaining all three steps. |
 
 ---
 
@@ -167,21 +167,21 @@ Yes. Initialize with multiple harnesses (`--harnesses claude,gemini,codex`). All
 
 ### Workflow
 
-**What is the three-phase workflow?**
+**What is the three-step workflow?**
 
-1. **Planning** (Phase 1): The `task-create-plan` skill refines your work order into a comprehensive plan.
-2. **Task generation** (Phase 2): The `task-generate-tasks` skill decomposes the plan into an execution blueprint -- atomic tasks organized into dependency-mapped phases.
-3. **Execution** (Phase 3): The `task-execute-blueprint` skill implements each task using sub-agents with focused context.
+1. **Planning**: The `task-create-plan` skill refines your work order into a comprehensive plan.
+2. **Task generation**: The `task-generate-tasks` skill decomposes the plan into an execution blueprint -- atomic tasks organized into dependency-mapped phases.
+3. **Execution**: The `task-execute-blueprint` skill implements each task using sub-agents with focused context.
 
-Each phase produces files in `.ai/task-manager/plans/` for human review before the next phase begins.
+Each step produces files in `.ai/task-manager/plans/` for human review before the next step begins.
 
-**Do I have to use all three phases?**
+**Do I have to use all three steps?**
 
-No. You can use only plan creation without task generation, generate tasks without executing, execute specific tasks manually, or skip phases that do not apply. The three-phase workflow is recommended but not mandatory.
+No. You can use only plan creation without task generation, generate tasks without executing, execute specific tasks manually, or skip steps that do not apply. The three-step workflow is recommended but not mandatory.
 
 **What if I want fully automated execution?**
 
-The `task-full-workflow` skill chains all three phases in a single invocation. It is best suited for well-defined features with clear scope. For complex features that need review between phases, use the manual step-by-step workflow.
+The `task-full-workflow` skill chains all three steps in a single invocation. It is best suited for well-defined features with clear scope. For complex features that need review between steps, use the manual step-by-step workflow.
 
 **How does AI Task Manager relate to plan mode?**
 
@@ -201,7 +201,7 @@ All configuration, plans, tasks, hooks, and templates are Markdown (`.md`) with 
 
 **How does context isolation work?**
 
-Each phase and each task runs with a focused context window. Phase 1 sees only the work order. Phase 2 sees only the plan. During Phase 3, each sub-agent receives only the single task it is executing plus its declared dependencies -- not the full plan or other tasks. This prevents the context window from growing unboundedly across a complex project.
+Each step and each task runs with a focused context window. The planning step sees only the work order. Task generation sees only the plan. During execution, each sub-agent receives only the single task it is executing plus its declared dependencies -- not the full plan or other tasks. This prevents the context window from growing unboundedly across a complex project.
 
 **What happens when a task fails during execution?**
 

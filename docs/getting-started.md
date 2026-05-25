@@ -9,7 +9,7 @@ description: "Install AI Task Manager and run your first workflow"
 
 Get up and running with AI Task Manager quickly. This page covers prerequisites, installation, directory structure, your first workflow, and verification.
 
-AI Task Manager transforms complex development requests into organized, executable workflows through a three-phase workflow:
+AI Task Manager transforms complex development requests into organized, executable workflows through a three-step workflow:
 
 1. **Create Plan** -- Define objectives and clarify requirements
 2. **Generate Tasks** -- Break the plan into atomic tasks with dependencies
@@ -41,7 +41,7 @@ This creates the shared `.ai/task-manager/` directory (plans, archive, config) a
 npx skills add e0ipso/ai-task-manager
 ```
 
-This installs the Agent Skills that implement the three-phase workflow. Skills are harness-agnostic -- a single skill works for every harness that supports the Agent Skills format.
+This installs the Agent Skills that implement the three-step workflow. Skills are harness-agnostic -- a single skill works for every harness that supports the Agent Skills format.
 
 To pin a specific release:
 
@@ -118,7 +118,7 @@ The installed skills live wherever your assistant manages them; they are not cop
 
 ## Your First Workflow
 
-Once installation is complete, you drive the three-phase workflow entirely through your assistant. Here is the typical sequence:
+Once installation is complete, you drive the three-step workflow entirely through your assistant. Here is the typical sequence:
 
 1. **Create a plan** -- Ask your assistant to plan a feature or change. The `task-create-plan` skill loads automatically, gathers requirements, and produces a work order in `.ai/task-manager/plans/`.
 
@@ -126,7 +126,7 @@ Once installation is complete, you drive the three-phase workflow entirely throu
 
 3. **Execute the blueprint** -- Ask your assistant to execute the plan. The `task-execute-blueprint` skill works through each phase, running tasks in dependency order with quality gates between phases.
 
-You can also run all three phases in a single uninterrupted sequence by asking your assistant to handle the full workflow end-to-end (the `task-full-workflow` skill).
+You can also run all three steps in a single uninterrupted sequence by asking your assistant to handle the full workflow end-to-end (the `task-full-workflow` skill).
 
 For a detailed walkthrough of the day-to-day development cycle, see the [Workflow Guide](workflow.html).
 
@@ -215,7 +215,7 @@ See the [Customization Guide](customization.html) for:
 
 ## Next Steps
 
-- **[Workflow Guide](workflow.html)**: Learn the day-to-day development workflow
-- **[How It Works](how-it-works.html)**: Understand the three-phase workflow
-- **[Customization Guide](customization.html)**: Tailor AI Task Manager to your project
+- **[Workflow Guide](workflow.html)**: Step-by-step workflow with visual guides
+- **[Customization Guide](customization.html)**: Tailor hooks, templates, and project context
+- **[Reference](reference.html)**: Glossary, CLI reference, FAQ
 - **[Migrating from 1.x](migration.html)**: Upgrade from slash commands to Agent Skills

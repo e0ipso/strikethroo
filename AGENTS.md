@@ -66,23 +66,23 @@ This CLI tool initializes AI-assisted development environments with hierarchical
 
 ## AI Task Management System
 
-### Three-Phase Progressive Refinement
+### Three-Step Workflow
 
-The system implements a specialized workflow optimized for AI cognitive constraints. Each phase is delivered as an Agent Skill that the assistant auto-loads when the user's request matches its description.
+The system implements a specialized workflow optimized for AI cognitive constraints. Each step is delivered as an Agent Skill that the assistant auto-loads when the user's request matches its description.
 
-#### Phase 1: Strategic Planning (`task-create-plan` skill)
+#### Step 1: Strategic Planning (`task-create-plan` skill)
 - **Focus**: Context gathering and requirement clarification
 - **Output**: Comprehensive plan with mandatory clarification gates
 - **Prevents**: Assumption-based planning and scope ambiguity
 
-#### Phase 2: Task Decomposition (`task-generate-tasks` skill)
+#### Step 2: Task Decomposition (`task-generate-tasks` skill)
 - **Focus**: Breaking complexity into atomic units
 - **Output**: Dependency-mapped tasks with skill assignments
 - **Enforces**: 20-30% task reduction and 1-2 skill maximum per task
 
-#### Phase 3: Execution (`task-execute-blueprint` skill)
+#### Step 3: Execution (`task-execute-blueprint` skill)
 - **Focus**: Current task implementation with minimal context
-- **Output**: Working functionality with validation gates
+- **Output**: Working functionality with quality gates
 - **Implements**: Dependency-aware parallelism and quality control
 
 #### Plan Review Loop (`task-refine-plan` skill)
@@ -90,7 +90,7 @@ The system implements a specialized workflow optimized for AI cognitive constrai
 - **Output**: Updated plan document with clarified requirements, refreshed diagrams, and documented outstanding questions
 - **Purpose**: Bridges plan creation and task generation when a second assistant should "red team" the plan, ask questions, and apply the refinements
 
-The end-to-end `task-full-workflow` skill chains all three phases for hands-off runs. The `task-execute-task` skill handles single-task execution.
+The end-to-end `task-full-workflow` skill chains all three steps for hands-off runs. The `task-execute-task` skill handles single-task execution.
 
 ### Key Design Principles
 
@@ -125,7 +125,7 @@ The shipping skills are:
 - `task-execute-blueprint` (`templates/harness/skills/task-execute-blueprint/`) — execution orchestration across all tasks in a plan.
 - `task-refine-plan` (`templates/harness/skills/task-refine-plan/`) — plan refinement loop with interactive and autonomous clarification modes.
 - `task-execute-task` (`templates/harness/skills/task-execute-task/`) — single-task execution.
-- `task-full-workflow` (`templates/harness/skills/task-full-workflow/`) — end-to-end orchestration chaining the three phases (plan creation, task generation, blueprint execution) with context passing, progress indicators, and auto-generation fallback.
+- `task-full-workflow` (`templates/harness/skills/task-full-workflow/`) — end-to-end orchestration chaining the three steps (plan creation, task generation, blueprint execution) with context passing, progress indicators, and auto-generation fallback.
 
 ### TypeScript source of truth
 

@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Migrating from 1.x
-nav_order: 8
+nav_order: 6
 description: "Upgrade from AI Task Manager 1.x to 2.x"
 ---
 

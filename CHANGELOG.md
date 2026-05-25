@@ -1,3 +1,17 @@
+## 2.1.0 (2026-05-25)
+
+* feat: publish 2.0.2 ([a54d7ee](https://github.com/e0ipso/ai-task-manager/commit/a54d7ee))
+* feat: transition to AI TM 2 ([3d20d26](https://github.com/e0ipso/ai-task-manager/commit/3d20d26))
+* docs: apply user feedback — simplify and reframe ([ae28446](https://github.com/e0ipso/ai-task-manager/commit/ae28446))
+* docs: establish canonical terminology glossary (Plan 79, Phase 1) ([4aeb0f8](https://github.com/e0ipso/ai-task-manager/commit/4aeb0f8))
+* docs: improve readability ([321d139](https://github.com/e0ipso/ai-task-manager/commit/321d139))
+* docs: restructure and consolidate doc pages (Phase 2) ([885b3aa](https://github.com/e0ipso/ai-task-manager/commit/885b3aa))
+* docs: rewrite homepage, delete deprecated pages (Phase 3) ([a9fcda0](https://github.com/e0ipso/ai-task-manager/commit/a9fcda0))
+* chore(release): 1.39.0 [skip ci] ([e0d7dad](https://github.com/e0ipso/ai-task-manager/commit/e0d7dad))
+* chore(release): 1.39.1 [skip ci] ([aa554df](https://github.com/e0ipso/ai-task-manager/commit/aa554df))
+* fix: remove HTML format remnants ([f1ce687](https://github.com/e0ipso/ai-task-manager/commit/f1ce687))
+* ci: consolidate release into semantic-release ([b7579b9](https://github.com/e0ipso/ai-task-manager/commit/b7579b9))
+
 ## <small>1.39.1 (2026-05-25)</small>
 
 * docs: establish canonical terminology glossary (Plan 79, Phase 1) ([4aeb0f8](https://github.com/e0ipso/ai-task-manager/commit/4aeb0f8))

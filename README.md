@@ -18,12 +18,12 @@ This project ships in two parts: the **skills** (installed by [vercel-labs/skill
 npx skills add e0ipso/ai-task-manager
 
 # 2. Initialize the .ai/task-manager/ workspace
-npx @e0ipso/ai-task-manager init --assistants claude --destination-directory .
+npx @e0ipso/ai-task-manager init --harnesses claude --destination-directory .
 ```
 
 The skills give your assistant the planning, decomposition, and execution workflow; the CLI bootstraps `.ai/task-manager/` with hooks, templates, and the hash-tracked diff-on-conflict UX. Each step is independently re-runnable. See [MIGRATION.md](./MIGRATION.md) for upgrade flows and recovery from schema-mismatch errors.
 
-The CLI's `init` only emits the shared workspace plus Claude agents. Other assistants rely entirely on the installed skills.
+The CLI's `init` emits the shared workspace plus harness-specific agents (e.g., `.claude/agents/` for Claude). Other harnesses rely entirely on the installed skills.
 
 ## ✨ Key Benefits
 
@@ -63,9 +63,9 @@ The `task-full-workflow` skill handles plan creation, task generation, and bluep
 5. **📊 Monitor progress** → `npx @e0ipso/ai-task-manager status`
 6. **🗂️ Manage plans** → `npx @e0ipso/ai-task-manager plan show 1`
 
-## 🤖 Supported Assistants
+## 🤖 Supported Harnesses
 
-| Assistant | Interface | Setup Time |
+| Harness | Interface | Setup Time |
 |-----------|-----------|------------|
 | 🎭 **Claude** | [claude.ai/code](https://claude.ai/code) | < 30 seconds |
 | 🖱️ **Cursor** | Cursor IDE | < 30 seconds |

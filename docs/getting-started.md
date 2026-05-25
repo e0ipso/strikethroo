@@ -18,7 +18,7 @@ AI Task Manager transforms complex development requests into organized, executab
 2. **📋 Generate Tasks**: Break plan into atomic tasks with dependencies
 3. **🚀 Execute Blueprint**: Implement tasks with validation gates
 
-Delivered through assistant-agnostic Agent Skills installed via `npx skills add e0ipso/ai-task-manager`. See [AGENTS.md](https://github.com/e0ipso/ai-task-manager/blob/main/AGENTS.md) for assistant-specific setup details.
+Delivered through harness-agnostic Agent Skills installed via `npx skills add e0ipso/ai-task-manager`. See [AGENTS.md](https://github.com/e0ipso/ai-task-manager/blob/main/AGENTS.md) for harness-specific setup details.
 
 ## What You'll Learn
 

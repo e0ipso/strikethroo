@@ -206,6 +206,48 @@ describe('CLI Integration', () => {
     });
   });
 
+  describe('init — codex TOML output', () => {
+    it('creates valid TOML agent for codex', async () => {
+      const result = executeCommand(`node "${cliPath}" init --harnesses codex`);
+      expect(result.exitCode).toBe(0);
+      const tomlContent = await fs.readFile(
+        path.join(testDir, '.codex/agents/plan-creator.toml'),
+        'utf-8'
+      );
+      expect(tomlContent).toContain('name = "plan-creator"');
+      expect(tomlContent).toContain('description =');
+      expect(tomlContent).toContain('developer_instructions = """');
+    });
+  });
+
+  describe('init — github .agent.md extension', () => {
+    it('creates .agent.md file for github', async () => {
+      const result = executeCommand(`node "${cliPath}" init --harnesses github`);
+      expect(result.exitCode).toBe(0);
+      expect(
+        await fs.pathExists(path.join(testDir, '.github/agents/plan-creator.agent.md'))
+      ).toBe(true);
+    });
+  });
+
+  describe('init — multi-harness simultaneous output', () => {
+    it('creates agent files for multiple harnesses simultaneously', async () => {
+      const result = executeCommand(
+        `node "${cliPath}" init --harnesses claude,codex,github`
+      );
+      expect(result.exitCode).toBe(0);
+      expect(await fs.pathExists(path.join(testDir, '.claude/agents/plan-creator.md'))).toBe(
+        true
+      );
+      expect(await fs.pathExists(path.join(testDir, '.codex/agents/plan-creator.toml'))).toBe(
+        true
+      );
+      expect(
+        await fs.pathExists(path.join(testDir, '.github/agents/plan-creator.agent.md'))
+      ).toBe(true);
+    });
+  });
+
   describe('init — re-run handling', () => {
     it('succeeds when run twice in the same directory', async () => {
       const first = executeCommand(`node "${cliPath}" init --harnesses claude`);

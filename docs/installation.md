@@ -14,7 +14,7 @@ AI Task Manager initializes quickly with two commands: one to bootstrap the shar
 
 - **Node.js**: Version 14.0 or higher
 - **npm**: Comes with Node.js
-- **AI Assistant**: An assistant that supports the Agent Skills format
+- **AI Harness**: A harness that supports the Agent Skills format
 
 ## Installation
 
@@ -23,7 +23,7 @@ No global installation required. Use `npx` to run both steps directly:
 ### Step 1: Bootstrap the Workspace
 
 ```bash
-npx @e0ipso/ai-task-manager init --assistants claude
+npx @e0ipso/ai-task-manager init --harnesses claude
 ```
 
 This creates the shared `.ai/task-manager/` directory (plans, archive, config) and copies the Claude agents into `.claude/agents/`.
@@ -34,7 +34,7 @@ This creates the shared `.ai/task-manager/` directory (plans, archive, config) a
 npx skills add e0ipso/ai-task-manager
 ```
 
-This installs the Agent Skills that implement the workflow. Skills are the sole delivery channel for the task-manager workflow: they load automatically when their description matches your intent, and they are assistant-agnostic — a single skill works for every assistant that supports the Agent Skills format.
+This installs the Agent Skills that implement the workflow. Skills are the sole delivery channel for the task-manager workflow: they load automatically when their description matches your intent, and they are harness-agnostic — a single skill works for every harness that supports the Agent Skills format.
 
 To pin a specific release:
 
@@ -42,27 +42,27 @@ To pin a specific release:
 npx skills add e0ipso/ai-task-manager@<tag>
 ```
 
-## The `--assistants` Flag
+## The `--harnesses` Flag
 
-The `--assistants` flag is **required** when running `init`. It controls which per-assistant artifacts the CLI copies in addition to the shared workspace.
+The `--harnesses` flag is **required** when running `init`. It controls which per-harness artifacts the CLI copies in addition to the shared workspace.
 
-Today, only Claude has per-assistant artifacts (agents under `.claude/agents/`). Non-Claude assistants get the shared workspace only and rely entirely on the installed skills:
+Each harness can have its own agent files deployed to the appropriate location (e.g., `.claude/agents/` for Claude). Harnesses without harness-specific agents get the shared workspace only and rely entirely on the installed skills:
 
 ```bash
 # Claude (copies .ai/task-manager/ + .claude/agents/)
-npx @e0ipso/ai-task-manager init --assistants claude
+npx @e0ipso/ai-task-manager init --harnesses claude
 
-# Other assistants (copies .ai/task-manager/ only; rely on skills)
-npx @e0ipso/ai-task-manager init --assistants gemini
+# Other harnesses (copies .ai/task-manager/ only; rely on skills)
+npx @e0ipso/ai-task-manager init --harnesses gemini
 ```
 
-You can pass multiple assistants in a single run:
+You can pass multiple harnesses in a single run:
 
 ```bash
-npx @e0ipso/ai-task-manager init --assistants claude,gemini,opencode,codex,github,cursor
+npx @e0ipso/ai-task-manager init --harnesses claude,gemini,opencode,codex,github,cursor
 ```
 
-All assistants share the same task management structure (plans, tasks, configurations).
+All harnesses share the same task management structure (plans, tasks, configurations).
 
 ### Custom Destination Directory
 
@@ -70,7 +70,7 @@ By default, `init` writes into the current working directory. Use `--destination
 
 ```bash
 npx @e0ipso/ai-task-manager init \
-  --assistants claude \
+  --harnesses claude \
   --destination-directory /path/to/project
 ```
 
@@ -102,7 +102,7 @@ project-root/
 │       │   │   ├── BLUEPRINT_TEMPLATE.md
 │       │   │   └── EXECUTION_SUMMARY_TEMPLATE.md
 │       └── .init-metadata.json    # File conflict detection tracking
-└── .claude/                       # Claude agents (if --assistants claude)
+└── .claude/                       # Claude agents (if --harnesses claude)
     └── agents/
         └── plan-creator.md
 ```
@@ -116,7 +116,7 @@ The installed skills live wherever your assistant manages them; they are not cop
 Re-run the init command to update the workspace files to the latest version:
 
 ```bash
-npx @e0ipso/ai-task-manager init --assistants claude
+npx @e0ipso/ai-task-manager init --harnesses claude
 ```
 
 **File Conflict Detection** automatically:
@@ -130,7 +130,7 @@ npx @e0ipso/ai-task-manager init --assistants claude
 Bypass conflict detection prompts (useful for automation):
 
 ```bash
-npx @e0ipso/ai-task-manager init --assistants claude --force
+npx @e0ipso/ai-task-manager init --harnesses claude --force
 ```
 
 **Warning**: Force mode overwrites ALL files, including your customizations. Back up custom hooks and templates first!
@@ -151,7 +151,7 @@ ls -la .ai/task-manager/
 
 You should see: `plans/`, `archive/`, `config/`
 
-### 2. Check Claude Agents (if you ran `--assistants claude`)
+### 2. Check Claude Agents (if you ran `--harnesses claude`)
 
 ```bash
 ls -la .claude/agents/

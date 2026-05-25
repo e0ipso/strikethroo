@@ -30,15 +30,15 @@ Traditional AI assistant "plan mode" features create plans and immediately execu
 
 ```bash
 # 1. Bootstrap the shared task-manager workspace in your project
-npx @e0ipso/ai-task-manager init --assistants claude
+npx @e0ipso/ai-task-manager init --harnesses claude
 
 # 2. Install the workflow skills for your assistant
 npx skills add e0ipso/ai-task-manager
 ```
 
-The first command creates `.ai/task-manager/` (plans, archive, config) and copies the Claude agents. The second command installs the Agent Skills that implement the workflow (`task-create-plan`, `task-generate-tasks`, `task-execute-blueprint`, and more). Skills are assistant-agnostic and load automatically when their description matches your intent.
+The first command creates `.ai/task-manager/` (plans, archive, config) and copies the Claude agents. The second command installs the Agent Skills that implement the workflow (`task-create-plan`, `task-generate-tasks`, `task-execute-blueprint`, and more). Skills are harness-agnostic and load automatically when their description matches your intent.
 
-See [AGENTS.md](https://github.com/e0ipso/ai-task-manager/blob/main/AGENTS.md) for detailed assistant-specific instructions.
+See [AGENTS.md](https://github.com/e0ipso/ai-task-manager/blob/main/AGENTS.md) for detailed harness-specific instructions.
 
 ## The Three-Phase Workflow
 
@@ -83,6 +83,6 @@ Each phase includes **mandatory human review** of the files written into `.ai/ta
   </a>
 </div>
 
-## Supported Assistants
+## Supported Harnesses
 
-Skills are assistant-agnostic and work anywhere the Agent Skills format is supported. Works within your existing AI subscriptions — no additional API keys or costs required.
+Skills are harness-agnostic and work anywhere the Agent Skills format is supported. Works within your existing AI subscriptions — no additional API keys or costs required.

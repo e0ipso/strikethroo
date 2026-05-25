@@ -287,7 +287,7 @@ No API keys, no pay-per-token charges, no additional service subscriptions requi
 
 ### What file formats does it support?
 
-AI Task Manager uses Markdown (`.md`) for all configuration files (hooks, templates, plans, tasks). The workflow itself is delivered as assistant-agnostic Agent Skills, so there are no per-assistant format conversions to worry about.
+AI Task Manager uses Markdown (`.md`) for all configuration files (hooks, templates, plans, tasks). The workflow itself is delivered as harness-agnostic Agent Skills, so there are no per-harness format conversions to worry about.
 
 ### Can I customize the workflow?
 
@@ -300,7 +300,7 @@ See [Customization Guide](customization.html) for detailed examples.
 
 ### Does it work with existing projects?
 
-**Yes.** Run `npx @e0ipso/ai-task-manager init --assistants claude` in any directory:
+**Yes.** Run `npx @e0ipso/ai-task-manager init --harnesses claude` in any directory:
 - Merges with existing project structure
 - Doesn't break existing files
 - Uses hash-based conflict detection
@@ -312,21 +312,21 @@ Compatible with any project type: web apps, APIs, CLI tools, libraries, etc.
 
 **Under 30 seconds** for initial setup:
 ```bash
-npx @e0ipso/ai-task-manager init --assistants claude
+npx @e0ipso/ai-task-manager init --harnesses claude
 # Creates all necessary files and directories
 # Ready to use immediately
 ```
 
 ### Can I use it with multiple AI assistants?
 
-**Yes.** Initialize with multiple assistants:
+**Yes.** Initialize with multiple harnesses:
 ```bash
-npx @e0ipso/ai-task-manager init --assistants claude,gemini,opencode,codex,github
+npx @e0ipso/ai-task-manager init --harnesses claude,gemini,opencode,codex,github
 ```
 
-All assistants share the same plans, tasks, and configuration. Team members can use different assistants while collaborating on the same project.
+All harnesses share the same plans, tasks, and configuration. Team members can use different harnesses while collaborating on the same project.
 
-**Note**: See [AGENTS.md](https://github.com/e0ipso/ai-task-manager/blob/main/AGENTS.md) for assistant-specific setup requirements.
+**Note**: See [AGENTS.md](https://github.com/e0ipso/ai-task-manager/blob/main/AGENTS.md) for harness-specific setup requirements.
 
 ### How does it integrate with Git?
 

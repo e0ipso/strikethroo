@@ -7,7 +7,7 @@ This file provides comprehensive guidance to AI assistants when working with thi
 ### Essential Commands
 ```bash
 # Build and run
-npm run build && npm start init --assistants claude
+npm run build && npm start init --harnesses claude
 
 # Development workflow
 npm run dev           # Watch mode compilation
@@ -18,13 +18,13 @@ npm run lint:fix      # Auto-fix code style issues
 ### Project Initialization
 ```bash
 # Bootstrap the .ai/task-manager/ workspace (Claude agents copied too)
-npx . init --assistants claude --destination-directory /path/to/project
+npx . init --harnesses claude --destination-directory /path/to/project
 
 # Update existing (customizations auto-protected)
-npx . init --assistants claude --destination-directory /path/to/project
+npx . init --harnesses claude --destination-directory /path/to/project
 
 # Force overwrite all
-npx . init --assistants claude --destination-directory /path/to/project --force
+npx . init --harnesses claude --destination-directory /path/to/project --force
 ```
 
 The workflow itself is delivered as Agent Skills, not slash commands. Install them once with `npx skills add e0ipso/ai-task-manager`; users then invoke the workflow by intent and the matching skill auto-loads.
@@ -49,7 +49,7 @@ This CLI tool initializes AI-assisted development environments with hierarchical
 - **Cognitive Load Management**: Prevents AI context overload through staged processing
 - **Scope Control**: Enforces YAGNI principles and prevents feature creep
 - **Quality Assurance**: Ensures working code through integrity-focused testing
-- **Assistant-Agnostic Delivery**: Skills work uniformly across any assistant that supports the Agent Skills format
+- **Harness-Agnostic Delivery**: Skills work uniformly across any harness that supports the Agent Skills format
 
 ---
 
@@ -105,7 +105,7 @@ The end-to-end `task-full-workflow` skill chains all three phases for hands-off 
 
 ## Skills Layer
 
-The repository ships Agent Skills under `templates/harness/skills/<name>/` at the repo root. There is no top-level `skills/` directory; authored content and compiled `.cjs` bundles coexist under each per-skill directory, with `scripts/` reserved for compiled output. Skills are assistant-agnostic — a single `SKILL.md` works for every assistant that supports the Agent Skills format. Skill directories are flat (no nested skills).
+The repository ships Agent Skills under `templates/harness/skills/<name>/` at the repo root. There is no top-level `skills/` directory; authored content and compiled `.cjs` bundles coexist under each per-skill directory, with `scripts/` reserved for compiled output. Skills are harness-agnostic — a single `SKILL.md` works for every harness that supports the Agent Skills format. Skill directories are flat (no nested skills).
 
 The shipping skills are:
 
@@ -172,7 +172,7 @@ Release commits are labeled `[release-bundle]` in the subject. They are reachabl
 ### Core Directory Structure
 ```
 project/
-├── .ai/task-manager/              # Shared workspace (assistant-agnostic)
+├── .ai/task-manager/              # Shared workspace (harness-agnostic)
 │   ├── plans/                     # Active plans with tasks/
 │   │   └── 28--plan-name/
 │   │       ├── plan-28--plan-name.md
@@ -187,7 +187,7 @@ project/
 └── .claude/agents/                # Claude-only sub-agents copied by `init`
 ```
 
-The workflow itself is delivered through Agent Skills (installed via `npx skills add e0ipso/ai-task-manager`). The CLI's `init` does not emit per-assistant command or prompt directories.
+The workflow itself is delivered through Agent Skills (installed via `npx skills add e0ipso/ai-task-manager`). The CLI's `init` does not emit per-harness command or prompt directories.
 
 ### Archive System and Lifecycle Management
 
@@ -257,9 +257,9 @@ npm run prepublishOnly        # Pre-publish validation (auto-runs)
 - Obvious utility functions
 - Trivial CRUD operations
 
-### Adding New Assistant Support
+### Adding New Harness Support
 
-Skills are assistant-agnostic — any assistant that supports the Agent Skills format consumes the same `SKILL.md` content. No code or template changes are required to support a new assistant. Users install skills via `npx skills add e0ipso/ai-task-manager`.
+Skills are harness-agnostic — any harness that supports the Agent Skills format consumes the same `SKILL.md` content. No code or template changes are required to support a new harness. Users install skills via `npx skills add e0ipso/ai-task-manager`.
 
 ## Template Customization
 
@@ -318,7 +318,7 @@ Edit base templates at:
 **Validate changes**:
 ```bash
 npm run build
-node dist/cli.js init --assistants claude --destination-directory /tmp/test
+node dist/cli.js init --harnesses claude --destination-directory /tmp/test
 ```
 
 ---
@@ -345,7 +345,7 @@ node dist/cli.js init --assistants claude --destination-directory /tmp/test
 FileSystemError    // File operation failures
 ConfigError        // Configuration validation issues  
 TemplateError      // Template processing problems
-AssistantError     // Assistant validation failures
+HarnessError       // Harness validation failures
 ```
 
 #### Error Recovery Strategies

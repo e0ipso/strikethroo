@@ -44,11 +44,11 @@ AI Task Manager provides comprehensive tools for structured AI-assisted developm
 
 **Learn more**: See the [Customization Guide](customization.html) for template modification examples.
 
-## 🤝 Multi-Assistant Support
+## 🤝 Multi-Harness Support
 
-The workflow is delivered through assistant-agnostic Agent Skills installed via `npx skills add e0ipso/ai-task-manager`. A single skill works for every assistant that supports the Agent Skills format, so there is no per-assistant command surface to install or maintain.
+The workflow is delivered through harness-agnostic Agent Skills installed via `npx skills add e0ipso/ai-task-manager`. A single skill works for every harness that supports the Agent Skills format, so there is no per-harness command surface to install or maintain.
 
-All assistants share the same task management structure under `.ai/task-manager/`. Initialize once per project, install the skills for each developer's assistant, and team members can collaborate using different assistants on the same plans.
+All harnesses share the same task management structure under `.ai/task-manager/`. Initialize once per project, install the skills for each developer's harness, and team members can collaborate using different harnesses on the same plans.
 
 **Note**: See [AGENTS.md](https://github.com/e0ipso/ai-task-manager/blob/main/AGENTS.md) for detailed setup instructions.
 
@@ -188,10 +188,10 @@ Organized workspace with clear separation of concerns:
 ├── config/             # Customizable hooks and templates
 └── .init-metadata.json # Conflict detection tracking
 
-.claude/agents/         # Claude agents (if --assistants claude)
+.claude/agents/         # Claude agents (if --harnesses claude)
 ```
 
-The workflow itself is delivered through Agent Skills installed via `npx skills add e0ipso/ai-task-manager`. Skills are not copied into the project tree; they live wherever your assistant manages them.
+The workflow itself is delivered through Agent Skills installed via `npx skills add e0ipso/ai-task-manager`. Skills are not copied into the project tree; they live wherever your harness manages them.
 
 ## 🚀 Performance & Scalability
 

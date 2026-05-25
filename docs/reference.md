@@ -27,16 +27,6 @@ Glossary of canonical terms, CLI command reference, and answers to frequently as
 | **Workspace** | The `.ai/task-manager/` directory tree containing plans, archive, config, hooks, and templates. Created by `init`. |
 | **Archive** | The `archive/` subdirectory inside the workspace where completed plans are moved for historical reference. |
 
-### Retired Terms
-
-The following terms appeared in earlier documentation and should not be used in new content.
-
-| Retired Term | Replacement |
-|-------------|-------------|
-| Progressive refinement | Three-step workflow |
-| Validation gates | Review gates (for human review) or quality gates (for automated checks) |
-| Cognitive overload | Use concrete explanations of context management (e.g., "context window limits", "context isolation between phases") |
-
 ---
 
 ## CLI Reference

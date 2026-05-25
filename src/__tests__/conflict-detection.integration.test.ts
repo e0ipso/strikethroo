@@ -75,7 +75,7 @@ describe('Conflict Detection Integration Tests', () => {
   describe('First-time initialization', () => {
     it('should create metadata file on first init', async () => {
       const result = await init({
-        assistants: 'claude',
+        harnesses: 'claude',
         destinationDirectory: testDir,
       });
 
@@ -95,7 +95,7 @@ describe('Conflict Detection Integration Tests', () => {
 
     it('should track config files in metadata', async () => {
       const result = await init({
-        assistants: 'claude',
+        harnesses: 'claude',
         destinationDirectory: testDir,
       });
 
@@ -115,7 +115,7 @@ describe('Conflict Detection Integration Tests', () => {
     it('should update metadata without prompting when no files changed', async () => {
       // First init
       await init({
-        assistants: 'claude',
+        harnesses: 'claude',
         destinationDirectory: testDir,
       });
 
@@ -128,7 +128,7 @@ describe('Conflict Detection Integration Tests', () => {
 
       // Second init without changes
       const result = await init({
-        assistants: 'claude',
+        harnesses: 'claude',
         destinationDirectory: testDir,
       });
 
@@ -145,7 +145,7 @@ describe('Conflict Detection Integration Tests', () => {
     it('should detect modified files', async () => {
       // First init
       await init({
-        assistants: 'claude',
+        harnesses: 'claude',
         destinationDirectory: testDir,
       });
 
@@ -168,7 +168,7 @@ describe('Conflict Detection Integration Tests', () => {
     it('should overwrite all files when force flag is used', async () => {
       // First init
       await init({
-        assistants: 'claude',
+        harnesses: 'claude',
         destinationDirectory: testDir,
       });
 
@@ -179,7 +179,7 @@ describe('Conflict Detection Integration Tests', () => {
 
       // Second init with force flag
       const result = await init({
-        assistants: 'claude',
+        harnesses: 'claude',
         destinationDirectory: testDir,
         force: true,
       });
@@ -194,7 +194,7 @@ describe('Conflict Detection Integration Tests', () => {
     it('should update metadata after force overwrite', async () => {
       // First init
       await init({
-        assistants: 'claude',
+        harnesses: 'claude',
         destinationDirectory: testDir,
       });
 
@@ -205,7 +205,7 @@ describe('Conflict Detection Integration Tests', () => {
 
       // Second init with force flag
       await init({
-        assistants: 'claude',
+        harnesses: 'claude',
         destinationDirectory: testDir,
         force: true,
       });
@@ -223,7 +223,7 @@ describe('Conflict Detection Integration Tests', () => {
     it('should treat corrupted metadata as first-time init', async () => {
       // First init
       await init({
-        assistants: 'claude',
+        harnesses: 'claude',
         destinationDirectory: testDir,
       });
 
@@ -233,7 +233,7 @@ describe('Conflict Detection Integration Tests', () => {
 
       // Second init should succeed (treating as first-time)
       const result = await init({
-        assistants: 'claude',
+        harnesses: 'claude',
         destinationDirectory: testDir,
       });
 
@@ -248,7 +248,7 @@ describe('Conflict Detection Integration Tests', () => {
     it('should treat missing metadata as first-time init', async () => {
       // First init
       await init({
-        assistants: 'claude',
+        harnesses: 'claude',
         destinationDirectory: testDir,
       });
 
@@ -258,7 +258,7 @@ describe('Conflict Detection Integration Tests', () => {
 
       // Second init should succeed (treating as first-time)
       const result = await init({
-        assistants: 'claude',
+        harnesses: 'claude',
         destinationDirectory: testDir,
       });
 
@@ -270,10 +270,10 @@ describe('Conflict Detection Integration Tests', () => {
     });
   });
 
-  describe('Multiple assistants', () => {
-    it('should create metadata regardless of assistant selection', async () => {
+  describe('Multiple harnesses', () => {
+    it('should create metadata regardless of harness selection', async () => {
       const result = await init({
-        assistants: 'claude,gemini,opencode',
+        harnesses: 'claude,gemini,opencode',
         destinationDirectory: testDir,
       });
 
@@ -291,7 +291,7 @@ describe('Conflict Detection Integration Tests', () => {
   describe('Edge cases', () => {
     it('should handle empty config directory', async () => {
       const result = await init({
-        assistants: 'claude',
+        harnesses: 'claude',
         destinationDirectory: testDir,
       });
 
@@ -305,7 +305,7 @@ describe('Conflict Detection Integration Tests', () => {
 
     it('should handle very long file paths', async () => {
       const result = await init({
-        assistants: 'claude',
+        harnesses: 'claude',
         destinationDirectory: testDir,
       });
 
@@ -318,7 +318,7 @@ describe('Conflict Detection Integration Tests', () => {
 
       // Re-init should handle it
       const result2 = await init({
-        assistants: 'claude',
+        harnesses: 'claude',
         destinationDirectory: testDir,
         force: true,
       });

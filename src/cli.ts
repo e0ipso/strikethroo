@@ -20,8 +20,8 @@ program
   .command('init')
   .description('Initialize a new AI task management project')
   .requiredOption(
-    '--assistants <value>',
-    'Comma-separated list of assistants to configure (claude,gemini,opencode)'
+    '--harnesses <value>',
+    'Comma-separated list of harnesses to configure (claude,codex,cursor,gemini,github,opencode)'
   )
   .option(
     '--destination-directory <path>',

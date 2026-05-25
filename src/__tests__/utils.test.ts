@@ -5,58 +5,58 @@
  * or cause data corruption. Skips simple wrappers and obvious functionality.
  */
 
-import { parseAssistants, validateAssistants } from '../utils';
-import { Assistant } from '../types';
+import { parseHarnesses, validateHarnesses } from '../utils';
+import { Harness } from '../types';
 
 describe('Critical Utils Business Logic', () => {
-  describe('parseAssistants', () => {
-    it('should parse and normalize single assistant', () => {
-      expect(parseAssistants('claude')).toEqual(['claude']);
-      expect(parseAssistants(' CLAUDE ')).toEqual(['claude']);
+  describe('parseHarnesses', () => {
+    it('should parse and normalize single harness', () => {
+      expect(parseHarnesses('claude')).toEqual(['claude']);
+      expect(parseHarnesses(' CLAUDE ')).toEqual(['claude']);
     });
 
-    it('should parse multiple assistants with normalization', () => {
-      expect(parseAssistants('claude,gemini')).toEqual(['claude', 'gemini']);
-      expect(parseAssistants(' Claude , GEMINI ')).toEqual(['claude', 'gemini']);
-      expect(parseAssistants('claude,gemini,opencode')).toEqual(['claude', 'gemini', 'opencode']);
-      expect(parseAssistants(' OPENCODE ')).toEqual(['opencode']);
+    it('should parse multiple harnesses with normalization', () => {
+      expect(parseHarnesses('claude,gemini')).toEqual(['claude', 'gemini']);
+      expect(parseHarnesses(' Claude , GEMINI ')).toEqual(['claude', 'gemini']);
+      expect(parseHarnesses('claude,gemini,opencode')).toEqual(['claude', 'gemini', 'opencode']);
+      expect(parseHarnesses(' OPENCODE ')).toEqual(['opencode']);
     });
 
     it('should remove duplicates and empty entries', () => {
-      expect(parseAssistants('claude,claude,gemini')).toEqual(['claude', 'gemini']);
-      expect(parseAssistants('claude,,gemini,')).toEqual(['claude', 'gemini']);
+      expect(parseHarnesses('claude,claude,gemini')).toEqual(['claude', 'gemini']);
+      expect(parseHarnesses('claude,,gemini,')).toEqual(['claude', 'gemini']);
     });
 
     it('should reject empty input', () => {
-      expect(() => parseAssistants('')).toThrow('Assistants parameter cannot be empty');
-      expect(() => parseAssistants('   ')).toThrow('Assistants parameter cannot be empty');
+      expect(() => parseHarnesses('')).toThrow('Harnesses parameter cannot be empty');
+      expect(() => parseHarnesses('   ')).toThrow('Harnesses parameter cannot be empty');
     });
 
-    it('should reject invalid assistants', () => {
-      expect(() => parseAssistants('invalid')).toThrow(
-        'Invalid assistant(s): invalid. Valid options are: claude, codex, cursor, gemini, github, opencode'
+    it('should reject invalid harnesses', () => {
+      expect(() => parseHarnesses('invalid')).toThrow(
+        'Invalid harness(es): invalid. Valid options are: claude, codex, cursor, gemini, github, opencode'
       );
-      expect(() => parseAssistants('claude,invalid,unknown')).toThrow(
-        'Invalid assistant(s): invalid, unknown. Valid options are: claude, codex, cursor, gemini, github, opencode'
+      expect(() => parseHarnesses('claude,invalid,unknown')).toThrow(
+        'Invalid harness(es): invalid, unknown. Valid options are: claude, codex, cursor, gemini, github, opencode'
       );
     });
   });
 
-  describe('validateAssistants', () => {
-    it('should accept valid assistants', () => {
-      expect(() => validateAssistants(['claude'])).not.toThrow();
-      expect(() => validateAssistants(['claude', 'gemini'])).not.toThrow();
-      expect(() => validateAssistants(['opencode'])).not.toThrow();
-      expect(() => validateAssistants(['claude', 'gemini', 'opencode'])).not.toThrow();
+  describe('validateHarnesses', () => {
+    it('should accept valid harnesses', () => {
+      expect(() => validateHarnesses(['claude'])).not.toThrow();
+      expect(() => validateHarnesses(['claude', 'gemini'])).not.toThrow();
+      expect(() => validateHarnesses(['opencode'])).not.toThrow();
+      expect(() => validateHarnesses(['claude', 'gemini', 'opencode'])).not.toThrow();
     });
 
     it('should reject empty array', () => {
-      expect(() => validateAssistants([])).toThrow('At least one assistant must be specified');
+      expect(() => validateHarnesses([])).toThrow('At least one harness must be specified');
     });
 
-    it('should reject invalid assistants', () => {
-      expect(() => validateAssistants(['invalid' as Assistant])).toThrow(
-        'Invalid assistant: invalid. Supported assistants: claude, codex, cursor, gemini, github, opencode'
+    it('should reject invalid harnesses', () => {
+      expect(() => validateHarnesses(['invalid' as Harness])).toThrow(
+        'Invalid harness: invalid. Supported harnesses: claude, codex, cursor, gemini, github, opencode'
       );
     });
   });

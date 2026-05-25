@@ -6,18 +6,18 @@
  */
 
 /**
- * Supported AI assistants for task management
+ * Supported AI harnesses for task management
  */
-export type Assistant = 'claude' | 'codex' | 'cursor' | 'gemini' | 'github' | 'opencode';
+export type Harness = 'claude' | 'codex' | 'cursor' | 'gemini' | 'github' | 'opencode';
 
 /**
  * Options for the init command
  */
 export interface InitOptions {
   /**
-   * Comma-separated list of assistants to configure
+   * Comma-separated list of harnesses to configure
    */
-  assistants: string;
+  harnesses: string;
   /**
    * Optional destination directory for the configuration
    */
@@ -93,9 +93,9 @@ export interface Task {
    */
   tags: string[];
   /**
-   * AI assistant assigned to the task
+   * AI harness assigned to the task
    */
-  assignedTo?: Assistant;
+  assignedTo?: Harness;
 }
 
 /**
@@ -139,13 +139,13 @@ export interface BaseCommandOptions {
 }
 
 /**
- * Assistant configuration
+ * Harness configuration
  */
-export interface AssistantConfig {
+export interface HarnessConfig {
   /**
-   * Assistant type
+   * Harness type
    */
-  type: Assistant;
+  type: Harness;
   /**
    * API endpoint URL
    */
@@ -177,13 +177,13 @@ export interface ProjectConfig {
    */
   description?: string;
   /**
-   * Default assistant for the project
+   * Default harness for the project
    */
-  defaultAssistant?: Assistant;
+  defaultHarness?: Harness;
   /**
-   * Configured assistants
+   * Configured harnesses
    */
-  assistants: AssistantConfig[];
+  harnesses: HarnessConfig[];
   /**
    * Project creation timestamp
    */

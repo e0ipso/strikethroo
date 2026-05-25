@@ -8,8 +8,8 @@
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import chalk from 'chalk';
-import { InitOptions, Assistant, CommandResult, ConflictResolution, InitMetadata } from './types';
-import { parseAssistants, validateAssistants } from './utils';
+import { InitOptions, Harness, CommandResult, ConflictResolution, InitMetadata } from './types';
+import { parseHarnesses, validateHarnesses } from './utils';
 import {
   calculateFileHash,
   loadMetadata,
@@ -87,10 +87,10 @@ async function exists(filepath: string): Promise<boolean> {
 /**
  * Initialize a new AI Task Manager project
  *
- * Creates directory structures and copies template files based on the selected assistants.
+ * Creates directory structures and copies template files based on the selected harnesses.
  * Validates input, creates necessary directories, and copies appropriate templates.
  *
- * @param options - Initialization options containing assistant selection
+ * @param options - Initialization options containing harness selection
  * @returns CommandResult indicating success or failure with details
  */
 export async function init(options: InitOptions): Promise<CommandResult> {
@@ -99,9 +99,9 @@ export async function init(options: InitOptions): Promise<CommandResult> {
     const baseDir = options.destinationDirectory || '.';
     const resolvedBaseDir = resolvePath(baseDir);
 
-    // Parse and validate assistants
-    const assistants = parseAssistants(options.assistants);
-    validateAssistants(assistants);
+    // Parse and validate harnesses
+    const harnesses = parseHarnesses(options.harnesses);
+    validateHarnesses(harnesses);
 
     // ========== HEADER SECTION ==========
     console.log(chalk.bold.white('\nAI Task Manager Initialization'));
@@ -110,7 +110,7 @@ export async function init(options: InitOptions): Promise<CommandResult> {
     // ========== CONFIGURATION SECTION ==========
     console.log(formatSectionHeader('Configuration'));
     console.log(`  ${chalk.cyan('●')} Target Directory: ${resolvedBaseDir}`);
-    console.log(`  ${chalk.cyan('●')} Assistants: ${assistants.join(', ')}`);
+    console.log(`  ${chalk.cyan('●')} Harnesses: ${harnesses.join(', ')}`);
 
     // ========== SETUP PROGRESS SECTION ==========
     console.log(formatSectionHeader('Setup Progress'));
@@ -125,10 +125,10 @@ export async function init(options: InitOptions): Promise<CommandResult> {
     console.log(`  ${chalk.green('✓')} Copying common template files`);
     await copyCommonTemplates(baseDir, options.force || false);
 
-    // Create assistant-specific directories and copy templates
-    for (const assistant of assistants) {
-      console.log(`  ${chalk.green('✓')} Setting up ${assistant} assistant configuration`);
-      await createAssistantStructure(assistant, baseDir);
+    // Create harness-specific directories and copy templates
+    for (const harness of harnesses) {
+      console.log(`  ${chalk.green('✓')} Setting up ${harness} harness configuration`);
+      await createHarnessStructure(harness, baseDir);
     }
 
     // ========== CREATED FILES SECTION ==========
@@ -141,7 +141,7 @@ export async function init(options: InitOptions): Promise<CommandResult> {
       console.log(`    ${chalk.blue('●')} ${file}`);
     }
 
-    if (assistants.includes('claude')) {
+    if (harnesses.includes('claude')) {
       const agentFiles = await collectFiles(resolvePath(baseDir, '.claude/agents'));
       if (agentFiles.length > 0) {
         console.log(chalk.cyan('  Claude Agents:'));
@@ -157,7 +157,7 @@ export async function init(options: InitOptions): Promise<CommandResult> {
 
     // Post-init nudge directing users to install the task skills
     console.log(
-      '\nNext: run `npx skills add e0ipso/ai-task-manager` to install the task skills for your assistant(s).'
+      '\nNext: run `npx skills add e0ipso/ai-task-manager` to install the task skills for your harness(es).'
     );
 
     // Add documentation link
@@ -169,7 +169,7 @@ export async function init(options: InitOptions): Promise<CommandResult> {
     return {
       success: true,
       message: 'AI Task Manager initialized successfully!',
-      data: { assistants },
+      data: { harnesses },
     };
   } catch (error) {
     const errorMessage =
@@ -317,11 +317,11 @@ async function applyResolutions(
   }
 }
 
-async function createAssistantStructure(assistant: Assistant, baseDir: string): Promise<void> {
-  if (assistant !== 'claude') {
+async function createHarnessStructure(harness: Harness, baseDir: string): Promise<void> {
+  if (harness !== 'claude') {
     console.log(
       chalk.gray(
-        `    ${assistant}: no files emitted — install skills with \`npx skills add e0ipso/ai-task-manager\``
+        `    ${harness}: no files emitted — install skills with \`npx skills add e0ipso/ai-task-manager\``
       )
     );
     return;
@@ -369,7 +369,7 @@ async function displayWorkflowHelp(): Promise<void> {
   console.log(`  ${chalk.cyan('●')} Install the task skills:`);
   console.log(`      ${chalk.gray('npx skills add e0ipso/ai-task-manager')}`);
   console.log('');
-  console.log(`  ${chalk.cyan('●')} Ask your assistant to plan, decompose, then execute.`);
+  console.log(`  ${chalk.cyan('●')} Ask your AI to plan, decompose, then execute.`);
   console.log(
     `    The skills cover plan creation, refinement, task generation, and blueprint execution.`
   );

@@ -87,9 +87,9 @@ describe('CLI Integration', () => {
     });
   });
 
-  describe('init — Claude assistant', () => {
+  describe('init — Claude harness', () => {
     it('bootstraps .ai/task-manager and copies Claude agents', async () => {
-      const result = executeCommand(`node "${cliPath}" init --assistants claude`);
+      const result = executeCommand(`node "${cliPath}" init --harnesses claude`);
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('AI Task Manager initialized successfully!');
 
@@ -99,15 +99,15 @@ describe('CLI Integration', () => {
     });
 
     it('does not emit a .claude/commands directory', async () => {
-      executeCommand(`node "${cliPath}" init --assistants claude`);
+      executeCommand(`node "${cliPath}" init --harnesses claude`);
       expect(await fs.pathExists(path.join(testDir, '.claude/commands'))).toBe(false);
     });
   });
 
-  describe('init — non-Claude assistants', () => {
-    it('bootstraps .ai/task-manager but emits no per-assistant files', async () => {
+  describe('init — non-Claude harnesses', () => {
+    it('bootstraps .ai/task-manager but emits no per-harness files', async () => {
       const result = executeCommand(
-        `node "${cliPath}" init --assistants gemini,codex,cursor,github,opencode`
+        `node "${cliPath}" init --harnesses gemini,codex,cursor,github,opencode`
       );
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('AI Task Manager initialized successfully!');
@@ -122,8 +122,8 @@ describe('CLI Integration', () => {
       expect(await fs.pathExists(path.join(testDir, '.opencode'))).toBe(false);
     });
 
-    it('emits a skill-install notice for each non-Claude assistant', async () => {
-      const result = executeCommand(`node "${cliPath}" init --assistants gemini`);
+    it('emits a skill-install notice for each non-Claude harness', async () => {
+      const result = executeCommand(`node "${cliPath}" init --harnesses gemini`);
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toMatch(/gemini.*npx skills add/s);
     });
@@ -133,7 +133,7 @@ describe('CLI Integration', () => {
     it('honours --destination-directory for a relative path', async () => {
       const customDir = 'custom-project';
       const result = executeCommand(
-        `node "${cliPath}" init --assistants claude --destination-directory ${customDir}`
+        `node "${cliPath}" init --harnesses claude --destination-directory ${customDir}`
       );
       expect(result.exitCode).toBe(0);
 
@@ -144,7 +144,7 @@ describe('CLI Integration', () => {
     it('creates intermediate parent directories', async () => {
       const nestedDir = 'level1/level2/nested-project';
       const result = executeCommand(
-        `node "${cliPath}" init --assistants claude --destination-directory ${nestedDir}`
+        `node "${cliPath}" init --harnesses claude --destination-directory ${nestedDir}`
       );
       expect(result.exitCode).toBe(0);
       await verifyAiTaskManagerBootstrap(path.join(testDir, nestedDir));
@@ -153,7 +153,7 @@ describe('CLI Integration', () => {
     it('handles paths with spaces', async () => {
       const spacedDir = 'project with spaces';
       const result = executeCommand(
-        `node "${cliPath}" init --assistants claude --destination-directory "${spacedDir}"`
+        `node "${cliPath}" init --harnesses claude --destination-directory "${spacedDir}"`
       );
       expect(result.exitCode).toBe(0);
       await verifyAiTaskManagerBootstrap(path.join(testDir, spacedDir));
@@ -161,40 +161,40 @@ describe('CLI Integration', () => {
   });
 
   describe('init — input validation', () => {
-    it('rejects missing --assistants flag', () => {
+    it('rejects missing --harnesses flag', () => {
       const result = executeCommand(`node "${cliPath}" init`);
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain('required option');
-      expect(result.stderr).toContain('--assistants');
+      expect(result.stderr).toContain('--harnesses');
     });
 
-    it('rejects invalid assistant names', () => {
-      const result = executeCommand(`node "${cliPath}" init --assistants invalid`);
+    it('rejects invalid harness names', () => {
+      const result = executeCommand(`node "${cliPath}" init --harnesses invalid`);
       expect(result.exitCode).toBe(1);
       const output = result.stdout + result.stderr;
-      expect(output).toContain('Invalid assistant');
+      expect(output).toContain('Invalid harness');
     });
 
-    it('rejects empty --assistants value', () => {
-      const result = executeCommand(`node "${cliPath}" init --assistants ""`);
+    it('rejects empty --harnesses value', () => {
+      const result = executeCommand(`node "${cliPath}" init --harnesses ""`);
       expect(result.exitCode).toBe(1);
       const output = result.stdout + result.stderr;
       expect(output).toContain('cannot be empty');
     });
 
-    it('rejects partially-invalid assistant lists', () => {
+    it('rejects partially-invalid harness lists', () => {
       const result = executeCommand(
-        `node "${cliPath}" init --assistants claude,invalid,gemini`
+        `node "${cliPath}" init --harnesses claude,invalid,gemini`
       );
       expect(result.exitCode).toBe(1);
       const output = result.stdout + result.stderr;
-      expect(output).toContain('Invalid assistant');
+      expect(output).toContain('Invalid harness');
       expect(output).toContain('invalid');
     });
 
     it('normalises whitespace and duplicates', async () => {
       const result = executeCommand(
-        `node "${cliPath}" init --assistants " claude , claude , gemini "`
+        `node "${cliPath}" init --harnesses " claude , claude , gemini "`
       );
       expect(result.exitCode).toBe(0);
       await verifyAiTaskManagerBootstrap(testDir);
@@ -204,10 +204,10 @@ describe('CLI Integration', () => {
 
   describe('init — re-run handling', () => {
     it('succeeds when run twice in the same directory', async () => {
-      const first = executeCommand(`node "${cliPath}" init --assistants claude`);
+      const first = executeCommand(`node "${cliPath}" init --harnesses claude`);
       expect(first.exitCode).toBe(0);
 
-      const second = executeCommand(`node "${cliPath}" init --assistants claude --force`);
+      const second = executeCommand(`node "${cliPath}" init --harnesses claude --force`);
       expect(second.exitCode).toBe(0);
 
       await verifyAiTaskManagerBootstrap(testDir);

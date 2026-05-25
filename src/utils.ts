@@ -1,12 +1,12 @@
 /**
  * Helper Functions for the CLI
  *
- * Validation helpers for the `--assistants` option.
+ * Validation helpers for the `--harnesses` option.
  */
 
-import { Assistant } from './types';
+import { Harness } from './types';
 
-const VALID_ASSISTANTS: readonly Assistant[] = [
+const VALID_HARNESSES: readonly Harness[] = [
   'claude',
   'codex',
   'cursor',
@@ -16,48 +16,48 @@ const VALID_ASSISTANTS: readonly Assistant[] = [
 ];
 
 /**
- * Parse comma-separated assistant values into an array
- * @param value - Comma-separated string of assistant names
- * @returns Array of assistant names
- * @throws Error if invalid assistant names are provided
+ * Parse comma-separated harness values into an array
+ * @param value - Comma-separated string of harness names
+ * @returns Array of harness names
+ * @throws Error if invalid harness names are provided
  */
-export function parseAssistants(value: string): Assistant[] {
+export function parseHarnesses(value: string): Harness[] {
   if (!value.trim()) {
-    throw new Error('Assistants parameter cannot be empty');
+    throw new Error('Harnesses parameter cannot be empty');
   }
 
-  const assistants = value
+  const harnesses = value
     .split(',')
     .map(a => a.trim().toLowerCase())
     .filter(a => a.length > 0);
 
-  const invalidAssistants = assistants.filter(
-    (assistant): assistant is string => !VALID_ASSISTANTS.includes(assistant as Assistant)
+  const invalidHarnesses = harnesses.filter(
+    (harness): harness is string => !VALID_HARNESSES.includes(harness as Harness)
   );
 
-  if (invalidAssistants.length > 0) {
+  if (invalidHarnesses.length > 0) {
     throw new Error(
-      `Invalid assistant(s): ${invalidAssistants.join(', ')}. Valid options are: ${VALID_ASSISTANTS.join(', ')}`
+      `Invalid harness(es): ${invalidHarnesses.join(', ')}. Valid options are: ${VALID_HARNESSES.join(', ')}`
     );
   }
 
-  return Array.from(new Set(assistants)) as Assistant[];
+  return Array.from(new Set(harnesses)) as Harness[];
 }
 
 /**
- * Validate that all assistants are supported
- * @param assistants - Array of assistants to validate
- * @throws Error if any assistant is invalid or array is empty
+ * Validate that all harnesses are supported
+ * @param harnesses - Array of harnesses to validate
+ * @throws Error if any harness is invalid or array is empty
  */
-export function validateAssistants(assistants: Assistant[]): void {
-  if (assistants.length === 0) {
-    throw new Error('At least one assistant must be specified');
+export function validateHarnesses(harnesses: Harness[]): void {
+  if (harnesses.length === 0) {
+    throw new Error('At least one harness must be specified');
   }
 
-  for (const assistant of assistants) {
-    if (!VALID_ASSISTANTS.includes(assistant)) {
+  for (const harness of harnesses) {
+    if (!VALID_HARNESSES.includes(harness)) {
       throw new Error(
-        `Invalid assistant: ${assistant}. Supported assistants: ${VALID_ASSISTANTS.join(', ')}`
+        `Invalid harness: ${harness}. Supported harnesses: ${VALID_HARNESSES.join(', ')}`
       );
     }
   }

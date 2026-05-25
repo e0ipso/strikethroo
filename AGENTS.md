@@ -38,6 +38,17 @@ The init command uses hash-based tracking to protect user customizations:
 
 ---
 
+## Glossary
+
+- **Work order** — The user's request describing what they want accomplished.
+- **Plan** — Comprehensive document covering requirements, architecture, risks, and success criteria.
+- **Execution blueprint** — All tasks organized into dependency-mapped phases. Output of task generation.
+- **Phase** — A group of tasks that execute in parallel. Phases run in sequence.
+- **Task** — An atomic unit of work with 1-2 skills and clear acceptance criteria. Executed by a sub-agent.
+- **Sub-agent** — A specialized AI agent executing a single task with focused, clean context.
+
+---
+
 ## Project Overview
 
 ### Purpose and Scope

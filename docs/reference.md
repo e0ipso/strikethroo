@@ -1,44 +1,88 @@
 ---
 layout: default
 title: Reference
-nav_order: 9
-has_children: true
-description: "Comparisons, technical details, and reference documentation"
+nav_order: 7
+description: "Glossary, CLI reference, and frequently asked questions"
 ---
 
 # Reference
 
-Technical reference and comparison documentation for AI Task Manager.
+Glossary of canonical terms, CLI command reference, and answers to frequently asked questions.
 
-## Understanding AI Task Manager
+---
 
-This section provides detailed comparisons and technical context to help you understand when and how to use AI Task Manager effectively.
+## Glossary
 
-## What You'll Learn
+| Term | Definition |
+|------|-----------|
+| **Work order** | The user's request describing what they want accomplished. Input to the system. |
+| **Plan** | The comprehensive document the LLM produces by refining the work order. Covers requirements, architecture, risks, and success criteria. Output of Phase 1. |
+| **Execution blueprint** | The structured output of task generation (Phase 2). Contains all tasks organized into phases with dependency mappings. |
+| **Phase** | A group of tasks within the execution blueprint. Tasks within a phase execute in parallel; phases execute in sequence. This is the unit of parallelism. |
+| **Task** | An atomic unit of work within a phase. Has 1-2 skills, acceptance criteria, and dependencies. Executed by a sub-agent with clean context. |
+| **Sub-agent** | A specialized AI agent that executes a single task with focused, clean context. Not the main conversation agent. |
+| **Skill** | A harness-agnostic Agent Skill that implements one step of the workflow (e.g., `task-create-plan`, `task-execute-blueprint`). Skills load automatically when the user's intent matches their description. |
+| **Harness** | The AI assistant environment (Claude Code, Gemini CLI, GitHub Copilot, Codex, etc.) in which skills run. |
+| **Hook** | A lifecycle callback (Markdown file) executed at a specific point in the workflow. Nine hooks are available: `PRE_PLAN`, `POST_PLAN`, `PRE_PHASE`, `POST_PHASE`, `PRE_TASK_ASSIGNMENT`, `PRE_TASK_EXECUTION`, `POST_TASK_GENERATION_ALL`, `POST_EXECUTION`, `POST_ERROR_DETECTION`. |
+| **Workspace** | The `.ai/task-manager/` directory tree containing plans, archive, config, hooks, and templates. Created by `init`. |
+| **Archive** | The `archive/` subdirectory inside the workspace where completed plans are moved for historical reference. |
 
-In this section:
+### Retired Terms
 
-- **[Comparison with Other Tools](comparison.html)**: Understand the differences between plan mode and structured task management, and how AI Task Manager compares to other tools
+The following terms appeared in earlier documentation and should not be used in new content.
 
-## Key Differentiators
+| Retired Term | Replacement |
+|-------------|-------------|
+| Progressive refinement | Three-phase workflow |
+| Validation gates | Review gates (for human review) or quality gates (for automated checks) |
+| Cognitive overload | Use concrete explanations of context management (e.g., "context window limits", "context isolation between phases") |
 
-### Progressive Refinement with Validation Gates
-AI Task Manager introduces **mandatory human review gates** between distinct phases, giving you control over scope and quality at each step.
+---
 
-### Subscription-Based Model
-Works within your existing AI assistant subscriptions (Claude Pro/Max, Gemini, GitHub Copilot, Codex). No additional API keys, no pay-per-token charges, no external service dependencies.
+## CLI Reference
 
-### Extensibility Architecture
-Fully customizable through hooks, templates, and configuration files. Every aspect of the workflow can be tailored to your project's specific needs.
+AI Task Manager has two distribution channels: the **CLI** (workspace bootstrapping and plan management) and the **skills installer** (workflow delivery). They are independently re-runnable; the only coupling point is the workspace schema version.
 
-### Skill-Based Agent Deployment
-Tasks are automatically assigned to specialized agents based on their skill requirements, enabling parallel execution and domain expertise.
+### Workspace Initialization
 
-## CLI Commands
+```bash
+npx @e0ipso/ai-task-manager init --harnesses <harness>[,<harness>...] [options]
+```
+
+Creates the shared `.ai/task-manager/` directory (plans, archive, config, hooks, templates) and copies harness-specific artifacts (e.g., `.claude/agents/` for Claude).
+
+**Required flag:**
+
+| Flag | Description |
+|------|-------------|
+| `--harnesses <list>` | Comma-separated harness names. Controls which per-harness artifacts are copied. Accepted values: `claude`, `gemini`, `opencode`, `codex`, `github`, `cursor`. |
+
+**Optional flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--destination-directory <path>` | Target directory for the workspace. Defaults to the current working directory. |
+| `--force` | Overwrite all files without prompting, even if the user has customized them. Useful for CI/automation. |
+
+**File conflict detection:** On re-run, `init` compares file hashes against `.ai/task-manager/.init-metadata.json`. Unchanged files are updated silently; modified files trigger a unified-diff prompt. Use `--force` to bypass prompts.
+
+**Examples:**
+
+```bash
+# Single harness
+npx @e0ipso/ai-task-manager init --harnesses claude
+
+# Multiple harnesses
+npx @e0ipso/ai-task-manager init --harnesses claude,gemini,codex
+
+# Target a different directory
+npx @e0ipso/ai-task-manager init --harnesses claude --destination-directory /path/to/project
+
+# Force overwrite (automation)
+npx @e0ipso/ai-task-manager init --harnesses claude --force
+```
 
 ### Plan Management
-
-Command-line interface for inspecting and managing plans:
 
 ```bash
 npx @e0ipso/ai-task-manager plan <subcommand> <plan-id>
@@ -46,46 +90,133 @@ npx @e0ipso/ai-task-manager plan <subcommand> <plan-id>
 
 **Subcommands:**
 
-**`plan show <plan-id>`** or **`plan <plan-id>`** (shorthand)
-Display plan metadata, executive summary, and task progress.
+| Subcommand | Description |
+|-----------|-------------|
+| `show <plan-id>` | Display plan metadata, executive summary, and task progress. `plan <id>` is shorthand for `plan show <id>`. |
+| `archive <plan-id>` | Move a completed plan from `plans/` to `archive/`. |
+| `delete <plan-id>` | Permanently delete a plan and all associated tasks. Cannot be undone. |
+
+Plan IDs are numeric. Commands work on both active and archived plans.
+
+### Status Dashboard
 
 ```bash
-npx @e0ipso/ai-task-manager plan show 41
-npx @e0ipso/ai-task-manager plan 41  # shorthand
+npx @e0ipso/ai-task-manager status
 ```
 
-**`plan archive <plan-id>`**
-Move a completed plan from `plans/` directory to `archive/` directory.
+Displays summary statistics (total plans, active/archived counts, completion rates), active plans with progress bars, and alerts for unfinished tasks in archived plans.
+
+### Skill Installation
 
 ```bash
-npx @e0ipso/ai-task-manager plan archive 41
+npx skills add e0ipso/ai-task-manager
 ```
 
-**`plan delete <plan-id>`**
-Permanently delete a plan and all associated tasks. Cannot be undone.
+Installs the Agent Skills that implement the three-phase workflow. Skills are fetched from the repository's tagged release via the `.claude-plugin/plugin.json` manifest.
+
+**Pin a specific version:**
 
 ```bash
-npx @e0ipso/ai-task-manager plan delete 41
+npx skills add e0ipso/ai-task-manager@<tag>
 ```
 
-**Usage Notes:**
-- Plan ID must be numeric
-- Commands work on both active plans (in `plans/`) and archived plans (in `archive/`)
-- Shorthand `plan <id>` defaults to `plan show <id>` for convenience
+**Update skills:**
 
-See [Workflow Guide](workflow.html) for integrated workflow usage examples.
+Re-run the same command to pull the latest version.
 
-## When to Use AI Task Manager
+### Skill Removal
 
-Use AI Task Manager when you need:
-- Complex multi-step projects (3+ features)
-- Tight scope control and YAGNI enforcement
-- Multiple implementation approaches to evaluate
-- Review before execution
-- Multi-session projects spanning days/weeks
-- Parallel task execution benefits
-- Clear task tracking and progress visibility
+```bash
+npx skills remove e0ipso/ai-task-manager
+```
 
-## Next Steps
+Removes the installed Agent Skills. The `.ai/task-manager/` workspace, plans, and configuration are not affected.
 
-Explore [Comparison with Other Tools](comparison.html) to understand when to use AI Task Manager versus traditional plan mode or other task management tools.
+### Shipped Skills
+
+| Skill | Purpose |
+|-------|---------|
+| `task-create-plan` | Phase 1: Strategic plan creation with mandatory clarification gates. |
+| `task-generate-tasks` | Phase 2: Task decomposition with dependency mapping and skill assignments. |
+| `task-execute-blueprint` | Phase 3: Execution orchestration across all tasks in a plan. |
+| `task-refine-plan` | Plan refinement loop with interactive and autonomous clarification modes. |
+| `task-execute-task` | Single-task execution with dependency and status checks. |
+| `task-full-workflow` | End-to-end orchestration chaining all three phases. |
+
+---
+
+## Frequently Asked Questions
+
+### Setup and Installation
+
+**Does AI Task Manager require API keys or additional costs?**
+
+No. It works within your existing AI assistant subscriptions (Claude Pro/Max, Gemini, GitHub Copilot, Codex, Open Code). No API keys, no pay-per-token charges, no external service dependencies.
+
+**How long does setup take?**
+
+Under 30 seconds. Run `npx @e0ipso/ai-task-manager init --harnesses claude` followed by `npx skills add e0ipso/ai-task-manager`, and the workspace is ready.
+
+**Does it work with existing projects?**
+
+Yes. The `init` command merges with existing project structures without breaking existing files. Hash-based conflict detection preserves your customizations on re-init.
+
+**Can I use multiple AI assistants on the same project?**
+
+Yes. Initialize with multiple harnesses (`--harnesses claude,gemini,codex`). All harnesses share the same plans, tasks, and configuration. Team members can use different harnesses while collaborating.
+
+### Workflow
+
+**What is the three-phase workflow?**
+
+1. **Planning** (Phase 1): The `task-create-plan` skill refines your work order into a comprehensive plan.
+2. **Task generation** (Phase 2): The `task-generate-tasks` skill decomposes the plan into an execution blueprint -- atomic tasks organized into dependency-mapped phases.
+3. **Execution** (Phase 3): The `task-execute-blueprint` skill implements each task using sub-agents with focused context.
+
+Each phase produces files in `.ai/task-manager/plans/` for human review before the next phase begins.
+
+**Do I have to use all three phases?**
+
+No. You can use only plan creation without task generation, generate tasks without executing, execute specific tasks manually, or skip phases that do not apply. The three-phase workflow is recommended but not mandatory.
+
+**What if I want fully automated execution?**
+
+The `task-full-workflow` skill chains all three phases in a single invocation. It is best suited for well-defined features with clear scope. For complex features that need review between phases, use the manual step-by-step workflow.
+
+**How does AI Task Manager relate to plan mode?**
+
+It augments plan mode rather than replacing it. The output of your assistant's built-in plan mode is often a useful starting point -- feed it into the `task-create-plan` skill for structured refinement.
+
+### Customization
+
+**Can I customize the workflow?**
+
+Yes. Nine lifecycle hooks, four templates, and project-context files are all editable Markdown. See the [Customization Guide](customization.html) for examples.
+
+**What file formats does it use?**
+
+All configuration, plans, tasks, hooks, and templates are Markdown (`.md`) with YAML frontmatter where applicable. No proprietary formats.
+
+### Architecture
+
+**How does context isolation work?**
+
+Each phase and each task runs with a focused context window. Phase 1 sees only the work order. Phase 2 sees only the plan. During Phase 3, each sub-agent receives only the single task it is executing plus its declared dependencies -- not the full plan or other tasks. This prevents the context window from growing unboundedly across a complex project.
+
+**What happens when a task fails during execution?**
+
+The `POST_ERROR_DETECTION` hook fires, enabling custom remediation logic. The task status is set to `failed`, and dependent tasks are not started. You can fix the issue and re-run execution.
+
+**How are tasks executed in parallel?**
+
+Tasks within the same phase have no mutual dependencies and execute concurrently via sub-agents. Phases themselves run in sequence, so a phase starts only after all tasks in the previous phase have completed.
+
+### Comparison with Other Tools
+
+**How does AI Task Manager differ from API-based tools like Plandex or Claude Task Master?**
+
+API-based tools require separate service setup, API keys, and pay-per-token pricing. AI Task Manager works within your existing subscription at no additional cost. It uses file-based configuration (editable Markdown) rather than API configuration, and most operations work offline.
+
+**When should I use plan mode instead of AI Task Manager?**
+
+Use plan mode for simple tasks (fewer than 3 steps) with clear requirements where scope creep is not a concern and the AI can complete the work in one session. Use AI Task Manager for complex multi-step projects, tight scope control, multi-session work, or when you need review gates between planning and execution.

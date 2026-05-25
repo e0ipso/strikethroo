@@ -25,6 +25,7 @@ Delivered through harness-agnostic Agent Skills installed via `npx skills add e0
 In this section:
 
 - **[Installation & Setup](installation.html)**: Install and configure AI Task Manager for your project
+- **[Migrating from 1.x](migration.html)**: Upgrade from slash commands to Agent Skills
 - **[Basic Workflow Guide](workflow.html)**: Learn the day-to-day development workflow
 
 ## Next Steps

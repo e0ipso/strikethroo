@@ -21,7 +21,7 @@ npx skills add e0ipso/ai-task-manager
 npx @e0ipso/ai-task-manager init --harnesses claude --destination-directory .
 ```
 
-The skills give your assistant the planning, decomposition, and execution workflow; the CLI bootstraps `.ai/task-manager/` with hooks, templates, and the hash-tracked diff-on-conflict UX. Each step is independently re-runnable. See [MIGRATION.md](./MIGRATION.md) for upgrade flows and recovery from schema-mismatch errors.
+The skills give your assistant the planning, decomposition, and execution workflow; the CLI bootstraps `.ai/task-manager/` with hooks, templates, and the hash-tracked diff-on-conflict UX. Each step is independently re-runnable. See the [migration guide](https://mateuaguilo.com/ai-task-manager/migration.html) for upgrade flows from 1.x.
 
 The CLI's `init` emits the shared workspace plus harness-specific agents (e.g., `.claude/agents/` for Claude). Other harnesses rely entirely on the installed skills.
 

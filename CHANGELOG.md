@@ -1,3 +1,7 @@
+## 1.38.0 (2026-05-25)
+
+* feat: publish 2.0.0 ([87fcc7e](https://github.com/e0ipso/ai-task-manager/commit/87fcc7e))
+
 ## 1.37.0 (2026-05-25)
 
 * docs: details on how to migrate from 1.x to 2.x ([a1d7ab0](https://github.com/e0ipso/ai-task-manager/commit/a1d7ab0))

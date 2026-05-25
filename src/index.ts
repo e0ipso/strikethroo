@@ -9,7 +9,7 @@ import * as fs from 'fs-extra';
 import * as path from 'path';
 import chalk from 'chalk';
 import { InitOptions, Harness, CommandResult, ConflictResolution, InitMetadata } from './types';
-import { parseHarnesses, validateHarnesses } from './utils';
+import { parseHarnesses, validateHarnesses, getAgentFormat, convertAgentMdToToml } from './utils';
 import {
   calculateFileHash,
   loadMetadata,
@@ -126,9 +126,13 @@ export async function init(options: InitOptions): Promise<CommandResult> {
     await copyCommonTemplates(baseDir, options.force || false);
 
     // Create harness-specific directories and copy templates
+    const allCreatedAgentFiles: Map<string, string[]> = new Map();
     for (const harness of harnesses) {
       console.log(`  ${chalk.green('✓')} Setting up ${harness} harness configuration`);
-      await createHarnessStructure(harness, baseDir);
+      const created = await createHarnessStructure(harness, baseDir);
+      if (created.length > 0) {
+        allCreatedAgentFiles.set(harness, created);
+      }
     }
 
     // ========== CREATED FILES SECTION ==========
@@ -141,13 +145,10 @@ export async function init(options: InitOptions): Promise<CommandResult> {
       console.log(`    ${chalk.blue('●')} ${file}`);
     }
 
-    if (harnesses.includes('claude')) {
-      const agentFiles = await collectFiles(resolvePath(baseDir, '.claude/agents'));
-      if (agentFiles.length > 0) {
-        console.log(chalk.cyan('  Claude Agents:'));
-        for (const file of agentFiles) {
-          console.log(`    ${chalk.blue('●')} ${file}`);
-        }
+    for (const [harness, files] of allCreatedAgentFiles) {
+      console.log(chalk.cyan(`  ${harness} Agents:`));
+      for (const file of files) {
+        console.log(`    ${chalk.blue('●')} ${file}`);
       }
     }
 
@@ -317,22 +318,36 @@ async function applyResolutions(
   }
 }
 
-async function createHarnessStructure(harness: Harness, baseDir: string): Promise<void> {
-  if (harness !== 'claude') {
-    console.log(
-      chalk.gray(
-        `    ${harness}: no files emitted — install skills with \`npx skills add e0ipso/ai-task-manager\``
-      )
-    );
-    return;
-  }
-
+async function createHarnessStructure(harness: Harness, baseDir: string): Promise<string[]> {
   const sourceAgentsDir = getTemplatePath(path.join('harness', 'agents'));
-  const targetAgentsDir = resolvePath(baseDir, '.claude', 'agents');
+  const createdFiles: string[] = [];
 
-  if (await exists(sourceAgentsDir)) {
-    await fs.copy(sourceAgentsDir, targetAgentsDir);
+  if (!(await exists(sourceAgentsDir))) {
+    return createdFiles;
   }
+
+  const agentFiles = (await fs.readdir(sourceAgentsDir)).filter(f => f.endsWith('.md'));
+  const formatInfo = getAgentFormat(harness);
+  const targetDir = resolvePath(baseDir, formatInfo.directory);
+  await fs.ensureDir(targetDir);
+
+  for (const agentFile of agentFiles) {
+    const sourcePath = path.join(sourceAgentsDir, agentFile);
+    const content = await fs.readFile(sourcePath, 'utf-8');
+    const baseName = path.basename(agentFile, '.md');
+    const targetName = baseName + formatInfo.extension;
+    const targetPath = path.join(targetDir, targetName);
+
+    if (formatInfo.format === 'toml') {
+      await fs.writeFile(targetPath, convertAgentMdToToml(content), 'utf-8');
+    } else {
+      await fs.writeFile(targetPath, content, 'utf-8');
+    }
+
+    createdFiles.push(targetPath);
+  }
+
+  return createdFiles;
 }
 
 /**

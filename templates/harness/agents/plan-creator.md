@@ -18,7 +18,7 @@ Create strategic blueprints that define WHAT to build and WHY, not HOW. Your pla
 ## Critical Workflow
 
 **1. Context Gathering**
-- Read CLAUDE.md, README.md, package.json
+- Read project instructions (AGENTS.md, README.md, or equivalent)
 - Search codebase for similar patterns
 - Ask specific, categorized clarification questions when gaps exist
 - STOP and wait for answers before planning

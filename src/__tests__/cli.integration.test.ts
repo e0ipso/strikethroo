@@ -105,7 +105,7 @@ describe('CLI Integration', () => {
   });
 
   describe('init — non-Claude harnesses', () => {
-    it('bootstraps .ai/task-manager but emits no per-harness files', async () => {
+    it('bootstraps .ai/task-manager and creates per-harness agent files', async () => {
       const result = executeCommand(
         `node "${cliPath}" init --harnesses gemini,codex,cursor,github,opencode`
       );
@@ -115,17 +115,21 @@ describe('CLI Integration', () => {
 
       await verifyAiTaskManagerBootstrap(testDir);
 
-      expect(await fs.pathExists(path.join(testDir, '.gemini'))).toBe(false);
-      expect(await fs.pathExists(path.join(testDir, '.codex'))).toBe(false);
-      expect(await fs.pathExists(path.join(testDir, '.cursor'))).toBe(false);
-      expect(await fs.pathExists(path.join(testDir, '.github/prompts'))).toBe(false);
-      expect(await fs.pathExists(path.join(testDir, '.opencode'))).toBe(false);
+      expect(await fs.pathExists(path.join(testDir, '.gemini/agents/plan-creator.md'))).toBe(true);
+      expect(await fs.pathExists(path.join(testDir, '.codex/agents/plan-creator.toml'))).toBe(true);
+      expect(await fs.pathExists(path.join(testDir, '.cursor/agents/plan-creator.md'))).toBe(true);
+      expect(await fs.pathExists(path.join(testDir, '.github/agents/plan-creator.agent.md'))).toBe(
+        true
+      );
+      expect(await fs.pathExists(path.join(testDir, '.opencode/agents/plan-creator.md'))).toBe(
+        true
+      );
     });
 
-    it('emits a skill-install notice for each non-Claude harness', async () => {
+    it('emits a skill-install notice', async () => {
       const result = executeCommand(`node "${cliPath}" init --harnesses gemini`);
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toMatch(/gemini.*npx skills add/s);
+      expect(result.stdout).toContain('npx skills add');
     });
   });
 

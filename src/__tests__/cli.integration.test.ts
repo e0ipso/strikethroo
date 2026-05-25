@@ -2,8 +2,8 @@
  * CLI Integration Tests
  *
  * Tests CLI behaviour for the skills-only architecture.
- * The CLI bootstraps `.ai/task-manager/` and copies Claude agents into
- * `.claude/agents/`. Task skills are installed separately via
+ * The CLI bootstraps `.ai/task-manager/` and deploys per-harness
+ * agent files. Task skills are installed separately via
  * `npx skills add e0ipso/ai-task-manager`.
  */
 
@@ -98,10 +98,6 @@ describe('CLI Integration', () => {
       expect(await fs.pathExists(path.join(testDir, '.claude/agents/plan-creator.md'))).toBe(true);
     });
 
-    it('does not emit a .claude/commands directory', async () => {
-      executeCommand(`node "${cliPath}" init --harnesses claude`);
-      expect(await fs.pathExists(path.join(testDir, '.claude/commands'))).toBe(false);
-    });
   });
 
   describe('init — non-Claude harnesses', () => {

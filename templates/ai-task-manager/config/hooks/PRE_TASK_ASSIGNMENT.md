@@ -9,12 +9,12 @@
     - Select the most appropriate sub-agent (if any are available). If no sub-agent is appropriate, use the general-purpose one.
     - Consider task-specific requirements from the task document
 
-[IMPORTANT] Analyze the set of tasks skills in order to engage any relevant assistant skills as necessary (either global
+[IMPORTANT] Analyze the set of tasks skills in order to engage any relevant harness skills as necessary (either global
 or project skills).
 
 
 ## Available Sub-Agents
-Analyze the sub-agents available in your current assistant's agents directory. If none are available or the available
+Analyze the sub-agents available in your current harness's agents directory. If none are available or the available
 ones do not match the task's requirements, then use a generic agent.
 
 ## Matching Criteria
@@ -27,6 +27,6 @@ Select agents based on:
 ## Skills Extraction and Agent Detection
 
 1. Read the `skills` array from the task's YAML frontmatter directly.
-2. Check for available sub-agents across assistant directories (`.claude/agents`, `.gemini/agents`, `.opencode/agents`).
+2. Check for available sub-agents in harness-specific agent directories (e.g., `.claude/agents/`, `.gemini/agents/`, `.codex/agents/`, `.cursor/agents/`, `.github/agents/`, `.opencode/agents/`).
 3. If matching sub-agents are found, select the most appropriate one based on the task's required skills.
 4. If no sub-agents are available or none match, use a general-purpose agent for task execution.

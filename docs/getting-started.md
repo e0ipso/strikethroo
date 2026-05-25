@@ -2,32 +2,220 @@
 layout: default
 title: Getting Started
 nav_order: 2
-has_children: true
-description: "Getting started with AI Task Manager installation and basic workflows"
+description: "Install AI Task Manager and run your first workflow"
 ---
 
 # Getting Started
 
-Get up and running with AI Task Manager quickly. This section covers installation, configuration, and your first development workflow.
+Get up and running with AI Task Manager quickly. This page covers prerequisites, installation, directory structure, your first workflow, and verification.
 
-## Quick Overview
+AI Task Manager transforms complex development requests into organized, executable workflows through a three-phase workflow:
 
-AI Task Manager transforms complex development requests into organized, executable workflows through three phases:
+1. **Create Plan** -- Define objectives and clarify requirements
+2. **Generate Tasks** -- Break the plan into atomic tasks with dependencies
+3. **Execute Blueprint** -- Implement tasks with review gates and quality gates
 
-1. **📝 Create Plan**: Define objectives and clarify requirements
-2. **📋 Generate Tasks**: Break plan into atomic tasks with dependencies
-3. **🚀 Execute Blueprint**: Implement tasks with validation gates
+The workflow is delivered through harness-agnostic Agent Skills installed via `npx skills add e0ipso/ai-task-manager`. Skills load automatically when their description matches your intent, so you drive the workflow by asking your assistant to plan, decompose, or execute -- no commands to memorize.
 
-Delivered through harness-agnostic Agent Skills installed via `npx skills add e0ipso/ai-task-manager`. See [AGENTS.md](https://github.com/e0ipso/ai-task-manager/blob/main/AGENTS.md) for harness-specific setup details.
+## Prerequisites
 
-## What You'll Learn
+- **Node.js**: Version 14.0 or higher
+- **npm**: Comes with Node.js
+- **AI Harness**: A harness that supports the Agent Skills format (Claude, Gemini, OpenCode, Codex, GitHub, Cursor, etc.)
 
-In this section:
+## Installation
 
-- **[Installation & Setup](installation.html)**: Install and configure AI Task Manager for your project
-- **[Migrating from 1.x](migration.html)**: Upgrade from slash commands to Agent Skills
-- **[Basic Workflow Guide](workflow.html)**: Learn the day-to-day development workflow
+No global installation required. Use `npx` to run both steps directly.
+
+### Step 1: Bootstrap the Workspace
+
+```bash
+npx @e0ipso/ai-task-manager init --harnesses claude
+```
+
+This creates the shared `.ai/task-manager/` directory (plans, archive, config) and copies the Claude agents into `.claude/agents/`.
+
+### Step 2: Install the Workflow Skills
+
+```bash
+npx skills add e0ipso/ai-task-manager
+```
+
+This installs the Agent Skills that implement the three-phase workflow. Skills are harness-agnostic -- a single skill works for every harness that supports the Agent Skills format.
+
+To pin a specific release:
+
+```bash
+npx skills add e0ipso/ai-task-manager@<tag>
+```
+
+### The `--harnesses` Flag
+
+The `--harnesses` flag is **required** when running `init`. It controls which per-harness artifacts the CLI copies in addition to the shared workspace.
+
+Each harness can have its own agent files deployed to the appropriate location (e.g., `.claude/agents/` for Claude). Harnesses without harness-specific agents get the shared workspace only and rely entirely on the installed skills:
+
+```bash
+# Claude (copies .ai/task-manager/ + .claude/agents/)
+npx @e0ipso/ai-task-manager init --harnesses claude
+
+# Other harnesses (copies .ai/task-manager/ only; rely on skills)
+npx @e0ipso/ai-task-manager init --harnesses gemini
+```
+
+You can pass multiple harnesses in a single run:
+
+```bash
+npx @e0ipso/ai-task-manager init --harnesses claude,gemini,opencode,codex,github,cursor
+```
+
+All harnesses share the same task management structure (plans, tasks, configurations).
+
+### Custom Destination Directory
+
+By default, `init` writes into the current working directory. Use `--destination-directory` to target an alternative location:
+
+```bash
+npx @e0ipso/ai-task-manager init \
+  --harnesses claude \
+  --destination-directory /path/to/project
+```
+
+## Directory Structure
+
+After running both commands, the project layout looks like this:
+
+```
+project-root/
+├── .ai/
+│   └── task-manager/              # Shared configuration files
+│       ├── plans/                 # Active plans (empty initially)
+│       ├── archive/               # Completed plans (empty initially)
+│       ├── config/
+│       │   ├── TASK_MANAGER.md    # Project context (customize this!)
+│       │   ├── hooks/             # Lifecycle hooks
+│       │   │   ├── PRE_PLAN.md
+│       │   │   ├── PRE_PHASE.md
+│       │   │   ├── POST_PHASE.md
+│       │   │   ├── POST_PLAN.md
+│       │   │   ├── POST_TASK_GENERATION_ALL.md
+│       │   │   ├── PRE_TASK_ASSIGNMENT.md
+│       │   │   ├── PRE_TASK_EXECUTION.md
+│       │   │   ├── POST_ERROR_DETECTION.md
+│       │   │   └── POST_EXECUTION.md
+│       │   ├── templates/         # Customizable templates
+│       │   │   ├── PLAN_TEMPLATE.md
+│       │   │   ├── TASK_TEMPLATE.md
+│       │   │   ├── BLUEPRINT_TEMPLATE.md
+│       │   │   └── EXECUTION_SUMMARY_TEMPLATE.md
+│       └── .init-metadata.json    # File conflict detection tracking
+└── .claude/                       # Claude agents (if --harnesses claude)
+    └── agents/
+        └── plan-creator.md
+```
+
+The installed skills live wherever your assistant manages them; they are not copied into the project tree.
+
+## Your First Workflow
+
+Once installation is complete, you drive the three-phase workflow entirely through your assistant. Here is the typical sequence:
+
+1. **Create a plan** -- Ask your assistant to plan a feature or change. The `task-create-plan` skill loads automatically, gathers requirements, and produces a work order in `.ai/task-manager/plans/`.
+
+2. **Generate tasks** -- Ask your assistant to decompose the plan into tasks. The `task-generate-tasks` skill breaks the plan into atomic tasks with dependency mapping and writes them into the plan's `tasks/` subdirectory.
+
+3. **Execute the blueprint** -- Ask your assistant to execute the plan. The `task-execute-blueprint` skill works through each phase, running tasks in dependency order with quality gates between phases.
+
+You can also run all three phases in a single uninterrupted sequence by asking your assistant to handle the full workflow end-to-end (the `task-full-workflow` skill).
+
+For a detailed walkthrough of the day-to-day development cycle, see the [Workflow Guide](workflow.html).
+
+## Verification
+
+Verify successful installation:
+
+### 1. Check Directory Structure
+
+```bash
+ls -la .ai/task-manager/
+```
+
+You should see: `plans/`, `archive/`, `config/`
+
+### 2. Check Claude Agents (if you ran `--harnesses claude`)
+
+```bash
+ls -la .claude/agents/
+```
+
+### 3. Test Status Command
+
+```bash
+npx @e0ipso/ai-task-manager status
+```
+
+Should show: "No active plans found" (until you create your first plan)
+
+### 4. Confirm Skills Are Installed
+
+Open your assistant and ask it to create a task-manager plan. The `task-create-plan` skill should load automatically based on intent.
+
+## Updating
+
+### Re-running init
+
+Re-run the init command to update the workspace files to the latest version:
+
+```bash
+npx @e0ipso/ai-task-manager init --harnesses claude
+```
+
+**File Conflict Detection** automatically:
+- Compares current files to original versions using SHA-256 hashes
+- Prompts if you have customized files (shows unified diff)
+- Updates unchanged files automatically
+- Preserves your customizations
+
+### Force Mode
+
+Bypass conflict detection prompts (useful for automation):
+
+```bash
+npx @e0ipso/ai-task-manager init --harnesses claude --force
+```
+
+**Warning**: Force mode overwrites ALL files, including your customizations. Back up custom hooks and templates first.
+
+### Updating Skills
+
+Re-run `npx skills add e0ipso/ai-task-manager` to pull the latest skills. The two channels (CLI init and skills installer) are independently re-runnable.
+
+## Customizing for Your Project
+
+After installation, customize these files for your specific needs:
+
+### Essential Customizations
+
+1. **`.ai/task-manager/config/TASK_MANAGER.md`**
+   - Add project context (tech stack, coding standards, architecture decisions)
+   - Include links to design docs, API specs, or style guides
+   - Document project-specific conventions
+
+2. **`.ai/task-manager/config/hooks/POST_PHASE.md`**
+   - Add your quality gates (linting, tests, coverage thresholds)
+   - Include deployment steps (staging, production)
+   - Add notification steps (Slack, email, dashboard updates)
+
+### Advanced Customizations
+
+See the [Customization Guide](customization.html) for:
+- Template modifications
+- Hook customization examples
+- Real-world scenarios (React projects, API projects, monorepos)
 
 ## Next Steps
 
-Start with [Installation & Setup](installation.html) to initialize your project, then follow the [Basic Workflow Guide](workflow.html) to create your first plan.
+- **[Workflow Guide](workflow.html)**: Learn the day-to-day development workflow
+- **[How It Works](how-it-works.html)**: Understand the three-phase workflow
+- **[Customization Guide](customization.html)**: Tailor AI Task Manager to your project
+- **[Migrating from 1.x](migration.html)**: Upgrade from slash commands to Agent Skills

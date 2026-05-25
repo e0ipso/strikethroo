@@ -1,12 +1,11 @@
 ---
 layout: default
 title: Customization Guide
-nav_order: 7
-parent: Customization & Extension
+nav_order: 6
 description: "Customizing hooks, templates, and workflows for your project"
 ---
 
-# 🔧 Customization Guide
+# Customization Guide
 
 AI Task Manager is built for extensibility. **Every aspect of the task management workflow can be tailored to your project's specific needs** through customizable hooks, templates, and configuration files.
 
@@ -62,7 +61,7 @@ The hook system injects custom logic at seven key points in the workflow lifecyc
 #### 3. POST_PHASE Hook
 
 **File**: `POST_PHASE.md`
-**Purpose**: Validation gates executed after phase completion
+**Purpose**: Quality gates executed after phase completion
 
 **Current Implementation**:
 - Ensure code passes linting requirements
@@ -119,7 +118,7 @@ The hook system injects custom logic at seven key points in the workflow lifecyc
 #### 7. PRE_TASK_EXECUTION Hook
 
 **File**: `PRE_TASK_EXECUTION.md`
-**Purpose**: Pre-flight validation before each individual task is dispatched to an agent. Ships empty — add your own checks.
+**Purpose**: Pre-flight validation before each individual task is dispatched to an agent. Ships empty -- add your own checks.
 
 **Common Customizations**:
 - Add project-specific pre-flight checks (e.g., verify required services are running)
@@ -133,7 +132,7 @@ The hook system injects custom logic at seven key points in the workflow lifecyc
 
 **Key Functions**:
 - Updates task status to "failed" in frontmatter
-- Documents validation gate failures
+- Documents quality gate failures
 - Provides remediation steps
 - Re-executes affected tasks after fixes
 
@@ -142,7 +141,7 @@ The hook system injects custom logic at seven key points in the workflow lifecyc
 - Implement custom retry strategies
 - Send notifications for critical failures
 
-#### 8. POST_EXECUTION Hook
+#### 9. POST_EXECUTION Hook
 
 **File**: `POST_EXECUTION.md`
 **Purpose**: Final validation after all blueprint phases complete successfully, before execution summary generation and plan archival
@@ -270,7 +269,7 @@ skills: ["skill-1", "skill-2"]
 **Purpose**: Phase-based execution blueprint structure
 
 **Key Sections**:
-- Validation Gates Reference (points to POST_PHASE.md)
+- Quality Gates Reference (points to POST_PHASE.md)
 - Phase Definitions with parallel tasks
 - Post-phase Actions
 - Execution Summary (phases, tasks, parallelism, critical path)
@@ -280,7 +279,7 @@ skills: ["skill-1", "skill-2"]
 **Purpose**: Post-completion documentation
 
 **Sections**:
-- Status: Completion status with emoji (✅ or ❌)
+- Status: Completion status
 - Completed Date: YYYY-MM-DD
 - Results: Brief summary of deliverables
 - Noteworthy Events: Challenges, findings, or "No significant issues"
@@ -445,7 +444,7 @@ git commit -m "chore: customize task manager for React + TypeScript project"
 ```
 
 This ensures:
-- Team consistency (everyone uses same validation gates)
+- Team consistency (everyone uses same quality gates)
 - Change tracking (see when and why hooks were modified)
 - Easy rollback (revert problematic customizations)
 
@@ -554,12 +553,12 @@ For even more control, create workflow pattern documentation in TASK_MANAGER.md:
 4. Hot-fix deployment process
 ```
 
-These patterns guide AI assistants on project-specific workflows while still using the core three-phase approach.
+These patterns guide AI assistants on project-specific workflows while still using the core three-phase workflow.
 
 ## Getting Help
 
 **Questions about customization?**
 - Review existing hooks in `.ai/task-manager/config/hooks/` for examples
 - Check templates in `.ai/task-manager/config/templates/` for structure
-- See [Workflow Patterns](workflows.html) for advanced usage examples
-- Reference [Features](features.html) page for system capabilities
+- See [Workflow Guide](workflow.html) for advanced usage examples
+- Reference [How It Works](how-it-works.html) for system capabilities

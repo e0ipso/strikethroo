@@ -1,14 +1,13 @@
 ---
 layout: default
 title: Migrating from 1.x
-nav_order: 3
-parent: Getting Started
+nav_order: 8
 description: "Upgrade from AI Task Manager 1.x to 2.x"
 ---
 
 # Migrating from 1.x to 2.x
 
-2.x replaces slash commands with Agent Skills. Your plans and tasks are **fully compatible** — no changes needed.
+2.x replaces slash commands with Agent Skills. Your plans and tasks are **fully compatible** -- no changes needed.
 
 ## 1. Delete obsolete slash commands
 

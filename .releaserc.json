@@ -88,7 +88,8 @@
         "assets": [
           "CHANGELOG.md",
           "package.json",
-          "package-lock.json"
+          "package-lock.json",
+          "templates/harness/skills/*/scripts/*.cjs"
         ],
         "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
       }

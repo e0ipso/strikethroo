@@ -129,7 +129,7 @@ Executable logic each skill needs at runtime is authored once in TypeScript unde
 
 The entrypoint → skill mapping is the `SKILL_ENTRYPOINTS` array at the top of `scripts/build-skills.cjs`, which currently registers six shipping skills. To add a future skill: drop a TypeScript entrypoint under `src/skill-scripts/`, add an entry to `SKILL_ENTRYPOINTS`, add the skill's path to `.claude-plugin/plugin.json`, and `npm run build` produces the bundled `.cjs` alongside the skill. No other plumbing changes are needed.
 
-Generated `.cjs` files under `templates/harness/skills/*/scripts/` are git-ignored on `main` (via the `templates/harness/skills/*/scripts/` rule in `.gitignore`) and force-added only at release tags by the `release-skills.yml` workflow. They ship in the published npm package via the `files: ["templates/"]` entry in `package.json`, which already covers all skill content; the previously separate `"skills/"` entry was removed when the top-level `skills/` directory was eliminated (verify with `npm pack --dry-run`).
+Generated `.cjs` files under `templates/harness/skills/*/scripts/` are git-ignored on `main` (via the `templates/harness/skills/*/scripts/` rule in `.gitignore`) and force-added into the release commit by `@semantic-release/git` (which uses `git add --force`). They ship in the published npm package via the `files: ["templates/"]` entry in `package.json`, which already covers all skill content (verify with `npm pack --dry-run`).
 
 ### Distribution
 
@@ -154,16 +154,15 @@ A post-build smoke assertion in `scripts/build-skills.cjs` fails the build if th
 
 ### GitHub Releases
 
-`.github/workflows/release-skills.yml` is triggered by `v*` tag pushes. It runs the full build (`npm ci && npm run build`) and force-adds the otherwise git-ignored `templates/harness/skills/*/scripts/` directory contents into a detached release commit, then force-moves the tag to point at that commit. `main` stays bundle-free; the tagged ref is self-contained so `npx skills add e0ipso/ai-task-manager@<tag>` resolves a fully buildable input.
+Releases are handled by `semantic-release` via `.github/workflows/release.yml`, triggered on push to `main`. The workflow runs `npm ci && npm run build && npm test`, then `npx semantic-release` which: analyzes commits, bumps the version, publishes to npm, and creates a GitHub release with a git tag. The `@semantic-release/git` plugin's `assets` glob includes `templates/harness/skills/*/scripts/*.cjs`, so the otherwise git-ignored bundles are force-added into the release commit. The tagged ref is self-contained so `npx skills add e0ipso/ai-task-manager@<tag>` resolves a fully installable input.
 
 Verify the invariant:
 
 ```bash
 git ls-tree -r v<tag> -- 'templates/harness/skills/*/scripts/*.cjs'   # expect: bundles listed
-git ls-tree -r main -- 'templates/harness/skills/*/scripts/*.cjs'     # expect: empty
 ```
 
-Release commits are labeled `[release-bundle]` in the subject. They are reachable only from a tag, never from `main`. If you see one in `git log main`, something has gone wrong with the workflow.
+Release commits are labeled `chore(release):` in the subject and carry `[skip ci]` to avoid re-triggering the workflow.
 
 ---
 

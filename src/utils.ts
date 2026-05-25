@@ -87,15 +87,40 @@ export function parseFrontmatter(content: string): {
   const frontmatter: MarkdownFrontmatter = {};
   const lines = (match[1] || '').split('\n');
 
+  let currentKey = '';
+  let multilineValue: string[] = [];
+
+  const flushMultiline = () => {
+    if (currentKey && multilineValue.length > 0) {
+      frontmatter[currentKey] = multilineValue.join('\n');
+    }
+    currentKey = '';
+    multilineValue = [];
+  };
+
   for (const line of lines) {
+    if (currentKey && (line.startsWith('  ') || line.startsWith('\t'))) {
+      multilineValue.push(line.replace(/^ {2}/, '').replace(/^\t/, ''));
+      continue;
+    }
+
+    flushMultiline();
+
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
     const colonIndex = trimmed.indexOf(':');
     if (colonIndex === -1) continue;
     const key = trimmed.substring(0, colonIndex).trim();
     const value = trimmed.substring(colonIndex + 1).trim();
-    frontmatter[key] = value.replace(/^["']|["']$/g, '');
+
+    if (value === '|' || value === '>') {
+      currentKey = key;
+      multilineValue = [];
+    } else {
+      frontmatter[key] = value.replace(/^["']|["']$/g, '');
+    }
   }
+  flushMultiline();
 
   return { frontmatter, body: (match[2] || '').trimStart() };
 }

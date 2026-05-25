@@ -359,23 +359,6 @@ export async function isInitialized(baseDir?: string): Promise<boolean> {
 }
 
 /**
- * Get information about existing initialization
- */
-export async function getInitInfo(baseDir?: string): Promise<{
-  hasAiTaskManager: boolean;
-  hasClaudeAgents: boolean;
-}> {
-  const targetDir = baseDir || '.';
-  const hasAiTaskManager = await exists(resolvePath(targetDir, '.ai/task-manager'));
-  const hasClaudeAgents = await exists(resolvePath(targetDir, '.claude/agents'));
-
-  return {
-    hasAiTaskManager,
-    hasClaudeAgents,
-  };
-}
-
-/**
  * Display formatted workflow help text to guide users after successful installation
  */
 async function displayWorkflowHelp(): Promise<void> {

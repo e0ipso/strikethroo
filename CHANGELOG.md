@@ -1,3 +1,10 @@
+## 1.39.0 (2026-05-25)
+
+* docs: improve readability ([321d139](https://github.com/e0ipso/ai-task-manager/commit/321d139))
+* feat: transition to AI TM 2 ([3d20d26](https://github.com/e0ipso/ai-task-manager/commit/3d20d26))
+* 2.0.0 ([f9bd946](https://github.com/e0ipso/ai-task-manager/commit/f9bd946))
+* 2.0.1 ([f265bb4](https://github.com/e0ipso/ai-task-manager/commit/f265bb4))
+
 ## 1.38.0 (2026-05-25)
 
 * feat: publish 2.0.0 ([87fcc7e](https://github.com/e0ipso/ai-task-manager/commit/87fcc7e))

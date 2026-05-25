@@ -10,7 +10,7 @@ export interface PlanEntry {
   name: string;
 }
 
-const PLAN_EXTENSIONS = ['.md', '.html'];
+const PLAN_EXTENSIONS = ['.md'];
 
 const scanPlanDir = (planDirPath: string, dirName: string, isArchive: boolean): PlanEntry[] => {
   let entries: fs.Dirent[];

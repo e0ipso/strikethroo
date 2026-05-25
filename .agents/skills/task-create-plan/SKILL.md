@@ -1,6 +1,6 @@
 ---
 name: task-create-plan
-description: Create a new AI Task Manager plan for this repository. Use when the user asks to draft, plan, or scope a new task-manager plan — discovers the local .ai/task-manager root, runs the project's plan hooks, gathers clarifications, allocates the next plan ID, and writes a semantic HTML plan conforming to PLAN_TEMPLATE.html. Do not use for generic brainstorming or work outside the AI Task Manager.
+description: Create a new AI Task Manager plan for this repository. Use when the user asks to draft, plan, or scope a new task-manager plan — discovers the local .ai/task-manager root, runs the project's plan hooks, gathers clarifications, allocates the next plan ID, and writes a Markdown plan conforming to PLAN_TEMPLATE.md. Do not use for generic brainstorming or work outside the AI Task Manager.
 ---
 
 # task-create-plan
@@ -36,8 +36,8 @@ For every subsequent step, treat the path printed by this script as `<root>`.
 Read `<root>/config/TASK_MANAGER.md` for the directory structure conventions
 this project uses. Read `<root>/config/hooks/PRE_PLAN.md` and execute the
 instructions it contains before proceeding. Read
-`<root>/config/templates/PLAN_TEMPLATE.html` so the plan you emit conforms
-to its semantic structure.
+`<root>/config/templates/PLAN_TEMPLATE.md` so the plan you emit conforms
+to its structure.
 
 ### 3. Analyze the work order
 
@@ -74,15 +74,15 @@ and use the unpadded integer in the plan frontmatter and the final summary.
 Write the plan to:
 
 ```
-<root>/plans/{padded-id}--{slug}/plan-{padded-id}--{slug}.html
+<root>/plans/{padded-id}--{slug}/plan-{padded-id}--{slug}.md
 ```
 
 The output must:
 
-- Conform to `<root>/config/templates/PLAN_TEMPLATE.html`, including required
-  `<meta>` elements (at minimum `id`, `summary`, `created`) inside `<head>`.
+- Conform to `<root>/config/templates/PLAN_TEMPLATE.md`, including required
+  YAML frontmatter fields (at minimum `id`, `summary`, `created`).
 - Contain the standard sections from the template body.
-- Use semantic HTML, not free-form prose.
+- Use Markdown, not free-form prose.
 - Avoid time estimates, task lists, or code samples — those belong to the
   later task-generation phase.
 

@@ -27,24 +27,6 @@ const extractIdFromMarkdown = (content: string): number | null => {
   return null;
 };
 
-const extractIdFromHtml = (content: string): number | null => {
-  const headMatch = content.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
-  const scope: string = headMatch && headMatch[1] ? headMatch[1] : content;
-  const metaPatterns: RegExp[] = [
-    /<meta\s+[^>]*name\s*=\s*["']id["'][^>]*content\s*=\s*["']([+-]?\d+)["'][^>]*\/?>/i,
-    /<meta\s+[^>]*content\s*=\s*["']([+-]?\d+)["'][^>]*name\s*=\s*["']id["'][^>]*\/?>/i,
-  ];
-  for (const pattern of metaPatterns) {
-    const match = scope.match(pattern);
-    if (match && match[1]) {
-      const id = validateId(match[1]);
-      if (id !== null) return id;
-    }
-  }
-  return null;
-};
-
-export const extractPlanId = (content: string, filePath: string): number | null => {
-  if (filePath.toLowerCase().endsWith('.html')) return extractIdFromHtml(content);
+export const extractPlanId = (content: string, _filePath: string): number | null => {
   return extractIdFromMarkdown(content);
 };

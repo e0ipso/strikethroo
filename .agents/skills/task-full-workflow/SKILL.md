@@ -50,7 +50,7 @@ For every subsequent step, treat the path printed by this script as `<root>`.
 
 #### 2. Load project context
 
-Read `<root>/config/TASK_MANAGER.md` for directory structure conventions. Read `<root>/config/hooks/PRE_PLAN.md` and execute its instructions before proceeding. Read `<root>/config/templates/PLAN_TEMPLATE.html` so the plan conforms to the project's template.
+Read `<root>/config/TASK_MANAGER.md` for directory structure conventions. Read `<root>/config/hooks/PRE_PLAN.md` and execute its instructions before proceeding. Read `<root>/config/templates/PLAN_TEMPLATE.md` so the plan conforms to the project's template.
 
 #### 3. Analyze the work order
 
@@ -79,10 +79,10 @@ Compute the zero-padded form for directory naming (`{padded-id}--{slug}`) and us
 Write the plan to:
 
 ```
-<root>/plans/{padded-id}--{slug}/plan-{padded-id}--{slug}.html
+<root>/plans/{padded-id}--{slug}/plan-{padded-id}--{slug}.md
 ```
 
-The output must conform to `<root>/config/templates/PLAN_TEMPLATE.html`, including required meta elements (`id`, `summary`, `created`) inside the head. Use semantic HTML. Avoid time estimates, task lists, or code samples — those belong to the later task-generation phase.
+The output must conform to `<root>/config/templates/PLAN_TEMPLATE.md`, including required YAML frontmatter fields (`id`, `summary`, `created`). Avoid time estimates, task lists, or code samples — those belong to the later task-generation phase.
 
 The `<slug>` is derived from the plan summary: lowercase, alphanumeric and hyphens only, collapsed, trimmed.
 

@@ -3,7 +3,7 @@
  * and the bundled .cjs artifacts under templates/harness/skills/.
  *
  * Covers:
- *   1. Plan ID allocation across plans/ and archive/, mixing .md and .html.
+ *   1. Plan ID allocation across plans/ and archive/.
  *   2. Task-manager root discovery from a nested working directory.
  *   3. Bundle smoke check: generated .cjs files execute self-contained
  *      from a fixture that contains only the skill.
@@ -45,12 +45,8 @@ const buildMixedFixture = (root: string): void => {
     '---\nid: 3\nsummary: "alpha"\ncreated: 2026-01-01\n---\nbody\n'
   );
   writeFile(
-    path.join(tm, 'plans', '07--beta', 'plan-07--beta.html'),
-    '<!doctype html><html><head>' +
-      '<meta name="id" content="7">' +
-      '<meta name="summary" content="beta">' +
-      '<meta name="created" content="2026-01-02">' +
-      '</head><body></body></html>'
+    path.join(tm, 'plans', '07--beta', 'plan-07--beta.md'),
+    '---\nid: 7\nsummary: "beta"\ncreated: 2026-01-02\n---\nbody\n'
   );
   writeFile(
     path.join(tm, 'archive', '02--gamma', 'plan-02--gamma.md'),
@@ -70,7 +66,7 @@ describe('skill-scripts plan ID allocation', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test('getAllPlans recognizes .md and .html across plans/ and archive/', () => {
+  test('getAllPlans recognizes .md across plans/ and archive/', () => {
     const root = path.join(tempDir, '.ai', 'task-manager');
     const plans = getAllPlans(root);
     const ids = plans.map(p => p.id).sort((a, b) => a - b);
@@ -83,7 +79,7 @@ describe('skill-scripts plan ID allocation', () => {
     expect(archiveIds).toEqual([2]);
   });
 
-  test('computeNextPlanId returns max + 1 across mixed formats', () => {
+  test('computeNextPlanId returns max + 1', () => {
     const root = path.join(tempDir, '.ai', 'task-manager');
     expect(computeNextPlanId(root)).toBe(8);
   });

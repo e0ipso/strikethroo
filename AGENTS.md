@@ -116,7 +116,7 @@ The end-to-end `task-full-workflow` skill chains all three steps for hands-off r
 
 ## Skills Layer
 
-The repository ships Agent Skills under `templates/harness/skills/<name>/` at the repo root. There is no top-level `skills/` directory; authored content and compiled `.cjs` bundles coexist under each per-skill directory, with `scripts/` reserved for compiled output. Skills are harness-agnostic — a single `SKILL.md` works for every harness that supports the Agent Skills format. Skill directories are flat (no nested skills).
+The repository ships Agent Skills under `templates/harness/skills/<name>/` at the repo root. There is no top-level `skills/` directory; compiled `.cjs` bundles live under each per-skill `scripts/` directory, and `SKILL.md` files are assembled from source templates at build time. Skills are harness-agnostic — a single `SKILL.md` works for every harness that supports the Agent Skills format. Skill directories are flat (no nested skills).
 
 The shipping skills are:
 
@@ -131,16 +131,21 @@ The shipping skills are:
 
 Executable logic each skill needs at runtime is authored once in TypeScript under `src/skill-scripts/`. Shared helpers (frontmatter parsing, plan/archive scanning, root discovery) live in `src/skill-scripts/shared/` so future skills can reuse them. The subtree type-checks via `tsconfig.skill-scripts.json` and lints with the rest of `src/`, but its output is produced by the bundler, not by `tsc`. The main `tsconfig.json` excludes `src/skill-scripts/**` from emit so `dist/` stays the CLI's domain.
 
+### Prompt source of truth
+
+Each skill's `SKILL.md` prompt is assembled at build time from source templates in `src/skill-prompts/`. Shared procedural blocks (root discovery, plan resolution, phase execution loop, test philosophy, task minimization, etc.) live in `src/skill-prompts/sections/` and are referenced via `{{include sections/<name>.md}}` directives. Per-skill differences are handled with `{{variable}}` substitution from the source template's YAML frontmatter `vars` block. See `src/skill-prompts/README.md` for editing and authoring details.
+
 ### Build pipeline
 
-`npm run build` runs the TypeScript compile and then `npm run build:skills`, which:
+`npm run build` runs the TypeScript compile, then `npm run build:skills`, then `npm run build:skill-prompts`:
 
 1. Type-checks `src/skill-scripts/` with `tsc --noEmit -p tsconfig.skill-scripts.json`.
 2. Invokes `scripts/build-skills.cjs`, an `esbuild`-driven script that bundles each registered entrypoint into a self-contained `.cjs` file emitted directly into `templates/harness/skills/<skill>/scripts/`. There is no copy pass — source and output share the same per-skill tree.
+3. Invokes `scripts/build-skill-prompts.cjs`, which resolves `{{include}}` directives and `{{variable}}` substitutions in source templates from `src/skill-prompts/`, writing assembled `SKILL.md` files to `templates/harness/skills/<skill>/SKILL.md`. Post-build validation fails on unresolved directives, missing frontmatter fields, or absent `## Operating Procedure` headings.
 
-The entrypoint → skill mapping is the `SKILL_ENTRYPOINTS` array at the top of `scripts/build-skills.cjs`, which currently registers six shipping skills. To add a future skill: drop a TypeScript entrypoint under `src/skill-scripts/`, add an entry to `SKILL_ENTRYPOINTS`, add the skill's path to `.claude-plugin/plugin.json`, and `npm run build` produces the bundled `.cjs` alongside the skill. No other plumbing changes are needed.
+The entrypoint → skill mapping is the `SKILL_ENTRYPOINTS` array at the top of `scripts/build-skills.cjs`, which currently registers six shipping skills. To add a future skill: drop a TypeScript entrypoint under `src/skill-scripts/`, add an entry to `SKILL_ENTRYPOINTS`, add the skill's path to `.claude-plugin/plugin.json`, create a source template in `src/skill-prompts/`, and `npm run build` produces both the bundled `.cjs` and assembled `SKILL.md` alongside the skill. No other plumbing changes are needed.
 
-Generated `.cjs` files under `templates/harness/skills/*/scripts/` are git-ignored on `main` (via the `templates/harness/skills/*/scripts/` rule in `.gitignore`) and force-added into the release commit by `@semantic-release/git` (which uses `git add --force`). They ship in the published npm package via the `files: ["templates/"]` entry in `package.json`, which already covers all skill content (verify with `npm pack --dry-run`).
+Generated `.cjs` files under `templates/harness/skills/*/scripts/` and assembled `SKILL.md` files under `templates/harness/skills/*/` are git-ignored on `main` and force-added into the release commit by `@semantic-release/git` (which uses `git add --force`). They ship in the published npm package via the `files: ["templates/"]` entry in `package.json`, which already covers all skill content (verify with `npm pack --dry-run`).
 
 ### Distribution
 
@@ -165,12 +170,13 @@ A post-build smoke assertion in `scripts/build-skills.cjs` fails the build if th
 
 ### GitHub Releases
 
-Releases are handled by `semantic-release` via `.github/workflows/release.yml`, triggered on push to `main`. The workflow runs `npm ci && npm run build && npm test`, then `npx semantic-release` which: analyzes commits, bumps the version, publishes to npm, and creates a GitHub release with a git tag. The `@semantic-release/git` plugin's `assets` glob includes `templates/harness/skills/*/scripts/*.cjs`, so the otherwise git-ignored bundles are force-added into the release commit. The tagged ref is self-contained so `npx skills add e0ipso/ai-task-manager@<tag>` resolves a fully installable input.
+Releases are handled by `semantic-release` via `.github/workflows/release.yml`, triggered on push to `main`. The workflow runs `npm ci && npm run build && npm test`, then `npx semantic-release` which: analyzes commits, bumps the version, publishes to npm, and creates a GitHub release with a git tag. The `@semantic-release/git` plugin's `assets` glob includes `templates/harness/skills/*/scripts/*.cjs` and `templates/harness/skills/*/SKILL.md`, so the otherwise git-ignored bundles and assembled prompts are force-added into the release commit. The tagged ref is self-contained so `npx skills add e0ipso/ai-task-manager@<tag>` resolves a fully installable input.
 
 Verify the invariant:
 
 ```bash
 git ls-tree -r v<tag> -- 'templates/harness/skills/*/scripts/*.cjs'   # expect: bundles listed
+git ls-tree -r v<tag> -- 'templates/harness/skills/*/SKILL.md'        # expect: prompts listed
 ```
 
 Release commits are labeled `chore(release):` in the subject and carry `[skip ci]` to avoid re-triggering the workflow.

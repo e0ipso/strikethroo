@@ -1,6 +1,14 @@
 ---
 name: task-full-workflow
-description: Execute the complete AI Task Manager workflow from plan creation through blueprint execution for this repository. Use when the user asks to run the full end-to-end workflow for a work order — discovers the local .ai/task-manager root, creates a plan, generates atomic tasks, and executes the blueprint, all in a single uninterrupted sequence. Do not use for individual plan creation, task generation, or blueprint execution; use the dedicated skills for those.
+description: "Execute the complete AI Task Manager workflow from plan creation through blueprint execution for this repository. Use when the user asks to run the full end-to-end workflow for a work order — discovers the local .ai/task-manager root, creates a plan, generates atomic tasks, and executes the blueprint, all in a single uninterrupted sequence. Do not use for individual plan creation, task generation, or blueprint execution; use the dedicated skills for those."
+target: task-full-workflow
+vars:
+  action_verb_phrase: "execute the full workflow"
+  heading: "#####"
+  heading_parent: "####"
+  phase_step: "5"
+  summary_step: "7"
+  archive_step: "8"
 ---
 
 # task-full-workflow
@@ -42,16 +50,7 @@ These indicators are purely informational. Do not pause or wait for user input w
 
 #### 1. Locate the task-manager root
 
-Run `scripts/find-task-manager-root.cjs` from the user's working directory.
-The script walks up looking for `.ai/task-manager/.init-metadata.json` and
-prints the absolute path of the resolved root on success.
-
-If the script exits non-zero, the working directory is not inside an
-initialized task-manager workspace. Stop and ask the user to run the project
-initializer (e.g. `npx @e0ipso/ai-task-manager init`) before continuing. Do
-not attempt to execute the full workflow outside of a valid root.
-
-For every subsequent step, treat the path printed by this script as `<root>`.
+{{include sections/root-discovery.md}}
 
 #### 2. Load project context
 
@@ -133,83 +132,15 @@ Read these files in order:
 
 #### 3. Analyze and decompose the plan
 
-Read the entire plan. Identify all concrete deliverables **explicitly stated**.
-Decompose each deliverable into atomic tasks only when genuinely needed.
-
-**Task minimization (mandatory):**
-
-- Create only the minimum number of tasks necessary. Target a 20–30%
-  reduction from comprehensive lists by questioning the necessity of each
-  candidate.
-- **Direct Implementation Only**: a task corresponds to an explicit
-  requirement, not a "nice-to-have".
-- **DRY Task Principle**: each task has a unique, non-overlapping purpose.
-- **Question Everything**: for each task, ask "Is this absolutely necessary
-  to meet the plan objectives?"
-- **Avoid Gold-plating**: resist comprehensive features the plan does not
-  require.
-
-**Antipatterns to avoid:**
-
-- Separating "error handling" from the main implementation when it can be
-  inline.
-- Splitting trivially small operations into multiple tasks (e.g. "validate
-  input" + "process input" as separate units).
-- Adding tasks for "future extensibility" or "best practices" the plan does
-  not mention.
-- Comprehensive test suites for trivial functionality.
+{{include sections/task-minimization.md}}
 
 #### 4. Apply granularity and skill rules
 
-Each task must be:
-
-- **Single-purpose** — one clear deliverable.
-- **Atomic** — cannot be meaningfully split further.
-- **Skill-specific** — executable by an agent with 1–2 technical skills.
-- **Verifiable** — has explicit acceptance criteria.
-
-Skill assignment (kebab-case, automatically inferred from the task's
-technical requirements):
-
-- 1 skill — single-domain task (e.g. `["css"]`, `["jest"]`).
-- 2 skills — complementary domains (e.g. `["api-endpoints", "database"]`,
-  `["react-components", "jest"]`).
-- 3+ skills indicates the task should be broken down further.
+{{include sections/granularity-skill-rules.md}}
 
 #### 5. Test philosophy: "write a few tests, mostly integration"
 
-When generating test tasks, keep this constraint:
-
-**Definition.** Meaningful tests verify custom business logic, critical paths,
-and edge cases specific to this application. Test *your* code, not the
-framework or library.
-
-**When TO write tests:**
-
-- Custom business logic and algorithms.
-- Critical user workflows and data transformations.
-- Edge cases and error conditions for core functionality.
-- Integration points between components.
-- Complex validation logic or calculations.
-
-**When NOT to write tests:**
-
-- Third-party library functionality.
-- Framework features.
-- Simple CRUD operations without custom logic.
-- Trivial getters/setters or static configuration.
-- Obvious functionality that would break immediately if incorrect.
-
-**Test task creation rules:**
-
-- Combine related test scenarios into a single task (e.g. "Test user
-  authentication flow" not separate tasks for login, logout, validation).
-- Favor integration and critical-path coverage over per-method unit tests.
-- Avoid one test task per CRUD operation.
-- Question whether simple functions need a dedicated test task.
-
-If any test task is generated, restate this section verbatim or near-verbatim
-in that task's "Implementation Notes" so the executing agent applies it.
+{{include sections/test-philosophy.md}}
 
 #### 6. Dependency analysis
 
@@ -228,49 +159,11 @@ The slug derives from a short task title: lowercase, alphanumeric and hyphens on
 
 #### 8. Emit the task files
 
-Write each task to:
-
-```
-<root>/plans/<plan-dir-name>/tasks/{padded-id}--{slug}.md
-```
-
-Each file must conform to `<root>/config/templates/TASK_TEMPLATE.md`,
-including required frontmatter fields:
-
-- `id` (integer)
-- `group` (string)
-- `dependencies` (array of task IDs, possibly empty)
-- `status` — `pending` for new tasks
-- `created` (YYYY-MM-DD)
-- `skills` (array of 1–2 kebab-case skills)
-
-Optional frontmatter for high-complexity or decomposed tasks:
-
-- `complexity_score` (number, 1–10, include only if >4 or for decomposed
-  tasks)
-- `complexity_notes` (string)
-
-The body sections (Objective, Skills Required, Acceptance Criteria, Technical
-Requirements, Input Dependencies, Output Artifacts, Implementation Notes)
-must be filled with task-specific content. Place detailed implementation
-guidance inside a `<details>` block under "Implementation Notes" — write it
-so a non-thinking LLM could execute the task from that section alone.
+{{include sections/task-file-output.md}}
 
 #### 9. Validation checklist
 
-Before declaring task generation complete, verify:
-
-- Each task has 1–2 appropriate technical skills assigned and inferred from
-  its objectives.
-- Dependencies form an acyclic graph; no orphan or circular references.
-- Task IDs are unique, sequential, and start from the value returned by
-  `get-next-task-id.cjs`.
-- Groups are consistent and meaningful.
-- Every **explicitly stated** deliverable in the plan is covered.
-- No redundant or overlapping tasks.
-- Minimization applied (20–30% reduction target).
-- Test tasks focus on business logic, not framework functionality.
-- No gold-plating: only plan requirements are addressed.
+{{include sections/validation-checklist.md}}
 
 #### 10. Run the POST_TASK_GENERATION_ALL hook
 
@@ -337,52 +230,11 @@ Read these files in order:
 
 #### 5. Execute phases in order
 
-Use an internal task or todo tracker to monitor progress. For each phase defined in the Execution Blueprint:
-
-##### 5a. Phase pre-execution
-Read `<root>/config/hooks/PRE_PHASE.md` and execute its instructions before starting the phase.
-
-##### 5b. Task dispatch
-Identify all tasks scheduled for this phase whose dependencies are fully satisfied. Read `<root>/config/hooks/PRE_TASK_EXECUTION.md` and execute its instructions before starting any implementation work.
-
-Deploy all selected agents simultaneously using your internal Task tool. Each agent MUST:
-
-1. Read and execute `<root>/config/hooks/PRE_TASK_EXECUTION.md` before starting any implementation work.
-2. Execute the task according to its requirements.
-3. Monitor execution progress and capture outputs and artifacts.
-4. Update task status in real-time.
-
-Maximize parallelism within each phase. Run every task that is ready at the same time.
-
-##### 5c. Phase completion verification
-Ensure every task in the phase has status `completed`. Collect and review all task outputs. Document any issues or exceptions encountered.
-
-##### 5d. Phase post-execution
-Read `<root>/config/hooks/POST_PHASE.md` and execute its instructions. Do not proceed to the next phase until this hook succeeds.
-
-Update the phase status to `completed` in the plan's Execution Blueprint section.
-
-Repeat for the next phase until all phases are complete.
+{{include sections/phase-execution-loop.md}}
 
 #### 6. Post-execution validation
 
-Read `<root>/config/hooks/POST_EXECUTION.md` and execute its instructions. If validation fails, halt execution. The plan remains in `plans/` for debugging.
-
-#### 7. Append execution summary
-
-Append an execution summary section to the plan document using the format described in `<root>/config/templates/EXECUTION_SUMMARY_TEMPLATE.md`. Populate:
-
-- **Status**: Completed Successfully
-- **Completed Date**: current date
-- **Results**: brief summary of deliverables
-- **Noteworthy Events**: all decisions, issues, and outcomes encountered during execution. If none occurred, state "No significant issues encountered."
-- **Necessary follow-ups**: any follow-up actions or optimizations
-
-#### 8. Archive the plan
-
-Move the completed plan directory from `<root>/plans/<plan-folder>` to `<root>/archive/<plan-folder>`.
-
-Preserve the entire folder structure (including all tasks and subdirectories) to maintain referential integrity. If the move fails, log the error but do not fail the overall execution — the implementation work is complete.
+{{include sections/post-execution-archive.md}}
 
 **Progress**: `⬛⬛⬛ 100% - Phase 3/3: Blueprint Execution Complete`
 

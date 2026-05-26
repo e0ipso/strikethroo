@@ -22,15 +22,22 @@ The user supplies the numeric plan ID conversationally. Treat it as the only aut
 
 ### 1. Locate the task-manager root
 
-Run `scripts/find-task-manager-root.cjs` from the user's working directory. The script walks up looking for `.ai/task-manager/.init-metadata.json` and prints the absolute path of the resolved root on success.
+Run `scripts/find-task-manager-root.cjs` from the user's working directory.
+The script walks up looking for `.ai/task-manager/.init-metadata.json` and
+prints the absolute path of the resolved root on success.
 
-If the script exits non-zero, the working directory is not inside an initialized task-manager workspace. Stop and ask the user to run the project initializer (e.g. `npx @e0ipso/ai-task-manager init`) before continuing. Do not attempt to execute a plan outside of a valid root.
+If the script exits non-zero, the working directory is not inside an
+initialized task-manager workspace. Stop and ask the user to run the project
+initializer (e.g. `npx @e0ipso/ai-task-manager init`) before continuing. Do
+not attempt to execute a plan outside of a valid root.
 
 For every subsequent step, treat the path printed by this script as `<root>`.
 
 ### 2. Resolve the plan
 
-Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` to obtain the absolute path of the plan file. The same script also accepts these field names (single-field output mode) and exposes them on demand:
+Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` to obtain the
+absolute path of the plan file. The same script also accepts these field
+names (single-field output mode) and exposes them on demand:
 
 - `planDir` — absolute path of the plan directory
 - `taskCount` — number of existing task files in that plan's `tasks/`
@@ -38,7 +45,8 @@ Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` to obtain the absol
 - `taskManagerRoot` — absolute path of `<root>`
 - `planId` — the resolved numeric plan ID
 
-If the script exits non-zero, stop and ask the user to confirm the plan ID. Do not guess a different ID.
+If the script exits non-zero, stop and ask the user to confirm the plan ID.
+Do not guess a different ID.
 
 ### 3. Validate tasks and blueprint existence
 

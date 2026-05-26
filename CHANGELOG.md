@@ -1,3 +1,13 @@
+## 2.2.0 (2026-05-26)
+
+* fix: exclude README.md from assembler glob ([e2e7adf](https://github.com/e0ipso/ai-task-manager/commit/e2e7adf))
+* fix: untrack installed skill artifacts ([20fc993](https://github.com/e0ipso/ai-task-manager/commit/20fc993))
+* docs: document SKILL.md composition system ([e332ea5](https://github.com/e0ipso/ai-task-manager/commit/e332ea5))
+* docs: improve readability ([5411f6e](https://github.com/e0ipso/ai-task-manager/commit/5411f6e))
+* docs: improve shell support ([55b12a6](https://github.com/e0ipso/ai-task-manager/commit/55b12a6))
+* build: integrate SKILL.md assembler into pipeline ([79413ca](https://github.com/e0ipso/ai-task-manager/commit/79413ca))
+* feat: add build-time SKILL.md composition ([76c6b32](https://github.com/e0ipso/ai-task-manager/commit/76c6b32))
+
 ## 2.1.0 (2026-05-25)
 
 * feat: publish 2.0.2 ([a54d7ee](https://github.com/e0ipso/ai-task-manager/commit/a54d7ee))

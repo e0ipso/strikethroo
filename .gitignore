@@ -86,6 +86,8 @@ review.xml
 .opencode
 .cursor
 .claude
+.agents/skills/
+skills-lock.json
 # >>> @e0ipso/ai-knowledge-base >>>
 .ai/knowledge-base/_sessions/
 .ai/knowledge-base/_logs/

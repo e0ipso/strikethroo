@@ -365,3 +365,7 @@ HarnessError       // Harness validation failures
 - **Fail-Fast**: Stop early for critical errors
 
 ---
+
+<!-- >>> @e0ipso/ai-knowledge-base:kb-index >>> -->
+Curated project knowledge lives in [.ai/knowledge-base/INDEX.md](.ai/knowledge-base/INDEX.md). Consult it before designing a non-trivial change.
+<!-- <<< @e0ipso/ai-knowledge-base:kb-index <<< -->

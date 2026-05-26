@@ -1,9 +1,20 @@
 ---
 schema_version: 1
-nodes_hash: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-node_count: 0
+nodes_hash: 'sha256:5878b092401529c7ba6270e913aac238a8f9c4277eb64a96649f7e168464592c'
+node_count: 2
 ---
+# KB Graph
 
-# Knowledge base graph
+Total nodes: 2
 
-No nodes yet. This file is regenerated automatically by `npx @e0ipso/ai-knowledge-base curate` / `npx @e0ipso/ai-knowledge-base index rebuild`.
+## practice-documentation-captures-current-state-only
+
+- **kind:** practice
+- **title:** Documentation captures current state only
+- **tags:** documentation, conventions
+
+## practice-phase-reserved-for-blueprint-task-groups
+
+- **kind:** practice
+- **title:** Phase is reserved for execution blueprint task groups
+- **tags:** terminology, documentation, execution-blueprint

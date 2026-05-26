@@ -14,12 +14,12 @@ description: "Upgrade from AI Task Manager 1.x to 2.x"
 Delete whichever directories exist for harnesses you used:
 
 ```bash
-rm -rf .claude/commands/tasks/ \
-  .gemini/commands/tasks/ \
-  .codex/prompts/tasks-* \
-  .github/prompts/tasks-*.prompt.md \
-  .cursor/commands/tasks/ \
-  .opencode/command/tasks/
+rm -rf ".claude/commands/tasks/" \
+  ".gemini/commands/tasks/" \
+  ".codex/prompts/tasks-*" \
+  ".github/prompts/tasks-*.prompt.md" \
+  ".cursor/commands/tasks/" \
+  ".opencode/command/tasks/"
 ```
 
 ## 2. Delete obsolete config scripts

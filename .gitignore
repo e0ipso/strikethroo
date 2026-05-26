@@ -78,6 +78,9 @@ templates/commands/tasks/*.toml
 # Generated skill script bundles
 templates/harness/skills/*/scripts/
 
+# Generated SKILL.md (assembled from src/skill-prompts/)
+templates/harness/skills/*/SKILL.md
+
 # Worktrees
 /worktrees
 review.xml

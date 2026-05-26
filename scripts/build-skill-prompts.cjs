@@ -257,7 +257,7 @@ function main() {
 
   const templates = fs
     .readdirSync(SRC_DIR)
-    .filter((f) => f.endsWith('.md') && !fs.statSync(path.join(SRC_DIR, f)).isDirectory());
+    .filter((f) => f.endsWith('.md') && f !== 'README.md' && !fs.statSync(path.join(SRC_DIR, f)).isDirectory());
 
   if (templates.length === 0) {
     console.error(`No .md templates found in ${SRC_DIR}`);

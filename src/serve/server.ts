@@ -1,0 +1,248 @@
+/**
+ * Core HTTP server for `npx strikethroo serve`.
+ *
+ * Composes three concerns over the workspace model (`workspace-model.ts`):
+ *   - static hosting of the prebuilt SPA, with directory-traversal protection
+ *     and an `index.html` fallback so client-side routing resolves;
+ *   - a read-only JSON API (`/api/plans`, `/api/plans/:id`, `/api/config`)
+ *     read fresh per request so responses reflect current disk state;
+ *   - platform-aware browser auto-open on startup.
+ *
+ * The SSE change stream (`GET /api/events`) is added by a separate module that
+ * hooks into the `apiHandlers` extension point below, so this module stays free
+ * of file-watching concerns. Node built-ins only — no runtime dependency, no
+ * Vite/React/Tailwind imports.
+ */
+
+import * as http from 'http';
+import * as fs from 'fs';
+import * as path from 'path';
+import { spawn } from 'child_process';
+import { URL } from 'url';
+import { getWorkspaceModel, getPlanDetail, getConfig } from './workspace-model';
+
+/** Options for {@link startServer}. */
+export interface ServeOptions {
+  /** Absolute path of the `.ai/strikethroo` workspace directory to serve. */
+  root: string;
+  /** Port to bind. `0` selects an ephemeral free port (used by tests). */
+  port: number;
+  /** When `false`, do not open the browser on startup. */
+  open: boolean;
+  /** Absolute path of the prebuilt SPA assets directory. */
+  assetsDir: string;
+  /**
+   * Optional extra API route handlers, tried before the built-in read
+   * endpoints. The SSE task registers `GET /api/events` here. A handler returns
+   * `true` once it has taken ownership of the response, `false` to fall through.
+   */
+  apiHandlers?: ApiHandler[];
+}
+
+/** A pluggable `/api/*` handler. Returns `true` if it handled the request. */
+export type ApiHandler = (
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  ctx: { root: string; pathname: string }
+) => boolean;
+
+/** Result of a successful {@link startServer} call. */
+export interface ServeHandle {
+  url: string;
+  server: http.Server;
+  port: number;
+}
+
+const MIME_TYPES: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.ico': 'image/x-icon',
+  '.webp': 'image/webp',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.otf': 'font/otf',
+  '.map': 'application/json; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
+  '.wasm': 'application/wasm',
+};
+
+const mimeFor = (filePath: string): string =>
+  MIME_TYPES[path.extname(filePath).toLowerCase()] ?? 'application/octet-stream';
+
+const sendJson = (res: http.ServerResponse, status: number, body: unknown): void => {
+  const payload = JSON.stringify(body);
+  res.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Content-Length': Buffer.byteLength(payload),
+  });
+  res.end(payload);
+};
+
+/** Parses `/api/plans/:id` -> numeric id, or `null` if the segment is not numeric. */
+const parsePlanId = (pathname: string): number | null => {
+  const match = /^\/api\/plans\/([^/]+)\/?$/.exec(pathname);
+  if (!match || match[1] === undefined) return null;
+  const id = Number(decodeURIComponent(match[1]));
+  return Number.isInteger(id) && id >= 0 ? id : null;
+};
+
+/** Handles the built-in read-only API. Returns `true` when the request matched. */
+const handleApi = (res: http.ServerResponse, root: string, pathname: string): boolean => {
+  try {
+    if (pathname === '/api/plans' || pathname === '/api/plans/') {
+      sendJson(res, 200, getWorkspaceModel(root).plans);
+      return true;
+    }
+
+    if (pathname === '/api/config' || pathname === '/api/config/') {
+      sendJson(res, 200, getConfig(root));
+      return true;
+    }
+
+    if (/^\/api\/plans\/[^/]+\/?$/.test(pathname)) {
+      const id = parsePlanId(pathname);
+      if (id === null) {
+        sendJson(res, 404, { error: 'Invalid plan id' });
+        return true;
+      }
+      const detail = getPlanDetail(root, id);
+      if (!detail) {
+        sendJson(res, 404, { error: `Plan ${id} not found` });
+        return true;
+      }
+      sendJson(res, 200, detail);
+      return true;
+    }
+
+    return false;
+  } catch (err) {
+    // Malformed workspace data: concise message, never a raw stack trace.
+    sendJson(res, 500, {
+      error: `Failed to read workspace: ${err instanceof Error ? err.message : String(err)}`,
+    });
+    return true;
+  }
+};
+
+/** Streams a static file with an appropriate content type. */
+const sendFile = (res: http.ServerResponse, filePath: string): void => {
+  res.writeHead(200, { 'Content-Type': mimeFor(filePath) });
+  const stream = fs.createReadStream(filePath);
+  stream.on('error', () => {
+    if (!res.headersSent) res.writeHead(500);
+    res.end();
+  });
+  stream.pipe(res);
+};
+
+const ASSETS_MISSING_MESSAGE =
+  'Web assets not found. Build the web app first (e.g. `npm run build:web`).';
+
+/** Serves the SPA: a real file under the assets root, else the index fallback. */
+const handleStatic = (res: http.ServerResponse, assetsDir: string, pathname: string): void => {
+  const indexFile = path.join(assetsDir, 'index.html');
+
+  // Resolve the request path under assetsDir and guard against traversal.
+  const relative = decodeURIComponent(pathname).replace(/^\/+/, '');
+  const resolved = path.resolve(assetsDir, relative);
+  const assetsRoot = path.resolve(assetsDir);
+  const withinRoot = resolved === assetsRoot || resolved.startsWith(assetsRoot + path.sep);
+  if (!withinRoot) {
+    res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Forbidden');
+    return;
+  }
+
+  // A real, non-directory file under the assets root: serve it directly.
+  try {
+    if (relative !== '' && fs.statSync(resolved).isFile()) {
+      sendFile(res, resolved);
+      return;
+    }
+  } catch {
+    // Not a file; fall through to the SPA index fallback.
+  }
+
+  // SPA fallback: serve index.html for any non-file route so client routing works.
+  try {
+    if (fs.statSync(indexFile).isFile()) {
+      sendFile(res, indexFile);
+      return;
+    }
+  } catch {
+    // index.html missing -> assets not built.
+  }
+
+  res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8' });
+  res.end(ASSETS_MISSING_MESSAGE);
+};
+
+/** Opens the default browser at `url`. Failures are logged, never fatal. */
+const openBrowser = (url: string): void => {
+  try {
+    const platform = process.platform;
+    let command: string;
+    let args: string[];
+    if (platform === 'darwin') {
+      command = 'open';
+      args = [url];
+    } else if (platform === 'win32') {
+      command = 'cmd';
+      args = ['/c', 'start', '', url];
+    } else {
+      command = 'xdg-open';
+      args = [url];
+    }
+    const child = spawn(command, args, { stdio: 'ignore', detached: true });
+    child.on('error', () => {
+      /* a failed open must not stop the server */
+    });
+    child.unref();
+  } catch {
+    /* non-fatal */
+  }
+};
+
+/**
+ * Creates and starts the HTTP server, resolving with the bound URL once it is
+ * listening. Rejects only on a genuine listen/bind error.
+ */
+export const startServer = (opts: ServeOptions): Promise<ServeHandle> => {
+  const apiHandlers = opts.apiHandlers ?? [];
+
+  const server = http.createServer((req, res) => {
+    const pathname = new URL(req.url ?? '/', 'http://localhost').pathname;
+
+    if (pathname.startsWith('/api/')) {
+      for (const handler of apiHandlers) {
+        if (handler(req, res, { root: opts.root, pathname })) return;
+      }
+      if (handleApi(res, opts.root, pathname)) return;
+      sendJson(res, 404, { error: `Unknown API route: ${pathname}` });
+      return;
+    }
+
+    handleStatic(res, opts.assetsDir, pathname);
+  });
+
+  return new Promise<ServeHandle>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(opts.port, () => {
+      server.removeListener('error', reject);
+      const address = server.address();
+      const boundPort = typeof address === 'object' && address ? address.port : opts.port;
+      const url = `http://localhost:${boundPort}`;
+      if (opts.open) openBrowser(url);
+      resolve({ url, server, port: boundPort });
+    });
+  });
+};

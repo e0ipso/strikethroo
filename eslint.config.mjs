@@ -115,6 +115,7 @@ export default [
       globals: {
         window: 'readonly',
         document: 'readonly',
+        navigator: 'readonly',
         fetch: 'readonly',
         AbortController: 'readonly',
         AbortSignal: 'readonly',

@@ -46,10 +46,10 @@ export interface PlanView {
 }
 
 /** Strips a leading `NN--` numeric id prefix from a plan directory name. */
-const stripIdPrefix = (name: string): string => name.replace(/^\d+--/, '');
+export const stripIdPrefix = (name: string): string => name.replace(/^\d+--/, '');
 
 /** Turns a kebab/underscore slug into a Title Cased, space-separated label. */
-const humanizeSlug = (slug: string): string =>
+export const humanizeSlug = (slug: string): string =>
   slug
     .split(/[-_]+/)
     .filter(Boolean)

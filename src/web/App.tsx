@@ -16,9 +16,10 @@ import type { ReactNode } from 'react';
 import { RouterProvider, useRoute } from './router';
 import { Sidebar } from './components/Sidebar';
 import { Chrome } from './components/Chrome';
-import { usePlans, usePlanDetail, useConfig, type Resource } from './data/api';
+import { usePlans, useConfig, type Resource } from './data/api';
 import { ErrorSurface, LoadingSurface, PlaceholderSurface } from './components/StateSurface';
 import { PlansRoute } from './plans/PlansRoute';
+import { PlanDetailReader } from './plans/detail/PlanDetailReader';
 
 /**
  * Renders the three data states for a resource with a shared loading/error
@@ -37,21 +38,6 @@ function ResourceView<T>({
   if (resource.status === 'loading') return <LoadingSurface label={loadingLabel} />;
   if (resource.status === 'error') return <ErrorSurface error={resource.error} />;
   return <>{children(resource.data)}</>;
-}
-
-/** Plan detail slot — exercises usePlanDetail; real reader is a later ticket. */
-function PlanDetailSlot({ id }: { id: string }) {
-  const detail = usePlanDetail(id);
-  return (
-    <ResourceView resource={detail} loadingLabel={`Loading plan ${id}…`}>
-      {data => (
-        <PlaceholderSurface>
-          Loaded plan {data.id}: “{data.summary ?? data.name}”. The Plan Detail screen lands in a
-          later ticket.
-        </PlaceholderSurface>
-      )}
-    </ResourceView>
-  );
 }
 
 /** Archive slot — exercises usePlans (archived filtered by a later ticket). */
@@ -100,15 +86,10 @@ function Shell() {
       break;
     case 'planDetail': {
       const id = route.params.id ?? '';
-      chrome = (
-        <Chrome
-          title={`Plan ${id}`}
-          crumbs={['Plans', `#${id}`]}
-          tabs={['Overview', 'Tasks', 'Execution']}
-          activeTab={0}
-        />
-      );
-      content = <PlanDetailSlot id={id} />;
+      // The Reader renders its own Chrome (crumbs / tabs / StatusPill / actions),
+      // so no separate top bar is composed here.
+      chrome = null;
+      content = <PlanDetailReader id={id} />;
       break;
     }
     case 'archive':

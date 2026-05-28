@@ -18,6 +18,7 @@
 import { useState, type ReactNode } from 'react';
 import { Button, Icon, Modal } from '../components/primitives';
 import { planMdPath } from './derive';
+import { copyToClipboard } from '../vendor/utils/clipboard';
 
 /* ---------------------------------------------------------------------------
  * Command / path copy — centralized so the displayed text equals the copied
@@ -33,11 +34,6 @@ const CREATE_COMMAND =
 
 /** Builds the self-review command for a given plan path (shown and copied). */
 const reviewCommand = (path: string): string => `self-review ${path}`;
-
-/** Writes `text` to the clipboard, ignoring environments without the API. */
-const copyToClipboard = (text: string): void => {
-  void navigator.clipboard?.writeText(text);
-};
 
 /* ---------------------------------------------------------------------------
  * useModal — mirrors the design's hook contract.
@@ -78,7 +74,12 @@ export function CreatePlanModal({ onClose }: { onClose: () => void }) {
       onClose={onClose}
       actions={
         <>
-          <Button kind="outline" size="sm" icon="copy" onClick={() => copyToClipboard(CREATE_COMMAND)}>
+          <Button
+            kind="outline"
+            size="sm"
+            icon="copy"
+            onClick={() => copyToClipboard(CREATE_COMMAND)}
+          >
             Copy command
           </Button>
           <Button kind="primary" size="sm" onClick={onClose}>

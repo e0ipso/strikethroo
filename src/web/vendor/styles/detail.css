@@ -1,0 +1,317 @@
+/* =====================================================================
+   Plan Detail (Reader) layout classes vendored from
+   scratch/ui/designs/app.css (Plan 87). Imported after plans.css so the
+   design token aliases the app-shell bridge declares (--ink, --cream,
+   --dalia, --border, …) resolve. Covers the .detail two-column grid, the
+   execution-blueprint .rail, and the .reader prose treatment (.reader__*,
+   .clar*, .crit*). Copied verbatim from the design so the visual output is
+   identical; React components are thin wrappers around these classes.
+   ===================================================================== */
+
+/* =====================================================================
+   PLAN DETAIL — READER
+   ===================================================================== */
+.detail {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  min-height: 0;
+  overflow: hidden;
+}
+.rail {
+  border-right: 1px solid var(--border);
+  background: var(--cream-mid);
+  padding: 18px 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rail__phase {
+  background: var(--cream);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 10px 12px 4px;
+  margin-bottom: 6px;
+}
+.rail__phase-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+.rail__phase-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--cream-mid);
+  color: var(--ink);
+  border: 1px solid var(--border);
+}
+.rail__phase-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14.5px;
+  color: var(--ink);
+  flex: 1;
+  line-height: 1.2;
+}
+.rail__phase-meta {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-3);
+  padding: 0 0 6px;
+}
+.rail__task {
+  display: flex;
+  gap: 8px;
+  padding: 6px 4px;
+  border-top: 1px solid var(--border-soft);
+}
+.rail__task-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-3);
+  margin-top: 1px;
+}
+.rail__task-body {
+  min-width: 0;
+  flex: 1;
+}
+.rail__task-name {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.rail__task--done .rail__task-name {
+  color: var(--ink-3);
+  text-decoration: line-through;
+}
+.rail__task-group {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-3);
+  margin-top: 1px;
+}
+.rail__hint {
+  margin-top: auto;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-3);
+  font-style: italic;
+  line-height: 1.5;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-soft);
+}
+
+/* reader prose */
+.reader {
+  padding: 28px 40px;
+  overflow: hidden;
+}
+.reader__filename {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-bottom: 10px;
+}
+.reader__h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 36px;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+  margin: 0 0 14px;
+  font-variation-settings: 'opsz' 48;
+}
+.reader__meta {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-bottom: 24px;
+}
+.reader__h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 19px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 28px 0 10px;
+}
+.reader__h2 .hash {
+  color: var(--dalia);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 500;
+  margin-right: 6px;
+  vertical-align: 0.05em;
+}
+.reader__quote {
+  border-left: 2px solid var(--dalia);
+  padding: 4px 0 4px 14px;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.reader__summary {
+  background: var(--dalia-bg);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin: 14px 0;
+  border-left: 3px solid var(--dalia-dark);
+}
+.reader__summary-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--dalia-deep);
+  margin-bottom: 4px;
+}
+.reader__summary-text {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+/* clarifications table */
+.clar {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+.clar__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  font-size: 12.5px;
+}
+.clar__row + .clar__row {
+  border-top: 1px solid var(--border-soft);
+}
+.clar__q,
+.clar__a {
+  padding: 8px 14px;
+  line-height: 1.4;
+}
+.clar__q {
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  background: var(--cream-mid);
+}
+.clar__a {
+  color: var(--ink);
+  border-left: 1px solid var(--border-soft);
+}
+
+/* success criteria list */
+.crit {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+.crit__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.crit__row--done .crit__text {
+  text-decoration: line-through;
+  color: var(--ink-3);
+}
+.crit__text {
+  line-height: 1.4;
+}
+
+/* mermaid source affordance — non-rendered fence shown as source in the
+   Reader. Mermaid rendering itself belongs to the Graph tab (a later
+   ticket); here the block is surfaced as styled source so no content is
+   lost and the Reader route ships no mermaid renderer. */
+.reader__mermaid {
+  margin: 14px 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--cream-mid);
+  overflow: hidden;
+}
+.reader__mermaid-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.reader__mermaid-hint {
+  text-transform: none;
+  letter-spacing: 0;
+  font-style: italic;
+}
+.reader__mermaid-src {
+  margin: 0;
+  padding: 12px 14px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* dark-mode rules vendored from the design's `.dark` detail block */
+.dark .rail__phase {
+  box-shadow:
+    0 1px 2px oklch(0 0 0 / 0.3),
+    0 0 0 1px var(--border-soft);
+}
+.dark .reader__summary {
+  background: var(--dalia-bg);
+  border-left-color: var(--dalia-dark);
+}
+.dark .reader__summary-text {
+  color: var(--ink);
+}
+.dark .reader__summary-eyebrow {
+  color: var(--dalia-deep);
+}
+.dark .reader__quote {
+  border-left-color: var(--dalia);
+  color: var(--ink-2);
+}
+.dark .reader__h2 .hash {
+  color: var(--dalia);
+}
+.dark .clar {
+  border-color: var(--border);
+}
+.dark .clar__q {
+  background: oklch(1 0 0 / 0.03);
+}
+.dark .clar__a {
+  border-left-color: var(--border-soft);
+}

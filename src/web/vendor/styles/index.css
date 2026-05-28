@@ -26,3 +26,8 @@
    (Plan 86). Imported after app-shell.css so the design token aliases the
    bridge declares (--ink, --cream, --done, …) resolve. */
 @import './plans.css';
+
+/* Plan Detail (Reader) layout classes vendored from scratch/ui/designs/app.css
+   (Plan 87). Imported after plans.css so the same design token aliases
+   resolve. */
+@import './detail.css';

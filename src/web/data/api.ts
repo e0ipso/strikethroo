@@ -51,7 +51,11 @@ export interface Task {
 /** An inferred execution phase within a plan detail. */
 export interface Phase {
   index: number;
+  /** Optional descriptive name (from a blueprint document). */
+  name?: string;
   taskIds: number[];
+  /** True when the phase holds more than one task (runs in parallel). */
+  parallel: boolean;
 }
 
 /** A named `##` section of the plan markdown. */

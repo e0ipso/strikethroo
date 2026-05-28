@@ -31,7 +31,6 @@ The CLI's `init` emits the shared workspace plus harness-specific agents (e.g., 
 - **🎯 Extensible Architecture**: Add custom validation gates, quality checks, and workflow patterns
 - **📋 Structured Workflows**: Three-phase progressive refinement with validation gates
 - **🔄 Plan Mode Integration**: Enhance existing AI assistant features with structured task management
-- **📊 Plan Inspection & Management**: View progress, archive completed work, and manage plans via CLI
 - **💰 Works Within Subscriptions**: No additional API keys or costs required
 
 ## 📖 Documentation
@@ -60,8 +59,8 @@ The `st-full-workflow` skill handles plan creation, task generation, and bluepri
 2. **🔍 Refine the plan** → "Refine plan 1" (`st-refine-plan` skill — useful when a second assistant should red-team the plan)
 3. **📋 Generate tasks** → "Generate tasks for plan 1" (`st-generate-tasks` skill)
 4. **🚀 Execute blueprint** → "Execute the blueprint for plan 1" (`st-execute-blueprint` skill)
-5. **📊 Monitor progress** → `npx strikethroo status`
-6. **🗂️ Manage plans** → `npx strikethroo plan show 1`
+
+Progress is driven by the Agent Skills workflow: the `st-execute-blueprint` skill runs the phases, archives the plan automatically on completion, and you can inspect plan and task files directly under `.ai/strikethroo/plans/` (completed plans move to `.ai/strikethroo/archive/`).
 
 ## 🤖 Supported Harnesses
 

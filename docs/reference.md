@@ -31,7 +31,7 @@ Glossary of canonical terms, CLI command reference, and answers to frequently as
 
 ## CLI Reference
 
-Strikethroo has two distribution channels: the **CLI** (workspace bootstrapping and plan management) and the **skills installer** (workflow delivery). They are independently re-runnable; the only coupling point is the workspace schema version.
+Strikethroo has two distribution channels: the **CLI** (workspace bootstrapping) and the **skills installer** (workflow delivery). They are independently re-runnable; the only coupling point is the workspace schema version.
 
 ### Workspace Initialization
 
@@ -71,30 +71,6 @@ npx strikethroo init --harnesses claude --destination-directory /path/to/project
 # Force overwrite (automation)
 npx strikethroo init --harnesses claude --force
 ```
-
-### Plan Management
-
-```bash
-npx strikethroo plan <subcommand> <plan-id>
-```
-
-**Subcommands:**
-
-| Subcommand | Description |
-|-----------|-------------|
-| `show <plan-id>` | Display plan metadata, executive summary, and task progress. `plan <id>` is shorthand for `plan show <id>`. |
-| `archive <plan-id>` | Move a completed plan from `plans/` to `archive/`. |
-| `delete <plan-id>` | Permanently delete a plan and all associated tasks. Cannot be undone. |
-
-Plan IDs are numeric. Commands work on both active and archived plans.
-
-### Status Dashboard
-
-```bash
-npx strikethroo status
-```
-
-Displays summary statistics (total plans, active/archived counts, completion rates), active plans with progress bars, and alerts for unfinished tasks in archived plans.
 
 ### Skill Installation
 

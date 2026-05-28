@@ -21,3 +21,8 @@
    Imported last so its :root token bridge resolves against the @theme
    tokens declared above. */
 @import './app-shell.css';
+
+/* Plans-screen layout classes vendored from scratch/ui/designs/app.css
+   (Plan 86). Imported after app-shell.css so the design token aliases the
+   bridge declares (--ink, --cream, --done, …) resolve. */
+@import './plans.css';

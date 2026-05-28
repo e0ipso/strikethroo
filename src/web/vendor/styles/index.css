@@ -1,0 +1,18 @@
+/* =====================================================================
+   @dalia/ui — Bold Editorial component library
+   =====================================================================
+   Order matters:
+     1. Fonts + tokens (Tailwind @theme)
+     2. Base reset/type
+     3. Editorial components (Bold Editorial patterns)
+     4. Interactive components (overlays, etc — Base UI-styled)
+     5. Prose (long-form article styles)
+   ===================================================================== */
+
+@import './fonts.css';
+@import 'tailwindcss';
+@import './tokens.css';
+@import './base.css';
+@import './editorial.css';
+@import './interactive.css';
+@import './prose.css';

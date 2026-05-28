@@ -1,0 +1,116 @@
+/* =====================================================================
+   Self-hosted brand fonts. All three families ship inside the package.
+   ===================================================================== */
+
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 100 900;
+  font-stretch: 25% 151%;
+  font-display: swap;
+  src: url('./fonts/Fraunces-VariableFont_SOFT_WONK_opsz_wght.ttf') format('truetype-variations'),
+       url('./fonts/Fraunces-VariableFont_SOFT_WONK_opsz_wght.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Fraunces';
+  font-style: italic;
+  font-weight: 100 900;
+  font-stretch: 25% 151%;
+  font-display: swap;
+  src: url('./fonts/Fraunces-Italic-VariableFont_SOFT_WONK_opsz_wght.ttf') format('truetype-variations'),
+       url('./fonts/Fraunces-Italic-VariableFont_SOFT_WONK_opsz_wght.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('./fonts/Outfit-VariableFont_wght.ttf') format('truetype-variations'),
+       url('./fonts/Outfit-VariableFont_wght.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'SF Mono';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url('./fonts/SFMonoLight.otf') format('opentype');
+}
+@font-face {
+  font-family: 'SF Mono';
+  font-style: italic;
+  font-weight: 300;
+  font-display: swap;
+  src: url('./fonts/SFMonoLightItalic.otf') format('opentype');
+}
+@font-face {
+  font-family: 'SF Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/SFMonoRegular.otf') format('opentype');
+}
+@font-face {
+  font-family: 'SF Mono';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/SFMonoRegularItalic.otf') format('opentype');
+}
+@font-face {
+  font-family: 'SF Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./fonts/SFMonoMedium.otf') format('opentype');
+}
+@font-face {
+  font-family: 'SF Mono';
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./fonts/SFMonoMediumItalic.otf') format('opentype');
+}
+@font-face {
+  font-family: 'SF Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./fonts/SFMonoSemibold.otf') format('opentype');
+}
+@font-face {
+  font-family: 'SF Mono';
+  font-style: italic;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./fonts/SFMonoSemiboldItalic.otf') format('opentype');
+}
+@font-face {
+  font-family: 'SF Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./fonts/SFMonoBold.otf') format('opentype');
+}
+@font-face {
+  font-family: 'SF Mono';
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./fonts/SFMonoBoldItalic.otf') format('opentype');
+}
+@font-face {
+  font-family: 'SF Mono';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url('./fonts/SFMonoHeavy.otf') format('opentype');
+}
+@font-face {
+  font-family: 'SF Mono';
+  font-style: italic;
+  font-weight: 900;
+  font-display: swap;
+  src: url('./fonts/SFMonoHeavyItalic.otf') format('opentype');
+}

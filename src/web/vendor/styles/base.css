@@ -1,0 +1,134 @@
+/* =====================================================================
+   Base layer — body, type scale, links, code, selection.
+   ===================================================================== */
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-weight: 400;
+    line-height: 1.6;
+    color: var(--color-ink);
+    background: var(--color-cream);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Hero title — Fraunces 900, optical size scales to display */
+  .t-hero {
+    font-family: var(--font-display);
+    font-size: clamp(3.5rem, 10vw, 7.5rem);
+    font-weight: 900;
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+    font-variation-settings: "opsz" 144;
+  }
+
+  h1, .t-h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4.5vw, 3.25rem);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--color-ink);
+    margin: 0;
+  }
+
+  h2, .t-h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 3vw, 2.25rem);
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+    color: var(--color-ink);
+    margin: 0;
+  }
+
+  h3, .t-h3 {
+    font-family: var(--font-display);
+    font-size: clamp(1.25rem, 2vw, 1.625rem);
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--color-ink);
+    margin: 0;
+  }
+
+  .t-coda {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 5vw, 3.5rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+  }
+
+  .t-statement {
+    font-family: var(--font-display);
+    font-size: clamp(1.375rem, 2.8vw, 2rem);
+    font-weight: 500;
+    line-height: 1.45;
+  }
+
+  .t-num {
+    font-family: var(--font-display);
+    font-size: clamp(4rem, 8vw, 6rem);
+    font-weight: 200;
+    line-height: 1;
+  }
+
+  .t-lead {
+    font-family: var(--font-sans);
+    font-size: clamp(1rem, 1.3vw, 1.125rem);
+    font-weight: 400;
+    line-height: 1.7;
+    color: var(--color-ink-2);
+  }
+
+  p {
+    font-size: 0.9375rem;
+    line-height: 1.75;
+    color: var(--color-ink-2);
+    margin: 0;
+  }
+  p strong { color: var(--color-ink); font-weight: 600; }
+
+  /* Eyebrow label */
+  .label {
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-dalia-dark);
+  }
+
+  a {
+    color: var(--color-dalia-dark);
+    text-decoration: none;
+    transition: color 0.2s var(--ease-out);
+  }
+  a:hover { color: var(--color-ink); }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    background: oklch(0 0 0 / 0.05);
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+    color: var(--color-ink);
+  }
+
+  ::selection { background: var(--color-dalia-bg); color: var(--color-dalia-ink); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

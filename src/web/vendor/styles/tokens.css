@@ -1,0 +1,73 @@
+/* =====================================================================
+   Tokens — Tailwind v4 @theme block.
+   Foundations from colors_and_type.css, expressed as Tailwind theme vars
+   so utilities (bg-cream, text-ink, font-display, …) resolve correctly.
+   ===================================================================== */
+
+@theme {
+  /* ---------- COLOR: warm neutrals (OKLCH, hue 55–75) ---------- */
+  --color-cream:     oklch(0.965 0.01 75);
+  --color-cream-mid: oklch(0.94 0.015 70);
+  --color-ink:       oklch(0.18 0.02 55);
+  --color-ink-2:     oklch(0.38 0.02 55);
+  --color-ink-3:     oklch(0.55 0.015 55);
+
+  /* ---------- COLOR: brand accent (hue 335 — dalia pink) ---------- */
+  --color-dalia:      hsl(335 55% 65%);
+  --color-dalia-dark: hsl(335 55% 48%);
+  --color-dalia-bg:   hsl(335 55% 92%);
+  --color-dalia-ink:  hsl(335 55% 22%);
+
+  /* ---------- COLOR: deep contrast (cool, used sparingly) ---------- */
+  --color-deep:   oklch(0.14 0.02 300);
+  --color-deep-2: oklch(0.55 0.02 300);
+  --color-deep-3: oklch(0.75 0.01 300);
+
+  /* ---------- TYPOGRAPHY ---------- */
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-sans:    'Outfit', system-ui, sans-serif;
+  --font-mono:    'SF Mono', 'Cascadia Code', 'Fira Code', ui-monospace, monospace;
+
+  /* ---------- MOTION ---------- */
+  --ease-out:  cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ---------- LAYOUT ---------- */
+  --container-narrow: 40rem;
+  --container-main:   66rem;
+}
+
+/* Non-Tailwind globals — semantic aliases + shadow recipes.
+   Kept as plain custom properties because they are composed values,
+   not single utility entries. */
+:root {
+  --gutter:       clamp(1.5rem, 5vw, 4rem);
+  --max-w:        66rem;
+  --max-w-narrow: 40rem;
+
+  --bg:           var(--color-cream);
+  --bg-muted:     var(--color-cream-mid);
+  --fg:           var(--color-ink);
+  --fg-muted:     var(--color-ink-2);
+  --fg-subtle:    var(--color-ink-3);
+  --accent:       var(--color-dalia);
+  --accent-strong:var(--color-dalia-dark);
+  --link:         var(--color-dalia-dark);
+
+  --border-soft:   oklch(0 0 0 / 0.05);
+  --border:        oklch(0 0 0 / 0.08);
+  --border-strong: oklch(0 0 0 / 0.15);
+
+  /* Layered shadow recipe — ALWAYS three stops, never a single drop. */
+  --shadow-frame:
+    0 1px 3px  oklch(0 0 0 / 0.04),
+    0 8px 30px oklch(0 0 0 / 0.08),
+    0 0 0 1px oklch(0 0 0 / 0.04);
+  --shadow-frame-hover:
+    0 2px 6px   oklch(0 0 0 / 0.03),
+    0 20px 50px oklch(0 0 0 / 0.13),
+    0 0 0 1px  oklch(0 0 0 / 0.04);
+
+  /* Hairlines on dark backgrounds. */
+  --border-on-deep: oklch(1 0 0 / 0.08);
+}

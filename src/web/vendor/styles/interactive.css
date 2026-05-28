@@ -1,0 +1,535 @@
+/* =====================================================================
+   Interactive component layer — overlays, accordions, code blocks.
+   These extend the system; they do not override Claude Design tokens.
+   ===================================================================== */
+
+@layer components {
+
+  /* ---------- DIALOG (Base UI Dialog wrapper) ---------- */
+  /* Backdrop sits over the whole viewport with a warm-ink tint, not
+     a pure black overlay — keeps the warmth even in modal states. */
+  .dialog__backdrop {
+    position: fixed; inset: 0; z-index: 1000;
+    background: oklch(0.18 0.02 55 / 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    opacity: 0;
+    transition: opacity 0.25s var(--ease-out);
+  }
+  .dialog__backdrop[data-open] { opacity: 1; }
+  .dialog__backdrop[data-closed] { opacity: 0; }
+
+  .dialog__popup {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.97);
+    background: var(--color-cream);
+    color: var(--color-ink);
+    border-radius: 12px;
+    padding: clamp(1.5rem, 4vw, 2.25rem);
+    max-width: min(40rem, 92vw);
+    max-height: 88vh;
+    overflow: auto;
+    box-shadow: var(--shadow-frame-hover);
+    z-index: 1001;
+    opacity: 0;
+    transition: opacity 0.35s var(--ease-expo),
+                transform 0.35s var(--ease-expo);
+  }
+  .dialog__popup[data-open] {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  .dialog__title {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    margin: 0 0 0.75rem;
+    color: var(--color-ink);
+  }
+  .dialog__description {
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    color: var(--color-ink-2);
+    margin: 0 0 1.5rem;
+  }
+  .dialog__close {
+    position: absolute;
+    top: 0.875rem; right: 0.875rem;
+    width: 32px; height: 32px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--color-ink-3);
+    transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out);
+  }
+  .dialog__close:hover {
+    background: oklch(0 0 0 / 0.05);
+    color: var(--color-ink);
+  }
+  .dialog__actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+    justify-content: flex-end;
+  }
+
+  /* ---------- LIGHTBOX — Dialog variant for images ---------- */
+  /* Same Dialog primitive, different chrome: dark backdrop, no popup
+     padding, image fills, the .frame chrome carries the affordance. */
+  .lightbox__backdrop {
+    position: fixed; inset: 0; z-index: 1000;
+    background: oklch(0.14 0.02 300 / 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    opacity: 0;
+    transition: opacity 0.35s var(--ease-expo);
+  }
+  .lightbox__backdrop[data-open] { opacity: 1; }
+  .lightbox__popup {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.95);
+    width: min(80rem, 92vw);
+    max-height: 88vh;
+    z-index: 1001;
+    opacity: 0;
+    transition: opacity 0.45s var(--ease-expo),
+                transform 0.45s var(--ease-expo);
+  }
+  .lightbox__popup[data-open] {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  .lightbox__popup .frame {
+    margin: 0;
+    cursor: zoom-out;
+  }
+  .lightbox__popup .frame img { max-height: 80vh; object-fit: contain; }
+  .lightbox__close {
+    position: absolute;
+    top: -2.5rem; right: 0;
+    background: transparent;
+    border: none;
+    color: oklch(0.92 0.01 75);
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .lightbox__close:hover { color: var(--color-dalia); }
+
+  /* ---------- ACCORDION (Base UI Accordion wrapper) ---------- */
+  /* Editorial: hairlines, no card chrome, dalia chevron rotates. */
+  .accordion {
+    max-width: var(--max-w-narrow);
+    margin: 0 auto;
+  }
+  .accordion__item {
+    border-top: 1px solid oklch(0 0 0 / 0.08);
+  }
+  .accordion__item:last-child {
+    border-bottom: 1px solid oklch(0 0 0 / 0.08);
+  }
+  .accordion__header {
+    margin: 0;
+  }
+  .accordion__trigger {
+    width: 100%;
+    background: transparent;
+    border: none;
+    padding: 1.5rem 0;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.1875rem;
+    line-height: 1.3;
+    color: var(--color-ink);
+    transition: color 0.2s var(--ease-out);
+  }
+  .accordion__trigger:hover { color: var(--color-dalia-dark); }
+  .accordion__trigger:focus-visible {
+    outline: 2px solid var(--color-dalia-dark);
+    outline-offset: 4px;
+    border-radius: 4px;
+  }
+  .accordion__icon {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    color: var(--color-dalia-dark);
+    transition: transform 0.3s var(--ease-out);
+  }
+  .accordion__trigger[data-panel-open] .accordion__icon {
+    transform: rotate(180deg);
+  }
+  .accordion__panel {
+    overflow: hidden;
+    transition: height 0.3s var(--ease-out);
+    height: var(--accordion-panel-height);
+  }
+  .accordion__panel[data-starting-style],
+  .accordion__panel[data-ending-style] {
+    height: 0;
+  }
+  .accordion__content {
+    padding: 0 0 1.5rem;
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    line-height: 1.75;
+    color: var(--color-ink-2);
+    max-width: 56ch;
+  }
+  .accordion__content p { margin: 0 0 0.75rem; }
+  .accordion__content p:last-child { margin-bottom: 0; }
+  /* On dark band */
+  .dark-band .accordion__item,
+  .dark-band .accordion__item:last-child {
+    border-color: var(--border-on-deep);
+  }
+  .dark-band .accordion__trigger { color: oklch(0.92 0.01 75); }
+  .dark-band .accordion__trigger:hover { color: var(--color-dalia); }
+  .dark-band .accordion__icon { color: var(--color-dalia); }
+  .dark-band .accordion__content { color: var(--color-deep-3); }
+
+  /* ---------- TOAST (Base UI Toast) ---------- */
+  .toast__viewport {
+    position: fixed;
+    bottom: clamp(1rem, 3vh, 2rem);
+    right: clamp(1rem, 3vw, 2rem);
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    pointer-events: none;
+  }
+  .toast {
+    pointer-events: auto;
+    background: var(--color-ink);
+    color: var(--color-cream);
+    padding: 0.75rem 1.125rem;
+    border-radius: 8px;
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    font-weight: 500;
+    box-shadow: var(--shadow-frame);
+    display: flex; align-items: center; gap: 0.625rem;
+    max-width: 26rem;
+    transform: translateY(1rem);
+    opacity: 0;
+    transition: transform 0.3s var(--ease-out),
+                opacity 0.3s var(--ease-out);
+  }
+  .toast[data-starting-style] { transform: translateY(1rem); opacity: 0; }
+  .toast[data-ending-style]   { transform: translateY(1rem); opacity: 0; }
+  .toast[data-open] { transform: translateY(0); opacity: 1; }
+  .toast--dalia { color: var(--color-dalia); }
+  .toast__icon { flex: 0 0 auto; width: 16px; height: 16px; color: var(--color-dalia); }
+  .toast__title { font-weight: 600; }
+  .toast__description {
+    color: oklch(0.92 0.01 75);
+    font-weight: 400;
+    margin-left: 0.25rem;
+  }
+  .toast__close {
+    margin-left: 0.5rem;
+    background: transparent;
+    border: none;
+    color: var(--color-deep-3);
+    cursor: pointer;
+    padding: 2px;
+    display: inline-flex;
+    border-radius: 4px;
+    transition: color 0.15s var(--ease-out);
+  }
+  .toast__close:hover { color: var(--color-cream); }
+
+  /* ---------- TOOLTIP (Base UI Tooltip) ---------- */
+  .tooltip {
+    background: var(--color-ink);
+    color: var(--color-cream);
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.4;
+    padding: 0.4rem 0.625rem;
+    border-radius: 6px;
+    max-width: 16rem;
+    z-index: 1500;
+    box-shadow: 0 4px 12px oklch(0 0 0 / 0.18);
+    opacity: 0;
+    transform: translateY(2px);
+    transition: opacity 0.18s var(--ease-out),
+                transform 0.18s var(--ease-out);
+  }
+  .tooltip[data-open] { opacity: 1; transform: translateY(0); }
+  .tooltip__arrow {
+    color: var(--color-ink);
+    width: 10px; height: 5px;
+  }
+
+  /* ---------- CALLOUT (extends info-card with semantic variants) ---------- */
+  /* Note: This expands the Claude Design info-card vocabulary; the
+     base `.info-card` (dalia-bg tint) is unchanged. */
+  .callout {
+    position: relative;
+    border-radius: 1rem;
+    padding: clamp(1.125rem, 2.5vh, 1.5rem) clamp(1.25rem, 3vw, 1.75rem);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.875rem;
+    align-items: start;
+  }
+  .callout__icon {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    margin-top: 1px;
+  }
+  .callout__body { min-width: 0; }
+  .callout__title {
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin: 0 0 0.375rem;
+  }
+  .callout__content {
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    margin: 0;
+  }
+  .callout__content p:not(:last-child) { margin-bottom: 0.5rem; }
+
+  .callout--tip {
+    background: var(--color-dalia-bg);
+    color: var(--color-dalia-ink);
+  }
+  .callout--tip .callout__icon  { color: var(--color-dalia-dark); }
+  .callout--tip .callout__title { color: var(--color-dalia-dark); }
+
+  .callout--note {
+    background: var(--color-cream-mid);
+    color: var(--color-ink-2);
+    box-shadow: inset 3px 0 0 var(--color-ink-3);
+  }
+  .callout--note .callout__icon  { color: var(--color-ink-2); }
+  .callout--note .callout__title { color: var(--color-ink); }
+
+  .callout--prereq {
+    background: var(--color-dalia-bg);
+    color: var(--color-dalia-ink);
+    box-shadow: inset 3px 0 0 var(--color-dalia);
+  }
+  .callout--prereq .callout__icon  { color: var(--color-dalia-dark); }
+  .callout--prereq .callout__title { color: var(--color-dalia-dark); }
+
+  /* Warm amber — NOT traffic-light red; stays in the warm palette */
+  .callout--warning {
+    background: hsl(40 70% 94%);
+    color: hsl(28 50% 22%);
+    box-shadow: inset 3px 0 0 hsl(32 70% 50%);
+  }
+  .callout--warning .callout__icon  { color: hsl(32 70% 45%); }
+  .callout--warning .callout__title { color: hsl(28 50% 22%); }
+
+  /* ---------- CODE BLOCK (distinct from terminal) ---------- */
+  /* Used for code samples in articles. Header has a filename or
+     language label and a copy button. Body is mono on deep ground. */
+  .code-block {
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: var(--shadow-frame);
+    background: var(--color-deep);
+    margin: 0;
+  }
+  .code-block__bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 14px;
+    background: oklch(0.20 0.02 300);
+    border-bottom: 1px solid oklch(1 0 0 / 0.05);
+  }
+  .code-block__label {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--color-deep-3);
+    letter-spacing: 0.04em;
+  }
+  .code-block__copy {
+    background: transparent;
+    border: none;
+    color: var(--color-deep-3);
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    transition: color 0.15s var(--ease-out), background 0.15s var(--ease-out);
+  }
+  .code-block__copy:hover {
+    color: var(--color-dalia);
+    background: oklch(1 0 0 / 0.05);
+  }
+  .code-block__copy svg { width: 13px; height: 13px; }
+  .code-block__copy[data-copied] { color: var(--color-dalia); }
+  .code-block pre {
+    margin: 0;
+    padding: 1.125rem 1.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    line-height: 1.65;
+    color: oklch(0.92 0.01 75);
+    overflow-x: auto;
+  }
+  .code-block code {
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    font-size: 1em;
+    font-family: inherit;
+  }
+  /* Light variant — for inline references in cream-grounded prose */
+  .code-block--light {
+    background: var(--color-cream-mid);
+    box-shadow: inset 0 0 0 1px oklch(0 0 0 / 0.05);
+  }
+  .code-block--light .code-block__bar {
+    background: oklch(0.91 0.012 70);
+    border-bottom-color: oklch(0 0 0 / 0.04);
+  }
+  .code-block--light .code-block__label { color: var(--color-ink-3); }
+  .code-block--light .code-block__copy  { color: var(--color-ink-3); }
+  .code-block--light .code-block__copy:hover { color: var(--color-dalia-dark); background: oklch(0 0 0 / 0.04); }
+  .code-block--light pre { color: var(--color-ink); }
+
+  /* ---------- BREADCRUMB ---------- */
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.625rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    color: var(--color-ink-3);
+  }
+  .breadcrumb li { display: inline-flex; align-items: center; gap: 0.5rem 0.625rem; }
+  .breadcrumb a {
+    color: var(--color-ink-3);
+    transition: color 0.2s var(--ease-out);
+  }
+  .breadcrumb a:hover { color: var(--color-ink); }
+  .breadcrumb__sep {
+    color: var(--color-ink-3);
+    opacity: 0.5;
+    user-select: none;
+  }
+  .breadcrumb [aria-current="page"] {
+    color: var(--color-ink);
+    font-weight: 500;
+  }
+
+  /* ---------- PAGE HEADER (sub-page hero) ---------- */
+  /* Simpler than Hero: eyebrow + h1 + lede, no image column. */
+  .page-header {
+    padding: calc(6rem + var(--gutter)) var(--gutter) clamp(2.5rem, 5vh, 4rem);
+    max-width: var(--max-w);
+    margin: 0 auto;
+  }
+  .page-header__breadcrumb { margin-bottom: 1.5rem; }
+  .page-header__label { display: inline-block; margin-bottom: 1rem; }
+  .page-header__title {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 6vw, 4rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    margin: 0 0 1.25rem;
+    color: var(--color-ink);
+    max-width: 22ch;
+  }
+  .page-header__lede {
+    font-family: var(--font-sans);
+    font-size: clamp(1.0625rem, 1.5vw, 1.25rem);
+    line-height: 1.65;
+    color: var(--color-ink-2);
+    margin: 0;
+    max-width: 52ch;
+  }
+
+  /* ---------- ARTICLE LAYOUT (prose + sticky TOC) ---------- */
+  .article-layout {
+    max-width: var(--max-w);
+    margin: 0 auto;
+    padding: 0 var(--gutter) clamp(4rem, 8vh, 6rem);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 14rem;
+    gap: clamp(2rem, 5vw, 4rem);
+    align-items: start;
+  }
+  .article-layout__body { min-width: 0; max-width: 42rem; }
+  .article-layout__aside {
+    position: sticky;
+    top: 6rem;
+    min-width: 0;
+  }
+  @media (max-width: 860px) {
+    .article-layout { grid-template-columns: 1fr; }
+    .article-layout__aside { position: static; order: -1; }
+  }
+
+  /* TOC */
+  .toc {
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-left: 1px solid oklch(0 0 0 / 0.08);
+  }
+  .toc__label {
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-ink-3);
+    padding: 0 0 0.875rem 1rem;
+  }
+  .toc__item { display: block; }
+  .toc__link {
+    display: block;
+    padding: 0.4rem 0 0.4rem 1rem;
+    color: var(--color-ink-2);
+    line-height: 1.45;
+    border-left: 2px solid transparent;
+    margin-left: -1px;
+    transition: color 0.15s var(--ease-out), border-color 0.15s var(--ease-out);
+  }
+  .toc__link:hover { color: var(--color-ink); }
+  .toc__link[aria-current="true"],
+  .toc__link.is-active {
+    color: var(--color-dalia-dark);
+    border-left-color: var(--color-dalia-dark);
+    font-weight: 500;
+  }
+  .toc__item--nested .toc__link { padding-left: 1.75rem; font-size: 0.75rem; }
+}

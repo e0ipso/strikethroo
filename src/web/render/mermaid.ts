@@ -28,8 +28,11 @@ async function loadMermaid(): Promise<typeof import('mermaid').default> {
       mermaid.initialize({
         startOnLoad: false,
         theme: 'base',
-        // Matches the design's Graph view configuration.
-        securityLevel: 'loose',
+        // Sanitized rendering. The design's Graph view used `securityLevel:
+        // 'loose'` (an XSS surface flagged in the PRD); this boundary keeps
+        // mermaid's `strict` default so authored diagram labels cannot inject
+        // active HTML. Do NOT regress this to 'loose'.
+        securityLevel: 'strict',
         flowchart: { htmlLabels: true, curve: 'basis' },
       });
       return mermaid;

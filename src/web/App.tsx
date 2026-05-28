@@ -19,7 +19,7 @@ import { Chrome } from './components/Chrome';
 import { usePlans, useConfig, type Resource } from './data/api';
 import { ErrorSurface, LoadingSurface, PlaceholderSurface } from './components/StateSurface';
 import { PlansRoute } from './plans/PlansRoute';
-import { PlanDetailReader } from './plans/detail/PlanDetailReader';
+import { PlanDetailRoute } from './plans/detail/PlanDetailRoute';
 
 /**
  * Renders the three data states for a resource with a shared loading/error
@@ -86,10 +86,10 @@ function Shell() {
       break;
     case 'planDetail': {
       const id = route.params.id ?? '';
-      // The Reader renders its own Chrome (crumbs / tabs / StatusPill / actions),
-      // so no separate top bar is composed here.
+      // The route container renders its own Chrome (crumbs / tabs / StatusPill /
+      // actions) and owns tab switching, so no separate top bar is composed here.
       chrome = null;
-      content = <PlanDetailReader id={id} />;
+      content = <PlanDetailRoute id={id} />;
       break;
     }
     case 'archive':

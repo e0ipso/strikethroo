@@ -99,15 +99,3 @@ export function useRoute(): Route {
 export function useNavigate(): (path: string) => void {
   return useRouterContext().navigate;
 }
-
-/** Maps a {@link RouteSection} back to its canonical path (params aside). */
-export function pathForSection(section: Exclude<RouteSection, 'planDetail'>): string {
-  switch (section) {
-    case 'plans':
-      return '/';
-    case 'archive':
-      return '/archive';
-    case 'customize':
-      return '/customize';
-  }
-}

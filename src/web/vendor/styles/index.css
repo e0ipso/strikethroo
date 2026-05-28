@@ -31,3 +31,9 @@
    (Plan 87). Imported after plans.css so the same design token aliases
    resolve. */
 @import './detail.css';
+
+/* Plan Detail (Board + Graph) layout classes vendored from
+   scratch/ui/designs/app.css (Plan 88). Imported after detail.css so the same
+   design token aliases (--ink, --cream, --border-soft, --ink-2/3/4, …)
+   resolve. */
+@import './board-graph.css';

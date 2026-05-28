@@ -123,14 +123,17 @@ maybe('app shell (Playwright)', () => {
       // Footer carries the rebrand, never the stale name.
       expect(await page.locator('.sb__foot').textContent()).toContain('.ai/strikethroo/');
 
-      // Navigate to Archive via the sidebar; active item + URL update.
-      await page.getByText('Archive', { exact: true }).click();
+      // Navigate to Archive via the sidebar; active item + URL update. Scope
+      // to the sidebar nav: the Plans List status bar also contains the word
+      // "Archive" (the move-to-Archive guidance), so a bare getByText is
+      // ambiguous.
+      await page.locator('.sb__item').getByText('Archive', { exact: true }).click();
       await page.waitForFunction(() => location.pathname === '/archive');
       expect(await page.locator('.chrome__title').first().textContent()).toBe('Archive');
       expect(await page.locator('.sb__item--active').textContent()).toContain('Archive');
 
       // Customize.
-      await page.getByText('Customize', { exact: true }).click();
+      await page.locator('.sb__item').getByText('Customize', { exact: true }).click();
       await page.waitForFunction(() => location.pathname === '/customize');
       expect(await page.locator('.sb__item--active').textContent()).toContain('Customize');
     } finally {
@@ -153,7 +156,7 @@ maybe('app shell (Playwright)', () => {
       expect(page.url()).toContain('/plans/38');
 
       // Back/forward through the History API.
-      await page.getByText('Customize', { exact: true }).click();
+      await page.locator('.sb__item').getByText('Customize', { exact: true }).click();
       await page.waitForFunction(() => location.pathname === '/customize');
       await page.goBack();
       await page.waitForFunction(() => location.pathname === '/plans/38');
@@ -169,10 +172,10 @@ maybe('app shell (Playwright)', () => {
     const page = await newPage();
     try {
       await page.goto(full.url, { waitUntil: 'networkidle' });
-      // The Plans slot resolves to a data placeholder mentioning a plan count.
-      await page.waitForFunction(() =>
-        /plan(s)? loaded/.test(document.body.textContent ?? '')
-      );
+      // The Plans route resolves to the real List view (Plan 86): the table
+      // header renders and the data state shows no error surface.
+      await page.waitForSelector('.tbl--head');
+      expect(await page.locator('.tbl--row').count()).toBeGreaterThan(0);
       expect(await page.locator('[role="alert"]').count()).toBe(0);
     } finally {
       await page.close();

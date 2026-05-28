@@ -19,10 +19,16 @@ export interface ChromeProps {
   tabs?: ChromeTab[];
   activeTab?: number;
   right?: ReactNode;
+  /**
+   * Optional tab-click handler. When provided, tabs become interactive (used
+   * by the Plans section to switch List / Cards / Board in place). When
+   * omitted, tabs stay purely presentational.
+   */
+  onTabSelect?: (index: number) => void;
 }
 
 /** The top bar: breadcrumbs, title, actions, and an optional tab strip. */
-export function Chrome({ title, crumbs, tabs, activeTab = 0, right }: ChromeProps) {
+export function Chrome({ title, crumbs, tabs, activeTab = 0, right, onTabSelect }: ChromeProps) {
   return (
     <div className="chrome">
       <div className="chrome__top">
@@ -46,7 +52,12 @@ export function Chrome({ title, crumbs, tabs, activeTab = 0, right }: ChromeProp
           {tabs.map((t, i) => {
             const [label, count] = Array.isArray(t) ? t : [t, null];
             return (
-              <div key={i} className={`tab${i === activeTab ? ' tab--active' : ''}`}>
+              <div
+                key={i}
+                className={`tab${i === activeTab ? ' tab--active' : ''}`}
+                onClick={onTabSelect ? () => onTabSelect(i) : undefined}
+                style={onTabSelect ? { cursor: 'default' } : undefined}
+              >
                 {label}
                 {count != null && <span className="tab__count">{count}</span>}
               </div>

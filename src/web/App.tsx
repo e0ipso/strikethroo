@@ -18,6 +18,7 @@ import { Sidebar } from './components/Sidebar';
 import { Chrome } from './components/Chrome';
 import { usePlans, usePlanDetail, useConfig, type Resource } from './data/api';
 import { ErrorSurface, LoadingSurface, PlaceholderSurface } from './components/StateSurface';
+import { PlansRoute } from './plans/PlansRoute';
 
 /**
  * Renders the three data states for a resource with a shared loading/error
@@ -36,21 +37,6 @@ function ResourceView<T>({
   if (resource.status === 'loading') return <LoadingSurface label={loadingLabel} />;
   if (resource.status === 'error') return <ErrorSurface error={resource.error} />;
   return <>{children(resource.data)}</>;
-}
-
-/** Plans list slot — exercises usePlans; real list is a later screen ticket. */
-function PlansSlot() {
-  const plans = usePlans();
-  return (
-    <ResourceView resource={plans} loadingLabel="Loading plans…">
-      {data => (
-        <PlaceholderSurface>
-          {data.length} plan{data.length === 1 ? '' : 's'} loaded. The Plans screen lands in a later
-          ticket.
-        </PlaceholderSurface>
-      )}
-    </ResourceView>
-  );
 }
 
 /** Plan detail slot — exercises usePlanDetail; real reader is a later ticket. */
@@ -107,8 +93,10 @@ function Shell() {
 
   switch (route.section) {
     case 'plans':
-      chrome = <Chrome title="Plans" />;
-      content = <PlansSlot />;
+      // The Plans route renders its own Chrome (switcher tabs + counters), so
+      // no separate top bar is composed here.
+      chrome = null;
+      content = <PlansRoute />;
       break;
     case 'planDetail': {
       const id = route.params.id ?? '';

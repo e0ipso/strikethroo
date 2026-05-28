@@ -5,9 +5,10 @@
  * trail, the Plan / Tasks / Graph / Execute tab strip, the plan `StatusPill`,
  * and the `Copy path` action), and the active-tab state. The tab strip is
  * interactive: selecting a tab swaps the body between the Reader (Plan), the
- * Board (Tasks), the Graph, and an Execute placeholder. The route has no tab in
+ * Board (Tasks), the Graph, and the Execute blueprint. The route has no tab in
  * its URL — tab selection is local UI state, mirroring the design where each
- * Plan Detail screen shares one Chrome and differs only in body.
+ * Plan Detail screen shares one Chrome and differs only in body. The Execute
+ * tab renders the Execution blueprint (Swimlanes / Outline) via `ExecuteTab`.
  *
  * Loading and error states are surfaced by the shared StateSurface components
  * (never a blank screen / thrown error). Plan 38 is only an acceptance fixture,
@@ -24,6 +25,7 @@ import { copyToClipboard } from '../../vendor/utils/clipboard';
 import { PlanDetailReader } from './PlanDetailReader';
 import { PlanDetailBoard } from './PlanDetailBoard';
 import { PlanDetailGraph } from './PlanDetailGraph';
+import { ExecuteTab } from '../exec/ExecuteTab';
 
 /** The Plan Detail tabs, in order. The Board (Tasks) tab carries a count. */
 const TAB_PLAN = 0;
@@ -50,13 +52,7 @@ function LoadedRoute({ detail }: { detail: PlanDetail }) {
       body = <PlanDetailGraph detail={detail} />;
       break;
     case TAB_EXECUTE:
-      body = (
-        <div className="detail" style={{ gridTemplateColumns: '1fr' }}>
-          <div style={{ padding: '28px', color: 'var(--ink-3)', fontFamily: 'var(--font-body)' }}>
-            The Execute view lands in a later plan.
-          </div>
-        </div>
-      );
+      body = <ExecuteTab detail={detail} />;
       break;
     case TAB_PLAN:
     default:

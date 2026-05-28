@@ -131,6 +131,10 @@ The shipping skills are:
 
 Executable logic each skill needs at runtime is authored once in TypeScript under `src/skill-scripts/`. Shared helpers (frontmatter parsing, plan/archive scanning, root discovery) live in `src/skill-scripts/shared/` so future skills can reuse them. The subtree type-checks via `tsconfig.skill-scripts.json` and lints with the rest of `src/`, but its output is produced by the bundler, not by `tsc`. The main `tsconfig.json` excludes `src/skill-scripts/**` from emit so `dist/` stays the CLI's domain.
 
+### Serve feature (`src/serve/`)
+
+`src/serve/` hosts the `serve` feature. Its first building block is `workspace-model.ts`: the pure, synchronous, side-effect-free data layer that scans a project's `.ai/strikethroo/` tree and returns the stable JSON model (plan summaries and details, derived lifecycle state, tasks, inferred phases, mermaid blocks, and the customizable `config/` hooks and templates) that the runtime server and the UI screens consume. It performs reads only — no file-watching, network, or writes — and reuses the `src/skill-scripts/shared/` discovery helpers (`findStrikethrooRoot`, `getAllPlans`) rather than re-walking directories. This directory is part of the CLI's `tsc` domain and ships in `dist/`. Later serve work (the HTTP/SSE runtime server and its build/distribution integration) extends this same directory.
+
 ### Prompt source of truth
 
 Each skill's `SKILL.md` prompt is assembled at build time from source templates in `src/skill-prompts/`. Shared procedural blocks (root discovery, plan resolution, phase execution loop, test philosophy, task minimization, etc.) live in `src/skill-prompts/sections/` and are referenced via `{{include sections/<name>.md}}` directives. Per-skill differences are handled with `{{variable}}` substitution from the source template's YAML frontmatter `vars` block. See `src/skill-prompts/README.md` for editing and authoring details.

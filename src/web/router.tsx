@@ -63,9 +63,7 @@ const RouterContext = createContext<RouterContextValue | null>(null);
  * through `history.pushState` (no full-page reload).
  */
 export function RouterProvider({ children }: { children: ReactNode }) {
-  const [route, setRoute] = useState<Route>(() =>
-    parsePath(window.location.pathname)
-  );
+  const [route, setRoute] = useState<Route>(() => parsePath(window.location.pathname));
 
   useEffect(() => {
     const onPopState = () => setRoute(parsePath(window.location.pathname));
@@ -79,14 +77,9 @@ export function RouterProvider({ children }: { children: ReactNode }) {
     setRoute(parsePath(path));
   }, []);
 
-  const value = useMemo<RouterContextValue>(
-    () => ({ route, navigate }),
-    [route, navigate]
-  );
+  const value = useMemo<RouterContextValue>(() => ({ route, navigate }), [route, navigate]);
 
-  return (
-    <RouterContext.Provider value={value}>{children}</RouterContext.Provider>
-  );
+  return <RouterContext.Provider value={value}>{children}</RouterContext.Provider>;
 }
 
 function useRouterContext(): RouterContextValue {

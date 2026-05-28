@@ -124,6 +124,8 @@ export default [
         EventSource: 'readonly',
         history: 'readonly',
         location: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
         console: 'readonly',
         setTimeout: 'readonly',
         clearTimeout: 'readonly',

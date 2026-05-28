@@ -20,6 +20,7 @@ import * as path from 'path';
 import { spawn } from 'child_process';
 import { URL } from 'url';
 import { getWorkspaceModel, getPlanDetail, getConfig } from './workspace-model';
+import { EventsHub } from './events';
 
 /** Options for {@link startServer}. */
 export interface ServeOptions {
@@ -32,11 +33,16 @@ export interface ServeOptions {
   /** Absolute path of the prebuilt SPA assets directory. */
   assetsDir: string;
   /**
-   * Optional extra API route handlers, tried before the built-in read
-   * endpoints. The SSE task registers `GET /api/events` here. A handler returns
-   * `true` once it has taken ownership of the response, `false` to fall through.
+   * Optional extra API route handlers, tried before the built-in read endpoints
+   * and the built-in SSE stream. A handler returns `true` once it has taken
+   * ownership of the response, `false` to fall through.
    */
   apiHandlers?: ApiHandler[];
+  /**
+   * Debounce quiet window (ms) for the change watcher. Defaults to the watcher
+   * module's default; exposed mainly so tests can tighten it.
+   */
+  debounceMs?: number;
 }
 
 /** A pluggable `/api/*` handler. Returns `true` if it handled the request. */
@@ -51,6 +57,8 @@ export interface ServeHandle {
   url: string;
   server: http.Server;
   port: number;
+  /** The SSE change-stream hub backing `GET /api/events`. */
+  events: EventsHub;
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -217,15 +225,18 @@ const openBrowser = (url: string): void => {
  * listening. Rejects only on a genuine listen/bind error.
  */
 export const startServer = (opts: ServeOptions): Promise<ServeHandle> => {
-  const apiHandlers = opts.apiHandlers ?? [];
+  const extraHandlers = opts.apiHandlers ?? [];
+  const events = new EventsHub(opts.root, opts.debounceMs);
 
   const server = http.createServer((req, res) => {
     const pathname = new URL(req.url ?? '/', 'http://localhost').pathname;
 
     if (pathname.startsWith('/api/')) {
-      for (const handler of apiHandlers) {
+      for (const handler of extraHandlers) {
         if (handler(req, res, { root: opts.root, pathname })) return;
       }
+      // Built-in SSE change stream.
+      if (events.apiHandler(req, res, { pathname })) return;
       if (handleApi(res, opts.root, pathname)) return;
       sendJson(res, 404, { error: `Unknown API route: ${pathname}` });
       return;
@@ -234,6 +245,9 @@ export const startServer = (opts: ServeOptions): Promise<ServeHandle> => {
     handleStatic(res, opts.assetsDir, pathname);
   });
 
+  // Tear the watcher and open client streams down with the server.
+  server.on('close', () => events.close());
+
   return new Promise<ServeHandle>((resolve, reject) => {
     server.once('error', reject);
     server.listen(opts.port, () => {
@@ -241,8 +255,9 @@ export const startServer = (opts: ServeOptions): Promise<ServeHandle> => {
       const address = server.address();
       const boundPort = typeof address === 'object' && address ? address.port : opts.port;
       const url = `http://localhost:${boundPort}`;
+      events.start();
       if (opts.open) openBrowser(url);
-      resolve({ url, server, port: boundPort });
+      resolve({ url, server, port: boundPort, events });
     });
   });
 };

@@ -1,3 +1,8 @@
+## <small>3.0.1 (2026-05-28)</small>
+
+* fix: trigger actions ([b331c49](https://github.com/e0ipso/strikethroo/commit/b331c49))
+* chore(release): 2.2.1 [skip ci] ([1369a71](https://github.com/e0ipso/strikethroo/commit/1369a71))
+
 ## <small>2.2.1 (2026-05-28)</small>
 
 * chore: restore 3.0.0 after erroneous 2.2.1 release ([9e1e770](https://github.com/e0ipso/strikethroo/commit/9e1e770))

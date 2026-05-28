@@ -2,20 +2,20 @@
 layout: default
 title: Getting Started
 nav_order: 2
-description: "Install AI Task Manager and run your first workflow"
+description: "Install Strikethroo and run your first workflow"
 ---
 
 # Getting Started
 
-Get up and running with AI Task Manager quickly. This page covers prerequisites, installation, directory structure, your first workflow, and verification.
+Get up and running with Strikethroo quickly. This page covers prerequisites, installation, directory structure, your first workflow, and verification.
 
-AI Task Manager transforms complex development requests into organized, executable workflows through a three-step workflow:
+Strikethroo transforms complex development requests into organized, executable workflows through a three-step workflow:
 
 1. **Create Plan** -- Define objectives and clarify requirements
 2. **Generate Tasks** -- Break the plan into atomic tasks with dependencies
 3. **Execute Blueprint** -- Implement tasks with review gates and quality gates
 
-The workflow is delivered through harness-agnostic Agent Skills installed via `npx skills add e0ipso/ai-task-manager`. Skills load automatically when their description matches your intent, so you drive the workflow by asking your assistant to plan, decompose, or execute -- no commands to memorize.
+The workflow is delivered through harness-agnostic Agent Skills installed via `npx skills add e0ipso/strikethroo`. Skills load automatically when their description matches your intent, so you drive the workflow by asking your assistant to plan, decompose, or execute -- no commands to memorize.
 
 ## Prerequisites
 
@@ -30,15 +30,15 @@ No global installation required. Use `npx` to run both steps directly.
 ### Step 1: Bootstrap the Workspace
 
 ```bash
-npx @e0ipso/ai-task-manager init --harnesses claude
+npx strikethroo init --harnesses claude
 ```
 
-This creates the shared `.ai/task-manager/` directory (plans, archive, config) and copies the Claude agents into `.claude/agents/`.
+This creates the shared `.ai/strikethroo/` directory (plans, archive, config) and copies the Claude agents into `.claude/agents/`.
 
 ### Step 2: Install the Workflow Skills
 
 ```bash
-npx skills add e0ipso/ai-task-manager
+npx skills add e0ipso/strikethroo
 ```
 
 This installs the Agent Skills that implement the three-step workflow. Skills are harness-agnostic -- a single skill works for every harness that supports the Agent Skills format.
@@ -46,7 +46,7 @@ This installs the Agent Skills that implement the three-step workflow. Skills ar
 To pin a specific release:
 
 ```bash
-npx skills add e0ipso/ai-task-manager@<tag>
+npx skills add e0ipso/strikethroo@<tag>
 ```
 
 ### The `--harnesses` Flag
@@ -56,17 +56,17 @@ The `--harnesses` flag is **required** when running `init`. It controls which pe
 Each harness can have its own agent files deployed to the appropriate location (e.g., `.claude/agents/` for Claude). Harnesses without harness-specific agents get the shared workspace only and rely entirely on the installed skills:
 
 ```bash
-# Claude (copies .ai/task-manager/ + .claude/agents/)
-npx @e0ipso/ai-task-manager init --harnesses claude
+# Claude (copies .ai/strikethroo/ + .claude/agents/)
+npx strikethroo init --harnesses claude
 
-# Other harnesses (copies .ai/task-manager/ only; rely on skills)
-npx @e0ipso/ai-task-manager init --harnesses gemini
+# Other harnesses (copies .ai/strikethroo/ only; rely on skills)
+npx strikethroo init --harnesses gemini
 ```
 
 You can pass multiple harnesses in a single run:
 
 ```bash
-npx @e0ipso/ai-task-manager init --harnesses claude,gemini,opencode,codex,github,cursor
+npx strikethroo init --harnesses claude,gemini,opencode,codex,github,cursor
 ```
 
 All harnesses share the same task management structure (plans, tasks, configurations).
@@ -76,7 +76,7 @@ All harnesses share the same task management structure (plans, tasks, configurat
 By default, `init` writes into the current working directory. Use `--destination-directory` to target an alternative location:
 
 ```bash
-npx @e0ipso/ai-task-manager init \
+npx strikethroo init \
   --harnesses claude \
   --destination-directory /path/to/project
 ```
@@ -88,11 +88,11 @@ After running both commands, the project layout looks like this:
 ```
 project-root/
 ├── .ai/
-│   └── task-manager/              # Shared configuration files
+│   └── strikethroo/               # Shared configuration files
 │       ├── plans/                 # Active plans (empty initially)
 │       ├── archive/               # Completed plans (empty initially)
 │       ├── config/
-│       │   ├── TASK_MANAGER.md    # Project context (customize this!)
+│       │   ├── STRIKETHROO.md     # Project context (customize this!)
 │       │   ├── hooks/             # Lifecycle hooks
 │       │   │   ├── PRE_PLAN.md
 │       │   │   ├── PRE_PHASE.md
@@ -120,13 +120,13 @@ The installed skills live wherever your assistant manages them; they are not cop
 
 Once installation is complete, you drive the three-step workflow entirely through your assistant. Here is the typical sequence:
 
-1. **Create a plan** -- Ask your assistant to plan a feature or change. The `task-create-plan` skill loads automatically, gathers requirements, and produces a work order in `.ai/task-manager/plans/`.
+1. **Create a plan** -- Ask your assistant to plan a feature or change. The `st-create-plan` skill loads automatically, gathers requirements, and produces a work order in `.ai/strikethroo/plans/`.
 
-2. **Generate tasks** -- Ask your assistant to decompose the plan into tasks. The `task-generate-tasks` skill breaks the plan into atomic tasks with dependency mapping and writes them into the plan's `tasks/` subdirectory.
+2. **Generate tasks** -- Ask your assistant to decompose the plan into tasks. The `st-generate-tasks` skill breaks the plan into atomic tasks with dependency mapping and writes them into the plan's `tasks/` subdirectory.
 
-3. **Execute the blueprint** -- Ask your assistant to execute the plan. The `task-execute-blueprint` skill works through each phase, running tasks in dependency order with quality gates between phases.
+3. **Execute the blueprint** -- Ask your assistant to execute the plan. The `st-execute-blueprint` skill works through each phase, running tasks in dependency order with quality gates between phases.
 
-You can also run all three steps in a single uninterrupted sequence by asking your assistant to handle the full workflow end-to-end (the `task-full-workflow` skill).
+You can also run all three steps in a single uninterrupted sequence by asking your assistant to handle the full workflow end-to-end (the `st-full-workflow` skill).
 
 For a detailed walkthrough of the day-to-day development cycle, see the [Workflow Guide](workflow.html).
 
@@ -137,7 +137,7 @@ Verify successful installation:
 ### 1. Check Directory Structure
 
 ```bash
-ls -la .ai/task-manager/
+ls -la .ai/strikethroo/
 ```
 
 You should see: `plans/`, `archive/`, `config/`
@@ -151,14 +151,14 @@ ls -la .claude/agents/
 ### 3. Test Status Command
 
 ```bash
-npx @e0ipso/ai-task-manager status
+npx strikethroo status
 ```
 
 Should show: "No active plans found" (until you create your first plan)
 
 ### 4. Confirm Skills Are Installed
 
-Open your assistant and ask it to create a task-manager plan. The `task-create-plan` skill should load automatically based on intent.
+Open your assistant and ask it to create a Strikethroo plan. The `st-create-plan` skill should load automatically based on intent.
 
 ## Updating
 
@@ -167,7 +167,7 @@ Open your assistant and ask it to create a task-manager plan. The `task-create-p
 Re-run the init command to update the workspace files to the latest version:
 
 ```bash
-npx @e0ipso/ai-task-manager init --harnesses claude
+npx strikethroo init --harnesses claude
 ```
 
 **File Conflict Detection** automatically:
@@ -181,14 +181,14 @@ npx @e0ipso/ai-task-manager init --harnesses claude
 Bypass conflict detection prompts (useful for automation):
 
 ```bash
-npx @e0ipso/ai-task-manager init --harnesses claude --force
+npx strikethroo init --harnesses claude --force
 ```
 
 **Warning**: Force mode overwrites ALL files, including your customizations. Back up custom hooks and templates first.
 
 ### Updating Skills
 
-Re-run `npx skills add e0ipso/ai-task-manager` to pull the latest skills. The two channels (CLI init and skills installer) are independently re-runnable.
+Re-run `npx skills add e0ipso/strikethroo` to pull the latest skills. The two channels (CLI init and skills installer) are independently re-runnable.
 
 ## Customizing for Your Project
 
@@ -196,12 +196,12 @@ After installation, customize these files for your specific needs:
 
 ### Essential Customizations
 
-1. **`.ai/task-manager/config/TASK_MANAGER.md`**
+1. **`.ai/strikethroo/config/STRIKETHROO.md`**
    - Add project context (tech stack, coding standards, architecture decisions)
    - Include links to design docs, API specs, or style guides
    - Document project-specific conventions
 
-2. **`.ai/task-manager/config/hooks/POST_PHASE.md`**
+2. **`.ai/strikethroo/config/hooks/POST_PHASE.md`**
    - Add your quality gates (linting, tests, coverage thresholds)
    - Include deployment steps (staging, production)
    - Add notification steps (Slack, email, dashboard updates)

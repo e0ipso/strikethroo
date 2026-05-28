@@ -4,7 +4,7 @@
  *
  * Covers:
  *   1. Plan ID allocation across plans/ and archive/.
- *   2. Task-manager root discovery from a nested working directory.
+ *   2. Strikethroo root discovery from a nested working directory.
  *   3. Bundle smoke check: generated .cjs files execute self-contained
  *      from a fixture that contains only the skill.
  */
@@ -14,7 +14,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
 
-import { findTaskManagerRoot } from '../skill-scripts/shared/root';
+import { findStrikethrooRoot } from '../skill-scripts/shared/root';
 import {
   getAllPlans,
   computeNextPlanId,
@@ -25,7 +25,7 @@ import {
 } from '../skill-scripts/create-feature-branch';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const SKILL_DIR = path.join(REPO_ROOT, 'templates', 'harness', 'skills', 'task-create-plan');
+const SKILL_DIR = path.join(REPO_ROOT, 'templates', 'harness', 'skills', 'st-create-plan');
 
 const writeFile = (filePath: string, contents: string): void => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -33,7 +33,7 @@ const writeFile = (filePath: string, contents: string): void => {
 };
 
 const buildMixedFixture = (root: string): void => {
-  const tm = path.join(root, '.ai', 'task-manager');
+  const tm = path.join(root, '.ai', 'strikethroo');
   fs.mkdirSync(tm, { recursive: true });
   fs.writeFileSync(
     path.join(tm, '.init-metadata.json'),
@@ -67,7 +67,7 @@ describe('skill-scripts plan ID allocation', () => {
   });
 
   test('getAllPlans recognizes .md across plans/ and archive/', () => {
-    const root = path.join(tempDir, '.ai', 'task-manager');
+    const root = path.join(tempDir, '.ai', 'strikethroo');
     const plans = getAllPlans(root);
     const ids = plans.map(p => p.id).sort((a, b) => a - b);
     expect(ids).toEqual([2, 3, 7]);
@@ -80,14 +80,14 @@ describe('skill-scripts plan ID allocation', () => {
   });
 
   test('computeNextPlanId returns max + 1', () => {
-    const root = path.join(tempDir, '.ai', 'task-manager');
+    const root = path.join(tempDir, '.ai', 'strikethroo');
     expect(computeNextPlanId(root)).toBe(8);
   });
 
   test('computeNextPlanId returns 1 for an empty workspace', () => {
     const fresh = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-empty-'));
     try {
-      const tm = path.join(fresh, '.ai', 'task-manager');
+      const tm = path.join(fresh, '.ai', 'strikethroo');
       fs.mkdirSync(tm, { recursive: true });
       fs.writeFileSync(
         path.join(tm, '.init-metadata.json'),
@@ -112,25 +112,25 @@ describe('skill-scripts root discovery', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test('finds the task-manager root from a nested working directory', () => {
+  test('finds the strikethroo root from a nested working directory', () => {
     const nested = path.join(
       tempDir,
       '.ai',
-      'task-manager',
+      'strikethroo',
       'plans',
       '03--alpha'
     );
-    const found = findTaskManagerRoot(nested);
+    const found = findStrikethrooRoot(nested);
     expect(found).not.toBeNull();
     expect(path.resolve(found as string)).toBe(
-      path.resolve(path.join(tempDir, '.ai', 'task-manager'))
+      path.resolve(path.join(tempDir, '.ai', 'strikethroo'))
     );
   });
 
-  test('returns null when no task-manager root exists', () => {
+  test('returns null when no strikethroo root exists', () => {
     const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-noroot-'));
     try {
-      expect(findTaskManagerRoot(empty)).toBeNull();
+      expect(findStrikethrooRoot(empty)).toBeNull();
     } finally {
       fs.rmSync(empty, { recursive: true, force: true });
     }
@@ -155,7 +155,7 @@ describe('skill bundle smoke check', () => {
 
     // Copy the skill directory (without the repo around it) so we can
     // confirm the bundles are self-contained.
-    fixtureSkillDir = path.join(tempDir, 'task-create-plan');
+    fixtureSkillDir = path.join(tempDir, 'st-create-plan');
     fs.cpSync(SKILL_DIR, fixtureSkillDir, { recursive: true });
   });
 
@@ -163,19 +163,19 @@ describe('skill bundle smoke check', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test('find-task-manager-root.cjs resolves the fixture root', () => {
+  test('find-strikethroo-root.cjs resolves the fixture root', () => {
     const scriptPath = path.join(
       fixtureSkillDir,
       'scripts',
-      'find-task-manager-root.cjs'
+      'find-strikethroo-root.cjs'
     );
-    const cwd = path.join(tempDir, '.ai', 'task-manager', 'plans', '03--alpha');
+    const cwd = path.join(tempDir, '.ai', 'strikethroo', 'plans', '03--alpha');
     const stdout = execFileSync('node', [scriptPath], {
       cwd,
       encoding: 'utf8',
     }).trim();
     expect(path.resolve(stdout)).toBe(
-      path.resolve(path.join(tempDir, '.ai', 'task-manager'))
+      path.resolve(path.join(tempDir, '.ai', 'strikethroo'))
     );
   });
 
@@ -204,8 +204,8 @@ describe('create-feature-branch helpers', () => {
 
   test('_extractPlanName extracts name from id--name pattern', () => {
     expect(
-      _extractPlanName('/some/path/70--task-execute-blueprint-skill')
-    ).toBe('task-execute-blueprint-skill');
+      _extractPlanName('/some/path/70--st-execute-blueprint-skill')
+    ).toBe('st-execute-blueprint-skill');
     expect(_extractPlanName('/some/path/unknown')).toBe('unknown');
   });
 });
@@ -218,7 +218,7 @@ describe('create-feature-branch integration', () => {
     planName: string,
     planId: number
   ): string => {
-    const tm = path.join(root, '.ai', 'task-manager');
+    const tm = path.join(root, '.ai', 'strikethroo');
     fs.mkdirSync(tm, { recursive: true });
     fs.writeFileSync(
       path.join(tm, '.init-metadata.json'),
@@ -264,7 +264,7 @@ describe('create-feature-branch integration', () => {
       'templates',
       'harness',
       'skills',
-      'task-execute-blueprint',
+      'st-execute-blueprint',
       'scripts',
       'create-feature-branch.cjs'
     );
@@ -291,7 +291,7 @@ describe('create-feature-branch integration', () => {
       'templates',
       'harness',
       'skills',
-      'task-execute-blueprint',
+      'st-execute-blueprint',
       'scripts',
       'create-feature-branch.cjs'
     );
@@ -311,7 +311,7 @@ describe('create-feature-branch integration', () => {
       'templates',
       'harness',
       'skills',
-      'task-execute-blueprint',
+      'st-execute-blueprint',
       'scripts',
       'create-feature-branch.cjs'
     );
@@ -339,7 +339,7 @@ describe('create-feature-branch integration', () => {
       'templates',
       'harness',
       'skills',
-      'task-execute-blueprint',
+      'st-execute-blueprint',
       'scripts',
       'create-feature-branch.cjs'
     );
@@ -352,7 +352,7 @@ describe('create-feature-branch integration', () => {
   });
 });
 
-describe('task-execute-blueprint bundle smoke check', () => {
+describe('st-execute-blueprint bundle smoke check', () => {
   let tempDir: string;
   let fixtureSkillDir: string;
 
@@ -365,7 +365,7 @@ describe('task-execute-blueprint bundle smoke check', () => {
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-smoke-exec-'));
-    const tm = path.join(tempDir, '.ai', 'task-manager');
+    const tm = path.join(tempDir, '.ai', 'strikethroo');
     fs.mkdirSync(tm, { recursive: true });
     fs.writeFileSync(
       path.join(tm, '.init-metadata.json'),
@@ -378,9 +378,9 @@ describe('task-execute-blueprint bundle smoke check', () => {
       '---\nid: 3\nsummary: "alpha"\ncreated: 2026-01-01\n---\n'
     );
 
-    fixtureSkillDir = path.join(tempDir, 'task-execute-blueprint');
+    fixtureSkillDir = path.join(tempDir, 'st-execute-blueprint');
     fs.cpSync(
-      path.join(REPO_ROOT, 'templates', 'harness', 'skills', 'task-execute-blueprint'),
+      path.join(REPO_ROOT, 'templates', 'harness', 'skills', 'st-execute-blueprint'),
       fixtureSkillDir,
       { recursive: true }
     );
@@ -390,11 +390,11 @@ describe('task-execute-blueprint bundle smoke check', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test('find-task-manager-root.cjs resolves fixture root', () => {
-    const script = path.join(fixtureSkillDir, 'scripts', 'find-task-manager-root.cjs');
-    const cwd = path.join(tempDir, '.ai', 'task-manager', 'plans', '03--alpha');
+  test('find-strikethroo-root.cjs resolves fixture root', () => {
+    const script = path.join(fixtureSkillDir, 'scripts', 'find-strikethroo-root.cjs');
+    const cwd = path.join(tempDir, '.ai', 'strikethroo', 'plans', '03--alpha');
     const stdout = execFileSync('node', [script], { cwd, encoding: 'utf8' }).trim();
-    expect(path.resolve(stdout)).toBe(path.resolve(path.join(tempDir, '.ai', 'task-manager')));
+    expect(path.resolve(stdout)).toBe(path.resolve(path.join(tempDir, '.ai', 'strikethroo')));
   });
 
   test('validate-plan-blueprint.cjs returns plan file path', () => {
@@ -405,7 +405,7 @@ describe('task-execute-blueprint bundle smoke check', () => {
       encoding: 'utf8',
     }).trim();
     expect(path.resolve(stdout)).toBe(
-      path.resolve(path.join(tempDir, '.ai', 'task-manager', 'plans', '03--alpha', 'plan-03--alpha.md'))
+      path.resolve(path.join(tempDir, '.ai', 'strikethroo', 'plans', '03--alpha', 'plan-03--alpha.md'))
     );
   });
 
@@ -414,7 +414,7 @@ describe('task-execute-blueprint bundle smoke check', () => {
     const planFile = path.join(
       tempDir,
       '.ai',
-      'task-manager',
+      'strikethroo',
       'plans',
       '03--alpha',
       'plan-03--alpha.md'
@@ -445,7 +445,7 @@ describe('task-execute-blueprint bundle smoke check', () => {
   });
 });
 
-describe('task-refine-plan bundle smoke check', () => {
+describe('st-refine-plan bundle smoke check', () => {
   let tempDir: string;
   let fixtureSkillDir: string;
 
@@ -458,7 +458,7 @@ describe('task-refine-plan bundle smoke check', () => {
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-smoke-refine-'));
-    const tm = path.join(tempDir, '.ai', 'task-manager');
+    const tm = path.join(tempDir, '.ai', 'strikethroo');
     fs.mkdirSync(tm, { recursive: true });
     fs.writeFileSync(
       path.join(tm, '.init-metadata.json'),
@@ -471,9 +471,9 @@ describe('task-refine-plan bundle smoke check', () => {
       '---\nid: 3\nsummary: "alpha"\ncreated: 2026-01-01\n---\n'
     );
 
-    fixtureSkillDir = path.join(tempDir, 'task-refine-plan');
+    fixtureSkillDir = path.join(tempDir, 'st-refine-plan');
     fs.cpSync(
-      path.join(REPO_ROOT, 'templates', 'harness', 'skills', 'task-refine-plan'),
+      path.join(REPO_ROOT, 'templates', 'harness', 'skills', 'st-refine-plan'),
       fixtureSkillDir,
       { recursive: true }
     );
@@ -483,11 +483,11 @@ describe('task-refine-plan bundle smoke check', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test('find-task-manager-root.cjs resolves the fixture root', () => {
-    const script = path.join(fixtureSkillDir, 'scripts', 'find-task-manager-root.cjs');
-    const cwd = path.join(tempDir, '.ai', 'task-manager', 'plans', '03--alpha');
+  test('find-strikethroo-root.cjs resolves the fixture root', () => {
+    const script = path.join(fixtureSkillDir, 'scripts', 'find-strikethroo-root.cjs');
+    const cwd = path.join(tempDir, '.ai', 'strikethroo', 'plans', '03--alpha');
     const stdout = execFileSync('node', [script], { cwd, encoding: 'utf8' }).trim();
-    expect(path.resolve(stdout)).toBe(path.resolve(path.join(tempDir, '.ai', 'task-manager')));
+    expect(path.resolve(stdout)).toBe(path.resolve(path.join(tempDir, '.ai', 'strikethroo')));
   });
 
   test('validate-plan-blueprint.cjs returns plan file path', () => {
@@ -498,7 +498,7 @@ describe('task-refine-plan bundle smoke check', () => {
       encoding: 'utf8',
     }).trim();
     expect(path.resolve(stdout)).toBe(
-      path.resolve(path.join(tempDir, '.ai', 'task-manager', 'plans', '03--alpha', 'plan-03--alpha.md'))
+      path.resolve(path.join(tempDir, '.ai', 'strikethroo', 'plans', '03--alpha', 'plan-03--alpha.md'))
     );
   });
 });
@@ -509,7 +509,7 @@ const buildTaskFixture = (
   planName: string,
   tasks: Array<{ id: number; status: string; dependencies: number[] }>
 ): void => {
-  const tm = path.join(root, '.ai', 'task-manager');
+  const tm = path.join(root, '.ai', 'strikethroo');
   fs.mkdirSync(tm, { recursive: true });
   fs.writeFileSync(
     path.join(tm, '.init-metadata.json'),
@@ -536,7 +536,7 @@ const buildTaskFixture = (
   }
 };
 
-describe('task-execute-task bundle smoke check', () => {
+describe('st-execute-task bundle smoke check', () => {
   let tempDir: string;
   let fixtureSkillDir: string;
 
@@ -554,9 +554,9 @@ describe('task-execute-task bundle smoke check', () => {
       { id: 2, status: 'pending', dependencies: [1] },
     ]);
 
-    fixtureSkillDir = path.join(tempDir, 'task-execute-task');
+    fixtureSkillDir = path.join(tempDir, 'st-execute-task');
     fs.cpSync(
-      path.join(REPO_ROOT, 'templates', 'harness', 'skills', 'task-execute-task'),
+      path.join(REPO_ROOT, 'templates', 'harness', 'skills', 'st-execute-task'),
       fixtureSkillDir,
       { recursive: true }
     );
@@ -566,12 +566,12 @@ describe('task-execute-task bundle smoke check', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test('find-task-manager-root.cjs resolves fixture root', () => {
-    const script = path.join(fixtureSkillDir, 'scripts', 'find-task-manager-root.cjs');
-    const cwd = path.join(tempDir, '.ai', 'task-manager', 'plans', '03--alpha');
+  test('find-strikethroo-root.cjs resolves fixture root', () => {
+    const script = path.join(fixtureSkillDir, 'scripts', 'find-strikethroo-root.cjs');
+    const cwd = path.join(tempDir, '.ai', 'strikethroo', 'plans', '03--alpha');
     const stdout = execFileSync('node', [script], { cwd, encoding: 'utf8' }).trim();
     expect(path.resolve(stdout)).toBe(
-      path.resolve(path.join(tempDir, '.ai', 'task-manager'))
+      path.resolve(path.join(tempDir, '.ai', 'strikethroo'))
     );
   });
 
@@ -584,7 +584,7 @@ describe('task-execute-task bundle smoke check', () => {
     }).trim();
     expect(path.resolve(stdout)).toBe(
       path.resolve(
-        path.join(tempDir, '.ai', 'task-manager', 'plans', '03--alpha', 'plan-03--alpha.md')
+        path.join(tempDir, '.ai', 'strikethroo', 'plans', '03--alpha', 'plan-03--alpha.md')
       )
     );
   });
@@ -605,7 +605,7 @@ describe('task-execute-task bundle smoke check', () => {
     const depFile = path.join(
       tempDir,
       '.ai',
-      'task-manager',
+      'strikethroo',
       'plans',
       '03--alpha',
       'tasks',
@@ -662,7 +662,7 @@ describe('check-task-dependencies scenarios', () => {
       'templates',
       'harness',
       'skills',
-      'task-execute-task',
+      'st-execute-task',
       'scripts',
       'check-task-dependencies.cjs'
     );
@@ -684,7 +684,7 @@ describe('check-task-dependencies scenarios', () => {
       'templates',
       'harness',
       'skills',
-      'task-execute-task',
+      'st-execute-task',
       'scripts',
       'check-task-dependencies.cjs'
     );
@@ -706,7 +706,7 @@ describe('check-task-dependencies scenarios', () => {
       'templates',
       'harness',
       'skills',
-      'task-execute-task',
+      'st-execute-task',
       'scripts',
       'check-task-dependencies.cjs'
     );
@@ -736,7 +736,7 @@ describe('check-task-dependencies scenarios', () => {
       'templates',
       'harness',
       'skills',
-      'task-execute-task',
+      'st-execute-task',
       'scripts',
       'check-task-dependencies.cjs'
     );
@@ -765,7 +765,7 @@ describe('check-task-dependencies scenarios', () => {
       'templates',
       'harness',
       'skills',
-      'task-execute-task',
+      'st-execute-task',
       'scripts',
       'check-task-dependencies.cjs'
     );
@@ -788,7 +788,7 @@ describe('check-task-dependencies scenarios', () => {
       'templates',
       'harness',
       'skills',
-      'task-execute-task',
+      'st-execute-task',
       'scripts',
       'check-task-dependencies.cjs'
     );

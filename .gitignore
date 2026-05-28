@@ -69,7 +69,7 @@ tmp/
 temp/
 
 # AI and Claude specific
-/.ai/task-manager
+/.ai/strikethroo
 
 # Generated TOML files (these are created on-the-fly from MD templates)
 templates/commands/tasks/*.toml

@@ -12,8 +12,8 @@ This mirrors how `src/skill-scripts/*.ts` produces `.cjs` bundles.
 ```
 src/skill-prompts/
   sections/             # Reusable procedural blocks (each used by 2+ templates)
-  task-create-plan.md   # Source template for each skill
-  task-generate-tasks.md
+  st-create-plan.md     # Source template for each skill
+  st-generate-tasks.md
   ...
 ```
 

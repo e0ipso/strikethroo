@@ -5,21 +5,21 @@ nav_order: 1
 description: "Structured AI task management with plain text files and Agent Skills"
 ---
 
-# AI Task Manager
+# Strikethroo
 
 [![npm version](https://img.shields.io/npm/v/@e0ipso/ai-task-manager.svg)](https://www.npmjs.com/package/@e0ipso/ai-task-manager)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
-AI Task Manager transforms complex development requests into structured, validated implementations through plain text files and Agent Skills. No API keys. No additional tools. Works within your existing AI subscription and across any harness that supports the Agent Skills format.
+Strikethroo transforms complex development requests into structured, validated implementations through plain text files and Agent Skills. No API keys. No additional tools. Works within your existing AI subscription and across any harness that supports the Agent Skills format.
 
 ## Quick Start
 
 ```bash
 # 1. Bootstrap the shared workspace
-npx @e0ipso/ai-task-manager init --harnesses claude
+npx strikethroo init --harnesses claude
 
 # 2. Install the workflow skills
-npx skills add e0ipso/ai-task-manager
+npx skills add e0ipso/strikethroo
 ```
 
 See [Getting Started](getting-started.html) for prerequisites and directory structure.
@@ -48,9 +48,9 @@ Three steps, each delivered as an Agent Skill that loads when you describe what 
 
 | Step | You say | Skill | Output |
 |------|---------|-------|--------|
-| **Plan** | "Plan user auth with JWT" | `task-create-plan` | `.ai/task-manager/plans/01--auth/plan-01--auth.md` |
-| **Tasks** | "Decompose plan 1" | `task-generate-tasks` | `.ai/task-manager/plans/01--auth/tasks/*.md` |
-| **Execute** | "Execute the blueprint for plan 1" | `task-execute-blueprint` | Working code, one commit per phase |
+| **Plan** | "Plan user auth with JWT" | `st-create-plan` | `.ai/strikethroo/plans/01--auth/plan-01--auth.md` |
+| **Tasks** | "Decompose plan 1" | `st-generate-tasks` | `.ai/strikethroo/plans/01--auth/tasks/*.md` |
+| **Execute** | "Execute the blueprint for plan 1" | `st-execute-blueprint` | Working code, one commit per phase |
 
 Human review gates between steps catch scope creep before any code is written. Each step runs with clean context -- the planning agent sees only the work order, the task agent sees only the approved plan, and each execution sub-agent receives only its specific task.
 

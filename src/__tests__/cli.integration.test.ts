@@ -2,9 +2,9 @@
  * CLI Integration Tests
  *
  * Tests CLI behaviour for the skills-only architecture.
- * The CLI bootstraps `.ai/task-manager/` and deploys per-harness
+ * The CLI bootstraps `.ai/strikethroo/` and deploys per-harness
  * agent files. Task skills are installed separately via
- * `npx skills add e0ipso/ai-task-manager`.
+ * `npx skills add e0ipso/strikethroo`.
  */
 
 import { execSync } from 'child_process';
@@ -48,15 +48,15 @@ describe('CLI Integration', () => {
     }
   };
 
-  const verifyAiTaskManagerBootstrap = async (baseDir: string): Promise<void> => {
-    expect(await fs.pathExists(path.join(baseDir, '.ai/task-manager'))).toBe(true);
-    expect(await fs.pathExists(path.join(baseDir, '.ai/task-manager/plans'))).toBe(true);
-    expect(await fs.pathExists(path.join(baseDir, '.ai/task-manager/archive'))).toBe(true);
-    expect(await fs.pathExists(path.join(baseDir, '.ai/task-manager/config/TASK_MANAGER.md'))).toBe(
+  const verifyStrikethrooBootstrap = async (baseDir: string): Promise<void> => {
+    expect(await fs.pathExists(path.join(baseDir, '.ai/strikethroo'))).toBe(true);
+    expect(await fs.pathExists(path.join(baseDir, '.ai/strikethroo/plans'))).toBe(true);
+    expect(await fs.pathExists(path.join(baseDir, '.ai/strikethroo/archive'))).toBe(true);
+    expect(await fs.pathExists(path.join(baseDir, '.ai/strikethroo/config/STRIKETHROO.md'))).toBe(
       true
     );
     expect(
-      await fs.pathExists(path.join(baseDir, '.ai/task-manager/config/hooks/POST_PHASE.md'))
+      await fs.pathExists(path.join(baseDir, '.ai/strikethroo/config/hooks/POST_PHASE.md'))
     ).toBe(true);
   };
 
@@ -65,12 +65,12 @@ describe('CLI Integration', () => {
       const noArgs = executeCommand(`node "${cliPath}"`);
       expect(noArgs.exitCode).toBe(1);
       const noArgsOutput = noArgs.stdout + noArgs.stderr;
-      expect(noArgsOutput).toContain('ai-task-manager');
+      expect(noArgsOutput).toContain('strikethroo');
       expect(noArgsOutput).toContain('Usage:');
 
       const helpFlag = executeCommand(`node "${cliPath}" --help`);
       expect(helpFlag.exitCode).toBe(0);
-      expect(helpFlag.stdout).toContain('ai-task-manager');
+      expect(helpFlag.stdout).toContain('strikethroo');
       expect(helpFlag.stdout).toContain('init');
 
       const versionFlag = executeCommand(`node "${cliPath}" --version`);
@@ -88,12 +88,12 @@ describe('CLI Integration', () => {
   });
 
   describe('init — Claude harness', () => {
-    it('bootstraps .ai/task-manager and copies Claude agents', async () => {
+    it('bootstraps .ai/strikethroo and copies Claude agents', async () => {
       const result = executeCommand(`node "${cliPath}" init --harnesses claude`);
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('AI Task Manager initialized successfully!');
+      expect(result.stdout).toContain('Strikethroo initialized successfully!');
 
-      await verifyAiTaskManagerBootstrap(testDir);
+      await verifyStrikethrooBootstrap(testDir);
       expect(await fs.pathExists(path.join(testDir, '.claude/agents'))).toBe(true);
       expect(await fs.pathExists(path.join(testDir, '.claude/agents/plan-creator.md'))).toBe(true);
     });
@@ -101,15 +101,15 @@ describe('CLI Integration', () => {
   });
 
   describe('init — non-Claude harnesses', () => {
-    it('bootstraps .ai/task-manager and creates per-harness agent files', async () => {
+    it('bootstraps .ai/strikethroo and creates per-harness agent files', async () => {
       const result = executeCommand(
         `node "${cliPath}" init --harnesses gemini,codex,cursor,github,opencode`
       );
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('AI Task Manager initialized successfully!');
+      expect(result.stdout).toContain('Strikethroo initialized successfully!');
       expect(result.stdout).toContain('npx skills add');
 
-      await verifyAiTaskManagerBootstrap(testDir);
+      await verifyStrikethrooBootstrap(testDir);
 
       expect(await fs.pathExists(path.join(testDir, '.gemini/agents/plan-creator.md'))).toBe(true);
       expect(await fs.pathExists(path.join(testDir, '.codex/agents/plan-creator.toml'))).toBe(true);
@@ -137,7 +137,7 @@ describe('CLI Integration', () => {
       );
       expect(result.exitCode).toBe(0);
 
-      await verifyAiTaskManagerBootstrap(path.join(testDir, customDir));
+      await verifyStrikethrooBootstrap(path.join(testDir, customDir));
       expect(await fs.pathExists(path.join(testDir, '.ai'))).toBe(false);
     });
 
@@ -147,7 +147,7 @@ describe('CLI Integration', () => {
         `node "${cliPath}" init --harnesses claude --destination-directory ${nestedDir}`
       );
       expect(result.exitCode).toBe(0);
-      await verifyAiTaskManagerBootstrap(path.join(testDir, nestedDir));
+      await verifyStrikethrooBootstrap(path.join(testDir, nestedDir));
     });
 
     it('handles paths with spaces', async () => {
@@ -156,7 +156,7 @@ describe('CLI Integration', () => {
         `node "${cliPath}" init --harnesses claude --destination-directory "${spacedDir}"`
       );
       expect(result.exitCode).toBe(0);
-      await verifyAiTaskManagerBootstrap(path.join(testDir, spacedDir));
+      await verifyStrikethrooBootstrap(path.join(testDir, spacedDir));
     });
   });
 
@@ -197,7 +197,7 @@ describe('CLI Integration', () => {
         `node "${cliPath}" init --harnesses " claude , claude , gemini "`
       );
       expect(result.exitCode).toBe(0);
-      await verifyAiTaskManagerBootstrap(testDir);
+      await verifyStrikethrooBootstrap(testDir);
       expect(await fs.pathExists(path.join(testDir, '.claude/agents'))).toBe(true);
     });
   });
@@ -252,7 +252,7 @@ describe('CLI Integration', () => {
       const second = executeCommand(`node "${cliPath}" init --harnesses claude --force`);
       expect(second.exitCode).toBe(0);
 
-      await verifyAiTaskManagerBootstrap(testDir);
+      await verifyStrikethrooBootstrap(testDir);
       expect(await fs.pathExists(path.join(testDir, '.claude/agents/plan-creator.md'))).toBe(true);
     });
   });

@@ -1,4 +1,4 @@
-import { findTaskManagerRoot } from './shared/root';
+import { findStrikethrooRoot } from './shared/root';
 import { computeNextPlanId } from './shared/plan-scan';
 
 const main = (): void => {
@@ -7,11 +7,11 @@ const main = (): void => {
   if (rootArg) {
     root = rootArg;
   } else {
-    root = findTaskManagerRoot(process.cwd());
+    root = findStrikethrooRoot(process.cwd());
   }
   if (!root) {
     process.stderr.write(
-      'No .ai/task-manager root found. Run this from inside an initialized task-manager workspace.\n'
+      'No .ai/strikethroo root found. Run this from inside an initialized strikethroo workspace.\n'
     );
     process.exit(1);
   }

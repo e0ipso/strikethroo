@@ -13,7 +13,7 @@ import { InitMetadata } from './types';
 /**
  * Current workspace schema version baked into this CLI build.
  *
- * Bumped only when the `.ai/task-manager/` workspace shape changes
+ * Bumped only when the `.ai/strikethroo/` workspace shape changes
  * incompatibly (renamed hook, new required template, restructured directory).
  * Skill bundles read this constant at build time to enforce a runtime
  * schema-mismatch check against the workspace they're invoked against.

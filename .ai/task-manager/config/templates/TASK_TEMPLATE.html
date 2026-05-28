@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>[TASK-TITLE]</title>
+  <meta name="id" content="[TASK-ID]">
+  <meta name="group" content="user-authentication">
+  <meta name="dependencies" content=""> <!-- Comma-separated list of task IDs, e.g. "2,3" -->
+  <meta name="status" content="[STATUS]"> <!-- pending | in-progress | completed | needs-clarification -->
+  <meta name="created" content="[YYYY-MM-DD]">
+  <meta name="skills" content="[SKILL-1],[SKILL-2]"> <!-- Comma-separated technical skills required for this task -->
+</head>
+<body>
+  <article>
+    <header>
+      <h1>[TASK-TITLE]</h1>
+    </header>
+
+    <section aria-labelledby="objective">
+      <h2 id="objective">Objective</h2>
+      <p>[Clear statement of what this task accomplishes]</p>
+    </section>
+
+    <section aria-labelledby="skills-required">
+      <h2 id="skills-required">Skills Required</h2>
+      <p>Reference the skills listed in the head metadata &mdash; these should align with the technical work needed.</p>
+    </section>
+
+    <section aria-labelledby="acceptance-criteria">
+      <h2 id="acceptance-criteria">Acceptance Criteria</h2>
+      <ul>
+        <li><label><input type="checkbox"> Criterion 1</label></li>
+        <li><label><input type="checkbox"> Criterion 2</label></li>
+        <li><label><input type="checkbox"> Criterion 3</label></li>
+      </ul>
+      <p>Use your internal Todo tool to track these and stay on track.</p>
+    </section>
+
+    <section aria-labelledby="technical-requirements">
+      <h2 id="technical-requirements">Technical Requirements</h2>
+      <p>[Specific technical details, APIs, libraries, etc. &mdash; use this to infer appropriate skills]</p>
+    </section>
+
+    <section aria-labelledby="input-dependencies">
+      <h2 id="input-dependencies">Input Dependencies</h2>
+      <p>[What artifacts/code from other tasks are needed]</p>
+    </section>
+
+    <section aria-labelledby="output-artifacts">
+      <h2 id="output-artifacts">Output Artifacts</h2>
+      <p>[What this task produces for other tasks to consume]</p>
+    </section>
+
+    <section aria-labelledby="implementation-notes">
+      <h2 id="implementation-notes">Implementation Notes</h2>
+      <p>[Any helpful context or suggestions, including skill-specific guidance]</p>
+    </section>
+  </article>
+</body>
+</html>

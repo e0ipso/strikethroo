@@ -1,0 +1,51 @@
+<!--
+  Execution Blueprint fragment.
+  Append the <section> below inside the plan document's <article>.
+-->
+<section aria-labelledby="execution-blueprint">
+  <h2 id="execution-blueprint">Execution Blueprint</h2>
+
+  <section aria-labelledby="validation-gates">
+    <h3 id="validation-gates">Validation Gates</h3>
+    <ul>
+      <li>Reference: <code>/config/hooks/POST_PHASE.md</code></li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="phase-1">
+    <h3 id="phase-1">Phase 1: [Descriptive Phase Name]</h3>
+    <p><strong>Parallel Tasks:</strong></p>
+    <ul>
+      <li>Task 001: [Description]</li>
+      <li>Task 005: [Description]</li>
+      <li>Task 009: [Description]</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="phase-2">
+    <h3 id="phase-2">Phase 2: [Descriptive Phase Name]</h3>
+    <p><strong>Parallel Tasks:</strong></p>
+    <ul>
+      <li>Task 002: [Description] (depends on: 001)</li>
+      <li>Task 003: [Description] (depends on: 001)</li>
+      <li>Task 006: [Description] (depends on: 005)</li>
+    </ul>
+  </section>
+
+  <p>Continue for all phases&hellip;</p>
+
+  <section aria-labelledby="post-phase-actions">
+    <h3 id="post-phase-actions">Post-phase Actions</h3>
+    <p>[Actions to run after each phase, if any]</p>
+  </section>
+
+  <section aria-labelledby="execution-totals">
+    <h3 id="execution-totals">Execution Summary</h3>
+    <dl>
+      <dt>Total Phases</dt>
+      <dd>X</dd>
+      <dt>Total Tasks</dt>
+      <dd>Y</dd>
+    </dl>
+  </section>
+</section>

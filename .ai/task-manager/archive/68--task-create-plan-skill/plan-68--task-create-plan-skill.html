@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Plan: Create task-create-plan Skill with Centralized TypeScript Script Source</title>
+  <meta name="id" content="68">
+  <meta name="summary" content="Introduce a task-create-plan Agent Skill backed by centralized TypeScript script source compiled to bundled CommonJS at build time, while leaving the existing create-plan command untouched">
+  <meta name="created" content="2026-05-14">
+</head>
+<body>
+  <article>
+    <header>
+      <h1>Plan: Create task-create-plan Skill with Centralized TypeScript Script Source</h1>
+    </header>
+
+    <section aria-labelledby="original-work-order">
+      <h2 id="original-work-order">Original Work Order</h2>
+      <blockquote>
+        <p>I'd like to start transitioning the custom commands to skills. Skills are supported now for all assistants and they don't have differences in how they are written depending on the assistant. So the same skill will work for Gemini, for Codex, for Cursor, for Claude, for OpenCode, etc. So I want to start moving to using skills. Skills are also interesting in the sense that they typically contain code as well. I'm going to give you a link to the skills documentation. So what I want to do is I want to start with the create plan skill. I want you to move from the create plan command to a create plan skill. The skill should be auto-contained. So it should have all of the code that it needs inside of the skill directory. Now how do we do that? I want to have a central source of truth for code in TypeScript. So starting on the create plan skill, move all of the scripts and code that it uses to a central source place. That then during build time will be compiled either individual scripts that can be from the skill in .CJS, or Common JavaScript. These will require a little bit of infrastructure that we are gonna eat in this first skill, but that is fine. The common infrastructure is the creation of the source for the code which will be in TypeScript and the creation of the pipeline that will generate the compiled and bundled individual scripts. Each one of the skills will use. Again we're focusing on the create plan skill. The command now contains a column but the skill will not be able to. I don't think skills can be nested in sub-directories so avoid that. Call the skill task hyphen create hyphen plan. For now we'll just worry about creating the skill and we'll defer for the future how the skills will be distributed.</p>
+        <p>Reference: https://agentskills.io/home</p>
+      </blockquote>
+    </section>
+
+    <section aria-labelledby="plan-clarifications">
+      <h2 id="plan-clarifications">Plan Clarifications</h2>
+      <table>
+        <thead>
+          <tr><th scope="col">Question</th><th scope="col">Answer</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Should existing create-plan command behavior be preserved (backwards compatibility)?</td>
+            <td>Yes. The existing command templates under <code>templates/assistant/commands/tasks/</code> remain untouched. The skill is purely additive.</td>
+          </tr>
+          <tr>
+            <td>Which TypeScript-to-CJS bundling tool should the build use?</td>
+            <td><code>esbuild</code>. Fast, minimal dependency footprint, produces standalone bundled <code>.cjs</code> files per entrypoint.</td>
+          </tr>
+          <tr>
+            <td>Where does the centralized TypeScript script source live?</td>
+            <td><code>src/skill-scripts/</code> &mdash; a new top-level directory inside <code>src/</code> dedicated to skill script entrypoints and shared utilities.</td>
+          </tr>
+          <tr>
+            <td>Where does the skill artifact live in the repository, and does <code>init</code> copy it?</td>
+            <td><code>templates/skills/task-create-plan/</code>. <code>init</code> does <strong>not</strong> copy the skill to user projects in this plan &mdash; distribution mechanics are deferred per the work order.</td>
+          </tr>
+          <tr>
+            <td>Which scripts must ship inside the skill?</td>
+            <td>Everything the current <code>create-plan</code> command needs to operate today. At minimum: locating the task-manager root, and allocating the next plan ID. Anything else the command relies on at runtime is also bundled.</td>
+          </tr>
+          <tr>
+            <td>When does the skill bundling step run?</td>
+            <td>As part of <code>npm run build</code>. The TypeScript compile and skill bundle both run from the top-level build target so CI and <code>prepublishOnly</code> automatically include skill artifacts.</td>
+          </tr>
+          <tr>
+            <td>Are generated <code>.cjs</code> files committed?</td>
+            <td>No. They are git-ignored, generated at build time, and included in the npm package via the existing <code>files[]</code> entry for <code>templates/</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section aria-labelledby="executive-summary">
+      <h2 id="executive-summary">Executive Summary</h2>
+      <p>Introduce <code>task-create-plan</code>, the project's first Agent Skill, as a self-contained directory under <code>templates/skills/</code> containing a single <code>SKILL.md</code> and the CommonJS scripts it needs at runtime. The skill encodes the same create-plan workflow the existing slash command performs today: locate <code>.ai/task-manager</code>, read hooks and templates, allocate a plan ID, gather clarifications, and emit a semantic HTML plan ending with a structured <code>Plan Summary</code>.</p>
+      <p>The maintained source of truth for executable logic moves into <code>src/skill-scripts/</code> as TypeScript. A build-time pipeline backed by <code>esbuild</code> compiles and bundles each entrypoint into an individual <code>.cjs</code> file placed inside the skill's <code>scripts/</code> subdirectory. The pipeline runs as part of <code>npm run build</code>, generated outputs are git-ignored, and the npm package picks them up through the existing <code>templates/</code> publish rule.</p>
+      <p>The existing assistant-specific command templates and <code>init</code> behavior remain unchanged. The skill is an additive artifact in the repository; how it reaches user projects (init copy, separate publish channel, etc.) is intentionally deferred.</p>
+    </section>
+
+    <section aria-labelledby="context">
+      <h2 id="context">Context</h2>
+
+      <section aria-labelledby="current-vs-target">
+        <h3 id="current-vs-target">Current State vs Target State</h3>
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Current State</th>
+              <th scope="col">Target State</th>
+              <th scope="col">Why?</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Create-plan behavior is expressed only through assistant-specific command templates under <code>templates/assistant/commands/tasks/</code>.</td>
+              <td>Create-plan behavior is also available as a single, assistant-agnostic Agent Skill named <code>task-create-plan</code>.</td>
+              <td>Skills are now supported across the project's target assistants and eliminate per-assistant prompt-format differences.</td>
+            </tr>
+            <tr>
+              <td>Runtime helper logic (e.g. finding the task-manager root) is inlined as bash heredocs inside the command Markdown, and other helpers live as hand-maintained <code>.cjs</code> files in <code>templates/ai-task-manager/config/scripts/</code>.</td>
+              <td>Reusable skill helper logic is authored once in TypeScript under <code>src/skill-scripts/</code> and compiled to standalone <code>.cjs</code> bundles placed inside the skill directory.</td>
+              <td>A single TypeScript source of truth is easier to maintain, lints and type-checks with the rest of <code>src/</code>, and is portable into future skills.</td>
+            </tr>
+            <tr>
+              <td>The repository has no build step that produces skill artifacts.</td>
+              <td><code>npm run build</code> runs the TypeScript compile <em>and</em> bundles every skill-script TypeScript entrypoint into a <code>.cjs</code> file inside the corresponding skill directory.</td>
+              <td>A single build target keeps developer and CI workflows consistent and makes generated outputs available wherever the package is consumed.</td>
+            </tr>
+            <tr>
+              <td>The existing create-plan command is the only entry point and is relied on by current users.</td>
+              <td>The existing command remains unchanged. The skill is purely additive.</td>
+              <td>The user explicitly requested backwards compatibility; users on any current assistant continue to work without migration.</td>
+            </tr>
+            <tr>
+              <td>Skill distribution into user projects (init copy, registry, etc.) is not defined.</td>
+              <td>A complete, valid skill artifact exists in the repository and ships in the npm package via <code>templates/</code>. How it lands in user projects is deferred.</td>
+              <td>The work order explicitly defers distribution to a later effort while still wanting a real artifact in place.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section aria-labelledby="background">
+        <h3 id="background">Background</h3>
+        <p>Agent Skills are directories with a required <code>SKILL.md</code> and optional <code>scripts/</code>, <code>references/</code>, and <code>assets/</code>. The skill name must match the parent directory, use lowercase letters, numbers, and hyphens, and must not be nested inside another skill. Scripts should be self-contained and non-interactive, and the skill's instructions should describe usage and failure modes in prose.</p>
+        <p>The existing create-plan command already encodes the contract this skill must preserve: discover <code>.ai/task-manager</code>, read <code>config/TASK_MANAGER.md</code>, execute <code>PRE_PLAN.md</code> and <code>POST_PLAN.md</code> hooks, gather clarifications, allocate the next plan ID via <code>config/scripts/get-next-plan-id.cjs</code>, write the plan into <code>plans/{padded-id}--{slug}/plan-{padded-id}--{slug}.html</code> conforming to <code>config/templates/PLAN_TEMPLATE.html</code>, and finish with a structured <code>Plan Summary</code> block. The skill's instructions and bundled scripts must keep the same observable outcome.</p>
+      </section>
+    </section>
+
+    <section aria-labelledby="architectural-approach">
+      <h2 id="architectural-approach">Architectural Approach</h2>
+      <p>The change adds three things: a single skill directory, a small TypeScript source tree for skill-script entrypoints, and a build step that turns the latter into bundled <code>.cjs</code> files inside the former. Nothing else in the repository is modified.</p>
+
+      <pre class="mermaid">flowchart LR
+  TS["src/skill-scripts/<br/>(TypeScript source)"] --> Build["esbuild bundle step<br/>(per entrypoint)"]
+  Build --> CJS["templates/skills/task-create-plan/scripts/*.cjs<br/>(generated, git-ignored)"]
+  SkillMd["templates/skills/task-create-plan/SKILL.md<br/>(authored)"] --> SkillDir["task-create-plan skill artifact"]
+  CJS --> SkillDir
+  NpmBuild["npm run build"] --> TSC["tsc &rarr; dist/"]
+  NpmBuild --> Build
+  SkillDir --> Pkg["Published in npm package via templates/"]
+  Commands["Existing create-plan command templates<br/>(unchanged)"] --> Compat["Backwards-compatible command path"]</pre>
+
+      <section>
+        <h3>Skill Artifact</h3>
+        <p><strong>Objective:</strong> Add a standards-compliant <code>task-create-plan</code> skill that orchestrates the create-plan workflow.</p>
+        <p>The skill lives at <code>templates/skills/task-create-plan/</code> &mdash; a flat directory with no nested skills. It contains an authored <code>SKILL.md</code> with frontmatter whose <code>name</code> matches the directory, a description specific enough to trigger only on plan-creation requests for this task-manager, and prose instructions adapted from the existing command. Detailed material the skill references at runtime (e.g. plan format reminders) lives one level down under <code>references/</code> only when separating it improves progressive disclosure. The skill calls its bundled scripts by relative path from the skill root and avoids assistant-specific syntax such as slash-command argument placeholders or <code>$ARGUMENTS</code>.</p>
+      </section>
+
+      <section>
+        <h3>Centralized TypeScript Source</h3>
+        <p><strong>Objective:</strong> Make TypeScript the single maintained source for skill-script logic.</p>
+        <p>A new directory <code>src/skill-scripts/</code> holds the TypeScript entrypoints the skill needs at runtime and any shared utilities they depend on. The entrypoints cover everything the current create-plan command relies on at runtime: locating the task-manager root, allocating the next plan ID, and any additional helper currently invoked by the command (e.g. hook/template reading or plan-blueprint validation if the command path uses it). Shared logic (file walking, frontmatter parsing, plan/archive scanning) lives in co-located modules so each entrypoint stays small and so future skills can reuse the same helpers.</p>
+        <p>The directory participates in the existing TypeScript configuration: it lints and type-checks alongside <code>src/</code>, but its outputs are produced by the bundler, not by <code>tsc</code>. The <code>tsc</code> output to <code>dist/</code> remains the CLI's domain.</p>
+      </section>
+
+      <section>
+        <h3>Build Pipeline (esbuild)</h3>
+        <p><strong>Objective:</strong> Produce standalone bundled <code>.cjs</code> files inside the skill directory as part of the normal build.</p>
+        <p>A small build script driven by <code>esbuild</code>'s Node API enumerates the entrypoints in <code>src/skill-scripts/</code> and emits one bundled <code>.cjs</code> per entrypoint into <code>templates/skills/task-create-plan/scripts/</code>. The bundle is configured for <code>platform: 'node'</code>, <code>format: 'cjs'</code>, with bundling enabled so each output is self-contained and has no implicit runtime dependency on the repository layout. The script is wired into <code>npm run build</code> so a single command produces both <code>dist/</code> and the skill bundles. Generated <code>.cjs</code> files are added to <code>.gitignore</code> and remain shipped via the existing <code>files: ["templates/"]</code> entry in <code>package.json</code> for npm consumers.</p>
+        <p>For this first skill, the build script also resolves which skill directory each entrypoint targets through a simple convention (e.g. an explicit mapping in the build script or filename/folder convention under <code>src/skill-scripts/</code>). The convention is documented in <code>AGENTS.md</code> so future skills can register additional entrypoints without re-architecting the pipeline.</p>
+      </section>
+
+      <section>
+        <h3>Compatibility Boundary</h3>
+        <p><strong>Objective:</strong> Leave the existing command path entirely intact.</p>
+        <p>No file under <code>templates/assistant/commands/</code> is modified. No file under <code>templates/ai-task-manager/config/scripts/</code> is removed or renamed. <code>init</code> behavior and <code>.init-metadata.json</code> generation are untouched. Existing tests continue to validate the current path. The new skill is an additive artifact in the repository whose only contact with the user's runtime is the npm package contents, gated behind future distribution work.</p>
+      </section>
+    </section>
+
+    <section aria-labelledby="risks">
+      <h2 id="risks">Risk Considerations and Mitigation Strategies</h2>
+
+      <details>
+        <summary>Technical Risks</summary>
+        <ul>
+          <li>
+            <strong>Bundle assumes repository paths.</strong> A generated <code>.cjs</code> could accidentally close over <code>__dirname</code> values or imports that only resolve from the repo root and fail when the skill is consumed elsewhere.
+            <ul>
+              <li><strong>Mitigation</strong>: Configure <code>esbuild</code> with bundling and external-free settings, and validate generated outputs by executing them from a temporary fixture directory that contains only the skill (not the repo).</li>
+            </ul>
+          </li>
+          <li>
+            <strong>Logic drift between command and skill.</strong> The command and skill describe the same workflow in prose; helper logic could be reimplemented inconsistently in TypeScript versus the existing <code>.cjs</code> templates.
+            <ul>
+              <li><strong>Mitigation</strong>: Keep helper semantics in the TypeScript source faithful to the existing scripts (notably ID allocation across <code>plans/</code> and <code>archive/</code>), and limit the skill's prose to orchestration so behavior is driven by the bundled scripts, not by restated instructions.</li>
+            </ul>
+          </li>
+          <li>
+            <strong>Plan ID allocation edge cases.</strong> The existing repository contains older archived Markdown plans alongside current HTML plans; the scanner must recognize both formats to allocate a correct next ID.
+            <ul>
+              <li><strong>Mitigation</strong>: Preserve current <code>.cjs</code> semantics for plan-ID scanning (consider Markdown and HTML plan files) in the TypeScript port. Validate by running the generated entrypoint against this repository and confirming the resulting ID matches <code>get-next-plan-id.cjs</code>.</li>
+            </ul>
+          </li>
+        </ul>
+      </details>
+
+      <details>
+        <summary>Implementation Risks</summary>
+        <ul>
+          <li>
+            <strong>Scope creep into a full migration.</strong> Adding TypeScript source and a bundler tempts a broader port of every command and every script.
+            <ul>
+              <li><strong>Mitigation</strong>: Limit user-facing skill work strictly to <code>task-create-plan</code>. Only port helpers that the create-plan workflow actually needs at runtime. Do not touch other commands.</li>
+            </ul>
+          </li>
+          <li>
+            <strong>Build pipeline accidentally couples skill output to <code>dist/</code>.</strong> Reusing the <code>dist/</code> output for skills would mix CLI and skill artifacts.
+            <ul>
+              <li><strong>Mitigation</strong>: Keep the skill bundle step physically separate from <code>tsc</code> output. <code>tsc</code> targets <code>dist/</code>; <code>esbuild</code> targets <code>templates/skills/&lt;skill&gt;/scripts/</code>.</li>
+            </ul>
+          </li>
+          <li>
+            <strong>Ambiguous distribution.</strong> Different assistants may expect skills in different directories on the consumer side.
+            <ul>
+              <li><strong>Mitigation</strong>: Defer distribution explicitly. Keep the in-repo artifact standards-compliant and portable so any future distribution mechanism (init copy, registry, manual install) can use it unchanged.</li>
+            </ul>
+          </li>
+        </ul>
+      </details>
+
+      <details>
+        <summary>Quality Risks</summary>
+        <ul>
+          <li>
+            <strong>Generated outputs escape lint and test coverage.</strong> Hand-written <code>.cjs</code> in <code>templates/</code> is currently inspectable; bundled output is not.
+            <ul>
+              <li><strong>Mitigation</strong>: Cover the TypeScript source (and especially shared helpers) with the existing Jest setup. Add a build-output smoke check that runs each generated <code>.cjs</code> end-to-end against a fixture.</li>
+            </ul>
+          </li>
+        </ul>
+      </details>
+    </section>
+
+    <section aria-labelledby="success-criteria">
+      <h2 id="success-criteria">Success Criteria</h2>
+
+      <section aria-labelledby="primary-success-criteria">
+        <h3 id="primary-success-criteria">Primary Success Criteria</h3>
+        <ol>
+          <li>A standards-compliant skill directory exists at <code>templates/skills/task-create-plan/</code> with a valid <code>SKILL.md</code> whose <code>name</code> matches the directory name and whose description is specific to plan creation for this task-manager.</li>
+          <li>TypeScript source for skill-script entrypoints and their shared helpers exists under <code>src/skill-scripts/</code> and is the only maintained source for that logic.</li>
+          <li><code>npm run build</code> produces a <code>scripts/</code> directory inside the skill containing one bundled, self-contained <code>.cjs</code> per entrypoint &mdash; including, at minimum, equivalents for locating the task-manager root and allocating the next plan ID, plus any additional helper the existing create-plan command relies on at runtime.</li>
+          <li>Generated <code>.cjs</code> files are git-ignored, are present in the published npm package via the existing <code>templates/</code> rule, and execute correctly when run from a directory that contains only the skill (not the repository).</li>
+          <li>The existing assistant-specific create-plan command templates, the existing <code>.cjs</code> scripts under <code>templates/ai-task-manager/config/scripts/</code>, and <code>init</code> behavior remain unchanged, and current tests still pass.</li>
+          <li>Running the skill against an initialized fixture produces a semantic HTML plan conforming to <code>PLAN_TEMPLATE.html</code>, with valid head metadata, the right next plan ID, and a final <code>Plan Summary</code> block.</li>
+        </ol>
+      </section>
+    </section>
+
+    <section aria-labelledby="self-validation">
+      <h2 id="self-validation">Self Validation</h2>
+      <p>Execute these concrete checks after implementation:</p>
+      <ul>
+        <li>Run <code>npm run build</code> from a clean tree and confirm <code>templates/skills/task-create-plan/scripts/</code> contains the expected <code>.cjs</code> files. Confirm none of these files are tracked by git (<code>git status</code> shows them ignored).</li>
+        <li>Open <code>templates/skills/task-create-plan/SKILL.md</code> and verify the <code>name</code> frontmatter equals <code>task-create-plan</code>, the description is plan-creation specific, and every file reference is relative to the skill root.</li>
+        <li>Create a temporary fixture directory via <code>npx . init --assistants claude --destination-directory /tmp/skill-fixture</code>, copy <code>templates/skills/task-create-plan/</code> into the fixture, and from inside the fixture run the bundled find-root script &mdash; confirm it resolves the fixture's <code>.ai/task-manager</code> root, not the repository's.</li>
+        <li>From the same fixture, run the bundled next-plan-id script and confirm its output matches what <code>node .ai/task-manager/config/scripts/get-next-plan-id.cjs</code> returns in that fixture.</li>
+        <li>Following the skill's instructions, drive a sample plan creation to completion in the fixture. Confirm a new <code>plan-{padded-id}--{slug}.html</code> file is written under <code>.ai/task-manager/plans/</code>, validates against <code>PLAN_TEMPLATE.html</code> structure (required <code>&lt;meta&gt;</code> elements present, sections present), and that the run's output ends with a <code>Plan Summary</code> block containing the new plan ID and absolute path.</li>
+        <li>Run the existing pipeline as a regression check: <code>npx . init --assistants claude,gemini,opencode,codex --destination-directory /tmp/regression</code> and confirm the create-plan command files are generated as before. Run <code>npm test</code> and <code>npm run lint</code> &mdash; both pass.</li>
+        <li>Run <code>npm pack</code> and inspect the resulting tarball to confirm the skill directory and its generated <code>scripts/*.cjs</code> are present under <code>templates/skills/task-create-plan/</code>.</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="documentation">
+      <h2 id="documentation">Documentation</h2>
+      <p>This plan requires documentation updates. <code>AGENTS.md</code> should gain a short section describing the skills layer: where TypeScript source lives (<code>src/skill-scripts/</code>), where skill artifacts live (<code>templates/skills/&lt;skill-name&gt;/</code>), the build command that produces bundled <code>.cjs</code> outputs (<code>npm run build</code>), the fact that those outputs are git-ignored and distributed via the npm <code>templates/</code> rule, and a note that distribution into user projects is deferred. The repository <code>README.md</code> needs a brief mention only if it currently enumerates available commands; otherwise it can be left alone until distribution lands. No user-facing migration guide is required because the existing command path is preserved.</p>
+    </section>
+
+    <section aria-labelledby="resources">
+      <h2 id="resources">Resource Requirements</h2>
+
+      <section aria-labelledby="development-skills">
+        <h3 id="development-skills">Development Skills</h3>
+        <p>Working knowledge of TypeScript and Node CommonJS packaging, familiarity with <code>esbuild</code>'s Node API for multi-entry bundling, comfort with the existing AI Task Manager init/template/hook system, and an understanding of Agent Skill structure and progressive disclosure conventions.</p>
+      </section>
+
+      <section aria-labelledby="technical-infrastructure">
+        <h3 id="technical-infrastructure">Technical Infrastructure</h3>
+        <p>The repository already provides TypeScript, Jest, ESLint, Prettier, and the task-manager templates. This plan adds <code>esbuild</code> as a dev dependency, extends <code>npm run build</code> to invoke a small bundling script, and updates <code>.gitignore</code> to exclude generated <code>.cjs</code> files under <code>templates/skills/&lt;skill&gt;/scripts/</code>. No changes to publish rules are needed beyond verifying the existing <code>files: ["templates/"]</code> entry continues to include the skill artifact.</p>
+      </section>
+    </section>
+
+    <section aria-labelledby="integration-strategy">
+      <h2 id="integration-strategy">Integration Strategy</h2>
+      <p>The skill integrates with the repository as an additive artifact. Existing command templates, common task-manager configuration, hook files, and helper scripts remain available unchanged. The build pipeline becomes the integration surface: producing skill bundles becomes a normal part of <code>npm run build</code> and therefore of <code>prepublishOnly</code>, so future skills can plug into the same pipeline by adding a TypeScript entrypoint and a skill directory without re-architecting anything. Consumer-side distribution remains deferred and can be addressed in a follow-up effort once one or more skills are in place.</p>
+    </section>
+
+    <section aria-labelledby="notes">
+      <h2 id="notes">Notes</h2>
+      <p>The current checkout contains both older archived Markdown plans and current HTML plans. Plan-ID allocation logic ported into TypeScript must handle both file extensions to remain compatible with <code>get-next-plan-id.cjs</code>. Broader reconciliation of legacy plan formats is out of scope.</p>
+      <p>A prior plan document at <code>plans/01--task-create-plan-skill/plan-01--task-create-plan-skill.html</code> covers the same work order. Per the user's selection it is left in place and untouched; this plan (ID 68) is the active record.</p>
+    </section>
+  </article>
+</body>
+</html>

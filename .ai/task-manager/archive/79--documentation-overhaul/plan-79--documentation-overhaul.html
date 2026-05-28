@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Plan: Documentation Site Overhaul</title>
+  <meta name="id" content="79">
+  <meta name="summary" content="Complete overhaul of docs/ site and AGENTS.md glossary with new terminology, focus areas, and restructured navigation">
+  <meta name="created" content="2026-05-25">
+</head>
+<body>
+  <article>
+    <header>
+      <h1>Plan: Documentation Site Overhaul</h1>
+    </header>
+
+    <section aria-labelledby="original-work-order">
+      <h2 id="original-work-order">Original Work Order</h2>
+      <blockquote>
+        <p>Complete overhaul of the documentation site (docs/) to simplify and refocus. Key focus areas: (1) no additional tools needed — everything is text files and skills, (2) multi-harness support, (3) better results than plan mode in general, (4) context management through clean-context sub-agents. Establish clear terminology: work order, plan, execution blueprint, phases. Add a glossary section to AGENTS.md. Remove emojis from headings. Full freedom to restructure pages. Documentation-only — no code changes.</p>
+      </blockquote>
+    </section>
+
+    <section aria-labelledby="plan-clarifications">
+      <h2 id="plan-clarifications">Plan Clarifications</h2>
+      <table>
+        <thead>
+          <tr><th scope="col">Question</th><th scope="col">Answer</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>What is the scope of "documentation" for this overhaul?</td>
+            <td>The documentation site at docs/, plus add a glossary section to AGENTS.md. TASK_MANAGER.md stays (not deleted).</td>
+          </tr>
+          <tr>
+            <td>When you say "better results than plan mode", which plan mode?</td>
+            <td>Plan modes in general across any AI coding assistant (Claude Code, Cursor, Gemini, etc.).</td>
+          </tr>
+          <tr>
+            <td>Should terminology changes also apply to code, templates, and skill definitions?</td>
+            <td>Documentation only — no code/template changes.</td>
+          </tr>
+          <tr>
+            <td>Is backwards compatibility a concern?</td>
+            <td>This is only a documentation work order. No code changes.</td>
+          </tr>
+          <tr>
+            <td>Should TASK_MANAGER.md config file be deleted from the init template?</td>
+            <td>No, the user corrected themselves — do NOT delete it.</td>
+          </tr>
+          <tr>
+            <td>Should the site be restructured or keep its current page structure?</td>
+            <td>Restructure freely — full freedom to add, remove, merge, or reorganize pages.</td>
+          </tr>
+          <tr>
+            <td>Should emojis in headings be kept?</td>
+            <td>Remove all emojis. Clean, professional headings.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section aria-labelledby="executive-summary">
+      <h2 id="executive-summary">Executive Summary</h2>
+      <p>The current documentation site has grown organically and suffers from several problems: inconsistent terminology, scattered focus across too many pages, and a messaging strategy that undersells the core value proposition. The docs explain features but fail to clearly articulate <em>why</em> this tool produces better results than plan mode and <em>how</em> it achieves that through context isolation.</p>
+      <p>This overhaul will restructure the entire docs/ site around four pillars: (1) zero-tooling simplicity — everything is plain text files and Agent Skills, (2) multi-harness portability, (3) superior results vs plan mode through architectural advantages, and (4) context management via clean-context sub-agents. A formal glossary will be established both in the docs and in AGENTS.md to create a shared language: <strong>work order</strong>, <strong>plan</strong>, <strong>execution blueprint</strong>, and <strong>phases</strong>.</p>
+      <p>The restructured site will have fewer, more focused pages. Redundant content currently spread across architecture.md, features.md, and comparison.md will be consolidated. The navigation hierarchy will flatten — every important page should be reachable within one click from the homepage.</p>
+    </section>
+
+    <section aria-labelledby="context">
+      <h2 id="context">Context</h2>
+
+      <section aria-labelledby="current-vs-target">
+        <h3 id="current-vs-target">Current State vs Target State</h3>
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Current State</th>
+              <th scope="col">Target State</th>
+              <th scope="col">Why?</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>14 doc pages with overlapping content (architecture.md, features.md, comparison.md all cover "how it works")</td>
+              <td>Fewer, focused pages with no content duplication</td>
+              <td>Reduces cognitive load for readers and maintenance burden for authors</td>
+            </tr>
+            <tr>
+              <td>Terminology is inconsistent: "plan mode", "three-phase workflow", "progressive refinement", "task generation" used interchangeably</td>
+              <td>A formal glossary with canonical terms: work order, plan, execution blueprint, phases</td>
+              <td>Consistent language reduces confusion and establishes a shared vocabulary across docs, AGENTS.md, and user conversations</td>
+            </tr>
+            <tr>
+              <td>Context management is mentioned briefly as "context isolation" but not explained as a core advantage</td>
+              <td>Context management is a headline feature with its own dedicated explanation</td>
+              <td>This is the single biggest architectural advantage over plan mode and deserves prominent treatment</td>
+            </tr>
+            <tr>
+              <td>Emojis used extensively in headings throughout all pages</td>
+              <td>Clean, professional headings without emojis</td>
+              <td>User preference for a more professional tone</td>
+            </tr>
+            <tr>
+              <td>"No additional tools" messaging is buried in FAQ sections</td>
+              <td>Zero-tooling is a primary messaging pillar, visible from homepage</td>
+              <td>This is a key differentiator vs API-based competitors and should be front-and-center</td>
+            </tr>
+            <tr>
+              <td>Multi-harness support mentioned as a feature bullet but not deeply explained</td>
+              <td>Multi-harness support is a primary messaging pillar with its own section</td>
+              <td>This is a key differentiator and speaks to portability and team collaboration</td>
+            </tr>
+            <tr>
+              <td>Nested navigation hierarchy (Getting Started → children, Core Concepts → children, etc.)</td>
+              <td>Flatter hierarchy — most pages reachable in one click</td>
+              <td>Simplifies navigation and reduces the feeling of "too much documentation"</td>
+            </tr>
+            <tr>
+              <td>AGENTS.md has no glossary — terminology is embedded throughout prose</td>
+              <td>AGENTS.md has a dedicated glossary section with canonical definitions</td>
+              <td>AGENTS.md is the primary context source for AI assistants; a glossary ensures consistent term usage across all skills</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section aria-labelledby="background">
+        <h3 id="background">Background</h3>
+        <p>The documentation was originally written during the 1.x → 2.x transition, where slash commands were replaced by Agent Skills. The focus during that period was on migration mechanics. Now that 2.x is stable, the documentation needs to shift from "how to migrate" to "why use this" and "how it works." The migration guide (migration.md) can be preserved but deprioritized in navigation.</p>
+        <p>The current docs also suffer from a structural problem: information about the same concept is scattered across multiple pages. For instance, context isolation is discussed in architecture.md, comparison.md, and features.md — each time with slightly different framing. The overhaul should create a single source of truth for each concept.</p>
+        <p>The four focus pillars for the new docs map to the tool's actual competitive advantages and should serve as the organizing principle for the information architecture.</p>
+      </section>
+    </section>
+
+    <section aria-labelledby="architectural-approach">
+      <h2 id="architectural-approach">Architectural Approach</h2>
+
+      <p>The documentation site will be restructured around a new information architecture that places the four messaging pillars at the center. The approach consolidates the current 14 files into a leaner set while preserving all essential content.</p>
+
+      <pre class="mermaid">
+flowchart TD
+    HOME[index.md — Homepage] --> GS[getting-started.md — Installation + Quick Start]
+    HOME --> WD[why.md — Why AI Task Manager]
+    HOME --> HW[how-it-works.md — Architecture + Context Management]
+    HOME --> WF[workflow.md — Basic + Advanced Workflow]
+    HOME --> CUST[customization.md — Hooks + Templates]
+    HOME --> REF[reference.md — Glossary + CLI + FAQ]
+    HOME --> MIG[migration.md — 1.x to 2.x]
+
+    WD --> PILLAR1[Zero Tooling]
+    WD --> PILLAR2[Multi-Harness]
+    WD --> PILLAR3[Better Than Plan Mode]
+    WD --> PILLAR4[Context Management]
+
+    style HOME fill:#e3f2fd
+    style WD fill:#fff3e0
+    style HW fill:#f3e5f5
+    style PILLAR1 fill:#e8f5e8
+    style PILLAR2 fill:#e8f5e8
+    style PILLAR3 fill:#e8f5e8
+    style PILLAR4 fill:#e8f5e8
+      </pre>
+
+      <section>
+        <h3>New Site Structure</h3>
+        <p><strong>Objective:</strong> Reduce from 14 files to ~8 files with a flat navigation hierarchy, eliminating content duplication.</p>
+        <p>The new structure consolidates related content:</p>
+        <ul>
+          <li><code>index.md</code> — Homepage with elevator pitch, quick start, and links to pillars. Rewritten to lead with the four pillars.</li>
+          <li><code>getting-started.md</code> — Merges current installation.md content. Two-step install, directory structure, verification. No parent/child nesting.</li>
+          <li><code>why.md</code> — <strong>New page.</strong> Absorbs comparison.md content and reframes it around the four pillars. This is the "convince me" page. Includes comparison tables, but framed through the lens of the four pillars rather than as a feature-by-feature comparison.</li>
+          <li><code>how-it-works.md</code> — Merges architecture.md and features.md. Explains the three phases (work order → plan → execution blueprint with phases). Context management gets a prominent subsection. Skill-based decomposition explained here.</li>
+          <li><code>workflow.md</code> — Merges current workflow.md (basic) and workflows.md (advanced patterns) into a single page with clear sections. Step-by-step daily workflow plus advanced patterns.</li>
+          <li><code>customization.md</code> — Kept mostly intact. Hooks and templates guide. Remove emoji from headings.</li>
+          <li><code>reference.md</code> — <strong>Repurposed.</strong> Becomes a combined glossary + CLI reference + FAQ page. The glossary is the anchor of this page.</li>
+          <li><code>migration.md</code> — Kept as-is but with nav_order pushed to the end.</li>
+        </ul>
+        <p>Pages to delete: <code>core-concepts.md</code> (parent page with no content), <code>customization-extension.md</code> (parent page with no content), <code>architecture.md</code> (absorbed into how-it-works.md), <code>features.md</code> (absorbed into how-it-works.md), <code>comparison.md</code> (absorbed into why.md), <code>workflows.md</code> (absorbed into workflow.md).</p>
+      </section>
+
+      <section>
+        <h3>Terminology Standardization</h3>
+        <p><strong>Objective:</strong> Establish and enforce a canonical vocabulary across all documentation pages and AGENTS.md.</p>
+        <p>The following terms must be used consistently throughout all docs:</p>
+        <ul>
+          <li><strong>Work order</strong> — The user's request describing what they want accomplished. Input to the system.</li>
+          <li><strong>Plan</strong> — The comprehensive document the LLM produces by refining the work order. Covers requirements, architecture, risks, success criteria. Output of Phase 1.</li>
+          <li><strong>Execution blueprint</strong> — The structured output of task generation (Phase 2). Contains all tasks organized into phases with dependency mappings. Replaces the informal "task list" language.</li>
+          <li><strong>Phase</strong> — A group of tasks within the execution blueprint. Tasks within a phase execute in parallel. Phases execute in sequence. This is the unit of parallelism.</li>
+          <li><strong>Task</strong> — An atomic unit of work within a phase. Has 1-2 skills, acceptance criteria, and dependencies. Executed by a sub-agent with clean context.</li>
+          <li><strong>Sub-agent</strong> — A specialized AI agent that executes a single task with focused, clean context. Not the main conversation agent.</li>
+        </ul>
+        <p>Terms to retire from docs: "progressive refinement" (replace with "three-phase workflow"), "validation gates" (replace with "review gates" when referring to human review, keep "quality gates" for automated checks), "cognitive overload" (replace with concrete explanations of context management).</p>
+      </section>
+
+      <section>
+        <h3>Four Messaging Pillars</h3>
+        <p><strong>Objective:</strong> Reframe all documentation around four clear value propositions that the user identified.</p>
+
+        <p><strong>Pillar 1: Zero Tooling</strong> — AI Task Manager requires no additional tools, API keys, or services. Everything is plain text files (Markdown, YAML frontmatter) and Agent Skills. Plans, tasks, and configurations are human-readable and git-friendly. Works within existing AI subscriptions. This contrasts with API-based tools like Plandex, Conductor Tasks, and Claude Task Master that require separate API keys and pay-per-token pricing.</p>
+
+        <p><strong>Pillar 2: Multi-Harness Support</strong> — Skills are harness-agnostic. A single SKILL.md works for every harness that supports the Agent Skills format. Team members can use different harnesses (Claude Code, Gemini CLI, GitHub Copilot, Codex, Cursor, OpenCode) while collaborating on the same plans. Initialize once, install skills per developer. The shared workspace (.ai/task-manager/) is the collaboration point.</p>
+
+        <p><strong>Pillar 3: Better Results Than Plan Mode</strong> — Plan mode in any AI coding assistant creates and executes in a single context, leading to scope creep, diluted focus, and quality degradation as context grows. AI Task Manager separates planning from execution, introduces human review gates between phases, enforces YAGNI through multiple checkpoints, and deploys specialized sub-agents per task. The result is more focused, higher-quality implementations.</p>
+
+        <p><strong>Pillar 4: Context Management</strong> — This is the architectural core. Each phase operates with clean, focused context. Plan creation gets maximum reasoning power focused solely on requirements and architecture. Task generation gets a clean context loaded only with the approved plan. Execution deploys sub-agents that each receive only their specific task, its dependencies, and acceptance criteria — not the entire conversation history. This prevents the quality degradation that occurs when a single context accumulates all planning, decomposition, and implementation concerns. Sub-agents can execute in parallel (within a phase) or in sequence (across phases), depending on task dependencies.</p>
+      </section>
+
+      <section>
+        <h3>AGENTS.md Glossary</h3>
+        <p><strong>Objective:</strong> Add a dedicated glossary section to AGENTS.md with canonical definitions of all key terms.</p>
+        <p>The glossary section will be placed after the "Quick Start Guide" and before the detailed "Project Overview" section in AGENTS.md. It will contain the same canonical definitions used in the docs site glossary, ensuring consistency between the AI-facing instructions and the human-facing documentation. The glossary in AGENTS.md should be concise (one-line definitions) since it serves as a quick reference for AI assistants, while the docs site glossary can be more expansive.</p>
+      </section>
+
+      <section>
+        <h3>Content Migration Strategy</h3>
+        <p><strong>Objective:</strong> Ensure no essential content is lost during the restructuring while eliminating duplication.</p>
+        <p>Each current page maps to a target location:</p>
+        <ul>
+          <li><code>index.md</code> → rewritten in place</li>
+          <li><code>installation.md</code> → absorbed into <code>getting-started.md</code></li>
+          <li><code>workflow.md</code> → kept, expanded with content from <code>workflows.md</code></li>
+          <li><code>architecture.md</code> → absorbed into <code>how-it-works.md</code></li>
+          <li><code>features.md</code> → absorbed into <code>how-it-works.md</code></li>
+          <li><code>comparison.md</code> → absorbed into <code>why.md</code></li>
+          <li><code>workflows.md</code> → absorbed into <code>workflow.md</code></li>
+          <li><code>customization.md</code> → kept, emoji-stripped and terminology-updated</li>
+          <li><code>core-concepts.md</code> → deleted (empty parent page)</li>
+          <li><code>customization-extension.md</code> → deleted (empty parent page)</li>
+          <li><code>reference.md</code> → repurposed as glossary + CLI reference + FAQ</li>
+          <li><code>migration.md</code> → kept, emoji-stripped, nav_order adjusted</li>
+          <li><code>_config.yml</code> → updated description</li>
+          <li><code>img/dashboard.svg</code> → kept</li>
+        </ul>
+      </section>
+    </section>
+
+    <section aria-labelledby="risks">
+      <h2 id="risks">Risk Considerations and Mitigation Strategies</h2>
+
+      <details>
+        <summary>Technical Risks</summary>
+        <ul>
+          <li>
+            <strong>Broken internal links after page restructuring</strong>: Renaming and deleting pages will break cross-references throughout the site.
+            <ul>
+              <li><strong>Mitigation</strong>: Each task that writes/modifies a page must update all internal links across all docs pages. A final validation task should grep for broken references.</li>
+            </ul>
+          </li>
+          <li>
+            <strong>Jekyll navigation breaks with flat hierarchy</strong>: Removing parent pages (core-concepts.md, customization-extension.md) may affect Just the Docs theme navigation.
+            <ul>
+              <li><strong>Mitigation</strong>: Pages that previously had <code>parent:</code> frontmatter referencing deleted parent pages must have that field removed or updated. Test locally with <code>bundle exec jekyll build</code>.</li>
+            </ul>
+          </li>
+        </ul>
+      </details>
+
+      <details>
+        <summary>Content Risks</summary>
+        <ul>
+          <li>
+            <strong>Information loss during consolidation</strong>: Merging 14 pages into ~8 may drop useful content.
+            <ul>
+              <li><strong>Mitigation</strong>: Each consolidation task must explicitly enumerate what content it absorbs from source pages. A review step should diff the old vs new to catch dropped content.</li>
+            </ul>
+          </li>
+          <li>
+            <strong>Inconsistent terminology across pages</strong>: If tasks are executed in parallel, different pages might use slightly different phrasings of the same canonical term.
+            <ul>
+              <li><strong>Mitigation</strong>: The glossary page should be written first and referenced by all subsequent tasks. A final pass task should grep for retired terms.</li>
+            </ul>
+          </li>
+        </ul>
+      </details>
+
+      <details>
+        <summary>Process Risks</summary>
+        <ul>
+          <li>
+            <strong>Scope creep into code changes</strong>: The terminology overhaul may tempt changes to templates, skill files, or source code.
+            <ul>
+              <li><strong>Mitigation</strong>: This plan is explicitly documentation-only. No files outside docs/ and AGENTS.md should be modified. The only exception is _config.yml for Jekyll metadata.</li>
+            </ul>
+          </li>
+        </ul>
+      </details>
+    </section>
+
+    <section aria-labelledby="success-criteria">
+      <h2 id="success-criteria">Success Criteria</h2>
+
+      <section aria-labelledby="primary-success-criteria">
+        <h3 id="primary-success-criteria">Primary Success Criteria</h3>
+        <ol>
+          <li>All docs pages use the canonical terminology (work order, plan, execution blueprint, phases, task, sub-agent) consistently — no instances of retired terms.</li>
+          <li>No emojis appear in any heading across all docs pages.</li>
+          <li>The four messaging pillars (zero tooling, multi-harness, better than plan mode, context management) are clearly articulated on the homepage and have dedicated coverage.</li>
+          <li>The docs site has ~8 pages total with a flat navigation hierarchy (no nested parent/child pages except migration.md under getting-started).</li>
+          <li>AGENTS.md contains a glossary section with canonical term definitions.</li>
+          <li>All internal links between docs pages resolve correctly.</li>
+          <li>No content from the current docs is lost — all essential information is present in the restructured pages.</li>
+          <li>The Jekyll site builds without errors (<code>bundle exec jekyll build</code> or equivalent).</li>
+        </ol>
+      </section>
+    </section>
+
+    <section aria-labelledby="self-validation">
+      <h2 id="self-validation">Self Validation</h2>
+      <ul>
+        <li>Run <code>grep -rn '🔧\|📦\|🏗️\|✨\|🔄\|🚀\|🎯\|🤝\|📋\|📊\|🔒\|💰\|🔍\|✅\|⚡\|🔴' docs/</code> and confirm zero emoji matches in headings.</li>
+        <li>Run <code>grep -rn "progressive refinement\|cognitive overload\|validation gates" docs/</code> and confirm retired terms do not appear (except where explicitly quoting plan mode behavior for comparison).</li>
+        <li>Run <code>grep -rn "work order\|execution blueprint\|sub-agent" docs/</code> and confirm the canonical terms are used throughout.</li>
+        <li>Run <code>grep -rn '\.html)' docs/*.md</code> to extract all internal links and verify each target file exists in docs/.</li>
+        <li>Verify the AGENTS.md glossary section exists by running <code>grep -n "Glossary" AGENTS.md</code>.</li>
+        <li>Count the number of .md files in docs/ (excluding _config.yml) and confirm it is approximately 8.</li>
+        <li>Read each page's frontmatter and confirm no <code>parent:</code> field references a deleted page.</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="documentation">
+      <h2 id="documentation">Documentation</h2>
+      <p>This plan <em>is</em> about documentation. The deliverables are the docs themselves. No separate documentation updates are needed beyond what the tasks produce. AGENTS.md receives a glossary section as part of this plan.</p>
+    </section>
+
+    <section aria-labelledby="resources">
+      <h2 id="resources">Resource Requirements</h2>
+
+      <section aria-labelledby="development-skills">
+        <h3 id="development-skills">Development Skills</h3>
+        <p>Technical writing, Markdown/Jekyll authoring, Mermaid diagram creation, information architecture design.</p>
+      </section>
+
+      <section aria-labelledby="technical-infrastructure">
+        <h3 id="technical-infrastructure">Technical Infrastructure</h3>
+        <p>Jekyll (Just the Docs theme) for local build validation. All content is Markdown with YAML frontmatter.</p>
+      </section>
+    </section>
+
+    <section aria-labelledby="notes">
+      <h2 id="notes">Notes</h2>
+      <ul>
+        <li>This is a documentation-only work order. No source code, templates, skill definitions, or configuration files should be modified — only files under <code>docs/</code>, <code>AGENTS.md</code>, and <code>docs/_config.yml</code>.</li>
+        <li>The <code>docs/img/dashboard.svg</code> asset should be preserved and referenced from whichever page covers the CLI status command.</li>
+        <li>The current <code>getting-started.md</code> parent page and <code>core-concepts.md</code> parent page are empty containers used only for Just the Docs navigation nesting. Removing them simplifies the hierarchy.</li>
+        <li>Mermaid diagrams in the current docs should be preserved or updated — they are rendered by Just the Docs' built-in Mermaid support configured in <code>_config.yml</code>.</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="execution-blueprint">
+      <h2 id="execution-blueprint">Execution Blueprint</h2>
+
+      <p><strong>Review gates:</strong> Reference: <code>/config/hooks/POST_PHASE.md</code></p>
+
+      <pre class="mermaid">
+graph TD
+    T1["Task 1: Establish Terminology — reference.md + AGENTS.md Glossary"] --> T2["Task 2: Create why.md"]
+    T1 --> T3["Task 3: Create how-it-works.md"]
+    T1 --> T4["Task 4: Consolidate getting-started.md"]
+    T1 --> T5["Task 5: Update workflow + customization + migration"]
+    T2 --> T6["Task 6: Rewrite index.md + Cleanup + Validation"]
+    T3 --> T6
+    T4 --> T6
+    T5 --> T6
+      </pre>
+
+      <h3>✅ Phase 1: Terminology Foundation</h3>
+      <p><strong>Parallel Tasks:</strong></p>
+      <ul>
+        <li>✔️ Task 1: Establish canonical terminology — reference.md + AGENTS.md glossary</li>
+      </ul>
+
+      <h3>✅ Phase 2: Page Creation and Consolidation</h3>
+      <p><strong>Parallel Tasks:</strong></p>
+      <ul>
+        <li>✔️ Task 2: Create why.md — four messaging pillars (depends on: 1)</li>
+        <li>✔️ Task 3: Create how-it-works.md — architecture + context management (depends on: 1)</li>
+        <li>✔️ Task 4: Consolidate getting-started.md — absorb installation.md (depends on: 1)</li>
+        <li>✔️ Task 5: Update workflow.md + customization.md + migration.md (depends on: 1)</li>
+      </ul>
+
+      <h3>✅ Phase 3: Final Assembly</h3>
+      <p><strong>Parallel Tasks:</strong></p>
+      <ul>
+        <li>✔️ Task 6: Rewrite index.md + site cleanup + validation (depends on: 1, 2, 3, 4, 5)</li>
+      </ul>
+
+      <h3>Post-phase Actions</h3>
+      <p>Task 6 includes all self-validation checks defined in the plan's "Self Validation" section. No separate post-phase action needed.</p>
+
+      <h3>Execution Summary</h3>
+      <ul>
+        <li>Total Phases: 3</li>
+        <li>Total Tasks: 6</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="execution-summary-final">
+      <h2 id="execution-summary-final">Execution Summary</h2>
+
+      <p><strong>Status</strong>: ✅ Completed Successfully</p>
+      <p><strong>Completed Date</strong>: 2026-05-25</p>
+
+      <h3>Results</h3>
+      <p>Documentation site restructured from 14 pages to 8 focused pages with flat navigation. Four messaging pillars (zero tooling, multi-harness, better than plan mode, context management) are front-and-center on the homepage and have dedicated coverage in why.md. Canonical terminology (work order, plan, execution blueprint, phase, task, sub-agent) established in reference.md glossary and AGENTS.md. All retired terms eliminated. All emojis removed from headings. All internal links validated.</p>
+
+      <h3>Noteworthy Events</h3>
+      <ul>
+        <li>Three sub-agents in Phase 2 produced links to deleted pages (architecture.html, workflows.html) that were caught and fixed during post-phase verification before committing.</li>
+        <li>The reference.md sub-agent documented CLI subcommands (plan show/archive/delete, status) which were verified to exist in src/cli.ts before accepting.</li>
+      </ul>
+
+      <h3>Necessary follow-ups</h3>
+      <ul>
+        <li>Run <code>bundle exec jekyll build</code> locally to validate the Jekyll site builds without errors (Ruby/Bundler not available in this environment).</li>
+        <li>Review the merged content in why.md and how-it-works.md for tone consistency — each was written by a different sub-agent.</li>
+      </ul>
+    </section>
+  </article>
+</body>
+</html>

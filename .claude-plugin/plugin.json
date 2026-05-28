@@ -1,11 +1,11 @@
 {
-  "name": "ai-task-manager",
+  "name": "strikethroo",
   "skills": [
-    "./templates/harness/skills/task-create-plan",
-    "./templates/harness/skills/task-execute-blueprint",
-    "./templates/harness/skills/task-execute-task",
-    "./templates/harness/skills/task-full-workflow",
-    "./templates/harness/skills/task-generate-tasks",
-    "./templates/harness/skills/task-refine-plan"
+    "./templates/harness/skills/st-create-plan",
+    "./templates/harness/skills/st-execute-blueprint",
+    "./templates/harness/skills/st-execute-task",
+    "./templates/harness/skills/st-full-workflow",
+    "./templates/harness/skills/st-generate-tasks",
+    "./templates/harness/skills/st-refine-plan"
   ]
 }

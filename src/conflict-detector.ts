@@ -12,7 +12,7 @@ import { calculateFileHash } from './metadata';
 
 /**
  * Get all config files that should be checked for conflicts
- * @param destDir - Destination directory (.ai/task-manager)
+ * @param destDir - Destination directory (.ai/strikethroo)
  * @returns Array of relative paths from destDir
  */
 async function getConfigFiles(destDir: string): Promise<string[]> {
@@ -43,7 +43,7 @@ async function getConfigFiles(destDir: string): Promise<string[]> {
 
 /**
  * Detect conflicts between user's current files and incoming package files
- * @param destDir - Destination directory (.ai/task-manager)
+ * @param destDir - Destination directory (.ai/strikethroo)
  * @param templateDir - Source template directory from package
  * @param metadata - Previously stored metadata with original hashes
  * @returns Array of FileConflict objects for files that have been modified
@@ -99,7 +99,7 @@ export async function detectConflicts(
 
 /**
  * Check if a file has been deleted by the user
- * @param destDir - Destination directory (.ai/task-manager)
+ * @param destDir - Destination directory (.ai/strikethroo)
  * @param relativePath - Relative path from destDir
  * @param metadata - Previously stored metadata
  * @returns true if file existed in metadata but is now deleted

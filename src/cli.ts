@@ -14,11 +14,11 @@ import { InitOptions } from './types';
 
 const program = new Command();
 
-program.name('ai-task-manager').version('0.1.0').description('AI-powered task management CLI tool');
+program.name('strikethroo').version('0.1.0').description('AI-powered task management CLI tool');
 
 program
   .command('init')
-  .description('Initialize a new AI task management project')
+  .description('Initialize a new Strikethroo project')
   .requiredOption(
     '--harnesses <value>',
     'Comma-separated list of harnesses to configure (claude,codex,cursor,gemini,github,opencode)'

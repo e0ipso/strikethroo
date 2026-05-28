@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Plan: [Descriptive Plan Title]</title>
+  <meta name="id" content="[PLAN-ID]">
+  <meta name="summary" content="[Brief one-line description of what this plan accomplishes]">
+  <meta name="created" content="[YYYY-MM-DD]">
+</head>
+<body>
+  <article>
+    <header>
+      <h1>Plan: [Descriptive Plan Title]</h1>
+    </header>
+
+    <section aria-labelledby="original-work-order">
+      <h2 id="original-work-order">Original Work Order</h2>
+      <blockquote>
+        <p>[The unmodified user input that was used to generate this plan]</p>
+      </blockquote>
+    </section>
+
+    <section aria-labelledby="plan-clarifications">
+      <h2 id="plan-clarifications">Plan Clarifications</h2>
+      <p>Only include this section if clarifications were necessary.</p>
+      <table>
+        <thead>
+          <tr><th scope="col">Question</th><th scope="col">Answer</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>[Clarification question]</td><td>[User answer]</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section aria-labelledby="executive-summary">
+      <h2 id="executive-summary">Executive Summary</h2>
+      <p>Provide a 2-3 paragraph overview of the plan. Include:</p>
+      <ul>
+        <li>What the plan accomplishes</li>
+        <li>Why this approach was chosen</li>
+        <li>Key benefits and outcomes expected</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="context">
+      <h2 id="context">Context</h2>
+
+      <section aria-labelledby="current-vs-target">
+        <h3 id="current-vs-target">Current State vs Target State</h3>
+        <p>Compare the current state with the target state across the different aspects of the implementation. Include a column on why the change is necessary.</p>
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Current State</th>
+              <th scope="col">Target State</th>
+              <th scope="col">Why?</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Users have to click twice</td>
+              <td>Users can click once</td>
+              <td>We want to improve the UX</td>
+            </tr>
+            <tr>
+              <td>The button is small</td>
+              <td>The button is bigger</td>
+              <td>Fix site design</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section aria-labelledby="background">
+        <h3 id="background">Background</h3>
+        <p>Any additional context, requirements, constraints, any solutions that we tried that didn't work, or relevant history that informs the implementation approach.</p>
+      </section>
+    </section>
+
+    <section aria-labelledby="architectural-approach">
+      <h2 id="architectural-approach">Architectural Approach</h2>
+      <p>Provide an overview of the implementation strategy, key architectural decisions, and technical approach. Break it down into major components or phases using nested <code>&lt;section&gt;</code>/<code>&lt;h3&gt;</code> blocks. Include a mermaid diagram summary inside <code>&lt;pre class="mermaid"&gt;&hellip;&lt;/pre&gt;</code>.</p>
+
+      <section>
+        <h3>[Component/Stage 1 Name]</h3>
+        <p><strong>Objective:</strong> [What this component accomplishes and why it's important]</p>
+        <p>[Detailed and concise explanation of implementation approach, key technical decisions, specifications, and rationale for design choices.]</p>
+      </section>
+
+      <section>
+        <h3>[Component/Stage 2 Name]</h3>
+        <p><strong>Objective:</strong> [What this component accomplishes and why it's important]</p>
+        <p>[Detailed and concise explanation of implementation approach, key technical decisions, specifications, and rationale for design choices.]</p>
+      </section>
+
+      <section>
+        <h3>[Additional Components as Needed]</h3>
+        <p>Continue with additional technical components or phases following the same pattern.</p>
+      </section>
+    </section>
+
+    <section aria-labelledby="risks">
+      <h2 id="risks">Risk Considerations and Mitigation Strategies</h2>
+
+      <details>
+        <summary>Technical Risks</summary>
+        <ul>
+          <li>
+            <strong>[Specific Technical Risk]</strong>: [Description of the technical challenge or limitation]
+            <ul>
+              <li><strong>Mitigation</strong>: [Specific strategy to address this technical risk]</li>
+            </ul>
+          </li>
+        </ul>
+      </details>
+
+      <details>
+        <summary>Implementation Risks</summary>
+        <ul>
+          <li>
+            <strong>[Specific Implementation Risk]</strong>: [Description of implementation-related challenge]
+            <ul>
+              <li><strong>Mitigation</strong>: [Specific strategy to address this implementation risk]</li>
+            </ul>
+          </li>
+        </ul>
+      </details>
+
+      <p>Add additional risk categories as needed (Integration Risks, Quality Risks, Resource Risks, etc.) using more <code>&lt;details&gt;</code> blocks.</p>
+    </section>
+
+    <section aria-labelledby="success-criteria">
+      <h2 id="success-criteria">Success Criteria</h2>
+
+      <section aria-labelledby="primary-success-criteria">
+        <h3 id="primary-success-criteria">Primary Success Criteria</h3>
+        <ol>
+          <li>[Measurable outcome 1]</li>
+          <li>[Measurable outcome 2]</li>
+          <li>[Measurable outcome 3]</li>
+        </ol>
+      </section>
+    </section>
+
+    <section aria-labelledby="self-validation">
+      <h2 id="self-validation">Self Validation</h2>
+      <p>Describe the concrete steps an LLM should execute after all tasks are completed to verify the implementation works correctly. These must be actionable verification procedures that inspect the real system &mdash; not just running pre-existing tests.</p>
+      <p>Examples of good validation steps:</p>
+      <ul>
+        <li>Use Playwright CLI to open a browser, navigate to the affected pages, and take screenshots to confirm the UI renders correctly.</li>
+        <li>Run a CLI command to query the database and verify that the expected configuration or content exists.</li>
+        <li>Use <code>curl</code> or a browser automation tool to exercise the new API endpoints and confirm correct responses.</li>
+        <li>Take a screenshot of the form/page/component and visually verify the expected elements are present.</li>
+        <li>Run the application and interact with the new feature end-to-end, capturing evidence of success.</li>
+      </ul>
+      <p>Avoid vague statements like "verify it works" or "ensure quality". Each step must be a specific, executable action.</p>
+    </section>
+
+    <section aria-labelledby="documentation">
+      <h2 id="documentation">Documentation</h2>
+      <p>Required documentation updates to existing documentation, either human-focused documentation, the project's <code>README.md</code> or assistant-focused documentation like <code>AGENTS.md</code>, <code>.claude/skills/*</code>, etc.</p>
+    </section>
+
+    <section aria-labelledby="resources">
+      <h2 id="resources">Resource Requirements</h2>
+
+      <section aria-labelledby="development-skills">
+        <h3 id="development-skills">Development Skills</h3>
+        <p>[Required technical expertise and specialized knowledge areas needed for successful implementation]</p>
+      </section>
+
+      <section aria-labelledby="technical-infrastructure">
+        <h3 id="technical-infrastructure">Technical Infrastructure</h3>
+        <p>[Tools, libraries, frameworks, and systems needed for development and deployment]</p>
+      </section>
+
+      <section>
+        <h3>[Additional Resource Categories as Needed]</h3>
+        <p>Other resources such as external dependencies, research access, third-party services, etc.</p>
+      </section>
+    </section>
+
+    <section aria-labelledby="integration-strategy">
+      <h2 id="integration-strategy">Integration Strategy</h2>
+      <p>Optional section &mdash; how this work integrates with existing systems.</p>
+    </section>
+
+    <section aria-labelledby="notes">
+      <h2 id="notes">Notes</h2>
+      <p>Optional section &mdash; any additional considerations, constraints, or important context.</p>
+    </section>
+  </article>
+</body>
+</html>

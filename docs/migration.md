@@ -2,7 +2,7 @@
 layout: default
 title: Migrating from 1.x
 nav_order: 6
-description: "Upgrade from AI Task Manager 1.x to 2.x"
+description: "Upgrade from Strikethroo 1.x to 2.x"
 ---
 
 # Migrating from 1.x to 2.x
@@ -25,14 +25,14 @@ rm -rf ".claude/commands/tasks/" \
 ## 2. Delete obsolete config scripts
 
 ```bash
-rm -f .ai/task-manager/config/scripts/*.cjs
-rmdir .ai/task-manager/config/scripts 2>/dev/null
+rm -f .ai/strikethroo/config/scripts/*.cjs
+rmdir .ai/strikethroo/config/scripts 2>/dev/null
 ```
 
 ## 3. Re-initialize the workspace
 
 ```bash
-npx @e0ipso/ai-task-manager@latest init --harnesses claude
+npx strikethroo@latest init --harnesses claude
 ```
 
 Replace `claude` with your harness(es), e.g. `claude,gemini,opencode`.
@@ -40,7 +40,7 @@ Replace `claude` with your harness(es), e.g. `claude,gemini,opencode`.
 ## 4. Install the workflow skills
 
 ```bash
-npx skills add e0ipso/ai-task-manager
+npx skills add e0ipso/strikethroo
 ```
 
 ## What changed
@@ -53,7 +53,7 @@ npx skills add e0ipso/ai-task-manager
 
 ## What didn't change
 
-- `.ai/task-manager/plans/` and `archive/` are unchanged
+- `.ai/strikethroo/plans/` and `archive/` are unchanged
 - All plan and task markdown files work as-is
-- Hooks and templates in `.ai/task-manager/config/` are preserved
-- `TASK_MANAGER.md` project context is preserved
+- Hooks and templates in `.ai/strikethroo/config/` are preserved
+- `STRIKETHROO.md` project context is preserved

@@ -10,12 +10,12 @@ declare const EXPECTED_WORKSPACE_SCHEMA_VERSION: number;
 const EXPECTED_SCHEMA: number =
   typeof EXPECTED_WORKSPACE_SCHEMA_VERSION !== 'undefined' ? EXPECTED_WORKSPACE_SCHEMA_VERSION : 1;
 
-const isValidTaskManagerRoot = (taskManagerPath: string): boolean => {
+const isValidStrikethrooRoot = (strikethrooPath: string): boolean => {
   try {
-    if (!fs.existsSync(taskManagerPath)) return false;
-    if (!fs.lstatSync(taskManagerPath).isDirectory()) return false;
+    if (!fs.existsSync(strikethrooPath)) return false;
+    if (!fs.lstatSync(strikethrooPath).isDirectory()) return false;
 
-    const metadataPath = path.join(taskManagerPath, '.init-metadata.json');
+    const metadataPath = path.join(strikethrooPath, '.init-metadata.json');
     if (!fs.existsSync(metadataPath)) return false;
 
     const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
@@ -25,9 +25,9 @@ const isValidTaskManagerRoot = (taskManagerPath: string): boolean => {
   }
 };
 
-const getTaskManagerAt = (directory: string): string | null => {
-  const taskManagerPath = path.join(directory, '.ai', 'task-manager');
-  return isValidTaskManagerRoot(taskManagerPath) ? taskManagerPath : null;
+const getStrikethrooAt = (directory: string): string | null => {
+  const strikethrooPath = path.join(directory, '.ai', 'strikethroo');
+  return isValidStrikethrooRoot(strikethrooPath) ? strikethrooPath : null;
 };
 
 const getParentPaths = (currentPath: string, acc: string[] = []): string[] => {
@@ -51,22 +51,22 @@ const checkWorkspaceSchema = (metadataPath: string): void => {
   if (actual < EXPECTED_SCHEMA) {
     process.stderr.write(
       `Workspace schema v${actual} is older than this skill requires (v${EXPECTED_SCHEMA}). ` +
-        'Re-run `npx @e0ipso/ai-task-manager init` with the latest CLI to update.\n'
+        'Re-run `npx strikethroo init` with the latest CLI to update.\n'
     );
   } else {
     process.stderr.write(
       `This skill (built for workspace schema v${EXPECTED_SCHEMA}) is older than the workspace (v${actual}). ` +
-        'Re-run `npx skills add e0ipso/ai-task-manager` to update skills.\n'
+        'Re-run `npx skills add e0ipso/strikethroo` to update skills.\n'
     );
   }
   process.exit(1);
 };
 
-export const findTaskManagerRoot = (startPath: string = process.cwd()): string | null => {
+export const findStrikethrooRoot = (startPath: string = process.cwd()): string | null => {
   const paths = getParentPaths(startPath);
-  const found = paths.find(p => getTaskManagerAt(p));
+  const found = paths.find(p => getStrikethrooAt(p));
   if (!found) return null;
-  const root = getTaskManagerAt(found);
+  const root = getStrikethrooAt(found);
   if (root) checkWorkspaceSchema(path.join(root, '.init-metadata.json'));
   return root;
 };

@@ -68,8 +68,9 @@ coverage/
 tmp/
 temp/
 
-# AI and Claude specific
+# Strikethroo and legacy dogfood workspace
 /.ai/strikethroo
+/.ai/task-manager
 
 # Generated TOML files (these are created on-the-fly from MD templates)
 templates/commands/tasks/*.toml

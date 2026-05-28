@@ -1,3 +1,7 @@
+## <small>3.0.2 (2026-05-28)</small>
+
+* fix: remove CLI visualization and management commands (#21) ([017ef23](https://github.com/e0ipso/strikethroo/commit/017ef23)), closes [#21](https://github.com/e0ipso/strikethroo/issues/21)
+
 ## <small>3.0.1 (2026-05-28)</small>
 
 * fix: trigger actions ([b331c49](https://github.com/e0ipso/strikethroo/commit/b331c49))

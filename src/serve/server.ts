@@ -86,6 +86,14 @@ const MIME_TYPES: Record<string, string> = {
 const mimeFor = (filePath: string): string =>
   MIME_TYPES[path.extname(filePath).toLowerCase()] ?? 'application/octet-stream';
 
+/**
+ * Resolves the default prebuilt SPA assets directory relative to the installed
+ * package. The compiled server lives at `<pkg>/dist/serve/server.js`, so the
+ * package root is two levels up and the Plan 82 Vite output is `<pkg>/dist-web`.
+ * Plan 94 finalizes the shipped asset path; this is the local-dev default.
+ */
+export const defaultAssetsDir = (): string => path.resolve(__dirname, '..', '..', 'dist-web');
+
 const sendJson = (res: http.ServerResponse, status: number, body: unknown): void => {
   const payload = JSON.stringify(body);
   res.writeHead(status, {

@@ -9,6 +9,8 @@
 import { Command } from 'commander';
 import { init } from './index';
 import { InitOptions } from './types';
+import { resolveWorkspaceRoot, isResolveError } from './serve/root';
+import { startServer, defaultAssetsDir } from './serve/server';
 
 const program = new Command();
 
@@ -39,6 +41,35 @@ program
       }
     } catch (error) {
       console.error(`Unexpected error: ${error instanceof Error ? error.message : String(error)}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('serve')
+  .description('Serve the workspace as a local web app (static SPA, JSON API, SSE change stream)')
+  .option('--port <n>', 'port to bind', '4317')
+  .option('--no-open', 'do not open the browser on start')
+  .option('--workspace <path>', 'override workspace root discovery')
+  .action(async (opts: { port: string; open: boolean; workspace?: string }) => {
+    try {
+      const resolved = resolveWorkspaceRoot({ workspace: opts.workspace });
+      if (isResolveError(resolved)) {
+        console.error(resolved.error);
+        process.exit(1);
+      }
+
+      const handle = await startServer({
+        root: resolved.root,
+        port: Number(opts.port),
+        open: opts.open,
+        assetsDir: defaultAssetsDir(),
+      });
+      console.log(`Serving ${handle.url}`);
+    } catch (error) {
+      console.error(
+        `Failed to start serve: ${error instanceof Error ? error.message : String(error)}`
+      );
       process.exit(1);
     }
   });

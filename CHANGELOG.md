@@ -1,5 +1,13 @@
 ## <small>2.2.1 (2026-05-28)</small>
 
+* chore: restore 3.0.0 after erroneous 2.2.1 release ([9e1e770](https://github.com/e0ipso/strikethroo/commit/9e1e770))
+* chore(release): 2.2.1 [skip ci] ([ed35a2c](https://github.com/e0ipso/strikethroo/commit/ed35a2c))
+* fix: complete repo rename URL sweep ([da0b71a](https://github.com/e0ipso/strikethroo/commit/da0b71a))
+* fix: trigger actions ([306025a](https://github.com/e0ipso/strikethroo/commit/306025a))
+* feat!: rebrand to strikethroo (#20) ([a1a452c](https://github.com/e0ipso/strikethroo/commit/a1a452c)), closes [#20](https://github.com/e0ipso/strikethroo/issues/20)
+
+## <small>2.2.1 (2026-05-28)</small>
+
 * fix: complete repo rename URL sweep ([da0b71a](https://github.com/e0ipso/strikethroo/commit/da0b71a))
 * fix: trigger actions ([306025a](https://github.com/e0ipso/strikethroo/commit/306025a))
 * feat!: rebrand to strikethroo (#20) ([a1a452c](https://github.com/e0ipso/strikethroo/commit/a1a452c)), closes [#20](https://github.com/e0ipso/strikethroo/issues/20)

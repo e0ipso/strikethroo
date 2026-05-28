@@ -60,8 +60,10 @@ export interface Phase {
 
 /** A named `##` section of the plan markdown. */
 export interface MarkdownSection {
-  title: string;
-  body: string;
+  /** Heading text (the `## ` line, trimmed). */
+  heading: string;
+  /** Section content from after the heading up to the next `## ` or EOF. */
+  content: string;
 }
 
 /** A mermaid diagram exposed by the model. */

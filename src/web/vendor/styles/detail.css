@@ -243,6 +243,64 @@
   line-height: 1.4;
 }
 
+/* Reader-scoped prose treatment. Free-form section bodies render through the
+   shared markdown path inside a `.prose` container; these rules give that
+   generic markup the design's Reader look (quote rule, clarification-style
+   tables) for arbitrary plans, since the design only hand-authored the bespoke
+   markup for its hardcoded sample. */
+.reader .prose {
+  font-size: 14px;
+}
+.reader .prose > * + * {
+  margin-top: 0.9em;
+}
+.reader .prose blockquote {
+  border-left: 2px solid var(--dalia);
+  padding: 4px 0 4px 14px;
+  margin: 0;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  background: transparent;
+}
+.reader .prose table {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  font-size: 12.5px;
+}
+.reader .prose th,
+.reader .prose td {
+  padding: 8px 14px;
+  line-height: 1.4;
+  text-align: left;
+  border-top: 1px solid var(--border-soft);
+}
+.reader .prose tr:first-child th,
+.reader .prose tr:first-child td {
+  border-top: none;
+}
+.reader .prose th {
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  background: var(--cream-mid);
+}
+.reader .prose td {
+  color: var(--ink);
+}
+.reader .prose td + td,
+.reader .prose th + th {
+  border-left: 1px solid var(--border-soft);
+}
+
 /* mermaid source affordance — non-rendered fence shown as source in the
    Reader. Mermaid rendering itself belongs to the Graph tab (a later
    ticket); here the block is surfaced as styled source so no content is

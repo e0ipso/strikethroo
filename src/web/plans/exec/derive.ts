@@ -18,12 +18,15 @@
  * against the live model shape (phases carry `taskIds`, not embedded tasks).
  */
 
-import type { TickboxState } from '../../components/primitives';
 import type { Phase, PlanDetail, Task } from '../../data/api';
 import { toTickboxState } from '../taskStatus';
 
-/** The three presentational task/phase states. */
-export type ExecState = TickboxState; // 'todo' | 'doing' | 'done'
+/**
+ * The three presentational task/phase states. Declared locally (rather than
+ * re-exported from the `primitives.tsx` module) so this pure module carries no
+ * dependency on a JSX-bearing file and stays trivially unit-testable.
+ */
+export type ExecState = 'todo' | 'doing' | 'done';
 
 /** A done/doing/todo count plus the total task count. */
 export interface Tally {
@@ -58,7 +61,8 @@ export function phaseStateOf(phase: Phase, tasksById: Map<number, Task>): ExecSt
 export function tally(tasks: readonly Task[]): Tally {
   const result: Tally = { done: 0, doing: 0, todo: 0, total: tasks.length };
   for (const task of tasks) {
-    result[toTickboxState(task.status)] += 1;
+    const state: ExecState = toTickboxState(task.status);
+    result[state] += 1;
   }
   return result;
 }
@@ -95,7 +99,7 @@ export function execSummaryOf(detail: PlanDetail): ExecSummary | undefined {
 
   const lead = section.content
     .split('\n')
-    .map(line => line.replace(/^[-*>\s]+/, '').trim())
+    .map(line => line.replace(/^\s*(?:[-+*]|\d+\.|>)\s+/, '').trim())
     .find(line => line.length > 0);
   if (!lead) return undefined;
 

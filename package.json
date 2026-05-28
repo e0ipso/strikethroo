@@ -93,6 +93,7 @@
     "husky": "^9.1.7",
     "jest": "^30.1.2",
     "lucide-react": "^0.460.0",
+    "playwright": "^1.60.0",
     "prettier": "^3.6.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

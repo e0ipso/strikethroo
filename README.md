@@ -1,6 +1,6 @@
 # 🤖 Strikethroo
 
-[![npm version](https://img.shields.io/npm/v/@e0ipso/ai-task-manager.svg)](https://www.npmjs.com/package/@e0ipso/ai-task-manager)
+[![npm version](https://img.shields.io/npm/v/strikethroo.svg)](https://www.npmjs.com/package/strikethroo)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 ![Dashboard](./docs/img/dashboard.svg)
@@ -21,9 +21,7 @@ npx skills add e0ipso/strikethroo
 npx strikethroo init --harnesses claude --destination-directory .
 ```
 
-Note: the GitHub repository slug remains `e0ipso/ai-task-manager` for this release; the rename is tracked separately.
-
-The skills give your assistant the planning, decomposition, and execution workflow; the CLI bootstraps `.ai/strikethroo/` with hooks, templates, and the hash-tracked diff-on-conflict UX. Each step is independently re-runnable. See the [migration guide](https://mateuaguilo.com/ai-task-manager/migration.html) for upgrade flows from 1.x.
+The skills give your assistant the planning, decomposition, and execution workflow; the CLI bootstraps `.ai/strikethroo/` with hooks, templates, and the hash-tracked diff-on-conflict UX. Each step is independently re-runnable. See the [migration guide](https://mateuaguilo.com/strikethroo/migration.html) for upgrade flows from 1.x.
 
 The CLI's `init` emits the shared workspace plus harness-specific agents (e.g., `.claude/agents/` for Claude). Other harnesses rely entirely on the installed skills.
 
@@ -38,7 +36,7 @@ The CLI's `init` emits the shared workspace plus harness-specific agents (e.g., 
 
 ## 📖 Documentation
 
-### 🌐 **[Complete Documentation →](https://mateuaguilo.com/ai-task-manager/)**
+### 🌐 **[Complete Documentation →](https://mateuaguilo.com/strikethroo/)**
 
 Comprehensive guides covering:
 - Installation and configuration

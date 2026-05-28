@@ -98,5 +98,5 @@
     "@semantic-release/github"
   ],
   "tagFormat": "v${version}",
-  "repositoryUrl": "https://github.com/e0ipso/ai-task-manager.git"
+  "repositoryUrl": "https://github.com/e0ipso/strikethroo.git"
 }

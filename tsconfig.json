@@ -35,7 +35,8 @@
     "tests",
     "**/*.test.ts",
     "**/*.spec.ts",
-    "src/skill-scripts/**"
+    "src/skill-scripts/**",
+    "src/web/**"
   ],
   "ts-node": {
     "esm": false,

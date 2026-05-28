@@ -10,6 +10,7 @@
     "build": "tsc && npm run build:skills && npm run build:skill-prompts",
     "build:skills": "tsc --noEmit -p tsconfig.skill-scripts.json && node scripts/build-skills.cjs",
     "build:skill-prompts": "node scripts/build-skill-prompts.cjs",
+    "build:web": "vite build",
     "dev": "tsc --watch",
     "start": "node dist/cli.js",
     "test": "jest",

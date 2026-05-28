@@ -23,6 +23,22 @@ The skills give your assistant the planning, decomposition, and execution workfl
 
 The CLI's `init` emits the shared workspace plus harness-specific agents (e.g., `.claude/agents/` for Claude). Other harnesses rely entirely on the installed skills.
 
+## 🌐 Serve the Workspace
+
+Run a local web app over an initialized `.ai/strikethroo/` workspace:
+
+```bash
+npx strikethroo serve
+```
+
+`serve` boots a dependency-light Node server that hosts the prebuilt single-page app as static files, exposes a read-only JSON API over the workspace model, and streams a coalesced `changed` event over Server-Sent Events whenever the workspace mutates on disk. Run it from inside an initialized workspace; if none is found it prints guidance to run `init` and exits without binding.
+
+Flags:
+
+- `--port <n>` — port to bind (default `4317`).
+- `--no-open` — do not open the browser on start.
+- `--workspace <path>` — override workspace root discovery.
+
 ## ✨ Key Benefits
 
 - **🔧 Fully Customizable**: Tailor hooks, templates, and workflows to your project's specific needs

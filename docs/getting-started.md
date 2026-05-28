@@ -148,13 +148,13 @@ You should see: `plans/`, `archive/`, `config/`
 ls -la .claude/agents/
 ```
 
-### 3. Test Status Command
+### 3. Inspect Plans on Disk
+
+Plans live under `.ai/strikethroo/plans/` and completed plans are moved to `.ai/strikethroo/archive/` automatically by the `st-execute-blueprint` skill. Until you create your first plan, `plans/` is empty:
 
 ```bash
-npx strikethroo status
+ls -la .ai/strikethroo/plans/
 ```
-
-Should show: "No active plans found" (until you create your first plan)
 
 ### 4. Confirm Skills Are Installed
 

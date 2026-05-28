@@ -76,15 +76,7 @@ The `st-execute-blueprint` skill runs tasks grouped into phases. Within each pha
 
 If you skipped step 3, the skill auto-generates tasks and the blueprint before starting.
 
-### 6. Monitor Progress
-
-```bash
-npx strikethroo status
-```
-
-Shows active plans, task completion counts, progress bars, and warnings for incomplete archived plans.
-
-![Dashboard](img/dashboard.svg)
+The `st-execute-blueprint` skill drives progress end to end: it updates task statuses, archives the completed plan automatically, and you can inspect plan and task files directly under `.ai/strikethroo/plans/` (or `.ai/strikethroo/archive/` once complete) at any point.
 
 ## File Structure
 
@@ -105,14 +97,6 @@ Shows active plans, task completion counts, progress bars, and warnings for inco
 └── .init-metadata.json               # Tracks file hashes and schema version
 ```
 
-## Plan Management
-
-```bash
-npx strikethroo plan show 41    # View plan details and progress
-npx strikethroo plan archive 41 # Move completed plan to archive/
-npx strikethroo plan delete 41  # Permanently remove plan and tasks
-```
-
 ## Alternative: Automated Workflow
 
 For clear requirements with minimal ambiguity, the `st-full-workflow` skill chains all three steps end-to-end. Ask your assistant to run the full Strikethroo workflow and it handles plan creation, task generation, and execution in one pass.
@@ -129,7 +113,7 @@ Edit plan and task files directly between steps. Re-run `st-create-plan` with ti
 
 ### Multi-Session Projects
 
-Plans and task statuses persist on disk. Resume any time: check `npx strikethroo status`, then ask the assistant to continue executing the blueprint -- it picks up where it left off. Commit after each phase so context survives across sessions.
+Plans and task statuses persist on disk under `.ai/strikethroo/plans/` (completed plans are archived automatically to `.ai/strikethroo/archive/` by `st-execute-blueprint`). Resume any time: inspect the plan and task files to see where things stand, then ask the assistant to continue executing the blueprint -- it picks up where it left off. Commit after each phase so context survives across sessions.
 
 ### Parallel Development
 

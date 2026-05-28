@@ -3,8 +3,6 @@
 [![npm version](https://img.shields.io/npm/v/strikethroo.svg)](https://www.npmjs.com/package/strikethroo)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
-![Dashboard](./docs/img/dashboard.svg)
-
 **Strikethroo: extensible AI-powered plan and task management with customizable workflows and structured development processes.**
 
 Transform complex AI prompts into organized, executable workflows through customizable hooks, templates, and progressive refinement. Works seamlessly within your existing AI subscriptions for Claude Code, Gemini CLI, and Open Code.

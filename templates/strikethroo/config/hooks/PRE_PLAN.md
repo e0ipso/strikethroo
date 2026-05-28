@@ -38,5 +38,5 @@
 - Never generate a partial or assumed plan without adequate context
 - Prioritize accuracy over speed
 - Consider both technical and non-technical aspects
-- Use the plan template in .ai/task-manager/config/templates/PLAN_TEMPLATE.md
+- Use the plan template in .ai/strikethroo/config/templates/PLAN_TEMPLATE.md
 - DO NOT create or list any tasks or phases during the plan creation. This will be done in a later step. Stick to writing the PRD (Project Requirements Document).

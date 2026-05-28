@@ -1,13 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { findTaskManagerRoot } from './shared/root';
+import { findStrikethrooRoot } from './shared/root';
 import { getAllPlans } from './shared/plan-scan';
 import { resolvePlan } from './shared/plan-resolve';
 
 interface ValidationResult {
   planFile: string;
   planDir: string;
-  taskManagerRoot: string;
+  strikethrooRoot: string;
   planId: number;
   taskCount: number;
   blueprintExists: 'yes' | 'no';
@@ -18,7 +18,7 @@ const VALID_FIELDS: ReadonlyArray<keyof ValidationResult> = [
   'planDir',
   'taskCount',
   'blueprintExists',
-  'taskManagerRoot',
+  'strikethrooRoot',
   'planId',
 ];
 
@@ -59,7 +59,7 @@ const usage = (): void => {
 };
 
 const listAvailablePlans = (startPath: string): string[] => {
-  const tmRoot = findTaskManagerRoot(startPath);
+  const tmRoot = findStrikethrooRoot(startPath);
   if (!tmRoot) return [];
   const plans = getAllPlans(tmRoot);
   return plans
@@ -105,7 +105,7 @@ const main = (): void => {
   const result: ValidationResult = {
     planFile: resolved.planFile,
     planDir: resolved.planDir,
-    taskManagerRoot: resolved.taskManagerRoot,
+    strikethrooRoot: resolved.strikethrooRoot,
     planId: resolved.planId,
     taskCount: countTasks(resolved.planDir),
     blueprintExists: checkBlueprintExists(resolved.planFile) ? 'yes' : 'no',

@@ -82,7 +82,7 @@ describe('Conflict Detection Integration Tests', () => {
       expect(result.success).toBe(true);
 
       // Check metadata file exists
-      const metadataPath = path.join(testDir, '.ai/task-manager/.init-metadata.json');
+      const metadataPath = path.join(testDir, '.ai/strikethroo/.init-metadata.json');
       const metadata = await loadMetadata(metadataPath);
 
       expect(metadata).not.toBeNull();
@@ -101,11 +101,11 @@ describe('Conflict Detection Integration Tests', () => {
 
       expect(result.success).toBe(true);
 
-      const metadataPath = path.join(testDir, '.ai/task-manager/.init-metadata.json');
+      const metadataPath = path.join(testDir, '.ai/strikethroo/.init-metadata.json');
       const metadata = await loadMetadata(metadataPath);
 
       // Check that config files are tracked
-      expect(metadata?.files['config/TASK_MANAGER.md']).toBeDefined();
+      expect(metadata?.files['config/STRIKETHROO.md']).toBeDefined();
       expect(metadata?.files['config/hooks/POST_PHASE.md']).toBeDefined();
     });
 
@@ -119,7 +119,7 @@ describe('Conflict Detection Integration Tests', () => {
         destinationDirectory: testDir,
       });
 
-      const metadataPath = path.join(testDir, '.ai/task-manager/.init-metadata.json');
+      const metadataPath = path.join(testDir, '.ai/strikethroo/.init-metadata.json');
       const oldMetadata = await loadMetadata(metadataPath);
       const oldTimestamp = oldMetadata?.timestamp;
 
@@ -150,14 +150,14 @@ describe('Conflict Detection Integration Tests', () => {
       });
 
       // Modify a config file
-      const configFile = path.join(testDir, '.ai/task-manager/config/TASK_MANAGER.md');
+      const configFile = path.join(testDir, '.ai/strikethroo/config/STRIKETHROO.md');
       const originalContent = await fs.readFile(configFile, 'utf-8');
       await fs.writeFile(configFile, originalContent + '\n# User modification\n', 'utf-8');
 
       // Get metadata to verify hash changed
-      const metadataPath = path.join(testDir, '.ai/task-manager/.init-metadata.json');
+      const metadataPath = path.join(testDir, '.ai/strikethroo/.init-metadata.json');
       const metadata = await loadMetadata(metadataPath);
-      const originalHash = metadata?.files['config/TASK_MANAGER.md'];
+      const originalHash = metadata?.files['config/STRIKETHROO.md'];
       const currentHash = await calculateFileHash(configFile);
 
       expect(currentHash).not.toBe(originalHash);
@@ -173,7 +173,7 @@ describe('Conflict Detection Integration Tests', () => {
       });
 
       // Modify a config file
-      const configFile = path.join(testDir, '.ai/task-manager/config/TASK_MANAGER.md');
+      const configFile = path.join(testDir, '.ai/strikethroo/config/STRIKETHROO.md');
       const originalContent = await fs.readFile(configFile, 'utf-8');
       await fs.writeFile(configFile, originalContent + '\n# User modification\n', 'utf-8');
 
@@ -199,7 +199,7 @@ describe('Conflict Detection Integration Tests', () => {
       });
 
       // Modify a config file
-      const configFile = path.join(testDir, '.ai/task-manager/config/TASK_MANAGER.md');
+      const configFile = path.join(testDir, '.ai/strikethroo/config/STRIKETHROO.md');
       const originalContent = await fs.readFile(configFile, 'utf-8');
       await fs.writeFile(configFile, originalContent + '\n# User modification\n', 'utf-8');
 
@@ -211,11 +211,11 @@ describe('Conflict Detection Integration Tests', () => {
       });
 
       // Check metadata reflects the overwritten file
-      const metadataPath = path.join(testDir, '.ai/task-manager/.init-metadata.json');
+      const metadataPath = path.join(testDir, '.ai/strikethroo/.init-metadata.json');
       const metadata = await loadMetadata(metadataPath);
       const currentHash = await calculateFileHash(configFile);
 
-      expect(metadata?.files['config/TASK_MANAGER.md']).toBe(currentHash);
+      expect(metadata?.files['config/STRIKETHROO.md']).toBe(currentHash);
     });
   });
 
@@ -228,7 +228,7 @@ describe('Conflict Detection Integration Tests', () => {
       });
 
       // Corrupt metadata
-      const metadataPath = path.join(testDir, '.ai/task-manager/.init-metadata.json');
+      const metadataPath = path.join(testDir, '.ai/strikethroo/.init-metadata.json');
       await fs.writeFile(metadataPath, '{ invalid json }', 'utf-8');
 
       // Second init should succeed (treating as first-time)
@@ -253,7 +253,7 @@ describe('Conflict Detection Integration Tests', () => {
       });
 
       // Delete metadata
-      const metadataPath = path.join(testDir, '.ai/task-manager/.init-metadata.json');
+      const metadataPath = path.join(testDir, '.ai/strikethroo/.init-metadata.json');
       await fs.remove(metadataPath);
 
       // Second init should succeed (treating as first-time)
@@ -280,7 +280,7 @@ describe('Conflict Detection Integration Tests', () => {
       expect(result.success).toBe(true);
 
       // Check metadata file exists
-      const metadataPath = path.join(testDir, '.ai/task-manager/.init-metadata.json');
+      const metadataPath = path.join(testDir, '.ai/strikethroo/.init-metadata.json');
       const metadata = await loadMetadata(metadataPath);
 
       expect(metadata).not.toBeNull();
@@ -298,7 +298,7 @@ describe('Conflict Detection Integration Tests', () => {
       expect(result.success).toBe(true);
 
       // Even if config is empty, metadata should be created
-      const metadataPath = path.join(testDir, '.ai/task-manager/.init-metadata.json');
+      const metadataPath = path.join(testDir, '.ai/strikethroo/.init-metadata.json');
       const metadata = await loadMetadata(metadataPath);
       expect(metadata).not.toBeNull();
     });
@@ -312,7 +312,7 @@ describe('Conflict Detection Integration Tests', () => {
       expect(result.success).toBe(true);
 
       // Create a deeply nested file in config
-      const deepPath = path.join(testDir, '.ai/task-manager/config/deeply/nested/path/to/file.md');
+      const deepPath = path.join(testDir, '.ai/strikethroo/config/deeply/nested/path/to/file.md');
       await fs.ensureDir(path.dirname(deepPath));
       await fs.writeFile(deepPath, '# Test file', 'utf-8');
 

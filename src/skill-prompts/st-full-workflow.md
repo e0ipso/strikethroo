@@ -1,7 +1,7 @@
 ---
-name: task-full-workflow
-description: "Execute the complete AI Task Manager workflow from plan creation through blueprint execution for this repository. Use when the user asks to run the full end-to-end workflow for a work order — discovers the local .ai/task-manager root, creates a plan, generates atomic tasks, and executes the blueprint, all in a single uninterrupted sequence. Do not use for individual plan creation, task generation, or blueprint execution; use the dedicated skills for those."
-target: task-full-workflow
+name: st-full-workflow
+description: "Execute the complete Strikethroo workflow from plan creation through blueprint execution for this repository. Use when the user asks to run the full end-to-end workflow for a work order — discovers the local .ai/strikethroo root, creates a plan, generates atomic tasks, and executes the blueprint, all in a single uninterrupted sequence. Do not use for individual plan creation, task generation, or blueprint execution; use the dedicated skills for those."
+target: st-full-workflow
 vars:
   action_verb_phrase: "execute the full workflow"
   heading: "#####"
@@ -11,9 +11,9 @@ vars:
   archive_step: "8"
 ---
 
-# task-full-workflow
+# st-full-workflow
 
-Drive the complete end-to-end AI Task Manager workflow from initial plan creation through final blueprint execution and archival. The skill is assistant-agnostic and self-contained: every script it invokes lives under this skill's `scripts/` directory and is referenced by relative path.
+Drive the complete end-to-end Strikethroo workflow from initial plan creation through final blueprint execution and archival. The skill is assistant-agnostic and self-contained: every script it invokes lives under this skill's `scripts/` directory and is referenced by relative path.
 
 ## Critical Rule
 
@@ -48,13 +48,13 @@ These indicators are purely informational. Do not pause or wait for user input w
 
 **Progress**: `⬛⬜⬜ 33% - Phase 1/3: Starting Plan Creation`
 
-#### 1. Locate the task-manager root
+#### 1. Locate the strikethroo root
 
 {{include sections/root-discovery.md}}
 
 #### 2. Load project context
 
-Read `<root>/config/TASK_MANAGER.md` for directory structure conventions. Read `<root>/config/hooks/PRE_PLAN.md` and execute its instructions before proceeding. Read `<root>/config/templates/PLAN_TEMPLATE.md` so the plan conforms to the project's template.
+Read `<root>/config/STRIKETHROO.md` for directory structure conventions. Read `<root>/config/hooks/PRE_PLAN.md` and execute its instructions before proceeding. Read `<root>/config/templates/PLAN_TEMPLATE.md` so the plan conforms to the project's template.
 
 #### 3. Analyze the work order
 
@@ -126,7 +126,7 @@ Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` to obtain the absol
 
 Read these files in order:
 
-- `<root>/config/TASK_MANAGER.md` — directory conventions.
+- `<root>/config/STRIKETHROO.md` — directory conventions.
 - The plan body at the path returned above — this is the contract for what tasks must exist.
 - `<root>/config/templates/TASK_TEMPLATE.md` — every task file must conform to this template.
 
@@ -224,7 +224,7 @@ Run `scripts/create-feature-branch.cjs <plan-id>`. The script creates a branch n
 
 Read these files in order:
 
-- `<root>/config/TASK_MANAGER.md` — directory conventions and project context.
+- `<root>/config/STRIKETHROO.md` — directory conventions and project context.
 - The plan document.
 - The plan's Execution Blueprint section — this defines the phase groupings and task dispatch order.
 
@@ -240,7 +240,7 @@ Read these files in order:
 
 ## Failure Modes
 
-- **No task-manager root found.** Stop and instruct the user to initialize the project. Do not write any files or execute any tasks.
+- **No strikethroo root found.** Stop and instruct the user to initialize the project. Do not write any files or execute any tasks.
 - **User refuses to answer a clarifying question that blocks planning in Phase 1.** Report `needs-clarification` and stop. Do not produce a partial plan.
 - **Plan ID script fails.** Re-check the resolved root and re-run. If it continues to fail, surface stderr to the user and stop — do not guess an ID.
 - **Plan directory already exists for the allocated ID in Phase 1.** Re-run the next-plan-id script and retry once. If the conflict persists, stop and report.

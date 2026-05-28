@@ -1,11 +1,14 @@
 ---
-name: task-create-plan
-description: Create a new AI Task Manager plan for this repository. Use when the user asks to draft, plan, or scope a new task-manager plan — discovers the local .ai/task-manager root, runs the project's plan hooks, gathers clarifications, allocates the next plan ID, and writes a Markdown plan conforming to PLAN_TEMPLATE.md. Do not use for generic brainstorming or work outside the AI Task Manager.
+name: st-create-plan
+description: "Create a new Strikethroo plan for this repository. Use when the user asks to draft, plan, or scope a new strikethroo plan — discovers the local .ai/strikethroo root, runs the project's plan hooks, gathers clarifications, allocates the next plan ID, and writes a Markdown plan conforming to PLAN_TEMPLATE.md. Do not use for generic brainstorming or work outside Strikethroo."
+target: st-create-plan
+vars:
+  action_verb_phrase: "create a plan"
 ---
 
-# task-create-plan
+# st-create-plan
 
-Drive the end-to-end creation of a new AI Task Manager plan for the user's
+Drive the end-to-end creation of a new Strikethroo plan for the user's
 repository. The skill is assistant-agnostic and self-contained: every script
 it invokes lives under this skill's `scripts/` directory and is referenced
 by relative path.
@@ -18,22 +21,13 @@ user instead.
 
 ## Operating Procedure
 
-### 1. Locate the task-manager root
+### 1. Locate the strikethroo root
 
-Run `scripts/find-task-manager-root.cjs` from the user's working directory.
-The script walks up looking for `.ai/task-manager/.init-metadata.json` and
-prints the absolute path of the resolved root on success.
-
-If the script exits non-zero, the working directory is not inside an
-initialized task-manager workspace. Stop and ask the user to run the project
-initializer (e.g. `npx @e0ipso/ai-task-manager init`) before continuing. Do
-not attempt to create a plan outside of a valid root.
-
-For every subsequent step, treat the path printed by this script as `<root>`.
+{{include sections/root-discovery.md}}
 
 ### 2. Load project context
 
-Read `<root>/config/TASK_MANAGER.md` for the directory structure conventions
+Read `<root>/config/STRIKETHROO.md` for the directory structure conventions
 this project uses. Read `<root>/config/hooks/PRE_PLAN.md` and execute the
 instructions it contains before proceeding. Read
 `<root>/config/templates/PLAN_TEMPLATE.md` so the plan you emit conforms
@@ -109,7 +103,7 @@ The summary is consumed by downstream automation; keep the format exact.
 
 ## Failure Modes
 
-- **No task-manager root found.** Stop, instruct the user to initialize the
+- **No strikethroo root found.** Stop, instruct the user to initialize the
   project. Do not write any files.
 - **User refuses to answer a clarifying question that blocks planning.**
   Report `needs-clarification` and stop. Do not produce a plan.

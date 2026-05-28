@@ -1,11 +1,14 @@
 ---
-name: task-execute-task
-description: Execute a single task from an AI Task Manager plan. Use when the user asks to run, implement, or carry out one specific task ID within a plan — discovers the local .ai/task-manager root, resolves the plan, validates the task file, checks status and dependencies, runs pre-execution hooks, deploys an agent, updates status, documents noteworthy events, and emits a structured Task Execution Result. Do not use for generic development work outside the AI Task Manager.
+name: st-execute-task
+description: "Execute a single task from a Strikethroo plan. Use when the user asks to run, implement, or carry out one specific task ID within a plan — discovers the local .ai/strikethroo root, resolves the plan, validates the task file, checks status and dependencies, runs pre-execution hooks, deploys an agent, updates status, documents noteworthy events, and emits a structured Task Execution Result. Do not use for generic development work outside Strikethroo."
+target: st-execute-task
+vars:
+  action_verb_phrase: "execute a task"
 ---
 
-# task-execute-task
+# st-execute-task
 
-Drive the execution of a single task within an existing AI Task Manager plan.
+Drive the execution of a single task within an existing Strikethroo plan.
 The skill is assistant-agnostic and self-contained: every script it invokes
 lives under this skill's `scripts/` directory and is referenced by relative
 path.
@@ -26,7 +29,7 @@ clarifying questions — prompt the user instead.
 
 ## Failure Modes
 
-- **No task-manager root found.** Stop and instruct the user to initialize the
+- **No strikethroo root found.** Stop and instruct the user to initialize the
   project. Do not execute the task.
 - **Plan ID does not resolve.** Stop and surface the script's stderr to the
   user. Do not guess a different ID.
@@ -46,33 +49,13 @@ clarifying questions — prompt the user instead.
 
 ## Operating Procedure
 
-### 1. Locate the task-manager root
+### 1. Locate the strikethroo root
 
-Run `scripts/find-task-manager-root.cjs` from the user's working directory.
-The script walks up looking for `.ai/task-manager/.init-metadata.json` and
-prints the absolute path of the resolved root on success.
-
-If the script exits non-zero, the working directory is not inside an
-initialized task-manager workspace. Stop and ask the user to run the project
-initializer (e.g. `npx @e0ipso/ai-task-manager init`) before continuing. Do
-not attempt to execute a task outside of a valid root.
-
-For every subsequent step, treat the path printed by this script as `<root>`.
+{{include sections/root-discovery.md}}
 
 ### 2. Resolve the plan
 
-Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` to obtain the
-absolute path of the plan file. The same script also accepts these field
-names (single-field output mode) and exposes them on demand:
-
-- `planDir` — absolute path of the plan directory
-- `taskCount` — number of existing task files in that plan's `tasks/`
-- `blueprintExists` — `yes` or `no`
-- `taskManagerRoot` — absolute path of `<root>`
-- `planId` — the resolved numeric plan ID
-
-If the script exits non-zero, stop and ask the user to confirm the plan ID.
-Do not guess a different ID.
+{{include sections/plan-resolution.md}}
 
 Treat the plan directory path returned by this script as `<plan-dir>`.
 

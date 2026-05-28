@@ -1,7 +1,7 @@
 ---
-name: task-execute-blueprint
-description: "Execute an AI Task Manager plan blueprint for this repository. Use when the user asks to run, implement, or carry out a specific plan ID — discovers the local .ai/task-manager root, resolves the plan, validates or auto-generates tasks and the execution blueprint, optionally creates a feature branch, runs phases with lifecycle hooks, enforces validation gates, appends an execution summary, and archives the completed plan. Do not use for generic development work outside the AI Task Manager."
-target: task-execute-blueprint
+name: st-execute-blueprint
+description: "Execute a Strikethroo plan blueprint for this repository. Use when the user asks to run, implement, or carry out a specific plan ID — discovers the local .ai/strikethroo root, resolves the plan, validates or auto-generates tasks and the execution blueprint, optionally creates a feature branch, runs phases with lifecycle hooks, enforces validation gates, appends an execution summary, and archives the completed plan. Do not use for generic development work outside Strikethroo."
+target: st-execute-blueprint
 vars:
   action_verb_phrase: "execute a plan"
   heading: "####"
@@ -11,9 +11,9 @@ vars:
   archive_step: "10"
 ---
 
-# task-execute-blueprint
+# st-execute-blueprint
 
-Drive the end-to-end execution of an existing AI Task Manager plan blueprint. The skill is assistant-agnostic and self-contained: every script it invokes lives under this skill's `scripts/` directory and is referenced by relative path.
+Drive the end-to-end execution of an existing Strikethroo plan blueprint. The skill is assistant-agnostic and self-contained: every script it invokes lives under this skill's `scripts/` directory and is referenced by relative path.
 
 ## Critical Rules
 
@@ -28,7 +28,7 @@ The user supplies the numeric plan ID conversationally. Treat it as the only aut
 
 ## Operating Procedure
 
-### 1. Locate the task-manager root
+### 1. Locate the strikethroo root
 
 {{include sections/root-discovery.md}}
 
@@ -45,7 +45,7 @@ Inspect the `taskCount` and `blueprintExists` values returned by the validation 
 If `taskCount` is 0 or `blueprintExists` is `no`:
 
 - Notify the user: "Tasks or execution blueprint not found. Generating tasks automatically..."
-- Follow the `task-generate-tasks` skill for this plan ID. Execute its operating procedure in full, including running `POST_TASK_GENERATION_ALL.md` to produce the execution blueprint.
+- Follow the `st-generate-tasks` skill for this plan ID. Execute its operating procedure in full, including running `POST_TASK_GENERATION_ALL.md` to produce the execution blueprint.
 - After generation completes, re-run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` (and the other fields) to refresh the resolved paths and counts.
 
 If generation still leaves the plan without tasks or a blueprint, stop and report failure. Do not attempt execution without a valid blueprint.
@@ -58,7 +58,7 @@ Run `scripts/create-feature-branch.cjs <plan-id>`. The script creates a branch n
 
 Read these files, in order:
 
-- `<root>/config/TASK_MANAGER.md` — directory conventions and project context.
+- `<root>/config/STRIKETHROO.md` — directory conventions and project context.
 - The plan document at the path returned by step 2.
 - The plan's Execution Blueprint section — this defines the phase groupings and task dispatch order.
 
@@ -72,9 +72,9 @@ Read these files, in order:
 
 ## Failure Modes
 
-- **No task-manager root found.** Stop and instruct the user to initialize the project. Do not execute any tasks.
+- **No strikethroo root found.** Stop and instruct the user to initialize the project. Do not execute any tasks.
 - **Plan ID does not resolve.** Stop and surface the script's stderr to the user. Do not guess a different ID.
-- **Missing blueprint after auto-generation.** If the `task-generate-tasks` skill fails to produce tasks or a blueprint, stop and report failure. Do not attempt execution without a blueprint.
+- **Missing blueprint after auto-generation.** If the `st-generate-tasks` skill fails to produce tasks or a blueprint, stop and report failure. Do not attempt execution without a blueprint.
 - **Hook failure.** If `PRE_PHASE.md`, `POST_PHASE.md`, or `POST_EXECUTION.md` fails, halt execution. The plan remains in `plans/` for debugging and potential re-execution.
 - **Execution errors.** If a task fails, read `<root>/config/hooks/POST_ERROR_DETECTION.md`, document the error in Noteworthy Events, halt the phase, and request user direction before continuing.
 

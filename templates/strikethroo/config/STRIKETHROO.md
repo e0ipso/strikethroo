@@ -1,7 +1,7 @@
-# Task Manager General Information
+# Strikethroo General Information
 
 This document contains important information that is common to all the
-task-manager skills your AI assistant uses to plan, decompose, and execute work.
+Strikethroo skills your AI assistant uses to plan, decompose, and execute work.
 
 ## Types of Documents
 
@@ -23,17 +23,17 @@ task cannot be worked on (or completed) before some other task(s) are completed.
 
 To find a plan document from its ID use the following command (replace {planId} with the ID, like 06):
 ```shell
-find .ai/task-manager/{plans,archive} -name "plan-[0-9][0-9]*--*.md" -type f -exec grep -l "^id: \?{planId}$" {} \;
+find .ai/strikethroo/{plans,archive} -name "plan-[0-9][0-9]*--*.md" -type f -exec grep -l "^id: \?{planId}$" {} \;
 ```
 
 Plans, and tasks are stored as MarkDown files with a YAML front-matter. They are
-all filed under the `.ai/task-manager/` folder at the root of the repository.
+all filed under the `.ai/strikethroo/` folder at the root of the repository.
 
 Plans are organized as follows:
 
 ```
 .ai/
-  task-manager/
+  strikethroo/
     plans/           # Active plans (work in progress)
       01--authentication-provider/
         plan-01--authentication-provider.md
@@ -52,7 +52,7 @@ Plans are organized as follows:
           03--add-validation.md
 ```
 
-Note how in the `.ai/task-manager/plans/` folder we have a sub-folder per plan.
+Note how in the `.ai/strikethroo/plans/` folder we have a sub-folder per plan.
 Each sub-folder will contain the plan document and has a name following a naming
 pattern `[ID]--[plan-short-name]`. Where the ID is auto-incremental. The plan
 document has a name following the pattern `plan-[ID]--[plan-short-name].md`.
@@ -66,7 +66,7 @@ Plans follow a lifecycle that maintains workspace organization:
 
 1. **Active Plans**: When created, plans are placed in the `plans/` directory where they remain while being worked on.
 
-2. **Completed Plans**: Upon successful execution of a blueprint (via the `task-execute-blueprint` skill), the entire plan directory is automatically moved from `plans/` to `archive/`.
+2. **Completed Plans**: Upon successful execution of a blueprint (via the `st-execute-blueprint` skill), the entire plan directory is automatically moved from `plans/` to `archive/`.
 
 3. **Archive Directory**: The `archive/` directory serves as permanent storage for completed work. This separation keeps the active workspace clean while preserving completed plans for reference.
 

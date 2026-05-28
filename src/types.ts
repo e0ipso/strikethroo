@@ -2,7 +2,7 @@
  * TypeScript Type Definitions
  *
  * This file contains all TypeScript interfaces, types, and enums
- * used throughout the AI Task Manager CLI application
+ * used throughout the Strikethroo CLI application
  */
 
 /**
@@ -243,7 +243,7 @@ export interface InitMetadata {
    */
   version: string;
   /**
-   * Workspace schema version. Bumped only when .ai/task-manager/ shape changes incompatibly.
+   * Workspace schema version. Bumped only when .ai/strikethroo/ shape changes incompatibly.
    */
   workspaceSchemaVersion: number;
   /**
@@ -261,7 +261,7 @@ export interface InitMetadata {
  */
 export interface FileConflict {
   /**
-   * Relative path from .ai/task-manager/ directory
+   * Relative path from .ai/strikethroo/ directory
    */
   relativePath: string;
   /**

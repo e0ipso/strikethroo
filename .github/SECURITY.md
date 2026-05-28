@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines the security standards and procedures for the AI Task Manager CLI tool. Security is integrated into our CI/CD pipeline to ensure that vulnerabilities are detected and addressed promptly.
+This document outlines the security standards and procedures for the Strikethroo CLI tool. Security is integrated into our CI/CD pipeline to ensure that vulnerabilities are detected and addressed promptly.
 
 ## Automated Security Scanning
 

@@ -1,10 +1,10 @@
 {
-  "name": "@e0ipso/ai-task-manager",
+  "name": "strikethroo",
   "version": "2.2.0",
   "description": "Task management for AI coding assistants",
   "main": "dist/index.js",
   "bin": {
-    "ai-task-manager": "dist/cli.js"
+    "strikethroo": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc && npm run build:skills && npm run build:skill-prompts",

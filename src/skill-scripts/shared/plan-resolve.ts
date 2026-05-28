@@ -1,21 +1,21 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { findTaskManagerRoot } from './root';
+import { findStrikethrooRoot } from './root';
 import { getAllPlans } from './plan-scan';
 import { extractPlanId } from './frontmatter';
 
 export interface ResolvedPlan {
   planFile: string;
   planDir: string;
-  taskManagerRoot: string;
+  strikethrooRoot: string;
   planId: number;
 }
 
-const isValidRootDir = (taskManagerPath: string): boolean => {
+const isValidRootDir = (strikethrooPath: string): boolean => {
   try {
-    if (!fs.existsSync(taskManagerPath)) return false;
-    if (!fs.lstatSync(taskManagerPath).isDirectory()) return false;
-    const metadataPath = path.join(taskManagerPath, '.init-metadata.json');
+    if (!fs.existsSync(strikethrooPath)) return false;
+    if (!fs.lstatSync(strikethrooPath).isDirectory()) return false;
+    const metadataPath = path.join(strikethrooPath, '.init-metadata.json');
     if (!fs.existsSync(metadataPath)) return false;
     const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
     return metadata && typeof metadata === 'object' && 'version' in metadata;
@@ -31,7 +31,7 @@ const checkStandardRootShortcut = (filePath: string): string | null => {
 
   const parentBase = path.basename(parentDir);
   if (parentBase !== 'plans' && parentBase !== 'archive') return null;
-  if (path.basename(possibleRoot) !== 'task-manager') return null;
+  if (path.basename(possibleRoot) !== 'strikethroo') return null;
   const dotAiDir = path.dirname(possibleRoot);
   if (path.basename(dotAiDir) !== '.ai') return null;
 
@@ -49,13 +49,13 @@ const resolveByPath = (absolutePath: string): ResolvedPlan | null => {
   if (planId === null) return null;
 
   const tmRoot =
-    checkStandardRootShortcut(absolutePath) || findTaskManagerRoot(path.dirname(absolutePath));
+    checkStandardRootShortcut(absolutePath) || findStrikethrooRoot(path.dirname(absolutePath));
   if (!tmRoot) return null;
 
   return {
     planFile: absolutePath,
     planDir: path.dirname(absolutePath),
-    taskManagerRoot: tmRoot,
+    strikethrooRoot: tmRoot,
     planId,
   };
 };
@@ -65,7 +65,7 @@ const resolveByIdInAncestry = (
   startPath: string,
   searched: Set<string> = new Set()
 ): ResolvedPlan | null => {
-  const tmRoot = findTaskManagerRoot(startPath);
+  const tmRoot = findStrikethrooRoot(startPath);
   if (!tmRoot) return null;
 
   const normalized = path.normalize(tmRoot);
@@ -78,7 +78,7 @@ const resolveByIdInAncestry = (
     return {
       planFile: match.file,
       planDir: match.dir,
-      taskManagerRoot: tmRoot,
+      strikethrooRoot: tmRoot,
       planId,
     };
   }

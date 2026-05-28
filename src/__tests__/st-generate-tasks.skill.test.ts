@@ -1,5 +1,5 @@
 /**
- * Integration tests for the task-generate-tasks skill:
+ * Integration tests for the st-generate-tasks skill:
  *   1. Direct TypeScript helper tests (resolvePlan, computeNextTaskId).
  *   2. Bundle smoke checks of the three .cjs files shipped with the skill.
  */
@@ -18,7 +18,7 @@ const SKILL_DIR = path.join(
   'templates',
   'harness',
   'skills',
-  'task-generate-tasks'
+  'st-generate-tasks'
 );
 const writeFile = (filePath: string, contents: string): void => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -32,7 +32,7 @@ const taskFrontmatter = (id: number): string =>
   `---\nid: ${id}\ngroup: "g"\ndependencies: []\nstatus: "pending"\ncreated: 2026-05-14\nskills:\n  - typescript\n---\nbody\n`;
 
 const buildFixtureRoot = (root: string): string => {
-  const tm = path.join(root, '.ai', 'task-manager');
+  const tm = path.join(root, '.ai', 'strikethroo');
   fs.mkdirSync(tm, { recursive: true });
   fs.writeFileSync(
     path.join(tm, '.init-metadata.json'),
@@ -63,7 +63,7 @@ const buildPlanWithTasks = (
   return { planDir, planFile };
 };
 
-describe('task-generate-tasks helpers', () => {
+describe('st-generate-tasks helpers', () => {
   let tempDir: string;
 
   beforeEach(() => {
@@ -100,7 +100,7 @@ describe('task-generate-tasks helpers', () => {
     const resolved = resolvePlan(7, inner);
     expect(resolved).not.toBeNull();
     expect(resolved!.planId).toBe(7);
-    expect(path.resolve(resolved!.taskManagerRoot)).toBe(path.resolve(tm));
+    expect(path.resolve(resolved!.strikethrooRoot)).toBe(path.resolve(tm));
   });
 
   test('resolvePlan resolves an archived plan by ID', () => {
@@ -128,7 +128,7 @@ describe('task-generate-tasks helpers', () => {
   });
 });
 
-describe('task-generate-tasks bundle smoke', () => {
+describe('st-generate-tasks bundle smoke', () => {
   let tempDir: string;
   let fixtureSkillDir: string;
   let tm: string;
@@ -145,7 +145,7 @@ describe('task-generate-tasks bundle smoke', () => {
     tm = buildFixtureRoot(tempDir);
     buildPlanWithTasks(tm, 12, false, [1, 2, 3]);
 
-    fixtureSkillDir = path.join(tempDir, 'task-generate-tasks');
+    fixtureSkillDir = path.join(tempDir, 'st-generate-tasks');
     fs.cpSync(SKILL_DIR, fixtureSkillDir, { recursive: true });
   });
 
@@ -153,11 +153,11 @@ describe('task-generate-tasks bundle smoke', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test('find-task-manager-root.cjs resolves the fixture root', () => {
+  test('find-strikethroo-root.cjs resolves the fixture root', () => {
     const scriptPath = path.join(
       fixtureSkillDir,
       'scripts',
-      'find-task-manager-root.cjs'
+      'find-strikethroo-root.cjs'
     );
     const inner = path.join(tm, 'plans', '12--fixture');
     const stdout = execFileSync('node', [scriptPath], {

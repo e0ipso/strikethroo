@@ -33,8 +33,8 @@ import { deletePlan } from '../plan';
 
 describe('Plan Command Integration Tests', () => {
   const testDir = path.join(__dirname, 'test-plans');
-  const plansDir = path.join(testDir, '.ai/task-manager/plans');
-  const archiveDir = path.join(testDir, '.ai/task-manager/archive');
+  const plansDir = path.join(testDir, '.ai/strikethroo/plans');
+  const archiveDir = path.join(testDir, '.ai/strikethroo/archive');
   const originalCwd = process.cwd();
 
   beforeEach(async () => {

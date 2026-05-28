@@ -73,8 +73,8 @@ Eliminate these anti-patterns:
 1. Execute PRE_PLAN.md hook if exists
 2. Analyze user input and search codebase
 3. Ask clarification questions if needed (STOP until answered)
-4. Generate Plan ID: scan `.ai/task-manager/plans/` and `.ai/task-manager/archive/` for existing plan directories, extract the highest numeric `id` from their YAML frontmatter, and add 1. If no plans exist, use ID 1.
-5. Create plan at `.ai/task-manager/plans/[ID]--[name]/plan-[ID]--[name].md`
+4. Generate Plan ID: scan `.ai/strikethroo/plans/` and `.ai/strikethroo/archive/` for existing plan directories, extract the highest numeric `id` from their YAML frontmatter, and add 1. If no plans exist, use ID 1.
+5. Create plan at `.ai/strikethroo/plans/[ID]--[name]/plan-[ID]--[name].md`
 6. Execute POST_PLAN.md hook if exists
 7. Output:
    ```

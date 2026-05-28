@@ -1,11 +1,11 @@
-# 🤖 AI Task Manager
+# 🤖 Strikethroo
 
 [![npm version](https://img.shields.io/npm/v/@e0ipso/ai-task-manager.svg)](https://www.npmjs.com/package/@e0ipso/ai-task-manager)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 ![Dashboard](./docs/img/dashboard.svg)
 
-**Extensible AI-powered task management with customizable workflows and structured development processes.**
+**Strikethroo: extensible AI-powered plan and task management with customizable workflows and structured development processes.**
 
 Transform complex AI prompts into organized, executable workflows through customizable hooks, templates, and progressive refinement. Works seamlessly within your existing AI subscriptions for Claude Code, Gemini CLI, and Open Code.
 
@@ -14,14 +14,16 @@ Transform complex AI prompts into organized, executable workflows through custom
 This project ships in two parts: the **skills** (installed by [vercel-labs/skills](https://github.com/vercel-labs/skills)) and the **workspace** (initialized by this CLI). Run both:
 
 ```bash
-# 1. Install the task skills for your assistant
-npx skills add e0ipso/ai-task-manager
+# 1. Install the Strikethroo skills for your assistant
+npx skills add e0ipso/strikethroo
 
-# 2. Initialize the .ai/task-manager/ workspace
-npx @e0ipso/ai-task-manager init --harnesses claude --destination-directory .
+# 2. Initialize the .ai/strikethroo/ workspace
+npx strikethroo init --harnesses claude --destination-directory .
 ```
 
-The skills give your assistant the planning, decomposition, and execution workflow; the CLI bootstraps `.ai/task-manager/` with hooks, templates, and the hash-tracked diff-on-conflict UX. Each step is independently re-runnable. See the [migration guide](https://mateuaguilo.com/ai-task-manager/migration.html) for upgrade flows from 1.x.
+Note: the GitHub repository slug remains `e0ipso/ai-task-manager` for this release; the rename is tracked separately.
+
+The skills give your assistant the planning, decomposition, and execution workflow; the CLI bootstraps `.ai/strikethroo/` with hooks, templates, and the hash-tracked diff-on-conflict UX. Each step is independently re-runnable. See the [migration guide](https://mateuaguilo.com/ai-task-manager/migration.html) for upgrade flows from 1.x.
 
 The CLI's `init` emits the shared workspace plus harness-specific agents (e.g., `.claude/agents/` for Claude). Other harnesses rely entirely on the installed skills.
 
@@ -52,16 +54,16 @@ Once the skills are installed, invoke the workflow by intent — the assistant a
 
 > "Run the full workflow to create a user authentication system."
 
-The `task-full-workflow` skill handles plan creation, task generation, and blueprint execution in a single pass.
+The `st-full-workflow` skill handles plan creation, task generation, and blueprint execution in a single pass.
 
 **Step-by-step (for manual review between phases):**
 
-1. **📝 Create a plan** → "Create a plan for a user authentication system" (`task-create-plan` skill)
-2. **🔍 Refine the plan** → "Refine plan 1" (`task-refine-plan` skill — useful when a second assistant should red-team the plan)
-3. **📋 Generate tasks** → "Generate tasks for plan 1" (`task-generate-tasks` skill)
-4. **🚀 Execute blueprint** → "Execute the blueprint for plan 1" (`task-execute-blueprint` skill)
-5. **📊 Monitor progress** → `npx @e0ipso/ai-task-manager status`
-6. **🗂️ Manage plans** → `npx @e0ipso/ai-task-manager plan show 1`
+1. **📝 Create a plan** → "Create a plan for a user authentication system" (`st-create-plan` skill)
+2. **🔍 Refine the plan** → "Refine plan 1" (`st-refine-plan` skill — useful when a second assistant should red-team the plan)
+3. **📋 Generate tasks** → "Generate tasks for plan 1" (`st-generate-tasks` skill)
+4. **🚀 Execute blueprint** → "Execute the blueprint for plan 1" (`st-execute-blueprint` skill)
+5. **📊 Monitor progress** → `npx strikethroo status`
+6. **🗂️ Manage plans** → `npx strikethroo plan show 1`
 
 ## 🤖 Supported Harnesses
 

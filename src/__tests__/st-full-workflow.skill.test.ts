@@ -1,5 +1,5 @@
 /**
- * Integration tests for the task-full-workflow skill bundles.
+ * Integration tests for the st-full-workflow skill bundles.
  * Covers the five generated .cjs scripts with fixture-based smoke tests.
  */
 
@@ -14,7 +14,7 @@ const SKILL_DIR = path.join(
   'templates',
   'harness',
   'skills',
-  'task-full-workflow'
+  'st-full-workflow'
 );
 const writeFile = (filePath: string, contents: string): void => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -22,7 +22,7 @@ const writeFile = (filePath: string, contents: string): void => {
 };
 
 const buildFixtureRoot = (root: string): string => {
-  const tm = path.join(root, '.ai', 'task-manager');
+  const tm = path.join(root, '.ai', 'strikethroo');
   fs.mkdirSync(tm, { recursive: true });
   fs.writeFileSync(
     path.join(tm, '.init-metadata.json'),
@@ -88,7 +88,7 @@ const buildPlanWithTasks = (
   return planFile;
 };
 
-describe('task-full-workflow bundle smoke', () => {
+describe('st-full-workflow bundle smoke', () => {
   let tempDir: string;
   let fixtureSkillDir: string;
 
@@ -102,7 +102,7 @@ describe('task-full-workflow bundle smoke', () => {
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tfw-bundle-'));
     buildFixtureRoot(tempDir);
-    fixtureSkillDir = path.join(tempDir, 'task-full-workflow');
+    fixtureSkillDir = path.join(tempDir, 'st-full-workflow');
     fs.cpSync(SKILL_DIR, fixtureSkillDir, { recursive: true });
   });
 
@@ -110,20 +110,20 @@ describe('task-full-workflow bundle smoke', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test('find-task-manager-root.cjs resolves fixture root from nested dir', () => {
+  test('find-strikethroo-root.cjs resolves fixture root from nested dir', () => {
     const script = path.join(
       fixtureSkillDir,
       'scripts',
-      'find-task-manager-root.cjs'
+      'find-strikethroo-root.cjs'
     );
-    const cwd = path.join(tempDir, '.ai', 'task-manager', 'plans', '01--dummy');
+    const cwd = path.join(tempDir, '.ai', 'strikethroo', 'plans', '01--dummy');
     fs.mkdirSync(cwd, { recursive: true });
     const stdout = execFileSync('node', [script], {
       cwd,
       encoding: 'utf8',
     }).trim();
     expect(path.resolve(stdout)).toBe(
-      path.resolve(path.join(tempDir, '.ai', 'task-manager'))
+      path.resolve(path.join(tempDir, '.ai', 'strikethroo'))
     );
   });
 
@@ -142,7 +142,7 @@ describe('task-full-workflow bundle smoke', () => {
   });
 
   test('validate-plan-blueprint.cjs returns plan file path', () => {
-    const tm = path.join(tempDir, '.ai', 'task-manager');
+    const tm = path.join(tempDir, '.ai', 'strikethroo');
     const planDir = path.join(tm, 'plans', '05--sample');
     fs.mkdirSync(planDir, { recursive: true });
     const planFile = path.join(planDir, 'plan-05--sample.md');

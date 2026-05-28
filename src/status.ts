@@ -34,7 +34,7 @@ export interface PlanMetadata {
  * Scan the plans directory and return all plan directories
  */
 async function scanPlansDirectory(baseDir: string): Promise<string[]> {
-  const plansDir = path.join(baseDir, '.ai/task-manager/plans');
+  const plansDir = path.join(baseDir, '.ai/strikethroo/plans');
   if (!(await fs.pathExists(plansDir))) return [];
 
   const entries = await fs.readdir(plansDir, { withFileTypes: true });
@@ -45,7 +45,7 @@ async function scanPlansDirectory(baseDir: string): Promise<string[]> {
  * Scan the archive directory and return all archived plan directories
  */
 async function scanArchiveDirectory(baseDir: string): Promise<string[]> {
-  const archiveDir = path.join(baseDir, '.ai/task-manager/archive');
+  const archiveDir = path.join(baseDir, '.ai/strikethroo/archive');
   if (!(await fs.pathExists(archiveDir))) return [];
 
   const entries = await fs.readdir(archiveDir, { withFileTypes: true });
@@ -414,7 +414,7 @@ function formatArchivedPlans(plans: PlanMetadata[]): string {
 export function formatDashboard(stats: DashboardStatistics, plans: PlanMetadata[]): string {
   let output = '';
 
-  output += chalk.bold.white('\nAI Task Manager Dashboard\n');
+  output += chalk.bold.white('\nStrikethroo Dashboard\n');
   output += chalk.gray(DIVIDER) + '\n';
 
   output += formatSummary(stats);

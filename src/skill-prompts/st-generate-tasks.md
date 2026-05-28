@@ -1,14 +1,14 @@
 ---
-name: task-generate-tasks
-description: "Generate atomic Markdown tasks for an existing AI Task Manager plan in this repository. Use when the user asks to decompose a specific plan ID into tasks — discovers the local .ai/task-manager root, resolves the plan, runs the project's task-generation hooks, allocates sequential task IDs, and writes one task file per atomic unit conforming to TASK_TEMPLATE.md. Do not use for generic project planning or work outside the AI Task Manager."
-target: task-generate-tasks
+name: st-generate-tasks
+description: "Generate atomic Markdown tasks for an existing Strikethroo plan in this repository. Use when the user asks to decompose a specific plan ID into tasks — discovers the local .ai/strikethroo root, resolves the plan, runs the project's task-generation hooks, allocates sequential task IDs, and writes one task file per atomic unit conforming to TASK_TEMPLATE.md. Do not use for generic project planning or work outside Strikethroo."
+target: st-generate-tasks
 vars:
   action_verb_phrase: "generate tasks"
 ---
 
-# task-generate-tasks
+# st-generate-tasks
 
-Drive the end-to-end decomposition of an existing AI Task Manager plan into
+Drive the end-to-end decomposition of an existing Strikethroo plan into
 atomic Markdown task files. The skill is assistant-agnostic and self-contained:
 every script it invokes lives under this skill's `scripts/` directory and is
 referenced by relative path.
@@ -21,7 +21,7 @@ prompt the user instead.
 
 ## Operating Procedure
 
-### 1. Locate the task-manager root
+### 1. Locate the strikethroo root
 
 {{include sections/root-discovery.md}}
 
@@ -33,7 +33,7 @@ prompt the user instead.
 
 Read these files, in order:
 
-- `<root>/config/TASK_MANAGER.md` — directory conventions for plans, tasks,
+- `<root>/config/STRIKETHROO.md` — directory conventions for plans, tasks,
   and the archive layout.
 - The plan body at the path returned by step 2 — this is the contract for
   what tasks must exist.
@@ -110,7 +110,7 @@ The summary is consumed by downstream automation; keep the format exact.
 
 ## Failure Modes
 
-- **No task-manager root found.** Stop, instruct the user to initialize the
+- **No strikethroo root found.** Stop, instruct the user to initialize the
   project. Do not write any files.
 - **Plan ID does not resolve.** Stop and surface the script's stderr to the
   user. Do not guess a different ID and do not write any files.

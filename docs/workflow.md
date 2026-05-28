@@ -7,7 +7,7 @@ description: "Step-by-step workflow with commands and visual guides"
 
 # Workflow Guide
 
-AI Task Manager breaks complex work into three steps -- planning, task generation, and execution -- each delivered as an Agent Skill that loads automatically when you describe what you need.
+Strikethroo breaks complex work into three steps -- planning, task generation, and execution -- each delivered as an Agent Skill that loads automatically when you describe what you need.
 
 ## The Workflow
 
@@ -35,13 +35,13 @@ Human review gates between steps are where you catch scope creep and wrong turns
 
 ### 1. Create a Plan
 
-Ask your assistant in plain language. The `task-create-plan` skill loads automatically.
+Ask your assistant in plain language. The `st-create-plan` skill loads automatically.
 
-> Use the task-manager workflow to plan user authentication with email/password and JWT tokens.
+> Use the Strikethroo workflow to plan user authentication with email/password and JWT tokens.
 
 The skill asks clarifying questions, then writes a plan document with requirements, technical approach, risks, and success criteria.
 
-**Output**: `.ai/task-manager/plans/01--user-authentication/plan-01--user-authentication.md`
+**Output**: `.ai/strikethroo/plans/01--user-authentication/plan-01--user-authentication.md`
 
 ### 2. Review the Plan
 
@@ -50,15 +50,15 @@ Open the plan file and verify:
 - No unnecessary features were added (scope creep)
 - Technical approach fits your architecture
 
-Edit the file directly -- it is yours, not the AI's. Optionally, ask a second assistant to refine the plan (`task-refine-plan` skill) for a two-agent feedback loop.
+Edit the file directly -- it is yours, not the AI's. Optionally, ask a second assistant to refine the plan (`st-refine-plan` skill) for a two-agent feedback loop.
 
 ### 3. Generate Tasks
 
 > Decompose plan 1 into tasks.
 
-The `task-generate-tasks` skill breaks the plan into atomic tasks (1-2 skills each), maps dependencies, and produces an execution blueprint organized into phases of parallel work.
+The `st-generate-tasks` skill breaks the plan into atomic tasks (1-2 skills each), maps dependencies, and produces an execution blueprint organized into phases of parallel work.
 
-**Output**: `.ai/task-manager/plans/01--user-authentication/tasks/*.md`
+**Output**: `.ai/strikethroo/plans/01--user-authentication/tasks/*.md`
 
 ### 4. Review Tasks
 
@@ -72,14 +72,14 @@ Check each task file in the `tasks/` directory:
 
 > Execute the blueprint for plan 1.
 
-The `task-execute-blueprint` skill runs tasks grouped into phases. Within each phase, independent tasks run in parallel. The POST_PHASE hook validates quality after each phase. Commits are created automatically.
+The `st-execute-blueprint` skill runs tasks grouped into phases. Within each phase, independent tasks run in parallel. The POST_PHASE hook validates quality after each phase. Commits are created automatically.
 
 If you skipped step 3, the skill auto-generates tasks and the blueprint before starting.
 
 ### 6. Monitor Progress
 
 ```bash
-npx @e0ipso/ai-task-manager status
+npx strikethroo status
 ```
 
 Shows active plans, task completion counts, progress bars, and warnings for incomplete archived plans.
@@ -89,7 +89,7 @@ Shows active plans, task completion counts, progress bars, and warnings for inco
 ## File Structure
 
 ```
-.ai/task-manager/
+.ai/strikethroo/
 ├── plans/
 │   └── 01--user-authentication/
 │       ├── plan-01--user-authentication.md
@@ -99,7 +99,7 @@ Shows active plans, task completion counts, progress bars, and warnings for inco
 │           └── 03--auth-endpoints.md
 ├── archive/                          # Completed plans
 ├── config/
-│   ├── TASK_MANAGER.md               # Project context (tech stack, conventions)
+│   ├── STRIKETHROO.md                # Project context (tech stack, conventions)
 │   ├── hooks/                        # Lifecycle hooks (PRE_PLAN, POST_PHASE, etc.)
 │   └── templates/                    # PLAN_TEMPLATE.md, TASK_TEMPLATE.md
 └── .init-metadata.json               # Tracks file hashes and schema version
@@ -108,32 +108,32 @@ Shows active plans, task completion counts, progress bars, and warnings for inco
 ## Plan Management
 
 ```bash
-npx @e0ipso/ai-task-manager plan show 41    # View plan details and progress
-npx @e0ipso/ai-task-manager plan archive 41 # Move completed plan to archive/
-npx @e0ipso/ai-task-manager plan delete 41  # Permanently remove plan and tasks
+npx strikethroo plan show 41    # View plan details and progress
+npx strikethroo plan archive 41 # Move completed plan to archive/
+npx strikethroo plan delete 41  # Permanently remove plan and tasks
 ```
 
 ## Alternative: Automated Workflow
 
-For clear requirements with minimal ambiguity, the `task-full-workflow` skill chains all three steps end-to-end. Ask your assistant to run the full task-manager workflow and it handles plan creation, task generation, and execution in one pass.
+For clear requirements with minimal ambiguity, the `st-full-workflow` skill chains all three steps end-to-end. Ask your assistant to run the full Strikethroo workflow and it handles plan creation, task generation, and execution in one pass.
 
 ## Advanced Patterns
 
 ### Plan Mode Integration
 
-Use your assistant's native plan/brainstorm mode for initial ideation, then feed the refined output into `task-create-plan`. Plan mode explores broadly; Task Manager executes precisely. Best for vague requirements where you want the AI to explore options before committing to a structured plan.
+Use your assistant's native plan/brainstorm mode for initial ideation, then feed the refined output into `st-create-plan`. Plan mode explores broadly; Strikethroo executes precisely. Best for vague requirements where you want the AI to explore options before committing to a structured plan.
 
 ### Iterative Refinement
 
-Edit plan and task files directly between steps. Re-run `task-create-plan` with tightened requirements, or manually adjust task files before execution. The `task-refine-plan` skill can also interrogate an existing plan for gaps. Best for evolving requirements and feedback-driven development.
+Edit plan and task files directly between steps. Re-run `st-create-plan` with tightened requirements, or manually adjust task files before execution. The `st-refine-plan` skill can also interrogate an existing plan for gaps. Best for evolving requirements and feedback-driven development.
 
 ### Multi-Session Projects
 
-Plans and task statuses persist on disk. Resume any time: check `npx @e0ipso/ai-task-manager status`, then ask the assistant to continue executing the blueprint -- it picks up where it left off. Commit after each phase so context survives across sessions.
+Plans and task statuses persist on disk. Resume any time: check `npx strikethroo status`, then ask the assistant to continue executing the blueprint -- it picks up where it left off. Commit after each phase so context survives across sessions.
 
 ### Parallel Development
 
-Task dependencies define the phase structure automatically. Independent tasks within the same phase execute in parallel. Teams can coordinate by sharing the `.ai/task-manager/` directory via git -- backend and frontend developers work from the same plan, with dependency enforcement ensuring correct ordering.
+Task dependencies define the phase structure automatically. Independent tasks within the same phase execute in parallel. Teams can coordinate by sharing the `.ai/strikethroo/` directory via git -- backend and frontend developers work from the same plan, with dependency enforcement ensuring correct ordering.
 
 ### Spike to Production
 

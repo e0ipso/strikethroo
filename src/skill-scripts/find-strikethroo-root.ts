@@ -1,11 +1,11 @@
-import { findTaskManagerRoot } from './shared/root';
+import { findStrikethrooRoot } from './shared/root';
 
 const main = (): void => {
   const startPath = process.argv[2] || process.cwd();
-  const root = findTaskManagerRoot(startPath);
+  const root = findStrikethrooRoot(startPath);
   if (!root) {
     process.stderr.write(
-      `Could not find .ai/task-manager root from ${startPath} or any parent directory.\n`
+      `Could not find .ai/strikethroo root from ${startPath} or any parent directory.\n`
     );
     process.exit(1);
   }

@@ -86,7 +86,7 @@ export async function showPlan(planId: number): Promise<{ success: boolean; mess
     if (!planData) {
       return {
         success: false,
-        message: `Plan ${planId} not found. Check .ai/task-manager/plans/ and .ai/task-manager/archive/`,
+        message: `Plan ${planId} not found. Check .ai/strikethroo/plans/ and .ai/strikethroo/archive/`,
       };
     }
 
@@ -157,7 +157,7 @@ export async function deletePlan(
     if (!location) {
       return {
         success: false,
-        message: `Plan ${planId} not found. Check .ai/task-manager/plans/ and .ai/task-manager/archive/ directories.`,
+        message: `Plan ${planId} not found. Check .ai/strikethroo/plans/ and .ai/strikethroo/archive/ directories.`,
       };
     }
 
@@ -206,7 +206,7 @@ export async function archivePlan(
     if (!location) {
       return {
         success: false,
-        message: `Plan ${planId} not found. Check .ai/task-manager/plans/ directory.`,
+        message: `Plan ${planId} not found. Check .ai/strikethroo/plans/ directory.`,
       };
     }
 
@@ -269,7 +269,7 @@ export async function archivePlan(
 
     // 6. Move plan directory to archive
     const baseDir = process.cwd();
-    const archiveDir = path.join(baseDir, '.ai/task-manager/archive');
+    const archiveDir = path.join(baseDir, '.ai/strikethroo/archive');
     await fs.ensureDir(archiveDir);
 
     const planDirName = path.basename(location.directoryPath);
@@ -280,7 +280,7 @@ export async function archivePlan(
     // 7. Display success message
     console.log(
       chalk.green(
-        `\n✓ Plan ${planId} successfully archived to .ai/task-manager/archive/${planDirName}\n`
+        `\n✓ Plan ${planId} successfully archived to .ai/strikethroo/archive/${planDirName}\n`
       )
     );
 

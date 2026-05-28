@@ -33,8 +33,8 @@ export interface PlanData extends PlanMetadata {
 export async function findPlanById(planId: number): Promise<PlanLocation | null> {
   const baseDir = process.cwd();
   const searchDirs = [
-    { path: path.join(baseDir, '.ai/task-manager/plans'), archived: false },
-    { path: path.join(baseDir, '.ai/task-manager/archive'), archived: true },
+    { path: path.join(baseDir, '.ai/strikethroo/plans'), archived: false },
+    { path: path.join(baseDir, '.ai/strikethroo/archive'), archived: true },
   ];
 
   for (const searchDir of searchDirs) {

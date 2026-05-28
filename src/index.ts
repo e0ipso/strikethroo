@@ -2,7 +2,7 @@
  * Main Init Command Implementation
  *
  * This file contains the implementation of the init command
- * Handles initialization of new AI task management projects
+ * Handles initialization of new Strikethroo projects
  */
 
 import * as fs from 'fs-extra';
@@ -85,7 +85,7 @@ async function exists(filepath: string): Promise<boolean> {
 }
 
 /**
- * Initialize a new AI Task Manager project
+ * Initialize a new Strikethroo project
  *
  * Creates directory structures and copies template files based on the selected harnesses.
  * Validates input, creates necessary directories, and copies appropriate templates.
@@ -104,7 +104,7 @@ export async function init(options: InitOptions): Promise<CommandResult> {
     validateHarnesses(harnesses);
 
     // ========== HEADER SECTION ==========
-    console.log(chalk.bold.white('\nAI Task Manager Initialization'));
+    console.log(chalk.bold.white('\nStrikethroo Initialization'));
     console.log(chalk.gray(DIVIDER));
 
     // ========== CONFIGURATION SECTION ==========
@@ -115,13 +115,13 @@ export async function init(options: InitOptions): Promise<CommandResult> {
     // ========== SETUP PROGRESS SECTION ==========
     console.log(formatSectionHeader('Setup Progress'));
 
-    // Create .ai/task-manager structure
-    console.log(`  ${chalk.green('✓')} Creating .ai/task-manager directory structure`);
-    await fs.ensureDir(resolvePath(baseDir, '.ai/task-manager/plans'));
-    await fs.ensureDir(resolvePath(baseDir, '.ai/task-manager/archive'));
-    await fs.ensureDir(resolvePath(baseDir, '.ai/task-manager/config/hooks'));
+    // Create .ai/strikethroo structure
+    console.log(`  ${chalk.green('✓')} Creating .ai/strikethroo directory structure`);
+    await fs.ensureDir(resolvePath(baseDir, '.ai/strikethroo/plans'));
+    await fs.ensureDir(resolvePath(baseDir, '.ai/strikethroo/archive'));
+    await fs.ensureDir(resolvePath(baseDir, '.ai/strikethroo/config/hooks'));
 
-    // Copy common templates to .ai/task-manager with conflict detection
+    // Copy common templates to .ai/strikethroo with conflict detection
     console.log(`  ${chalk.green('✓')} Copying common template files`);
     await copyCommonTemplates(baseDir, options.force || false);
 
@@ -140,7 +140,7 @@ export async function init(options: InitOptions): Promise<CommandResult> {
 
     // Common configuration files (dynamically listed)
     console.log(chalk.cyan('  Common Configuration:'));
-    const commonFiles = await collectFiles(resolvePath(baseDir, '.ai/task-manager'));
+    const commonFiles = await collectFiles(resolvePath(baseDir, '.ai/strikethroo'));
     for (const file of commonFiles) {
       console.log(`    ${chalk.blue('●')} ${file}`);
     }
@@ -153,23 +153,23 @@ export async function init(options: InitOptions): Promise<CommandResult> {
     }
 
     // ========== FOOTER SECTION ==========
-    console.log(`\n${chalk.green('✓')} AI Task Manager initialized successfully!`);
+    console.log(`\n${chalk.green('✓')} Strikethroo initialized successfully!`);
     console.log(chalk.gray(DIVIDER));
 
     // Post-init nudge directing users to install the task skills
     console.log(
-      '\nNext: run `npx skills add e0ipso/ai-task-manager` to install the task skills for your harness(es).'
+      '\nNext: run `npx skills add e0ipso/strikethroo` to install the task skills for your harness(es).'
     );
 
     // Add documentation link
-    console.log(`\n  📚 Documentation: ${chalk.cyan('https://mateuaguilo.com/ai-task-manager')}\n`);
+    console.log(`\n  📚 Documentation: ${chalk.cyan('https://mateuaguilo.com/strikethroo')}\n`);
 
     // Show suggested workflow help text
     await displayWorkflowHelp();
 
     return {
       success: true,
-      message: 'AI Task Manager initialized successfully!',
+      message: 'Strikethroo initialized successfully!',
       data: { harnesses },
     };
   } catch (error) {
@@ -186,11 +186,11 @@ export async function init(options: InitOptions): Promise<CommandResult> {
 }
 
 /**
- * Copy common template files to .ai/task-manager directory with conflict detection
+ * Copy common template files to .ai/strikethroo directory with conflict detection
  */
 async function copyCommonTemplates(baseDir: string, force: boolean): Promise<void> {
-  const sourceDir = getTemplatePath('ai-task-manager');
-  const destDir = resolvePath(baseDir, '.ai/task-manager');
+  const sourceDir = getTemplatePath('strikethroo');
+  const destDir = resolvePath(baseDir, '.ai/strikethroo');
   const metadataPath = resolvePath(destDir, '.init-metadata.json');
 
   // Check if source template directory exists
@@ -351,11 +351,11 @@ async function createHarnessStructure(harness: Harness, baseDir: string): Promis
 }
 
 /**
- * Check if a directory already has AI Task Manager initialized
+ * Check if a directory already has Strikethroo initialized
  */
 export async function isInitialized(baseDir?: string): Promise<boolean> {
   const targetDir = baseDir || '.';
-  return await exists(resolvePath(targetDir, '.ai/task-manager'));
+  return await exists(resolvePath(targetDir, '.ai/strikethroo'));
 }
 
 /**
@@ -365,7 +365,7 @@ async function displayWorkflowHelp(): Promise<void> {
   console.log(formatSectionHeader('Suggested Workflow'));
 
   console.log(`  ${chalk.cyan('●')} Install the task skills:`);
-  console.log(`      ${chalk.gray('npx skills add e0ipso/ai-task-manager')}`);
+  console.log(`      ${chalk.gray('npx skills add e0ipso/strikethroo')}`);
   console.log('');
   console.log(`  ${chalk.cyan('●')} Ask your AI to plan, decompose, then execute.`);
   console.log(
@@ -373,7 +373,7 @@ async function displayWorkflowHelp(): Promise<void> {
   );
   console.log('');
   console.log(`  ${chalk.cyan('●')} Review intermediate artifacts between steps:`);
-  console.log(`      ${chalk.gray('.ai/task-manager/plans/')}`);
+  console.log(`      ${chalk.gray('.ai/strikethroo/plans/')}`);
   console.log('');
   console.log(
     chalk.yellow(`💡 Reviewing the plan and the task list before execution is recommended.`)

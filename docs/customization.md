@@ -7,11 +7,11 @@ description: "Hooks, templates, and workflow customization"
 
 # Customization Guide
 
-Hooks inject LLM intelligence and deterministic tool execution at key points of the [workflow](workflow.html). Templates define the structure of plans, tasks, and execution artifacts. Together they let you adapt AI Task Manager to your project without modifying any code.
+Hooks inject LLM intelligence and deterministic tool execution at key points of the [workflow](workflow.html). Templates define the structure of plans, tasks, and execution artifacts. Together they let you adapt Strikethroo to your project without modifying any code.
 
 ## Hooks
 
-Hooks are Markdown files in `.ai/task-manager/config/hooks/`. The LLM reads them at specific workflow points and follows the instructions they contain. They serve two purposes:
+Hooks are Markdown files in `.ai/strikethroo/config/hooks/`. The LLM reads them at specific workflow points and follows the instructions they contain. They serve two purposes:
 
 1. **LLM Intelligence Injection** -- Bring the LLM's reasoning, judgment, and contextual understanding to bear at the right moment. Examples: YAGNI enforcement, complexity analysis, error diagnosis, agent selection.
 
@@ -83,7 +83,7 @@ Add project-specific pre-flight checks -- for example, verifying required servic
 
 ## Templates
 
-Templates are editable Markdown files in `.ai/task-manager/config/templates/`. They define the structure the LLM follows when generating plans, tasks, and execution artifacts.
+Templates are editable Markdown files in `.ai/strikethroo/config/templates/`. They define the structure the LLM follows when generating plans, tasks, and execution artifacts.
 
 ### PLAN_TEMPLATE.md
 

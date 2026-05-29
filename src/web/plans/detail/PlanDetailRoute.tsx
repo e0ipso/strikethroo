@@ -20,6 +20,7 @@ import { Chrome, type ChromeTab } from '../../components/Chrome';
 import { StatusPill, Button, type StatusKind } from '../../components/primitives';
 import { ErrorSurface, LoadingSurface } from '../../components/StateSurface';
 import { usePlanDetail, type PlanDetail } from '../../data/api';
+import { ConnectionIndicator } from '../../components/ConnectionIndicator';
 import { humanizeSlug, stripIdPrefix } from '../derive';
 import { copyToClipboard } from '../../vendor/utils/clipboard';
 import { PlanDetailReader } from './PlanDetailReader';
@@ -70,6 +71,7 @@ function LoadedRoute({ detail }: { detail: PlanDetail }) {
         onTabSelect={setActiveTab}
         right={
           <>
+            <ConnectionIndicator compact />
             <StatusPill kind={detail.state as StatusKind} />
             <Button kind="ghost" size="sm" icon="copy" onClick={() => copyToClipboard(detail.file)}>
               Copy path

@@ -24,6 +24,8 @@
 import { useMemo, useState } from 'react';
 import type { PlanDetail, Task } from '../../data/api';
 import { StatusPill, Button } from '../../components/primitives';
+import { ConnectionIndicator } from '../../components/ConnectionIndicator';
+import { useRevalidation } from '../../data/revalidation';
 import { toTickboxState } from '../taskStatus';
 
 /** The two honestly representable snapshots; no fabricated intermediate state. */
@@ -84,6 +86,18 @@ function TaskCard({ task, phaseTag }: { task: Task; phaseTag?: number }) {
 export function PlanDetailBoard({ detail }: { detail: PlanDetail }) {
   const [snapshot, setSnapshot] = useState<SnapshotKey>('current');
   const phaseTags = useMemo(() => buildPhaseTags(detail), [detail]);
+  const { revalidateNow } = useRevalidation();
+
+  /**
+   * "Live": snap back to the current workspace state and resume following.
+   * Setting `current` makes the next coalesced `changed` re-read drive the view
+   * again; `revalidateNow` snaps immediately to the freshest state rather than
+   * waiting for the next change.
+   */
+  const goLive = (): void => {
+    setSnapshot('current');
+    revalidateNow();
+  };
 
   // Partition tasks into the three columns under the active snapshot.
   const columns = useMemo(() => {
@@ -108,15 +122,16 @@ export function PlanDetailBoard({ detail }: { detail: PlanDetail }) {
           </div>
           <div
             className={`snap__btn${snapshot === 'current' ? ' snap__btn--active' : ''}`}
-            onClick={() => setSnapshot('current')}
+            onClick={goLive}
           >
             <div>Current</div>
             <div className="snap__btn-meta">live task statuses</div>
           </div>
         </div>
-        <Button kind="ghost" size="sm" onClick={() => setSnapshot('current')}>
+        <Button kind="ghost" size="sm" onClick={goLive}>
           Live
         </Button>
+        <ConnectionIndicator />
       </div>
 
       <p className="col__hint" style={{ padding: '0 28px 6px' }}>

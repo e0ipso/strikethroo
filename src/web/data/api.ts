@@ -9,11 +9,15 @@
  * mock data and no fixture fallback: the error state IS the designed behavior
  * when the API is down.
  *
- * SSE / live-refresh is intentionally out of scope here (a later plan owns the
- * `/api/events` stream); this layer only does request + state.
+ * Live refresh: each resource folds the shared revalidation token (Plan 92,
+ * Task 002) into its fetch effect. When a coalesced `/api/events` `changed`
+ * event bumps the token, every mounted resource re-reads its endpoint — the
+ * token is the only coupling to the SSE pipeline; this layer still owns no
+ * cache and no stream.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useRevalidationToken } from './revalidation';
 
 /* ---------------------------------------------------------------------------
  * Response types — mirror the documented serve API contract
@@ -132,19 +136,33 @@ export type Resource<T> =
   | { status: 'data'; data: T };
 
 /**
- * Generic resource hook: fetches `url` once (re-fetching if `url` changes),
+ * Generic resource hook: fetches `url` (re-fetching if `url` changes, or when
+ * the shared revalidation token bumps from a coalesced `changed` event),
  * starting in `loading`, transitioning to `data` on a 2xx JSON response, and
  * to `error` on ANY failure (network/unreachable, non-2xx, or bad JSON).
  * State is never set after unmount.
+ *
+ * A live re-read keeps the existing data on screen until the new payload (or an
+ * error) resolves, rather than flashing the loading surface: only the initial
+ * fetch (`token === 0` for this url) shows `loading`. Subsequent token-driven
+ * re-reads swap data in place, so a `changed` event does not blank the view.
  */
 export function useResource<T>(url: string): Resource<T> {
   const [state, setState] = useState<Resource<T>>({ status: 'loading' });
+  const token = useRevalidationToken();
+  const lastUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
 
-    setState({ status: 'loading' });
+    // Show the loading surface only when the target URL changes (navigation /
+    // first fetch). A token-driven live re-read of the SAME url keeps current
+    // data on screen until the fresh payload resolves — no blank flash.
+    if (lastUrlRef.current !== url) {
+      lastUrlRef.current = url;
+      setState({ status: 'loading' });
+    }
 
     (async () => {
       try {
@@ -165,7 +183,8 @@ export function useResource<T>(url: string): Resource<T> {
       active = false;
       controller.abort();
     };
-  }, [url]);
+    // `token` re-runs the fetch on a coalesced change; `url` on navigation.
+  }, [url, token]);
 
   return state;
 }

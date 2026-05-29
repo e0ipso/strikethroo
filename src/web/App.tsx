@@ -15,6 +15,7 @@
 import type { ReactNode } from 'react';
 import { RouterProvider, useRoute } from './router';
 import { LiveConnectionProvider } from './data/liveConnection';
+import { RevalidationProvider } from './data/revalidation';
 import { Sidebar } from './components/Sidebar';
 import { usePlans } from './data/api';
 import { PlansRoute } from './plans/PlansRoute';
@@ -83,17 +84,22 @@ function Shell() {
 }
 
 /**
- * Top-level app: wraps the shell in the router provider, and the whole tree in
- * the single shared SSE connection. The live connection sits outside the router
- * so one `EventSource` is shared for the SPA's lifetime, independent of route
- * changes (no per-screen duplicate streams).
+ * Top-level app. Provider order, outside-in:
+ *   - LiveConnectionProvider: the single shared `EventSource`, outside the
+ *     router so one stream is shared for the SPA's lifetime regardless of route
+ *     (no per-screen duplicate streams);
+ *   - RevalidationProvider: subscribes to the connection's `changed` signal and
+ *     exposes the coalesced revalidation token the data layer folds in;
+ *   - RouterProvider: route state the mounted screens read at fetch time.
  */
 export function App() {
   return (
     <LiveConnectionProvider>
-      <RouterProvider>
-        <Shell />
-      </RouterProvider>
+      <RevalidationProvider>
+        <RouterProvider>
+          <Shell />
+        </RouterProvider>
+      </RevalidationProvider>
     </LiveConnectionProvider>
   );
 }

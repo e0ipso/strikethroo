@@ -15,46 +15,11 @@
 import type { ReactNode } from 'react';
 import { RouterProvider, useRoute } from './router';
 import { Sidebar } from './components/Sidebar';
-import { Chrome } from './components/Chrome';
-import { usePlans, useConfig, type Resource } from './data/api';
-import { ErrorSurface, LoadingSurface, PlaceholderSurface } from './components/StateSurface';
+import { usePlans } from './data/api';
 import { PlansRoute } from './plans/PlansRoute';
 import { PlanDetailRoute } from './plans/detail/PlanDetailRoute';
 import { ArchiveRoute } from './archive/ArchiveRoute';
-
-/**
- * Renders the three data states for a resource with a shared loading/error
- * surface and a slot-specific `data` renderer. Keeps each slot focused on what
- * it shows once data arrives.
- */
-function ResourceView<T>({
-  resource,
-  loadingLabel,
-  children,
-}: {
-  resource: Resource<T>;
-  loadingLabel?: string;
-  children: (data: T) => ReactNode;
-}) {
-  if (resource.status === 'loading') return <LoadingSurface label={loadingLabel} />;
-  if (resource.status === 'error') return <ErrorSurface error={resource.error} />;
-  return <>{children(resource.data)}</>;
-}
-
-/** Customize slot — exercises useConfig; real editor is a later ticket. */
-function CustomizeSlot() {
-  const config = useConfig();
-  return (
-    <ResourceView resource={config} loadingLabel="Loading config…">
-      {data => (
-        <PlaceholderSurface>
-          {data.hooks.length} hook(s) and {data.templates.length} template(s). The Customize screen
-          lands in a later ticket.
-        </PlaceholderSurface>
-      )}
-    </ResourceView>
-  );
-}
+import { CustomizeRoute } from './customize/CustomizeRoute';
 
 /**
  * The persistent Sidebar with live destination counts. Reads the plan list to
@@ -65,9 +30,7 @@ function CustomizeSlot() {
 function SidebarWithCounts() {
   const plans = usePlans();
   const counts =
-    plans.status === 'data'
-      ? { Archive: plans.data.filter(p => p.archived).length }
-      : undefined;
+    plans.status === 'data' ? { Archive: plans.data.filter(p => p.archived).length } : undefined;
   return <Sidebar counts={counts} />;
 }
 
@@ -100,8 +63,10 @@ function Shell() {
       content = <ArchiveRoute />;
       break;
     case 'customize':
-      chrome = <Chrome title="Customize" />;
-      content = <CustomizeSlot />;
+      // The Customize route renders its own Chrome (crumbs / tabs / inert
+      // actions) and owns tab switching, so no separate top bar is composed here.
+      chrome = null;
+      content = <CustomizeRoute />;
       break;
   }
 

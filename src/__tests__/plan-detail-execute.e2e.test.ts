@@ -84,7 +84,7 @@ maybe('Plan Detail Execute tab (Playwright)', () => {
 
   /** Opens plan 38 and clicks the Execute tab to reach the blueprint. */
   const openExecute = async (page: Page): Promise<void> => {
-    await page.goto(`${liveHandle.url}/plans/38`, { waitUntil: 'networkidle' });
+    await page.goto(`${liveHandle.url}/plans/38`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.chrome__tabs');
     await page.locator('.chrome__tabs .tab', { hasText: 'Execute' }).click();
     await page.waitForSelector('.snap__seg');

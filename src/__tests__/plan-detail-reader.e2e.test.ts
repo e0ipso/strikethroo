@@ -120,7 +120,7 @@ maybe('Plan Detail Reader (Playwright)', () => {
   it('renders a live plan: Plan tab active, prose + rail from the API', async () => {
     const page = await newPage();
     try {
-      await page.goto(`${liveHandle.url}/plans/${livePlan.id}`, { waitUntil: 'networkidle' });
+      await page.goto(`${liveHandle.url}/plans/${livePlan.id}`, { waitUntil: 'domcontentloaded' });
 
       // The .detail grid with both columns is present.
       await page.waitForSelector('.detail .reader');
@@ -154,7 +154,7 @@ maybe('Plan Detail Reader (Playwright)', () => {
     try {
       const detail = (await (await fetch(`${liveHandle.url}/api/plans/38`)).json()) as PlanDetail;
 
-      await page.goto(`${liveHandle.url}/plans/38`, { waitUntil: 'networkidle' });
+      await page.goto(`${liveHandle.url}/plans/38`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.detail .reader');
 
       // Rail matches plan 38's actual derived phases/tasks (live, not the
@@ -183,7 +183,7 @@ maybe('Plan Detail Reader (Playwright)', () => {
     });
     const page = await newPage();
     try {
-      await page.goto(`${handle.url}/plans/701`, { waitUntil: 'networkidle' });
+      await page.goto(`${handle.url}/plans/701`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.detail .reader');
 
       // The injected script never ran.
@@ -215,7 +215,7 @@ maybe('Plan Detail Reader (Playwright)', () => {
     });
     const page = await newPage();
     try {
-      await page.goto(`${handle.url}/plans/702`, { waitUntil: 'networkidle' });
+      await page.goto(`${handle.url}/plans/702`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.reader__mermaid');
 
       // The fence is shown as source text...

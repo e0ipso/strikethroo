@@ -116,7 +116,7 @@ maybe('app shell (Playwright)', () => {
     const page = await newPage();
     try {
       // Plans (root).
-      await page.goto(full.url, { waitUntil: 'networkidle' });
+      await page.goto(full.url, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.sb');
       expect(await page.locator('.chrome__title').first().textContent()).toBe('Plans');
       expect(await page.locator('.sb__item--active').textContent()).toContain('Plans');
@@ -144,14 +144,14 @@ maybe('app shell (Playwright)', () => {
   it('deep-links /plans/:id with a tab strip and survives back/forward + reload', async () => {
     const page = await newPage();
     try {
-      await page.goto(`${full.url}/plans/38`, { waitUntil: 'networkidle' });
+      await page.goto(`${full.url}/plans/38`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.chrome__tabs');
       expect(await page.locator('.chrome__tabs .tab').count()).toBeGreaterThan(0);
       // Plans nav highlights for planDetail.
       expect(await page.locator('.sb__item--active').textContent()).toContain('Plans');
 
       // A hard refresh restores the same deep-linked route (SPA fallback).
-      await page.reload({ waitUntil: 'networkidle' });
+      await page.reload({ waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.chrome__tabs');
       expect(page.url()).toContain('/plans/38');
 
@@ -171,7 +171,7 @@ maybe('app shell (Playwright)', () => {
   it('transitions loading → data against the live API', async () => {
     const page = await newPage();
     try {
-      await page.goto(full.url, { waitUntil: 'networkidle' });
+      await page.goto(full.url, { waitUntil: 'domcontentloaded' });
       // The Plans route resolves to the real List view (Plan 86): the table
       // header renders and the data state shows no error surface.
       await page.waitForSelector('.tbl--head');
@@ -185,7 +185,7 @@ maybe('app shell (Playwright)', () => {
   it('shows a visible error surface when the API is unreachable (no crash, no blank)', async () => {
     const page = await newPage();
     try {
-      await page.goto(staticOnly.url, { waitUntil: 'networkidle' });
+      await page.goto(staticOnly.url, { waitUntil: 'domcontentloaded' });
       // The shell still renders (sidebar present)...
       await page.waitForSelector('.sb');
       // ...and the data slot resolves to the designed error surface.
@@ -201,7 +201,7 @@ maybe('app shell (Playwright)', () => {
   it('renders every primitive in the gallery harness', async () => {
     const page = await newPage();
     try {
-      await page.goto(`${full.url}/?gallery=1`, { waitUntil: 'networkidle' });
+      await page.goto(`${full.url}/?gallery=1`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('[data-testid="gallery"]');
       // 5 StatusPill kinds, 3 Tickboxes, 4+1 Buttons, chips, icons.
       expect(await page.locator('.pill').count()).toBe(5);

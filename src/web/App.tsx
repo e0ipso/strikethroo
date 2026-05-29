@@ -14,6 +14,7 @@
 
 import type { ReactNode } from 'react';
 import { RouterProvider, useRoute } from './router';
+import { LiveConnectionProvider } from './data/liveConnection';
 import { Sidebar } from './components/Sidebar';
 import { usePlans } from './data/api';
 import { PlansRoute } from './plans/PlansRoute';
@@ -81,11 +82,18 @@ function Shell() {
   );
 }
 
-/** Top-level app: wraps the shell in the router provider. */
+/**
+ * Top-level app: wraps the shell in the router provider, and the whole tree in
+ * the single shared SSE connection. The live connection sits outside the router
+ * so one `EventSource` is shared for the SPA's lifetime, independent of route
+ * changes (no per-screen duplicate streams).
+ */
 export function App() {
   return (
-    <RouterProvider>
-      <Shell />
-    </RouterProvider>
+    <LiveConnectionProvider>
+      <RouterProvider>
+        <Shell />
+      </RouterProvider>
+    </LiveConnectionProvider>
   );
 }

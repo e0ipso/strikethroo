@@ -90,7 +90,7 @@ maybe('Customize screen (Playwright)', () => {
   it('renders the Hooks tab from live /api/config — counts and identifiers match', async () => {
     const page = await newPage();
     try {
-      await page.goto(`${handle.url}/customize`, { waitUntil: 'networkidle' });
+      await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.cz__path-strip');
 
       // Title + live count badges (derived from the fetched collections).
@@ -115,7 +115,7 @@ maybe('Customize screen (Playwright)', () => {
   it('renders the Templates tab from live /api/config — identifiers match', async () => {
     const page = await newPage();
     try {
-      await page.goto(`${handle.url}/customize`, { waitUntil: 'networkidle' });
+      await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.cz__path-strip');
 
       await page.locator('.chrome__tabs .tab').nth(1).click();
@@ -136,7 +136,7 @@ maybe('Customize screen (Playwright)', () => {
   it('reveals read-only hook and template content with no Save/Edit/Revert control', async () => {
     const page = await newPage();
     try {
-      await page.goto(`${handle.url}/customize`, { waitUntil: 'networkidle' });
+      await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.cz__hook');
 
       // Reveal a hook's content; it renders through the sanitized markdown path.
@@ -175,7 +175,7 @@ maybe('Customize screen (Playwright)', () => {
   it('uses .ai/strikethroo/config/ and never the stale task-manager literal', async () => {
     const page = await newPage();
     try {
-      await page.goto(`${handle.url}/customize`, { waitUntil: 'networkidle' });
+      await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.cz__path-strip');
       const html = await page.content();
       expect(html).toContain('.ai/strikethroo/config/');

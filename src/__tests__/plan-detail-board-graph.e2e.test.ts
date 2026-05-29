@@ -112,7 +112,7 @@ maybe('Plan Detail Board and Graph (Playwright)', () => {
 
   /** Opens plan 38 and clicks the Tasks tab to reach the Board. */
   const openBoard = async (page: Page): Promise<void> => {
-    await page.goto(`${liveHandle.url}/plans/38`, { waitUntil: 'networkidle' });
+    await page.goto(`${liveHandle.url}/plans/38`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.chrome__tabs');
     await page.locator('.chrome__tabs .tab', { hasText: 'Tasks' }).click();
     await page.waitForSelector('.taskboard');
@@ -120,7 +120,7 @@ maybe('Plan Detail Board and Graph (Playwright)', () => {
 
   /** Opens plan 38 and clicks the Graph tab. */
   const openGraph = async (page: Page): Promise<void> => {
-    await page.goto(`${liveHandle.url}/plans/38`, { waitUntil: 'networkidle' });
+    await page.goto(`${liveHandle.url}/plans/38`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.chrome__tabs');
     await page.locator('.chrome__tabs .tab', { hasText: 'Graph' }).click();
     await page.waitForSelector('.graph2');
@@ -251,7 +251,7 @@ maybe('Plan Detail Board and Graph (Playwright)', () => {
     });
     const page = await newPage();
     try {
-      await page.goto(`${handle.url}/plans/881`, { waitUntil: 'networkidle' });
+      await page.goto(`${handle.url}/plans/881`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.chrome__tabs');
       await page.locator('.chrome__tabs .tab', { hasText: 'Graph' }).click();
       await page.waitForSelector('.graph2');
@@ -280,7 +280,7 @@ maybe('Plan Detail Board and Graph (Playwright)', () => {
     });
     const page = await newPage();
     try {
-      await page.goto(`${handle.url}/plans/882`, { waitUntil: 'networkidle' });
+      await page.goto(`${handle.url}/plans/882`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.chrome__tabs');
       await page.locator('.chrome__tabs .tab', { hasText: 'Graph' }).click();
       await page.waitForSelector('.graph2');

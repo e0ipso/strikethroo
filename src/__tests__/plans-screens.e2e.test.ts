@@ -89,7 +89,7 @@ maybe('Plans section (Playwright)', () => {
   it('switches List / Cards / Board in place and shows derived counters', async () => {
     const page = await newPage();
     try {
-      await page.goto(handle.url, { waitUntil: 'networkidle' });
+      await page.goto(handle.url, { waitUntil: 'domcontentloaded' });
 
       // List view is the default; one row per active plan.
       await page.waitForSelector('.tbl--head');
@@ -121,7 +121,7 @@ maybe('Plans section (Playwright)', () => {
   it('toggles the Done column via the Board Show-done tickbox', async () => {
     const page = await newPage();
     try {
-      await page.goto(handle.url, { waitUntil: 'networkidle' });
+      await page.goto(handle.url, { waitUntil: 'domcontentloaded' });
       await page.getByText('Board', { exact: true }).click();
       await page.waitForSelector('.board .col');
       expect(await page.locator('.board .col').count()).toBe(4);
@@ -141,7 +141,7 @@ maybe('Plans section (Playwright)', () => {
   it('opens the Create modal with current command copy and a matching clipboard write', async () => {
     const page = await newPage();
     try {
-      await page.goto(handle.url, { waitUntil: 'networkidle' });
+      await page.goto(handle.url, { waitUntil: 'domcontentloaded' });
       await page.getByText('Create plan', { exact: true }).click();
       await page.waitForSelector('.modal');
 
@@ -163,7 +163,7 @@ maybe('Plans section (Playwright)', () => {
   it('navigates to /plans/:id when a plan row is clicked', async () => {
     const page = await newPage();
     try {
-      await page.goto(handle.url, { waitUntil: 'networkidle' });
+      await page.goto(handle.url, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.tbl--row');
       await page.locator('.tbl--row').first().click();
       await page.waitForFunction(() => /^\/plans\/\d+$/.test(location.pathname));

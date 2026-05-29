@@ -83,11 +83,36 @@ export interface PlanDetail extends PlanSummary {
   phases: Phase[];
 }
 
-/** A customizable config file (hook or template). */
+/**
+ * A customizable config file (hook or template).
+ *
+ * `id`, `file`, and `content` are guaranteed by the server model
+ * (src/serve/workspace-model.ts). Every other field is OPTIONAL metadata the
+ * model MAY surface in the future; the client treats them strictly as
+ * pass-through — present when the API sends them, `undefined` (never defaulted
+ * to a fabricated value) when it does not. The Customize views read these
+ * defensively and degrade gracefully when a field is absent.
+ */
 export interface ConfigFile {
   id: string;
   file: string;
   content: string;
+  /* --- optional hook metadata (absent on the current model) --- */
+  /** Hook category used to group the Hooks view; ungrouped when absent. */
+  kind?: 'intelligence' | 'control';
+  /** When in the workflow the hook fires. */
+  when?: string;
+  /** What the hook does. */
+  purpose?: string;
+  /** True when the workspace copy diverges from the shipped default. */
+  customized?: boolean;
+  /** True when the hook ships intentionally empty. */
+  empty?: boolean;
+  /* --- optional template metadata (absent on the current model) --- */
+  /** Frontmatter field names declared by the template. */
+  frontmatter?: string[];
+  /** Ordered `##` section names of the template. */
+  sections?: string[];
 }
 
 /** The customizable config slice (`GET /api/config`). */

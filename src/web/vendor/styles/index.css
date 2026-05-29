@@ -42,3 +42,9 @@
    Imported after plans.css (which carries the shared .tbl / .scroll / .statusbar
    families the Archive screen reuses) so the design token aliases resolve. */
 @import './archive.css';
+
+/* Customize-screen classes vendored from scratch/ui/designs/app.css (Plan 91).
+   Imported after the other screen layers so the shared primitives and design
+   token aliases (--ink, --cream, --cream-mid, --border-soft, --dalia*, …)
+   resolve. */
+@import './customize.css';

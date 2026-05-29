@@ -24,7 +24,7 @@ rm -rf ".claude/commands/tasks/" \
 
 ## 2. Delete obsolete config scripts
 
-In 1.x the workspace lived under `.ai/task-manager/`, so the scripts to remove are there:
+In 1.x and 2.x the workspace lived under `.ai/task-manager/`, so the scripts to remove are there:
 
 ```bash
 rm -f .ai/task-manager/config/scripts/*.cjs
@@ -33,7 +33,7 @@ rmdir .ai/task-manager/config/scripts 2>/dev/null
 
 ## 3. Rename the workspace directory
 
-2.x+ uses `.ai/strikethroo/` instead of `.ai/task-manager/`. Rename the directory so your existing plans, archive, and config carry over:
+3.x+ uses `.ai/strikethroo/` instead of `.ai/task-manager/`. Rename the directory so your existing plans, archive, and config carry over:
 
 ```bash
 mv .ai/task-manager .ai/strikethroo

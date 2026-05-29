@@ -20,6 +20,7 @@ import { usePlans, useConfig, type Resource } from './data/api';
 import { ErrorSurface, LoadingSurface, PlaceholderSurface } from './components/StateSurface';
 import { PlansRoute } from './plans/PlansRoute';
 import { PlanDetailRoute } from './plans/detail/PlanDetailRoute';
+import { ArchiveRoute } from './archive/ArchiveRoute';
 
 /**
  * Renders the three data states for a resource with a shared loading/error
@@ -40,21 +41,6 @@ function ResourceView<T>({
   return <>{children(resource.data)}</>;
 }
 
-/** Archive slot — exercises usePlans (archived filtered by a later ticket). */
-function ArchiveSlot() {
-  const plans = usePlans();
-  return (
-    <ResourceView resource={plans} loadingLabel="Loading archive…">
-      {data => (
-        <PlaceholderSurface>
-          {data.filter(p => p.archived).length} archived plan(s). The Archive screen lands in a
-          later ticket.
-        </PlaceholderSurface>
-      )}
-    </ResourceView>
-  );
-}
-
 /** Customize slot — exercises useConfig; real editor is a later ticket. */
 function CustomizeSlot() {
   const config = useConfig();
@@ -68,6 +54,21 @@ function CustomizeSlot() {
       )}
     </ResourceView>
   );
+}
+
+/**
+ * The persistent Sidebar with live destination counts. Reads the plan list to
+ * surface the archived-plan count next to the Archive nav item (per the design);
+ * while loading or on error it renders the Sidebar without counts rather than
+ * blocking the frame.
+ */
+function SidebarWithCounts() {
+  const plans = usePlans();
+  const counts =
+    plans.status === 'data'
+      ? { Archive: plans.data.filter(p => p.archived).length }
+      : undefined;
+  return <Sidebar counts={counts} />;
 }
 
 /** Reads the current route and renders the matching Chrome + content slot. */
@@ -93,8 +94,10 @@ function Shell() {
       break;
     }
     case 'archive':
-      chrome = <Chrome title="Archive" />;
-      content = <ArchiveSlot />;
+      // The Archive route renders its own Chrome (crumbs / tabs / inert
+      // controls), so no separate top bar is composed here.
+      chrome = null;
+      content = <ArchiveRoute />;
       break;
     case 'customize':
       chrome = <Chrome title="Customize" />;
@@ -104,7 +107,7 @@ function Shell() {
 
   return (
     <div className="app">
-      <Sidebar />
+      <SidebarWithCounts />
       <div className="main">
         {chrome}
         {content}

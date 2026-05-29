@@ -37,3 +37,8 @@
    design token aliases (--ink, --cream, --border-soft, --ink-2/3/4, …)
    resolve. */
 @import './board-graph.css';
+
+/* Archive-screen classes vendored from scratch/ui/designs/app.css (Plan 90).
+   Imported after plans.css (which carries the shared .tbl / .scroll / .statusbar
+   families the Archive screen reuses) so the design token aliases resolve. */
+@import './archive.css';

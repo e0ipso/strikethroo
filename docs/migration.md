@@ -24,12 +24,22 @@ rm -rf ".claude/commands/tasks/" \
 
 ## 2. Delete obsolete config scripts
 
+In 1.x the workspace lived under `.ai/task-manager/`, so the scripts to remove are there:
+
 ```bash
-rm -f .ai/strikethroo/config/scripts/*.cjs
-rmdir .ai/strikethroo/config/scripts 2>/dev/null
+rm -f .ai/task-manager/config/scripts/*.cjs
+rmdir .ai/task-manager/config/scripts 2>/dev/null
 ```
 
-## 3. Re-initialize the workspace
+## 3. Rename the workspace directory
+
+2.x+ uses `.ai/strikethroo/` instead of `.ai/task-manager/`. Rename the directory so your existing plans, archive, and config carry over:
+
+```bash
+mv .ai/task-manager .ai/strikethroo
+```
+
+## 4. Re-initialize the workspace
 
 ```bash
 npx strikethroo@latest init --harnesses claude
@@ -37,7 +47,7 @@ npx strikethroo@latest init --harnesses claude
 
 Replace `claude` with your harness(es), e.g. `claude,gemini,opencode`.
 
-## 4. Install the workflow skills
+## 5. Install the workflow skills
 
 ```bash
 npx skills add e0ipso/strikethroo

@@ -86,10 +86,30 @@ export function PlansRoute() {
     body = <ErrorSurface error={resource.error} />;
   } else {
     const { plans } = resource.data;
-    if (view === 'List') body = <PlansListView plans={plans} openReview={modal.openReview} />;
+    if (view === 'List')
+      body = (
+        <PlansListView
+          plans={plans}
+          openReview={modal.openReview}
+          openArchive={modal.openArchive}
+        />
+      );
     else if (view === 'Cards')
-      body = <PlansCardView plans={plans} openReview={modal.openReview} />;
-    else body = <PlansKanbanView plans={plans} openReview={modal.openReview} />;
+      body = (
+        <PlansCardView
+          plans={plans}
+          openReview={modal.openReview}
+          openArchive={modal.openArchive}
+        />
+      );
+    else
+      body = (
+        <PlansKanbanView
+          plans={plans}
+          openReview={modal.openReview}
+          openArchive={modal.openArchive}
+        />
+      );
   }
 
   return (

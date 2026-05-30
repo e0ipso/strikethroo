@@ -17,10 +17,12 @@ export interface PlansCardViewProps {
   plans: PlanView[];
   /** Opens the Review command-hint modal for the given plan path. */
   openReview: (path: string) => void;
+  /** Opens the archive-confirmation modal for a done plan. */
+  openArchive: (id: number, title: string) => void;
 }
 
 /** The Cards (grid) view of the active plans. */
-export function PlansCardView({ plans, openReview }: PlansCardViewProps) {
+export function PlansCardView({ plans, openReview, openArchive }: PlansCardViewProps) {
   const navigate = useNavigate();
 
   return (
@@ -87,7 +89,9 @@ export function PlansCardView({ plans, openReview }: PlansCardViewProps) {
             )}
 
             <div className="card__foot">
-              <span>{card.completedAt ? `done ${card.completedAt}` : `created ${card.created}`}</span>
+              <span>
+                {card.completedAt ? `done ${card.completedAt}` : `created ${card.created}`}
+              </span>
             </div>
 
             {card.state === 'drafted' && (
@@ -100,6 +104,21 @@ export function PlansCardView({ plans, openReview }: PlansCardViewProps) {
                 >
                   <Button kind="outline" size="sm" icon="review">
                     Review in self-review
+                  </Button>
+                </span>
+              </div>
+            )}
+
+            {card.state === 'done' && (
+              <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
+                <span
+                  onClick={e => {
+                    e.stopPropagation();
+                    openArchive(card.id, card.title);
+                  }}
+                >
+                  <Button kind="outline" size="sm" icon="archive">
+                    Archive
                   </Button>
                 </span>
               </div>

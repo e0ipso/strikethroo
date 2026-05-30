@@ -38,10 +38,12 @@ export interface PlansKanbanViewProps {
   plans: PlanView[];
   /** Opens the Review command-hint modal for the given plan path. */
   openReview: (path: string) => void;
+  /** Opens the archive-confirmation modal for a done plan. */
+  openArchive: (id: number, title: string) => void;
 }
 
 /** The Board (Kanban) view of the active plans. */
-export function PlansKanbanView({ plans, openReview }: PlansKanbanViewProps) {
+export function PlansKanbanView({ plans, openReview, openArchive }: PlansKanbanViewProps) {
   const navigate = useNavigate();
   const [showDone, setShowDone] = useState(false);
 
@@ -101,9 +103,7 @@ export function PlansKanbanView({ plans, openReview }: PlansKanbanViewProps) {
                     <div className="bcard__slug">{p.title}</div>
                     <div className="bcard__sum">{p.summary}</div>
                     {p.total != null && (
-                      <div
-                        style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}
-                      >
+                      <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div
                           style={{
                             flex: 1,
@@ -136,6 +136,20 @@ export function PlansKanbanView({ plans, openReview }: PlansKanbanViewProps) {
                         >
                           <Button kind="outline" size="sm" icon="review">
                             Review
+                          </Button>
+                        </span>
+                      </div>
+                    )}
+                    {p.state === 'done' && (
+                      <div style={{ marginTop: 10 }}>
+                        <span
+                          onClick={e => {
+                            e.stopPropagation();
+                            openArchive(p.id, p.title);
+                          }}
+                        >
+                          <Button kind="outline" size="sm" icon="archive">
+                            Archive
                           </Button>
                         </span>
                       </div>

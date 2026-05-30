@@ -22,7 +22,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { Button, Icon, Modal } from '../components/primitives';
 import { planMdPath } from './derive';
 import { copyToClipboard } from '../vendor/utils/clipboard';
-import { useCapabilities, launchSelfReview } from '../data/api';
+import { useCapabilities, launchSelfReview, archivePlan } from '../data/api';
 
 /* ---------------------------------------------------------------------------
  * Command / path copy — centralized so the displayed text equals the copied
@@ -80,23 +80,29 @@ function CmdCopyButton({ value }: { value: string }) {
  * ------------------------------------------------------------------------- */
 
 /** The open modal descriptor, or `null` when no modal is open. */
-export type ModalState = { kind: 'create' } | { kind: 'review'; path: string } | null;
+export type ModalState =
+  | { kind: 'create' }
+  | { kind: 'review'; path: string }
+  | { kind: 'archive'; id: number; title: string }
+  | null;
 
 /** The modal-state handles shared across the Plans views and route container. */
 export interface UseModalResult {
   modal: ModalState;
   openCreate: () => void;
   openReview: (path: string) => void;
+  openArchive: (id: number, title: string) => void;
   close: () => void;
 }
 
-/** Holds the Plans section's modal state: create / review(path) / close. */
+/** Holds the Plans section's modal state: create / review(path) / archive / close. */
 export function useModal(init: ModalState = null): UseModalResult {
   const [modal, setModal] = useState<ModalState>(init);
   return {
     modal,
     openCreate: () => setModal({ kind: 'create' }),
     openReview: (path: string) => setModal({ kind: 'review', path }),
+    openArchive: (id: number, title: string) => setModal({ kind: 'archive', id, title }),
     close: () => setModal(null),
   };
 }
@@ -325,6 +331,85 @@ function ReviewPlanUnavailable({ onClose }: { onClose: () => void }) {
 }
 
 /* ---------------------------------------------------------------------------
+ * Archive plan modal
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Confirmation dialog for the SPA's one sanctioned workspace mutation: moving a
+ * `done` plan's directory from `plans/` to `archive/`. Confirming issues
+ * `POST /api/plans/:id/archive`; on success the dialog closes and the live SSE
+ * revalidation drops the plan from the list and surfaces it under Archive. On
+ * failure the server's message is shown and the dialog stays open — the
+ * workspace is left untouched. Cancelling sends no request.
+ */
+export function ArchivePlanModal({
+  id,
+  title,
+  onClose,
+}: {
+  id: number;
+  title: string;
+  onClose: () => void;
+}) {
+  const [archiving, setArchiving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const onConfirm = () => {
+    setArchiving(true);
+    setError(null);
+    void archivePlan(id).then(result => {
+      if (result.ok) {
+        onClose();
+        return;
+      }
+      setArchiving(false);
+      setError(result.error ?? 'Failed to archive plan.');
+    });
+  };
+
+  return (
+    <Modal
+      eyebrow="Archive plan"
+      title="Move this plan to the archive"
+      onClose={onClose}
+      actions={
+        <>
+          <Button kind="outline" size="sm" onClick={archiving ? undefined : onClose}>
+            Cancel
+          </Button>
+          <Button
+            kind="primary"
+            size="sm"
+            icon="archive"
+            onClick={archiving ? undefined : onConfirm}
+          >
+            {archiving ? 'Archiving…' : 'Archive plan'}
+          </Button>
+        </>
+      }
+    >
+      <p style={{ margin: 0 }}>
+        Move plan <span className="chip">{id}</span> <strong>{title}</strong> to the archive? Its
+        directory moves from <span className="chip">plans/</span> to{' '}
+        <span className="chip">archive/</span> — no files are deleted or edited, only the location
+        changes.
+      </p>
+
+      {error != null && (
+        <p className="modal__hint" role="alert" style={{ color: 'var(--danger, #c0392b)' }}>
+          {error}
+        </p>
+      )}
+
+      <p className="modal__hint">
+        Only plans where every task is complete can be archived. This is the one change this viewer
+        makes to your workspace; the plan stays available under the Archive tab.
+      </p>
+    </Modal>
+  );
+}
+
+/* ---------------------------------------------------------------------------
  * Dispatcher
  * ------------------------------------------------------------------------- */
 
@@ -338,5 +423,7 @@ export function PlanModals({
 }): ReactNode {
   if (!modal) return null;
   if (modal.kind === 'create') return <CreatePlanModal onClose={onClose} />;
+  if (modal.kind === 'archive')
+    return <ArchivePlanModal id={modal.id} title={modal.title} onClose={onClose} />;
   return <ReviewPlanModal path={modal.path} onClose={onClose} />;
 }

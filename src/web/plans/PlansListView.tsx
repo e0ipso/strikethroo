@@ -28,10 +28,12 @@ export interface PlansListViewProps {
   plans: PlanView[];
   /** Opens the Review command-hint modal for the given plan path. */
   openReview: (path: string) => void;
+  /** Opens the archive-confirmation modal for a done plan. */
+  openArchive: (id: number, title: string) => void;
 }
 
 /** The List (table) view of the active plans. */
-export function PlansListView({ plans, openReview }: PlansListViewProps) {
+export function PlansListView({ plans, openReview, openArchive }: PlansListViewProps) {
   const navigate = useNavigate();
 
   return (
@@ -51,8 +53,7 @@ export function PlansListView({ plans, openReview }: PlansListViewProps) {
         <div className="subbar__sep" />
         <div className="subbar__group" style={{ color: 'var(--ink-3)' }}>
           <Icon name="sort" size={13} />
-          sort:{' '}
-          <span style={{ color: 'var(--ink)', fontWeight: 500 }}>id ↓</span>
+          sort: <span style={{ color: 'var(--ink)', fontWeight: 500 }}>id ↓</span>
         </div>
         <div style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
           {plans.length} active plans
@@ -107,6 +108,18 @@ export function PlansListView({ plans, openReview }: PlansListViewProps) {
                   >
                     <Button kind="outline" size="sm" icon="review">
                       Review
+                    </Button>
+                  </span>
+                )}
+                {row.state === 'done' && (
+                  <span
+                    onClick={e => {
+                      e.stopPropagation();
+                      openArchive(row.id, row.title);
+                    }}
+                  >
+                    <Button kind="outline" size="sm" icon="archive">
+                      Archive
                     </Button>
                   </span>
                 )}

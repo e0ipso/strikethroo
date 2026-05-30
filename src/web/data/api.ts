@@ -242,3 +242,31 @@ export async function launchSelfReview(path: string): Promise<LaunchResult> {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
+
+/** Result of an {@link archivePlan} request. */
+export interface ArchiveResult {
+  ok: boolean;
+  error?: string;
+}
+
+/**
+ * Asks the server to archive a done plan — the SPA's single permitted workspace
+ * mutation — which moves its directory from `plans/` to `archive/`. Never
+ * throws: a network or non-2xx failure resolves to `{ ok: false, error }`. On
+ * success the server's `changed` SSE event drives the plan list to revalidate,
+ * so callers typically just close their confirmation UI.
+ */
+export async function archivePlan(id: number): Promise<ArchiveResult> {
+  try {
+    const res = await fetch(`/api/plans/${encodeURIComponent(String(id))}/archive`, {
+      method: 'POST',
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) {
+      return { ok: false, error: data.error ?? `Archive failed with status ${res.status}` };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}

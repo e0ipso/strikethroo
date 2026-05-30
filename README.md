@@ -33,6 +33,8 @@ npx strikethroo serve
 
 `serve` boots a dependency-light Node server that hosts the prebuilt single-page app as static files, exposes a read-only JSON API over the workspace model, and streams a coalesced `changed` event over Server-Sent Events whenever the workspace mutates on disk. Run it from inside an initialized workspace; if none is found it prints guidance to run `init` and exits without binding.
 
+The viewer is read-only **except for one permitted mutation: the archive action.** A plan whose tasks are all complete (derived state `done`) shows an **Archive** control; confirming it issues `POST /api/plans/:id/archive`, which moves that plan's directory from `plans/` to `archive/`. It is strictly a directory move — no files are deleted or edited, and only `done` plans are accepted. This is the manual escape hatch for plans that are done but not yet archived; it does **not** replace the automatic archival the `st-execute-blueprint` skill performs on successful completion.
+
 Flags:
 
 - `--port <n>` — port to bind (default `4317`).

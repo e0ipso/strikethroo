@@ -109,10 +109,10 @@ maybe('Plans section (Playwright)', () => {
       await page.waitForSelector('.cards .card');
       expect(await page.locator('.cards .card').count()).toBe(counts.all);
 
-      // Switch to Board in place.
+      // Switch to Board in place. The Done column is hidden by default.
       await page.getByText('Board', { exact: true }).click();
       await page.waitForSelector('.board .col');
-      expect(await page.locator('.board .col').count()).toBe(4);
+      expect(await page.locator('.board .col').count()).toBe(3);
     } finally {
       await page.close();
     }
@@ -124,15 +124,16 @@ maybe('Plans section (Playwright)', () => {
       await page.goto(handle.url, { waitUntil: 'domcontentloaded' });
       await page.getByText('Board', { exact: true }).click();
       await page.waitForSelector('.board .col');
-      expect(await page.locator('.board .col').count()).toBe(4);
-
-      await page.getByText(/Show done/).click();
-      await page.waitForFunction(() => document.querySelectorAll('.board .col').length === 3);
+      // Done is hidden by default, so the Board starts with three columns.
       expect(await page.locator('.board .col').count()).toBe(3);
 
       await page.getByText(/Show done/).click();
       await page.waitForFunction(() => document.querySelectorAll('.board .col').length === 4);
       expect(await page.locator('.board .col').count()).toBe(4);
+
+      await page.getByText(/Hide done/).click();
+      await page.waitForFunction(() => document.querySelectorAll('.board .col').length === 3);
+      expect(await page.locator('.board .col').count()).toBe(3);
     } finally {
       await page.close();
     }

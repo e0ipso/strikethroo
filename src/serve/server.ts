@@ -4,8 +4,11 @@
  * Composes three concerns over the workspace model (`workspace-model.ts`):
  *   - static hosting of the prebuilt SPA, with directory-traversal protection
  *     and an `index.html` fallback so client-side routing resolves;
- *   - a read-only JSON API (`/api/plans`, `/api/plans/:id`, `/api/config`)
- *     read fresh per request so responses reflect current disk state;
+ *   - a read-only JSON API (`/api/plans`, `/api/plans/:id`, `/api/config`,
+ *     `/api/capabilities`) read fresh per request so responses reflect current
+ *     disk state;
+ *   - the single non-read endpoint `POST /api/self-review`, which launches the
+ *     external self-review binary for a validated in-workspace plan path;
  *   - platform-aware browser auto-open on startup.
  *
  * The SSE change stream (`GET /api/events`) is added by a separate module that
@@ -21,6 +24,7 @@ import { spawn } from 'child_process';
 import { URL } from 'url';
 import { getWorkspaceModel, getPlanDetail, getConfig } from './workspace-model';
 import { EventsHub } from './events';
+import { isSelfReviewAvailable, launchSelfReview } from './self-review';
 
 /** Options for {@link startServer}. */
 export interface ServeOptions {
@@ -124,6 +128,11 @@ const handleApi = (res: http.ServerResponse, root: string, pathname: string): bo
       return true;
     }
 
+    if (pathname === '/api/capabilities' || pathname === '/api/capabilities/') {
+      sendJson(res, 200, { selfReview: isSelfReviewAvailable() });
+      return true;
+    }
+
     if (/^\/api\/plans\/[^/]+\/?$/.test(pathname)) {
       const id = parsePlanId(pathname);
       if (id === null) {
@@ -147,6 +156,59 @@ const handleApi = (res: http.ServerResponse, root: string, pathname: string): bo
     });
     return true;
   }
+};
+
+/** Max accepted request-body size (bytes). The self-review body is tiny JSON. */
+const MAX_BODY_BYTES = 64 * 1024;
+
+/** Reads and JSON-parses a request body, rejecting oversized or malformed input. */
+const readJsonBody = (req: http.IncomingMessage): Promise<unknown> =>
+  new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > MAX_BODY_BYTES) {
+        reject(new Error('Request body too large'));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      const raw = Buffer.concat(chunks).toString('utf8').trim();
+      if (raw === '') {
+        resolve({});
+        return;
+      }
+      try {
+        resolve(JSON.parse(raw));
+      } catch {
+        reject(new Error('Invalid JSON body'));
+      }
+    });
+    req.on('error', reject);
+  });
+
+/**
+ * Handles `POST /api/self-review`: launches the external self-review binary for
+ * the requested plan path. Returns `true` once it has owned the response.
+ */
+const handleSelfReview = (
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  root: string
+): boolean => {
+  readJsonBody(req)
+    .then(body => {
+      const clientPath = (body as { path?: unknown }).path;
+      const result = launchSelfReview(root, typeof clientPath === 'string' ? clientPath : '');
+      sendJson(res, result.status, result.body);
+    })
+    .catch((err: Error) => {
+      sendJson(res, 400, { ok: false, error: err.message });
+    });
+  return true;
 };
 
 /** Streams a static file with an appropriate content type. */
@@ -242,6 +304,10 @@ export const startServer = (opts: ServeOptions): Promise<ServeHandle> => {
     if (pathname.startsWith('/api/')) {
       for (const handler of extraHandlers) {
         if (handler(req, res, { root: opts.root, pathname })) return;
+      }
+      // The one write-ish endpoint: launch the external self-review binary.
+      if (req.method === 'POST' && /^\/api\/self-review\/?$/.test(pathname)) {
+        if (handleSelfReview(req, res, opts.root)) return;
       }
       // Built-in SSE change stream.
       if (events.apiHandler(req, res, { pathname })) return;

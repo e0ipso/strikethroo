@@ -52,7 +52,7 @@ export function Sidebar({ counts = {} }: SidebarProps) {
     <aside className="sb">
       <div className="sb__brand">
         <span className="tl-mark">strikethroo</span>
-        <span className="sb__brand-sub">v0.4</span>
+        <span className="sb__brand-sub">v{__APP_VERSION__}</span>
       </div>
       <div className="sb__group">Workspace</div>
       <nav className="sb__nav">

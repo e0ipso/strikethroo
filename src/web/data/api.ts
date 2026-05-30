@@ -125,6 +125,12 @@ export interface Config {
   templates: ConfigFile[];
 }
 
+/** Server-side capabilities the SPA gates UI on (`GET /api/capabilities`). */
+export interface Capabilities {
+  /** True when the `self-review` binary is installed on the server's PATH. */
+  selfReview: boolean;
+}
+
 /* ---------------------------------------------------------------------------
  * State machine
  * ------------------------------------------------------------------------- */
@@ -202,4 +208,37 @@ export function usePlanDetail(id: string): Resource<PlanDetail> {
 /** Fetches the customizable config slice (hooks + templates). */
 export function useConfig(): Resource<Config> {
   return useResource<Config>('/api/config');
+}
+
+/** Fetches the server-side capability flags (e.g. self-review availability). */
+export function useCapabilities(): Resource<Capabilities> {
+  return useResource<Capabilities>('/api/capabilities');
+}
+
+/** Result of a {@link launchSelfReview} request. */
+export interface LaunchResult {
+  ok: boolean;
+  error?: string;
+}
+
+/**
+ * Asks the server to launch the external self-review binary for `path`. The
+ * server validates the path stays inside the workspace before spawning. Never
+ * throws: a network or non-2xx failure resolves to `{ ok: false, error }`.
+ */
+export async function launchSelfReview(path: string): Promise<LaunchResult> {
+  try {
+    const res = await fetch('/api/self-review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path }),
+    });
+    const data = (await res.json().catch(() => ({}))) as LaunchResult;
+    if (!res.ok) {
+      return { ok: false, error: data.error ?? `Launch failed with status ${res.status}` };
+    }
+    return { ok: data.ok !== false, error: data.error };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
 }

@@ -270,12 +270,32 @@
 .modal__cmd-copy {
   margin-left: auto;
   color: var(--deep-3);
-  cursor: default;
+  cursor: pointer;
+  font: inherit;
   font-size: 12px;
   display: inline-flex; align-items: center; gap: 5px;
   padding: 4px 8px;
+  border: 0;
   border-radius: 4px;
   background: oklch(1 0 0 / 0.06);
+  transition: background 0.12s ease, color 0.12s ease, transform 0.06s ease;
+}
+.modal__cmd-copy:hover {
+  background: oklch(1 0 0 / 0.14);
+  color: var(--cream);
+}
+.modal__cmd-copy:focus-visible {
+  outline: 2px solid var(--dalia);
+  outline-offset: 2px;
+}
+.modal__cmd-copy:active {
+  transform: scale(0.96);
+  background: oklch(1 0 0 / 0.2);
+}
+.modal__cmd-copy--copied,
+.modal__cmd-copy--copied:hover {
+  color: var(--dalia);
+  background: oklch(1 0 0 / 0.1);
 }
 .modal__hint {
   margin-top: 16px;

@@ -12,6 +12,8 @@
     "build:skill-prompts": "node scripts/build-skill-prompts.cjs",
     "build:web": "vite build",
     "dev": "tsc --watch",
+    "dev:web": "vite",
+    "dev:serve": "node --watch --require ts-node/register/transpile-only src/cli.ts serve --no-open",
     "start": "node dist/cli.js",
     "test": "jest",
     "test:watch": "jest --watch",

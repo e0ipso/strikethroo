@@ -41,6 +41,27 @@ const httpGet = (url: string): Promise<HttpResponse> =>
       .on('error', reject);
   });
 
+const httpPost = (url: string, body: string): Promise<HttpResponse> =>
+  new Promise((resolve, reject) => {
+    const target = new URL(url);
+    const req = http.request(
+      {
+        hostname: target.hostname,
+        port: target.port,
+        path: target.pathname,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+      },
+      res => {
+        let data = '';
+        res.on('data', chunk => (data += chunk));
+        res.on('end', () => resolve({ status: res.statusCode ?? 0, body: data }));
+      }
+    );
+    req.on('error', reject);
+    req.end(body);
+  });
+
 const delay = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
 
 describe('serve server: read-only JSON API', () => {
@@ -96,6 +117,33 @@ describe('serve server: read-only JSON API', () => {
     expect(Array.isArray(config.hooks)).toBe(true);
     expect(Array.isArray(config.templates)).toBe(true);
     expect(config.hooks.length).toBeGreaterThan(0);
+  });
+
+  it('GET /api/capabilities reports self-review availability as a boolean', async () => {
+    const res = await httpGet(`${handle.url}/api/capabilities`);
+    expect(res.status).toBe(200);
+    const caps = JSON.parse(res.body);
+    expect(typeof caps.selfReview).toBe('boolean');
+  });
+
+  it('POST /api/self-review answers with a JSON ok-envelope', async () => {
+    // Availability depends on the host; assert the wiring/contract, not the
+    // verdict: a well-formed body always yields a numeric status and { ok }.
+    const rel =
+      '.ai/strikethroo/plans/38--fix-jekyll-link-baseurl/plan-38--fix-jekyll-link-baseurl.md';
+    const res = await httpPost(`${handle.url}/api/self-review`, JSON.stringify({ path: rel }));
+    expect([200, 400, 404, 409, 500]).toContain(res.status);
+    const body = JSON.parse(res.body);
+    expect(typeof body.ok).toBe('boolean');
+    if (!body.ok) expect(typeof body.error).toBe('string');
+  });
+
+  it('POST /api/self-review rejects a malformed JSON body with 400', async () => {
+    const res = await httpPost(`${handle.url}/api/self-review`, '{not json');
+    expect(res.status).toBe(400);
+    const body = JSON.parse(res.body);
+    expect(body.ok).toBe(false);
+    expect(typeof body.error).toBe('string');
   });
 });
 

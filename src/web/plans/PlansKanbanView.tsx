@@ -43,7 +43,7 @@ export interface PlansKanbanViewProps {
 /** The Board (Kanban) view of the active plans. */
 export function PlansKanbanView({ plans, openReview }: PlansKanbanViewProps) {
   const navigate = useNavigate();
-  const [showDone, setShowDone] = useState(true);
+  const [showDone, setShowDone] = useState(false);
 
   const groups = groupByState(plans);
   const cols = COLUMNS.filter(c => !c.toggle || showDone);
@@ -67,7 +67,7 @@ export function PlansKanbanView({ plans, openReview }: PlansKanbanViewProps) {
                 fontWeight: showDone ? 500 : 400,
               }}
             >
-              Show done {showDone ? '· visible' : '· hidden'}
+              {showDone ? 'Hide done' : 'Show done'}
             </span>
           </span>
         </div>

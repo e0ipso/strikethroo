@@ -46,6 +46,7 @@
   },
   "files": [
     "dist/",
+    "dist-web/",
     "templates/",
     "LICENSE"
   ],

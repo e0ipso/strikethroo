@@ -9,6 +9,9 @@ This file provides comprehensive guidance to AI assistants when working with thi
 # Build and run
 npm run build && npm start init --harnesses claude
 
+# Serve the read-only workspace viewer (SPA + JSON API + SSE)
+npm run build && node dist/cli.js serve        # or: npx strikethroo serve
+
 # Development workflow
 npm run dev           # Watch mode compilation
 npm test              # Run test suite
@@ -145,21 +148,24 @@ The only write the server performs to the workspace is the guarded **archive act
 
 **Single markdown/sanitization boundary.** All markdown rendering and HTML sanitization in the SPA go through `src/web/render/markdown.ts` (`renderMarkdown(source) -> sanitized HTML`, built on `marked` with raw-HTML escaping plus a DOMPurify pass that forbids `<script>`/`<style>` and `on*` handlers). No screen may parse markdown or sanitize HTML on its own — import `renderMarkdown` so the rendering rules and the sanitization policy live in exactly one place. Mermaid is the sibling `src/web/render/mermaid.ts` path: it reaches the mermaid library exclusively through a lazy dynamic `import()`, so it is code-split out of any consumer (the Plan Detail Reader ships no mermaid) and is activated only by the Graph view. `marked`, `dompurify`, and `mermaid` are SPA-only **devDependencies** (alongside `react`/`vite`), not CLI runtime deps.
 
+**No frontend runtime dependencies.** Because `serve` ships only the prebuilt static `dist-web/` bundle, the published package's runtime `dependencies` carry no frontend libraries. Vite, React, react-dom, Tailwind, `@base-ui-components/react`, `lucide-react`, `mermaid`, `marked`, and `dompurify` all stay in `devDependencies` and must never move to `dependencies` — they are build-time only. The runtime server (`src/serve/`) uses Node built-ins exclusively.
+
 ### Prompt source of truth
 
 Each skill's `SKILL.md` prompt is assembled at build time from source templates in `src/skill-prompts/`. Shared procedural blocks (root discovery, plan resolution, phase execution loop, test philosophy, task minimization, etc.) live in `src/skill-prompts/sections/` and are referenced via `{{include sections/<name>.md}}` directives. Per-skill differences are handled with `{{variable}}` substitution from the source template's YAML frontmatter `vars` block. See `src/skill-prompts/README.md` for editing and authoring details.
 
 ### Build pipeline
 
-`npm run build` runs the TypeScript compile, then `npm run build:skills`, then `npm run build:skill-prompts`:
+`npm run build` runs the TypeScript compile, then `npm run build:web`, then `npm run build:skills`, then `npm run build:skill-prompts` (`tsc && npm run build:web && npm run build:skills && npm run build:skill-prompts`):
 
-1. Type-checks `src/skill-scripts/` with `tsc --noEmit -p tsconfig.skill-scripts.json`.
-2. Invokes `scripts/build-skills.cjs`, an `esbuild`-driven script that bundles each registered entrypoint into a self-contained `.cjs` file emitted directly into `templates/harness/skills/<skill>/scripts/`. There is no copy pass — source and output share the same per-skill tree.
-3. Invokes `scripts/build-skill-prompts.cjs`, which resolves `{{include}}` directives and `{{variable}}` substitutions in source templates from `src/skill-prompts/`, writing assembled `SKILL.md` files to `templates/harness/skills/<skill>/SKILL.md`. Post-build validation fails on unresolved directives, missing frontmatter fields, or absent `## Operating Procedure` headings.
+1. Compiles the CLI's `tsc` domain (including `src/serve/`) into `dist/`.
+2. Runs `npm run build:web` (`vite build`), which compiles the `src/web/` SPA into `dist-web/` at the repo root — the static assets `serve` hosts at runtime. This is a Vite build, separate from the CLI's `tsc`/`dist/` domain.
+3. Invokes `scripts/build-skills.cjs`, an `esbuild`-driven script that bundles each registered entrypoint into a self-contained `.cjs` file emitted directly into `templates/harness/skills/<skill>/scripts/`. There is no copy pass — source and output share the same per-skill tree.
+4. Invokes `scripts/build-skill-prompts.cjs`, which resolves `{{include}}` directives and `{{variable}}` substitutions in source templates from `src/skill-prompts/`, writing assembled `SKILL.md` files to `templates/harness/skills/<skill>/SKILL.md`. Post-build validation fails on unresolved directives, missing frontmatter fields, or absent `## Operating Procedure` headings.
 
 The entrypoint → skill mapping is the `SKILL_ENTRYPOINTS` array at the top of `scripts/build-skills.cjs`, which currently registers six shipping skills. To add a future skill: drop a TypeScript entrypoint under `src/skill-scripts/`, add an entry to `SKILL_ENTRYPOINTS`, add the skill's path to `.claude-plugin/plugin.json`, create a source template in `src/skill-prompts/`, and `npm run build` produces both the bundled `.cjs` and assembled `SKILL.md` alongside the skill. No other plumbing changes are needed.
 
-Generated `.cjs` files under `templates/harness/skills/*/scripts/` and assembled `SKILL.md` files under `templates/harness/skills/*/` are git-ignored on `main` and force-added into the release commit by `@semantic-release/git` (which uses `git add --force`). They ship in the published npm package via the `files: ["templates/"]` entry in `package.json`, which already covers all skill content (verify with `npm pack --dry-run`).
+There are three categories of generated-but-shipped artifacts, all git-ignored on `main` and force-added into the release commit by `@semantic-release/git` (which uses `git add --force`): (1) the bundled `.cjs` files under `templates/harness/skills/*/scripts/`, (2) the assembled `SKILL.md` files under `templates/harness/skills/*/`, and (3) the prebuilt SPA under `dist-web/`. The skill bundles and prompts ship in the published npm package via the `files: ["templates/"]` entry in `package.json` (which covers all skill content); the SPA ships via the `files: ["dist-web/"]` entry (verify all three with `npm pack --dry-run`).
 
 ### Distribution
 
@@ -184,13 +190,14 @@ A post-build smoke assertion in `scripts/build-skills.cjs` fails the build if th
 
 ### GitHub Releases
 
-Releases are handled by `semantic-release` via `.github/workflows/release.yml`, triggered on push to `main`. The workflow runs `npm ci && npm run build && npm test`, then `npx semantic-release` which: analyzes commits, bumps the version, publishes to npm, and creates a GitHub release with a git tag. The `@semantic-release/git` plugin's `assets` glob includes `templates/harness/skills/*/scripts/*.cjs` and `templates/harness/skills/*/SKILL.md`, so the otherwise git-ignored bundles and assembled prompts are force-added into the release commit. The tagged ref is self-contained so `npx skills add e0ipso/strikethroo@<tag>` resolves a fully installable input.
+Releases are handled by `semantic-release` via `.github/workflows/release.yml`, triggered on push to `main`. The workflow runs `npm ci && npm run build && npm test`, then `npx semantic-release` which: analyzes commits, bumps the version, publishes to npm, and creates a GitHub release with a git tag. The `@semantic-release/git` plugin's `assets` glob includes `templates/harness/skills/*/scripts/*.cjs`, `templates/harness/skills/*/SKILL.md`, and `dist-web/**`, so the otherwise git-ignored skill bundles, assembled prompts, and prebuilt SPA are force-added into the release commit. The tagged ref is self-contained so `npx skills add e0ipso/strikethroo@<tag>` resolves a fully installable input.
 
 Verify the invariant:
 
 ```bash
 git ls-tree -r v<tag> -- 'templates/harness/skills/*/scripts/*.cjs'   # expect: bundles listed
 git ls-tree -r v<tag> -- 'templates/harness/skills/*/SKILL.md'        # expect: prompts listed
+git ls-tree -r v<tag> -- 'dist-web/*'                                 # expect: SPA assets listed
 ```
 
 Release commits are labeled `chore(release):` in the subject and carry `[skip ci]` to avoid re-triggering the workflow.

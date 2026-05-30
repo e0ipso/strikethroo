@@ -7,7 +7,9 @@
  *   - a read-only JSON API (`/api/plans`, `/api/plans/:id`, `/api/config`,
  *     `/api/capabilities`) read fresh per request so responses reflect current
  *     disk state;
- *   - the single non-read endpoint `POST /api/self-review`, which launches the
+ *   - `POST /api/plans/:id/archive`, the one sanctioned workspace mutation:
+ *     it moves a `done` plan's directory from `plans/` to `archive/`;
+ *   - the non-read endpoint `POST /api/self-review`, which launches the
  *     external self-review binary for a validated in-workspace plan path;
  *   - platform-aware browser auto-open on startup.
  *
@@ -25,6 +27,7 @@ import { URL } from 'url';
 import { getWorkspaceModel, getPlanDetail, getConfig } from './workspace-model';
 import { EventsHub } from './events';
 import { isSelfReviewAvailable, launchSelfReview } from './self-review';
+import { archivePlan } from './archive';
 
 /** Options for {@link startServer}. */
 export interface ServeOptions {
@@ -113,6 +116,52 @@ const parsePlanId = (pathname: string): number | null => {
   if (!match || match[1] === undefined) return null;
   const id = Number(decodeURIComponent(match[1]));
   return Number.isInteger(id) && id >= 0 ? id : null;
+};
+
+/** Parses `/api/plans/:id/archive` -> numeric id, or `null` if not numeric. */
+const parseArchivePlanId = (pathname: string): number | null => {
+  const match = /^\/api\/plans\/([^/]+)\/archive\/?$/.exec(pathname);
+  if (!match || match[1] === undefined) return null;
+  const id = Number(decodeURIComponent(match[1]));
+  return Number.isInteger(id) && id >= 0 ? id : null;
+};
+
+/**
+ * Handles `POST /api/plans/:id/archive`: delegates entirely to the {@link
+ * archivePlan} operation and maps its discriminated result to status codes
+ * without duplicating validation. Returns `true` once it owns the response.
+ */
+const handleArchive = (res: http.ServerResponse, root: string, pathname: string): boolean => {
+  const id = parseArchivePlanId(pathname);
+  if (id === null) {
+    sendJson(res, 400, { error: 'Invalid plan id.' });
+    return true;
+  }
+
+  archivePlan(root, id)
+    .then(result => {
+      if (result.ok) {
+        sendJson(res, 200, result.plan);
+        return;
+      }
+      switch (result.reason) {
+        case 'not-found':
+          sendJson(res, 404, { error: result.message });
+          return;
+        case 'not-done':
+        case 'already-archived':
+        case 'destination-exists':
+          sendJson(res, 409, { error: result.message });
+          return;
+        default:
+          // fs-error: a safe, fixed message — never leak internals.
+          sendJson(res, 500, { error: 'Failed to archive plan.' });
+      }
+    })
+    .catch(() => {
+      sendJson(res, 500, { error: 'Failed to archive plan.' });
+    });
+  return true;
 };
 
 /** Handles the built-in read-only API. Returns `true` when the request matched. */
@@ -304,6 +353,10 @@ export const startServer = (opts: ServeOptions): Promise<ServeHandle> => {
     if (pathname.startsWith('/api/')) {
       for (const handler of extraHandlers) {
         if (handler(req, res, { root: opts.root, pathname })) return;
+      }
+      // The one sanctioned workspace mutation: archive a done plan.
+      if (req.method === 'POST' && /^\/api\/plans\/[^/]+\/archive\/?$/.test(pathname)) {
+        if (handleArchive(res, opts.root, pathname)) return;
       }
       // The one write-ish endpoint: launch the external self-review binary.
       if (req.method === 'POST' && /^\/api\/self-review\/?$/.test(pathname)) {

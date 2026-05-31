@@ -1,12 +1,15 @@
 /**
- * End-to-end verification for the Plan 88 Plan Detail Board and Graph views.
+ * End-to-end verification for the Plan Detail Graph view.
  *
  * Drives the built SPA (dist-web) in a real Chromium browser, following the
  * plan's Self Validation. Per the project test philosophy ("a few tests, mostly
- * integration"), this is the critical-path run covering the two views' custom
- * behavior — honest snapshot scrubbing, Done-column rendering from the live
- * model, the Graph Rendered/Source toggle, lazy-mermaid chunk isolation, and the
- * absent/malformed-diagram safety nets — not per-component unit suites.
+ * integration"), this is the critical-path run covering the Graph view's custom
+ * behavior — the Graph Rendered/Source toggle, lazy-mermaid chunk isolation, and
+ * the absent/malformed-diagram safety nets — not per-component unit suites.
+ *
+ * The snapshot-driven Plan Detail Board (Tasks tab) and its scrubber were
+ * removed in Plan 95 (the Tasks tab now renders the Execute blueprint, covered
+ * by plan-detail-execute.e2e.test.ts), so this file only exercises the Graph.
  *
  * Expectations are derived from the live API and disposable fixtures, never from
  * the design's hardcoded plan-38 sample: the real workspace's plan 38 is an
@@ -44,9 +47,6 @@ try {
 
 const maybe = assetsBuilt && browserAvailable ? describe : describe.skip;
 
-/** Two-digit, zero-padded id, matching the Board card / deps formatting. */
-const padId = (id: number): string => String(id).padStart(2, '0');
-
 /** Builds a disposable workspace root with a single fixture plan; returns root. */
 const makeFixtureWorkspace = (id: number, slug: string, body: string): string => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'st-board-graph-fixture-'));
@@ -81,7 +81,7 @@ this is not valid mermaid >>> @@@ %%% definitely not a flowchart
 - Renders an inline error, not a crash
 `;
 
-maybe('Plan Detail Board and Graph (Playwright)', () => {
+maybe('Plan Detail Graph (Playwright)', () => {
   let browser: Browser;
   let liveHandle: ServeHandle;
   let plan38: PlanDetail;
@@ -110,14 +110,6 @@ maybe('Plan Detail Board and Graph (Playwright)', () => {
     return page;
   };
 
-  /** Opens plan 38 and clicks the Tasks tab to reach the Board. */
-  const openBoard = async (page: Page): Promise<void> => {
-    await page.goto(`${liveHandle.url}/plans/38`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.chrome__tabs');
-    await page.locator('.chrome__tabs .tab', { hasText: 'Tasks' }).click();
-    await page.waitForSelector('.taskboard');
-  };
-
   /** Opens plan 38 and clicks the Graph tab. */
   const openGraph = async (page: Page): Promise<void> => {
     await page.goto(`${liveHandle.url}/plans/38`, { waitUntil: 'domcontentloaded' });
@@ -125,76 +117,6 @@ maybe('Plan Detail Board and Graph (Playwright)', () => {
     await page.locator('.chrome__tabs .tab', { hasText: 'Graph' }).click();
     await page.waitForSelector('.graph2');
   };
-
-  it('Board: a real done plan shows all tasks in the Done column with correct card metadata', async () => {
-    expect(plan38.state).toBe('done');
-    const page = await newPage();
-    try {
-      await openBoard(page);
-
-      // Default snapshot is `current`: every completed task lands in Done.
-      const doneCol = page.locator('.col').filter({ has: page.locator('.pill--done') });
-      const doneCards = doneCol.locator('.tcard');
-      const expectedDone = plan38.tasks.filter(t => t.status === 'completed');
-      expect(await doneCards.count()).toBe(expectedDone.length);
-      // Column count badge matches.
-      expect(await doneCol.locator('.col__count').textContent()).toBe(String(expectedDone.length));
-
-      // Todo and Doing columns are empty for an all-completed plan.
-      const todoCol = page.locator('.col').filter({ has: page.locator('.pill--todo') });
-      expect(await todoCol.locator('.col__empty').count()).toBe(1);
-
-      // Each Done card carries the live id, group, and deps (`none` when empty).
-      for (const task of expectedDone) {
-        if (task.id == null) continue;
-        const card = doneCol.locator('.tcard', { hasText: `task · ${padId(task.id)}` });
-        expect(await card.count()).toBe(1);
-        const text = (await card.textContent()) ?? '';
-        expect(text).toContain(task.name);
-        if (task.group) expect(text).toContain(task.group);
-        const deps = task.dependencies ?? [];
-        const expectedDeps = deps.length === 0 ? 'none' : deps.map(padId).join(', ');
-        expect(text).toContain(`deps · ${expectedDeps}`);
-        // Phase tag present (P{n}) for a task that belongs to a phase.
-        expect(await card.locator('.tcard__phase').count()).toBe(1);
-      }
-    } finally {
-      await page.close();
-    }
-  }, 45_000);
-
-  it('Board: the snapshot scrubber honestly toggles start/current with no fabricated intermediate state', async () => {
-    const page = await newPage();
-    try {
-      await openBoard(page);
-
-      const segBtns = page.locator('.snap__seg .snap__btn');
-      // Exactly two honest snapshots — no third fabricated `midPhase` entry.
-      expect(await segBtns.count()).toBe(2);
-
-      const todoCol = page.locator('.col').filter({ has: page.locator('.pill--todo') });
-      const doneCol = page.locator('.col').filter({ has: page.locator('.pill--done') });
-      const completed = plan38.tasks.filter(t => t.status === 'completed').length;
-
-      // Current (default): completed tasks in Done, Todo empty.
-      expect(await doneCol.locator('.tcard').count()).toBe(completed);
-
-      // Switch to Start: every task forced to Todo, Done empties.
-      await segBtns.nth(0).click();
-      expect(await todoCol.locator('.tcard').count()).toBe(plan38.tasks.length);
-      expect(await doneCol.locator('.tcard').count()).toBe(0);
-
-      // Live returns to Current.
-      await page.getByRole('button', { name: 'Live' }).click();
-      expect(await doneCol.locator('.tcard').count()).toBe(completed);
-
-      // The history-not-tracked notice is present.
-      const boardText = (await page.locator('.snap, .col__hint').allTextContents()).join(' ');
-      expect(boardText.toLowerCase()).toContain('not tracked');
-    } finally {
-      await page.close();
-    }
-  }, 45_000);
 
   it('Graph: renders the model diagram and the Source toggle shows the extracted block', async () => {
     expect(plan38.mermaid.length).toBeGreaterThan(0);

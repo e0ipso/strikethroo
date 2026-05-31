@@ -60,7 +60,7 @@ export function PlansKanbanView({ plans, openReview, openArchive }: PlansKanbanV
           <span
             className="subbar__seg"
             onClick={() => setShowDone(s => !s)}
-            style={{ cursor: 'default' }}
+            style={{ cursor: 'pointer' }}
           >
             <Tickbox state={showDone ? 'done' : 'todo'} />
             <span

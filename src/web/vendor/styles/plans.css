@@ -38,7 +38,7 @@
   text-transform: uppercase;
   color: var(--ink-3);
 }
-.tbl--row { cursor: default; }
+.tbl--row { cursor: pointer; }
 .tbl--row:hover { background: var(--cream-mid); }
 .tbl--real { background: oklch(0.965 0.01 75); }
 
@@ -113,7 +113,7 @@
   display: flex; flex-direction: column;
   box-shadow: 0 1px 2px oklch(0 0 0 / 0.03);
   position: relative;
-  cursor: default;
+  cursor: pointer;
 }
 .card--drafted { border-style: dashed; border-color: var(--ink-3); background: transparent; }
 .card--real { background: var(--cream); box-shadow: 0 1px 2px oklch(0 0 0 / 0.04); }
@@ -231,7 +231,7 @@
   border-radius: 8px;
   padding: 11px 12px 10px;
   box-shadow: 0 1px 2px oklch(0 0 0 / 0.04), 0 0 0 1px var(--border-soft);
-  cursor: default;
+  cursor: pointer;
 }
 .bcard--drafted { border: 1px dashed var(--ink-3); background: transparent; box-shadow: none; }
 .bcard__head { display: flex; justify-content: space-between; gap: 6px; }

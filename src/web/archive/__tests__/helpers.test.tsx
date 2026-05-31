@@ -14,7 +14,9 @@ import { isValidElement, type ReactElement } from 'react';
 import {
   archiveStats,
   byCompletedDesc,
+  filterByDateRange,
   filterPlans,
+  groupByMonth,
   highlight,
   type ArchivePlanView,
 } from '../helpers';
@@ -133,5 +135,75 @@ describe('byCompletedDesc', () => {
     ];
     // Sort keys: id1 -> 2026-04-01, id2 -> 2026-05-13, id3 -> 2026-02-01.
     expect([...plans].sort(byCompletedDesc).map(p => p.id)).toEqual([2, 1, 3]);
+  });
+});
+
+describe('filterByDateRange', () => {
+  it('returns the list unchanged for an empty range (no bounds)', () => {
+    const plans = [plan({ id: 1, completedAt: '2026-03-01' }), plan({ id: 2 })];
+    expect(filterByDateRange(plans, '', '')).toEqual(plans);
+    expect(filterByDateRange(plans, undefined, undefined)).toEqual(plans);
+  });
+
+  it('includes the inclusive from/to boundary dates', () => {
+    const plans = [
+      plan({ id: 1, completedAt: '2026-03-01' }),
+      plan({ id: 2, completedAt: '2026-03-15' }),
+      plan({ id: 3, completedAt: '2026-03-31' }),
+      plan({ id: 4, completedAt: '2026-04-01' }),
+    ];
+    expect(filterByDateRange(plans, '2026-03-01', '2026-03-31').map(p => p.id)).toEqual([1, 2, 3]);
+  });
+
+  it('applies an open-ended bound when only one side is set', () => {
+    const plans = [
+      plan({ id: 1, completedAt: '2026-02-01' }),
+      plan({ id: 2, completedAt: '2026-05-01' }),
+    ];
+    expect(filterByDateRange(plans, '2026-03-01', undefined).map(p => p.id)).toEqual([2]);
+    expect(filterByDateRange(plans, undefined, '2026-03-01').map(p => p.id)).toEqual([1]);
+  });
+
+  it('excludes plans missing completedAt once any bound is set', () => {
+    const plans = [plan({ id: 1, completedAt: undefined }), plan({ id: 2, completedAt: '2026-03-10' })];
+    expect(filterByDateRange(plans, '2026-01-01', '2026-12-31').map(p => p.id)).toEqual([2]);
+  });
+});
+
+describe('groupByMonth', () => {
+  it('returns [] for an empty input', () => {
+    expect(groupByMonth([])).toEqual([]);
+  });
+
+  it('buckets plans by YYYY-MM and orders months descending', () => {
+    const plans = [
+      plan({ id: 1, completedAt: '2026-02-12' }),
+      plan({ id: 2, completedAt: '2026-05-13' }),
+      plan({ id: 3, completedAt: '2026-05-02' }),
+      plan({ id: 4, completedAt: '2026-03-15' }),
+    ];
+    const groups = groupByMonth(plans);
+    expect(groups.map(g => g.month)).toEqual(['2026-05', '2026-03', '2026-02']);
+    expect(groups.map(g => g.label)).toEqual(['May 2026', 'March 2026', 'February 2026']);
+    expect(groups[0]?.plans.map(p => p.id)).toEqual([2, 3]);
+  });
+
+  it('routes a plan missing completedAt to the trailing No date bucket', () => {
+    const plans = [
+      plan({ id: 1, completedAt: undefined }),
+      plan({ id: 2, completedAt: '2026-04-10' }),
+    ];
+    const groups = groupByMonth(plans);
+    expect(groups.map(g => g.month)).toEqual(['2026-04', 'unknown']);
+    const unknown = groups[groups.length - 1];
+    expect(unknown?.label).toBe('No date');
+    expect(unknown?.plans.map(p => p.id)).toEqual([1]);
+  });
+
+  it('does not mutate the input array', () => {
+    const plans = [plan({ id: 1, completedAt: '2026-02-01' }), plan({ id: 2, completedAt: '2026-05-01' })];
+    const snapshot = plans.map(p => p.id);
+    groupByMonth(plans);
+    expect(plans.map(p => p.id)).toEqual(snapshot);
   });
 });

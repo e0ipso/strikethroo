@@ -14,18 +14,30 @@
 .detail {
   flex: 1;
   display: grid;
-  grid-template-columns: 280px 1fr;
+  /* Wide prose is the primary column; the blueprint rail sits on the right. */
+  grid-template-columns: 1fr 300px;
   min-height: 0;
   overflow: hidden;
 }
+/* Below 900px the right rail reflows to a single column, stacking under
+   the prose. */
+@media (max-width: 900px) {
+  .detail {
+    grid-template-columns: 1fr;
+  }
+}
 .rail {
-  border-right: 1px solid var(--border);
+  border-left: 1px solid var(--border);
   background: var(--cream-mid);
   padding: 18px 16px;
-  overflow: hidden;
+  overflow: auto;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: 100vh;
 }
 .rail__phase {
   background: var(--cream);
@@ -559,7 +571,7 @@
 }
 .outline__row {
   display: grid;
-  grid-template-columns: 24px 36px 1fr 240px 110px;
+  grid-template-columns: 36px 1fr 240px 110px;
   gap: 12px;
   align-items: center;
   padding: 12px 16px;

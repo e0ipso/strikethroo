@@ -19,7 +19,7 @@
  * per-phase commit count, so the commit meta clause is omitted entirely.
  */
 
-import { StatusPill, Tickbox } from '../../components/primitives';
+import { StatusPill } from '../../components/primitives';
 import type { Phase, PlanDetail, Task } from '../../data/api';
 import { toTickboxState } from '../taskStatus';
 import { phaseStateOf, tasksById, execSummaryOf } from './derive';
@@ -35,7 +35,6 @@ function OutlineRow({ task }: { task: Task }) {
   const state = toTickboxState(task.status);
   return (
     <div className={`outline__row outline__row--${state}`}>
-      <Tickbox state={state} />
       <span className="outline__row-id">{pad(task.id)}</span>
       <span className="outline__row-title">{task.name}</span>
       <span className="outline__row-group">{task.group ?? ''}</span>

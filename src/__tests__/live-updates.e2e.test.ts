@@ -1,7 +1,7 @@
 /**
- * End-to-end verification for the Plan 92 live-update pipeline (SSE client +
- * "Live" affordance), implementing the plan's Self Validation as automated
- * integration coverage of its six Success Criteria.
+ * End-to-end verification for the Plan 92 live-update pipeline (the shared SSE
+ * client), implementing the plan's Self Validation as automated integration
+ * coverage of its Success Criteria.
  *
  * Drives the built SPA (dist-web) in a real Chromium browser against a
  * disposable COPY of this repo's `.ai/strikethroo/` workspace, so the suite can
@@ -10,9 +10,12 @@
  * is created per-suite and removed in teardown.
  *
  * Per the project test philosophy ("a few tests, mostly integration"), this is
- * the critical-path run covering the six end-to-end behaviors — live refresh,
- * plan add/remove, reconnect, burst coalescing, indicator states, and snapshot
- * pin/resume — not unit tests of EventSource or React internals.
+ * the critical-path run covering the end-to-end behaviors — live refresh, plan
+ * add/remove, reconnect, and burst coalescing — not unit tests of EventSource or
+ * React internals. Connection health is observed behaviorally (a disk change
+ * still propagates live) rather than via a visible badge: Plan 95 removed the
+ * connection indicator, and Plan 95 also removed the snapshot pin/resume
+ * behavior along with the Plan Detail Board, so neither is covered here.
  *
  * If the build output or a Chromium binary is unavailable the suite skips rather
  * than failing, so it never blocks environments without browsers.
@@ -67,11 +70,17 @@ const writeFixturePlan = (root: string, count: number): PlanFiles => {
   const dir = path.join(root, 'plans', `${FIXTURE_ID}--${FIXTURE_SLUG}`);
   const tasksDir = path.join(dir, 'tasks');
   fs.mkdirSync(tasksDir, { recursive: true });
-  const phaseTasks = Array.from({ length: count }, (_, i) => `0${i + 1}`).join(', ');
+  // One `Task NN` bullet per task so the blueprint parser maps every task into
+  // the single phase (the Tasks tab's Swimlanes/Outline views render tasks via
+  // `phase.taskIds`; a `- Tasks 01, 02, 03` line would not match the parser).
+  const phaseTasks = Array.from(
+    { length: count },
+    (_, i) => `- Task ${String(i + 1).padStart(2, '0')}`
+  ).join('\n');
   fs.writeFileSync(
     path.join(dir, `plan-${FIXTURE_ID}--${FIXTURE_SLUG}.md`),
     `---\nid: ${FIXTURE_ID}\nsummary: "Live fixture"\ncreated: "2026-05-29"\n---\n\n` +
-      `# ${FIXTURE_SLUG}\n\n## Execution Blueprint\n\n### Phase 1\n- Tasks ${phaseTasks}\n`
+      `# ${FIXTURE_SLUG}\n\n## Execution Blueprint\n\n### Phase 1\n${phaseTasks}\n`
   );
   const taskFiles: string[] = [];
   for (let i = 1; i <= count; i++) {
@@ -101,7 +110,7 @@ interface PlanFiles {
   taskFiles: string[];
 }
 
-maybe('Live updates: SSE client + Live affordance (Playwright)', () => {
+maybe('Live updates: SSE client (Playwright)', () => {
   let browser: Browser;
   let root: string;
   let handle: ServeHandle;
@@ -139,55 +148,52 @@ maybe('Live updates: SSE client + Live affordance (Playwright)', () => {
     return page;
   };
 
-  /** Waits until the connection indicator reports the given data-state. */
-  const waitForConnState = async (
-    page: Page,
-    state: 'connected' | 'reconnecting'
-  ): Promise<void> => {
-    await page.waitForFunction(
-      s => {
-        const el = document.querySelector('.conn-ind');
-        return el?.getAttribute('data-state') === s;
-      },
-      state,
-      { timeout: 15_000 }
-    );
+  /**
+   * The connection state is no longer surfaced as a DOM badge (Plan 95 removed
+   * the indicator), so a healthy stream is observed behaviorally. A short settle
+   * lets the shared `EventSource` open before the test mutates the workspace;
+   * the live propagation that follows is what actually proves the stream works.
+   */
+  const settleStream = async (page: Page): Promise<void> => {
+    await page.waitForTimeout(800);
   };
+
+  /** Reads the window-mirrored revalidation pass counter (see revalidation.tsx). */
+  const revalidationCount = (page: Page): Promise<number> =>
+    page.evaluate(
+      () => (window as unknown as { __stRevalidationCount?: number }).__stRevalidationCount ?? 0
+    );
 
   it('Criterion 1+2: a task status edit on disk updates the open Plan Detail within ~1s', async () => {
     const page = await newPage();
     try {
-      // Open the Board (Tasks tab) so task cards by status are visible.
+      // Open the Tasks tab (Execute blueprint, Swimlanes by default) so task
+      // cards by status are visible.
       await page.goto(`${handle.url}/plans/${plan.id}`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.chrome__tabs');
       await page.locator('.chrome__tabs .tab', { hasText: 'Tasks' }).click();
-      await page.waitForSelector('.taskboard');
-      // Indicator is live.
-      await waitForConnState(page, 'connected');
+      await page.waitForSelector('.exec');
+      // Let the shared stream open before mutating the workspace.
+      await settleStream(page);
 
-      const doneCol = page.locator('.col').filter({ has: page.locator('.pill--done') });
-      const before = await doneCol.locator('.tcard').count();
+      const doneTasks = page.locator('.lane-task--done');
+      const before = await doneTasks.count();
 
       // before/after screenshots around the live edit.
       await page.screenshot({ path: path.join(root, 'live-before.png') });
 
-      // Force the first task to completed on disk; the Done column must grow
+      // Force the first task to completed on disk; the done task count must grow
       // without any reload.
       setTaskStatus(plan.taskFiles[0]!, 'completed');
 
       await page.waitForFunction(
-        prev => {
-          const cols = Array.from(document.querySelectorAll('.col'));
-          const done = cols.find(c => c.querySelector('.pill--done'));
-          const count = done?.querySelectorAll('.tcard').length ?? 0;
-          return count > prev;
-        },
+        prev => document.querySelectorAll('.lane-task--done').length > prev,
         before,
         { timeout: 3_000 }
       );
       await page.screenshot({ path: path.join(root, 'live-after.png') });
 
-      expect(await doneCol.locator('.tcard').count()).toBeGreaterThan(before);
+      expect(await doneTasks.count()).toBeGreaterThan(before);
     } finally {
       await page.close();
     }
@@ -205,8 +211,8 @@ maybe('Live updates: SSE client + Live affordance (Playwright)', () => {
     try {
       await page.goto(handle.url, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.sb');
-      // The Plans list carries no connection indicator (it lives on the detail
-      // views per the design); a short settle lets the shared EventSource open.
+      // A short settle lets the shared EventSource open before we assert live
+      // additions/removals.
       await page.waitForTimeout(800);
 
       // The throwaway plan is not present initially.
@@ -254,15 +260,14 @@ maybe('Live updates: SSE client + Live affordance (Playwright)', () => {
     try {
       await page.goto(`${local.url}/plans/${plan.id}`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.chrome__tabs');
-      await waitForConnState(page, 'connected');
+      await settleStream(page);
 
-      // Kill the serve process; the indicator must report reconnecting. The
-      // browser holds the SSE connection open, so close the listener AND
-      // force-terminate the live connection (Node's close() alone waits on it).
+      // Kill the serve process. The browser holds the SSE connection open, so
+      // close the listener AND force-terminate the live connection (Node's
+      // close() alone waits on it). The client drops to its reconnecting state.
       const closed = new Promise<void>(r => local.server.close(() => r()));
       local.server.closeAllConnections();
       await closed;
-      await waitForConnState(page, 'reconnecting');
 
       // Restart on the same port; the client's bounded backoff must recover.
       // Retry the bind briefly in case the port lingers in TIME_WAIT.
@@ -281,7 +286,33 @@ maybe('Live updates: SSE client + Live affordance (Playwright)', () => {
           await new Promise<void>(r => setTimeout(r, 300));
         }
       }
-      await waitForConnState(page, 'connected');
+
+      // The indicator is gone, so prove recovery behaviorally: once the client's
+      // backoff re-opens the stream against the restarted server, a fresh disk
+      // change must still drive a live revalidation pass. SSE does not replay
+      // events missed while disconnected, so probe repeatedly — the first write
+      // that lands after the stream re-opens bumps the counter.
+      const before = await revalidationCount(page);
+      let recovered = false;
+      for (let i = 0; i < 25 && !recovered; i++) {
+        fs.writeFileSync(
+          plan.taskFiles[1]!,
+          fs.readFileSync(plan.taskFiles[1]!, 'utf8') + `\n<!-- reconnect probe ${i} -->`
+        );
+        try {
+          await page.waitForFunction(
+            prev =>
+              ((window as unknown as { __stRevalidationCount?: number }).__stRevalidationCount ??
+                0) > prev,
+            before,
+            { timeout: 1_000 }
+          );
+          recovered = true;
+        } catch {
+          // Stream not back yet; write again on the next iteration.
+        }
+      }
+      expect(recovered).toBe(true);
     } finally {
       await page.close();
       const done = new Promise<void>(r => local.server.close(() => r()));
@@ -293,15 +324,13 @@ maybe('Live updates: SSE client + Live affordance (Playwright)', () => {
   it('Criterion 4: a burst of rapid writes coalesces into few revalidation passes', async () => {
     const page = await newPage();
     try {
-      // Detail page: carries the connection indicator and mounts the plan
-      // resource so a burst exercises the coalescing seam.
+      // Detail page: mounts the plan resource so a burst exercises the
+      // coalescing seam.
       await page.goto(`${handle.url}/plans/${plan.id}`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.chrome__tabs');
-      await waitForConnState(page, 'connected');
+      await settleStream(page);
 
-      const start = await page.evaluate(
-        () => (window as unknown as { __stRevalidationCount?: number }).__stRevalidationCount ?? 0
-      );
+      const start = await revalidationCount(page);
 
       // Write to every task file many times in quick succession.
       const writes = 12;
@@ -322,93 +351,13 @@ maybe('Live updates: SSE client + Live affordance (Playwright)', () => {
       // Allow a generous settle window for any trailing passes.
       await page.waitForTimeout(800);
 
-      const end = await page.evaluate(
-        () => (window as unknown as { __stRevalidationCount?: number }).__stRevalidationCount ?? 0
-      );
+      const end = await revalidationCount(page);
       const passes = end - start;
       // Far fewer passes than the writes*files individual change notifications —
       // server debounce + client coalescing collapse the burst. Allow a small
       // number for reconnect-replay timing, but it must not be one-per-write.
       expect(passes).toBeGreaterThanOrEqual(1);
       expect(passes).toBeLessThan(writes);
-    } finally {
-      await page.close();
-    }
-  }, 45_000);
-
-  it('Criterion 5: the indicator renders in the Board snap bar and the detail header', async () => {
-    const page = await newPage();
-    try {
-      await page.goto(`${handle.url}/plans/${plan.id}`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.chrome__tabs');
-      await waitForConnState(page, 'connected');
-
-      // Header indicator (present on every detail tab, including the Reader).
-      expect(await page.locator('.chrome__actions .conn-ind').count()).toBe(1);
-
-      // Board snap-bar indicator.
-      await page.locator('.chrome__tabs .tab', { hasText: 'Tasks' }).click();
-      await page.waitForSelector('.taskboard');
-      expect(await page.locator('.snap .conn-ind').count()).toBe(1);
-
-      // Both reflect connected (live treatment).
-      const states = await page.locator('.conn-ind').evaluateAll(els =>
-        els.map(e => e.getAttribute('data-state'))
-      );
-      expect(states.every(s => s === 'connected')).toBe(true);
-      expect(await page.locator('.conn-ind--live').count()).toBeGreaterThan(0);
-    } finally {
-      await page.close();
-    }
-  }, 45_000);
-
-  it('Criterion 6: a pinned snapshot ignores changes; Live resumes following', async () => {
-    const page = await newPage();
-    try {
-      await page.goto(`${handle.url}/plans/${plan.id}`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.chrome__tabs');
-      await page.locator('.chrome__tabs .tab', { hasText: 'Tasks' }).click();
-      await page.waitForSelector('.taskboard');
-      await waitForConnState(page, 'connected');
-
-      const todoCol = page.locator('.col').filter({ has: page.locator('.pill--todo') });
-      const doneCol = page.locator('.col').filter({ has: page.locator('.pill--done') });
-
-      // Scrub to the historical Start snapshot: every task forced to Todo.
-      await page.locator('.snap__seg .snap__btn', { hasText: 'Start' }).click();
-      const totalTasks = plan.taskFiles.length;
-      await page.waitForFunction(
-        n => {
-          const cols = Array.from(document.querySelectorAll('.col'));
-          const todo = cols.find(c => c.querySelector('.pill--todo'));
-          return (todo?.querySelectorAll('.tcard').length ?? 0) === n;
-        },
-        totalTasks,
-        { timeout: 3_000 }
-      );
-      const pinnedTodo = await todoCol.locator('.tcard').count();
-      expect(pinnedTodo).toBe(totalTasks);
-
-      // An incoming change must NOT move the pinned board: flip a task to done
-      // on disk, give the stream time to deliver, and assert Todo is unchanged.
-      setTaskStatus(plan.taskFiles[0]!, 'completed');
-      await page.waitForTimeout(1_000);
-      expect(await todoCol.locator('.tcard').count()).toBe(pinnedTodo);
-      expect(await doneCol.locator('.tcard').count()).toBe(0);
-
-      // Click "Live": the board returns to current state — the completed task
-      // now appears in Done.
-      await page.getByRole('button', { name: 'Live' }).click();
-      await page.waitForFunction(
-        () => {
-          const cols = Array.from(document.querySelectorAll('.col'));
-          const done = cols.find(c => c.querySelector('.pill--done'));
-          return (done?.querySelectorAll('.tcard').length ?? 0) > 0;
-        },
-        undefined,
-        { timeout: 3_000 }
-      );
-      expect(await doneCol.locator('.tcard').count()).toBeGreaterThan(0);
     } finally {
       await page.close();
     }

@@ -66,43 +66,6 @@
   background: var(--cream);
 }
 
-/* Connection indicator (Plan 92) — echoes the ghost-button / .snap vocabulary.
-   `--live` reads healthy (the design's done/green), `--reconnecting` is muted. */
-.conn-ind {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  border-radius: 6px;
-  font-family: var(--font-body);
-  font-size: 12.5px;
-  font-weight: 500;
-  white-space: nowrap;
-  box-shadow: inset 0 0 0 1px transparent;
-}
-.conn-ind--compact { padding: 4px 9px; font-size: 12px; }
-.conn-ind__dot {
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-  flex: 0 0 7px;
-}
-.conn-ind--live {
-  color: var(--done-ink);
-  background: var(--done-bg);
-  box-shadow: inset 0 0 0 1px var(--done);
-}
-.conn-ind--reconnecting {
-  color: var(--ink-3);
-  background: transparent;
-  box-shadow: inset 0 0 0 1px var(--border-soft);
-}
-/* A gentle pulse on the reconnecting dot so backoff reads as "working". */
-.conn-ind--reconnecting .conn-ind__dot { animation: conn-ind-pulse 1.2s ease-in-out infinite; }
-@keyframes conn-ind-pulse {
-  0%, 100% { opacity: 0.35; }
-  50% { opacity: 1; }
-}
 .snap__label {
   font-family: var(--font-mono);
   font-size: 10.5px;
@@ -276,8 +239,8 @@
   font-family: var(--font-body);
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  text-transform: none;
   color: var(--ink-3) !important;
 }
 .mermaid-host .cluster rect { rx: 10px; ry: 10px; stroke-dasharray: 0; }

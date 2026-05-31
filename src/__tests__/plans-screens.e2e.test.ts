@@ -86,14 +86,15 @@ maybe('Plans section (Playwright)', () => {
     return page;
   };
 
-  it('switches List / Cards / Board in place and shows derived counters', async () => {
+  it('switches Board / Cards / List in place and shows derived counters', async () => {
     const page = await newPage();
     try {
       await page.goto(handle.url, { waitUntil: 'domcontentloaded' });
 
-      // List view is the default; one row per active plan.
-      await page.waitForSelector('.tbl--head');
-      expect(await page.locator('.tbl--row').count()).toBe(counts.all);
+      // Board view is the default. The Done column is hidden by default, so the
+      // Board starts with three columns.
+      await page.waitForSelector('.board .col');
+      expect(await page.locator('.board .col').count()).toBe(3);
 
       // Counters equal the values derived from /api/plans (not hardcoded).
       expect(await page.locator('[data-testid="count-all"]').textContent()).toBe(`All ${counts.all}`);
@@ -109,10 +110,10 @@ maybe('Plans section (Playwright)', () => {
       await page.waitForSelector('.cards .card');
       expect(await page.locator('.cards .card').count()).toBe(counts.all);
 
-      // Switch to Board in place. The Done column is hidden by default.
-      await page.getByText('Board', { exact: true }).click();
-      await page.waitForSelector('.board .col');
-      expect(await page.locator('.board .col').count()).toBe(3);
+      // Switch to List in place; one row per active plan.
+      await page.getByText('List', { exact: true }).click();
+      await page.waitForSelector('.tbl--head');
+      expect(await page.locator('.tbl--row').count()).toBe(counts.all);
     } finally {
       await page.close();
     }
@@ -165,10 +166,17 @@ maybe('Plans section (Playwright)', () => {
     const page = await newPage();
     try {
       await page.goto(handle.url, { waitUntil: 'domcontentloaded' });
+      // Clickable rows live in the List view; the default Board has no rows.
+      await page.getByText('List', { exact: true }).click();
       await page.waitForSelector('.tbl--row');
-      await page.locator('.tbl--row').first().click();
+      // The List defaults to id-descending sort, so the first row's id is not
+      // necessarily the API's first plan — read it off the row we click.
+      const firstRow = page.locator('.tbl--row').first();
+      const rowId = (await firstRow.locator('.tbl__id').textContent())?.trim();
+      expect(rowId).toMatch(/^\d+$/);
+      await firstRow.click();
       await page.waitForFunction(() => /^\/plans\/\d+$/.test(location.pathname));
-      expect(page.url()).toContain(`/plans/${counts.first!.id}`);
+      expect(page.url()).toContain(`/plans/${rowId}`);
     } finally {
       await page.close();
     }

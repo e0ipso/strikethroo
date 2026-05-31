@@ -10,12 +10,21 @@
 
 import { Fragment, type ReactNode } from 'react';
 
+import { useNavigate } from '../router';
+
 /** A tab is either a bare label or a `[label, count]` pair. */
 export type ChromeTab = string | [string, number];
 
+/**
+ * A breadcrumb is either a bare label (non-navigable) or a `{ label, href }`
+ * pair that navigates to a real route on click. The current/last crumb always
+ * renders as inert text even when it carries an `href`.
+ */
+export type Crumb = string | { label: string; href: string };
+
 export interface ChromeProps {
   title: ReactNode;
-  crumbs?: string[];
+  crumbs?: Crumb[];
   tabs?: ChromeTab[];
   activeTab?: number;
   right?: ReactNode;
@@ -29,18 +38,34 @@ export interface ChromeProps {
 
 /** The top bar: breadcrumbs, title, actions, and an optional tab strip. */
 export function Chrome({ title, crumbs, tabs, activeTab = 0, right, onTabSelect }: ChromeProps) {
+  const navigate = useNavigate();
   return (
     <div className="chrome">
       <div className="chrome__top">
         <div>
           {crumbs && (
             <div className="chrome__crumb">
-              {crumbs.map((c, i) => (
-                <Fragment key={i}>
-                  {i > 0 && <span className="sep">/</span>}
-                  <span className={`seg${i === crumbs.length - 1 ? ' seg--cur' : ''}`}>{c}</span>
-                </Fragment>
-              ))}
+              {crumbs.map((c, i) => {
+                const isLast = i === crumbs.length - 1;
+                const label = typeof c === 'string' ? c : c.label;
+                const href = typeof c === 'string' ? undefined : c.href;
+                return (
+                  <Fragment key={i}>
+                    {i > 0 && <span className="sep">/</span>}
+                    {href != null && !isLast ? (
+                      <span
+                        className="seg"
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => navigate(href)}
+                      >
+                        {label}
+                      </span>
+                    ) : (
+                      <span className={`seg${isLast ? ' seg--cur' : ''}`}>{label}</span>
+                    )}
+                  </Fragment>
+                );
+              })}
             </div>
           )}
           <h1 className="chrome__title">{title}</h1>

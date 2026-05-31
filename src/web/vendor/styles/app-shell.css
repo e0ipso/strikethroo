@@ -94,7 +94,14 @@
   display: flex;
   flex-direction: column;
   padding: 20px 14px 16px;
-  min-height: 0;
+  /* Pin to the viewport so the footer stays visible regardless of how tall the
+     main content grows; `align-self: start` opts out of the grid's stretch so
+     `height: 100vh` (not the row height) governs where the footer sits. */
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  overflow-y: auto;
 }
 .sb__brand {
   display: flex;

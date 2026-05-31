@@ -13,7 +13,6 @@
  */
 
 import type { Phase, Task } from '../../data/api';
-import { Tickbox } from '../../components/primitives';
 import { toTickboxState } from '../taskStatus';
 
 export interface BlueprintRailProps {
@@ -50,7 +49,6 @@ export function BlueprintRail({ phases, tasks }: BlueprintRailProps) {
             const state = toTickboxState(task.status);
             return (
               <div key={taskId} className={`rail__task rail__task--${state}`}>
-                <Tickbox state={state} />
                 <span className="rail__task-num">{padId(task.id)}</span>
                 <div className="rail__task-body">
                   <div className="rail__task-name">{task.name}</div>

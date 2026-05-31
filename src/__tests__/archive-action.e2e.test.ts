@@ -111,9 +111,14 @@ maybe('Archive action (Playwright, fixture)', () => {
     try {
       await page.goto(handle.url, { waitUntil: 'domcontentloaded' });
 
-      // List view (default): the done plan offers an actionable Archive control,
-      // the active plan does not (so exactly one Archive button is present).
+      // Switch to the List view (Board is now the default). The List hides done
+      // plans by default, so reveal them via the Show-done toggle; then the done
+      // plan offers an actionable Archive control, the active plan does not (so
+      // exactly one Archive button is present).
+      await page.getByText('List', { exact: true }).click();
       await page.waitForSelector('.tbl--row');
+      await page.getByText('Show done', { exact: true }).click();
+      await page.waitForFunction(() => document.querySelectorAll('.tbl--row').length === 2);
       expect(await page.locator('.tbl--row').count()).toBe(2);
       expect(await page.getByRole('button', { name: 'Archive', exact: true }).count()).toBe(1);
 

@@ -29,7 +29,6 @@ export function PlanDetailReader({ detail }: { detail: PlanDetail }) {
 
   return (
     <div className="detail">
-      <BlueprintRail phases={detail.phases} tasks={detail.tasks} />
       <ReaderProse
         filename={filename}
         title={title}
@@ -39,6 +38,7 @@ export function PlanDetailReader({ detail }: { detail: PlanDetail }) {
         taskCount={detail.tasks.length}
         sections={detail.sections}
       />
+      <BlueprintRail phases={detail.phases} tasks={detail.tasks} />
     </div>
   );
 }

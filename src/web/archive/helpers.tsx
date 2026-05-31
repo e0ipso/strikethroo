@@ -110,3 +110,86 @@ export function byCompletedDesc(a: ArchivePlanView, b: ArchivePlanView): number 
   if (aKey === bKey) return 0;
   return aKey < bKey ? 1 : -1;
 }
+
+/**
+ * Inclusive lexicographic date-range filter over `completedAt`. `from`/`to` are
+ * ISO `YYYY-MM-DD` strings (or empty/undefined for an open bound); ISO dates
+ * compare correctly with plain string comparison. Plans missing `completedAt`
+ * are excluded whenever either bound is set (they have no date to place in the
+ * range). An empty range (both bounds absent) returns the list unchanged. Pure:
+ * never mutates the input.
+ */
+export function filterByDateRange<T extends ArchivePlanView>(
+  plans: T[],
+  from?: string,
+  to?: string
+): T[] {
+  if (!from && !to) return plans;
+  return plans.filter(p => {
+    const key = p.completedAt;
+    if (key == null || key === '') return false;
+    if (from && key < from) return false;
+    if (to && key > to) return false;
+    return true;
+  });
+}
+
+/** A month bucket: the `YYYY-MM` key, a human label, and its member plans. */
+export interface MonthGroup {
+  month: string;
+  label: string;
+  plans: ArchivePlanView[];
+}
+
+/** Month names indexed by zero-based month number, for `YYYY-MM` labels. */
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
+/** Sentinel key/label for plans with no usable `completedAt`. */
+const UNKNOWN_MONTH = 'unknown';
+const UNKNOWN_LABEL = 'No date';
+
+/** Turns a `YYYY-MM` key into a human label (e.g. `2026-05` -> `May 2026`). */
+function monthLabel(key: string): string {
+  if (key === UNKNOWN_MONTH) return UNKNOWN_LABEL;
+  const [year, month] = key.split('-');
+  const name = MONTH_NAMES[Number(month) - 1];
+  return name ? `${name} ${year}` : key;
+}
+
+/**
+ * Groups plans by completion month, deriving the `YYYY-MM` key from the first 7
+ * chars of `completedAt`. Plans missing `completedAt` go to an explicit
+ * "No date" bucket rather than being dropped. Real months are returned in
+ * descending order; the unknown bucket (if any) is sorted last. Pure: never
+ * mutates the input array or its members.
+ */
+export function groupByMonth(plans: ArchivePlanView[]): MonthGroup[] {
+  const buckets = new Map<string, ArchivePlanView[]>();
+  for (const p of plans) {
+    const raw = p.completedAt;
+    const key = raw && raw.length >= 7 ? raw.slice(0, 7) : UNKNOWN_MONTH;
+    const bucket = buckets.get(key);
+    if (bucket) bucket.push(p);
+    else buckets.set(key, [p]);
+  }
+  return [...buckets.keys()]
+    .sort((a, b) => {
+      if (a === UNKNOWN_MONTH) return 1;
+      if (b === UNKNOWN_MONTH) return -1;
+      return a < b ? 1 : a > b ? -1 : 0;
+    })
+    .map(month => ({ month, label: monthLabel(month), plans: buckets.get(month)! }));
+}

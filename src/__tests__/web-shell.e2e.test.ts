@@ -172,10 +172,10 @@ maybe('app shell (Playwright)', () => {
     const page = await newPage();
     try {
       await page.goto(full.url, { waitUntil: 'domcontentloaded' });
-      // The Plans route resolves to the real List view (Plan 86): the table
-      // header renders and the data state shows no error surface.
-      await page.waitForSelector('.tbl--head');
-      expect(await page.locator('.tbl--row').count()).toBeGreaterThan(0);
+      // The Plans route resolves to the real Board view (now the default, Plan
+      // 95): the board columns render and the data state shows no error surface.
+      await page.waitForSelector('.board .col');
+      expect(await page.locator('.board .col').count()).toBeGreaterThan(0);
       expect(await page.locator('[role="alert"]').count()).toBe(0);
     } finally {
       await page.close();

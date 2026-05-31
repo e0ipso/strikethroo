@@ -10,9 +10,23 @@
  * container; this component renders only the List content inside `main`.
  */
 
+import { useState } from 'react';
 import { Button, Icon, StatusPill, Tickbox } from '../components/primitives';
 import { useNavigate } from '../router';
+import { sortRows, useTableSort } from '../data/sort';
 import { progressLabel, progressPct, planMdPath, type PlanView } from './derive';
+
+/** Sortable column keys for the Plans List table. */
+type SortKey = 'id' | 'title' | 'state' | 'tasks' | 'created';
+
+/** Accessor map per sortable column. */
+const ACCESSORS: Record<SortKey, (row: PlanView) => unknown> = {
+  id: r => r.id,
+  title: r => r.title,
+  state: r => r.state,
+  tasks: r => r.done,
+  created: r => r.created,
+};
 
 /** Grid column template ported verbatim from the design. */
 const COL_TPL = '36px 1fr 130px 150px 110px 120px';
@@ -35,6 +49,25 @@ export interface PlansListViewProps {
 /** The List (table) view of the active plans. */
 export function PlansListView({ plans, openReview, openArchive }: PlansListViewProps) {
   const navigate = useNavigate();
+  const [showDone, setShowDone] = useState(false);
+  const sort = useTableSort<SortKey>({ key: 'id', dir: 'desc' });
+
+  const filtered = showDone ? plans : plans.filter(p => p.state !== 'done');
+  const rows = sortRows(filtered, ACCESSORS, sort.state);
+
+  /** Renders a clickable sortable header with an active-direction arrow. */
+  const header = (key: SortKey, label: string) => {
+    const active = sort.state.key === key;
+    return (
+      <span
+        onClick={() => sort.toggle(key)}
+        style={{ cursor: 'pointer', color: active ? 'var(--ink)' : undefined }}
+      >
+        {label}
+        {active && (sort.state.dir === 'asc' ? ' ↑' : ' ↓')}
+      </span>
+    );
+  };
 
   return (
     <>
@@ -43,17 +76,29 @@ export function PlansListView({ plans, openReview, openArchive }: PlansListViewP
           <span className="label" style={{ fontSize: 10 }}>
             Show
           </span>
-          <span className="subbar__seg">
-            <Tickbox state="done" /> Done
-          </span>
-          <span className="subbar__seg" style={{ color: 'var(--ink-2)' }}>
-            <Tickbox state="done" /> All states
+          <span
+            className="subbar__seg"
+            onClick={() => setShowDone(s => !s)}
+            style={{ cursor: 'pointer' }}
+          >
+            <Tickbox state={showDone ? 'done' : 'todo'} />
+            <span
+              style={{
+                color: showDone ? 'var(--ink)' : 'var(--ink-3)',
+                fontWeight: showDone ? 500 : 400,
+              }}
+            >
+              {showDone ? 'Hide done' : 'Show done'}
+            </span>
           </span>
         </div>
         <div className="subbar__sep" />
         <div className="subbar__group" style={{ color: 'var(--ink-3)' }}>
           <Icon name="sort" size={13} />
-          sort: <span style={{ color: 'var(--ink)', fontWeight: 500 }}>id ↓</span>
+          sort:{' '}
+          <span style={{ color: 'var(--ink)', fontWeight: 500 }}>
+            {sort.state.key} {sort.state.dir === 'asc' ? '↑' : '↓'}
+          </span>
         </div>
         <div style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
           {plans.length} active plans
@@ -62,14 +107,14 @@ export function PlansListView({ plans, openReview, openArchive }: PlansListViewP
 
       <div className="scroll">
         <div className="tbl tbl--head" style={{ gridTemplateColumns: COL_TPL }}>
-          <span>id</span>
-          <span>plan</span>
-          <span>state</span>
-          <span>tasks</span>
-          <span>created</span>
+          {header('id', 'id')}
+          {header('title', 'plan')}
+          {header('state', 'state')}
+          {header('tasks', 'tasks')}
+          {header('created', 'created')}
           <span />
         </div>
-        {plans.map(row => {
+        {rows.map(row => {
           const pct = progressPct(row.done, row.total);
           return (
             <div

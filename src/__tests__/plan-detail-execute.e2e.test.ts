@@ -82,11 +82,11 @@ maybe('Plan Detail Execute tab (Playwright)', () => {
     return page;
   };
 
-  /** Opens plan 38 and clicks the Execute tab to reach the blueprint. */
+  /** Opens plan 38 and clicks the Tasks tab to reach the Execute blueprint. */
   const openExecute = async (page: Page): Promise<void> => {
     await page.goto(`${liveHandle.url}/plans/38`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.chrome__tabs');
-    await page.locator('.chrome__tabs .tab', { hasText: 'Execute' }).click();
+    await page.locator('.chrome__tabs .tab', { hasText: 'Tasks' }).click();
     await page.waitForSelector('.snap__seg');
   };
 
@@ -134,27 +134,34 @@ maybe('Plan Detail Execute tab (Playwright)', () => {
     }
   }, 45_000);
 
-  it('Outline: per-phase rows, ticked tasks, and the Execution Summary callout', async () => {
+  it('Outline: per-phase rows, done rows shown via strikethrough + StatusPill, and the Execution Summary callout', async () => {
     const page = await newPage();
     try {
       await openExecute(page);
 
-      // Toggle to Outline (second segment) without leaving the Execute tab.
+      // Toggle to Outline (second segment) without leaving the Tasks tab.
       await page.locator('.snap__seg .snap__btn', { hasText: 'Outline' }).click();
       await page.waitForSelector('.outline');
       expect(await page.locator('.exec').count()).toBe(0);
-      // Still on the Execute tab (the chrome tab strip is unchanged).
+      // Still on the Tasks tab (the chrome tab strip is unchanged).
       expect(await page.locator('.chrome__tabs').count()).toBe(1);
 
-      // One phase head + the right number of task rows, all ticked done.
+      const doneCount = plan38.tasks.filter(t => toState(t.status) === 'done').length;
+
+      // One phase head + the right number of task rows.
       expect(await page.locator('.outline__phase-head').count()).toBe(plan38.phases.length);
       expect(await page.locator('.outline__row').count()).toBe(plan38.tasks.length);
-      expect(await page.locator('.outline__row--done').count()).toBe(
-        plan38.tasks.filter(t => toState(t.status) === 'done').length,
-      );
-      expect(await page.locator('.tickbox--done').count()).toBe(
-        plan38.tasks.filter(t => toState(t.status) === 'done').length,
-      );
+
+      // Done tasks are surfaced via the strikethrough row modifier (the leading
+      // Tickbox glyph was removed in Plan 95) — no tickboxes are rendered.
+      expect(await page.locator('.outline__row--done').count()).toBe(doneCount);
+      expect(await page.locator('.outline .tickbox').count()).toBe(0);
+
+      // The Outline still renders a StatusPill per row; done rows carry a
+      // `pill--done` pill inside a `.outline__row--done` row.
+      expect(
+        await page.locator('.outline__row--done .pill--done').count()
+      ).toBe(doneCount);
 
       // Plan 38 has an Execution Summary section, so the callout is present.
       expect(await page.locator('.reader__summary').count()).toBe(1);

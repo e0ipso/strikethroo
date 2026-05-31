@@ -20,19 +20,16 @@ import { Chrome, type ChromeTab } from '../../components/Chrome';
 import { StatusPill, Button, type StatusKind } from '../../components/primitives';
 import { ErrorSurface, LoadingSurface } from '../../components/StateSurface';
 import { usePlanDetail, type PlanDetail } from '../../data/api';
-import { ConnectionIndicator } from '../../components/ConnectionIndicator';
 import { humanizeSlug, stripIdPrefix } from '../derive';
 import { copyToClipboard } from '../../vendor/utils/clipboard';
 import { PlanDetailReader } from './PlanDetailReader';
-import { PlanDetailBoard } from './PlanDetailBoard';
 import { PlanDetailGraph } from './PlanDetailGraph';
 import { ExecuteTab } from '../exec/ExecuteTab';
 
-/** The Plan Detail tabs, in order. The Board (Tasks) tab carries a count. */
+/** The Plan Detail tabs, in order. The Tasks tab carries a count. */
 const TAB_PLAN = 0;
-const TAB_TASKS = 1;
-const TAB_GRAPH = 2;
-const TAB_EXECUTE = 3;
+const TAB_GRAPH = 1;
+const TAB_TASKS = 2;
 
 /** The loaded route: shared Chrome plus the body for the active tab. */
 function LoadedRoute({ detail }: { detail: PlanDetail }) {
@@ -42,17 +39,14 @@ function LoadedRoute({ detail }: { detail: PlanDetail }) {
   const title = humanizeSlug(slug);
 
   // The plan-detail tab set; only the Tasks tab carries a count.
-  const tabs: ChromeTab[] = ['Plan', ['Tasks', detail.tasks.length], 'Graph', 'Execute'];
+  const tabs: ChromeTab[] = ['Plan', 'Graph', ['Tasks', detail.tasks.length]];
 
   let body;
   switch (activeTab) {
-    case TAB_TASKS:
-      body = <PlanDetailBoard detail={detail} />;
-      break;
     case TAB_GRAPH:
       body = <PlanDetailGraph detail={detail} />;
       break;
-    case TAB_EXECUTE:
+    case TAB_TASKS:
       body = <ExecuteTab detail={detail} />;
       break;
     case TAB_PLAN:
@@ -65,13 +59,12 @@ function LoadedRoute({ detail }: { detail: PlanDetail }) {
     <>
       <Chrome
         title={title}
-        crumbs={['Plans', slug, 'plan.md']}
+        crumbs={[{ label: 'Plans', href: '/' }, slug, 'plan.md']}
         tabs={tabs}
         activeTab={activeTab}
         onTabSelect={setActiveTab}
         right={
           <>
-            <ConnectionIndicator compact />
             <StatusPill kind={detail.state as StatusKind} />
             <Button kind="ghost" size="sm" icon="copy" onClick={() => copyToClipboard(detail.file)}>
               Copy path

@@ -22,7 +22,7 @@ import { PlanModals, useModal } from './modals';
 import type { TabCounts } from './derive';
 
 /** The three interchangeable Plans views, in tab order. */
-const VIEWS = ['List', 'Cards', 'Board'] as const;
+const VIEWS = ['Board', 'Cards', 'List'] as const;
 type ViewName = (typeof VIEWS)[number];
 
 /** The Chrome top bar for the Plans route: switcher tabs + Create action. */
@@ -41,7 +41,7 @@ function PlansChrome({
   return (
     <Chrome
       title="Plans"
-      crumbs={['workspace', 'plans']}
+      crumbs={[{ label: 'workspace', href: '/' }, 'plans']}
       tabs={VIEWS.map(v => v as string)}
       activeTab={activeIndex}
       onTabSelect={onSelectView}
@@ -73,7 +73,7 @@ function PlansChrome({
 
 /** The composed Plans route: chrome + active view + modals, driven by live data. */
 export function PlansRoute() {
-  const [view, setView] = useState<ViewName>('List');
+  const [view, setView] = useState<ViewName>('Board');
   const resource = usePlansData();
   const modal = useModal();
 
@@ -116,7 +116,7 @@ export function PlansRoute() {
     <>
       <PlansChrome
         view={view}
-        onSelectView={i => setView(VIEWS[i] ?? 'List')}
+        onSelectView={i => setView(VIEWS[i] ?? 'Board')}
         counts={counts}
         onCreate={modal.openCreate}
       />

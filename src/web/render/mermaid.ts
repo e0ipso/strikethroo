@@ -33,6 +33,11 @@ async function loadMermaid(): Promise<typeof import('mermaid').default> {
         // mermaid's `strict` default so authored diagram labels cannot inject
         // active HTML. Do NOT regress this to 'loose'.
         securityLevel: 'strict',
+        // Compact label typography: shrink the default theme font so diagram
+        // labels pack more legibly. Casing is handled by the vendored
+        // `.mermaid-host` CSS, not here.
+        fontSize: 12,
+        themeVariables: { fontSize: '12px' },
         flowchart: { htmlLabels: true, curve: 'basis' },
       });
       return mermaid;

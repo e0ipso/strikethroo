@@ -55,7 +55,7 @@
   color: var(--ink-3);
   padding: 3px 8px;
   border-radius: 4px;
-  cursor: default;
+  cursor: pointer;
   font-family: var(--font-body);
 }
 .archive__search-clear:hover { background: var(--cream-mid); color: var(--ink); }

@@ -23,13 +23,15 @@ import { usePlanDetail, type PlanDetail } from '../../data/api';
 import { humanizeSlug, stripIdPrefix } from '../derive';
 import { copyToClipboard } from '../../vendor/utils/clipboard';
 import { PlanDetailReader } from './PlanDetailReader';
+import { PlanDetailResults } from './PlanDetailResults';
 import { PlanDetailGraph } from './PlanDetailGraph';
 import { ExecuteTab } from '../exec/ExecuteTab';
 
 /** The Plan Detail tabs, in order. The Tasks tab carries a count. */
 const TAB_PLAN = 0;
-const TAB_GRAPH = 1;
-const TAB_TASKS = 2;
+const TAB_RESULTS = 1;
+const TAB_GRAPH = 2;
+const TAB_TASKS = 3;
 
 /** The loaded route: shared Chrome plus the body for the active tab. */
 function LoadedRoute({ detail }: { detail: PlanDetail }) {
@@ -39,10 +41,13 @@ function LoadedRoute({ detail }: { detail: PlanDetail }) {
   const title = humanizeSlug(slug);
 
   // The plan-detail tab set; only the Tasks tab carries a count.
-  const tabs: ChromeTab[] = ['Plan', 'Graph', ['Tasks', detail.tasks.length]];
+  const tabs: ChromeTab[] = ['Plan', 'Results', 'Graph', ['Tasks', detail.tasks.length]];
 
   let body;
   switch (activeTab) {
+    case TAB_RESULTS:
+      body = <PlanDetailResults detail={detail} />;
+      break;
     case TAB_GRAPH:
       body = <PlanDetailGraph detail={detail} />;
       break;

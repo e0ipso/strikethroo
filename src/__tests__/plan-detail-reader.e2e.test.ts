@@ -68,6 +68,28 @@ flowchart LR
 - Second criterion renders as a checklist row
 `;
 
+/**
+ * Markdown body with narrative sections, then the Notes + Execution Blueprint
+ * tail. The Results tab starts at "Notes" (the first of the two), so Notes and
+ * the blueprint both move off the Plan tab.
+ */
+const RESULTS_BODY = `## Executive Summary
+
+The narrative half of the plan that stays on the Plan tab.
+
+## Notes
+
+A noteworthy event documented during execution.
+
+## Execution Blueprint
+
+The blueprint half that moves to the Results tab.
+
+### Phase 1: Foundations
+
+A phase under the blueprint heading.
+`;
+
 /** Builds a disposable workspace root with a single fixture plan, returns root. */
 const makeFixtureWorkspace = (id: number, slug: string, body: string): string => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'st-reader-fixture-'));
@@ -223,6 +245,44 @@ maybe('Plan Detail Reader (Playwright)', () => {
       expect(src).toContain('flowchart LR');
       // ...and is NOT rendered to an SVG inside the affordance.
       expect(await page.locator('.reader__mermaid svg').count()).toBe(0);
+    } finally {
+      await page.close();
+      await new Promise<void>(r => handle.server.close(() => r()));
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  }, 30_000);
+
+  it('moves the Notes + Execution Blueprint tail to the Results tab, off the Plan tab', async () => {
+    const root = makeFixtureWorkspace(703, 'results-fixture', RESULTS_BODY);
+    const handle = await startServer({
+      root,
+      port: 0,
+      open: false,
+      assetsDir: ASSETS_DIR,
+      debounceMs: 150,
+    });
+    const page = await newPage();
+    try {
+      await page.goto(`${handle.url}/plans/703`, { waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('.detail .reader');
+
+      // Plan tab: shows the narrative section but NOT Notes / Execution Blueprint.
+      const planProse = (await page.locator('.reader').textContent()) ?? '';
+      expect(planProse).toContain('Executive Summary');
+      expect(planProse).not.toContain('Execution Blueprint');
+      expect(planProse).not.toContain('noteworthy event');
+      expect(planProse).not.toContain('Phase 1: Foundations');
+
+      // The Results tab is present; selecting it swaps the body to the tail.
+      await page.locator('.chrome__tabs .tab', { hasText: 'Results' }).click();
+      await page.waitForSelector('.reader');
+      const resultsProse = (await page.locator('.reader').textContent()) ?? '';
+      expect(resultsProse).toContain('Notes');
+      expect(resultsProse).toContain('noteworthy event');
+      expect(resultsProse).toContain('Execution Blueprint');
+      expect(resultsProse).toContain('Phase 1: Foundations');
+      // The Results tab is full-width prose with no rail.
+      expect(await page.locator('.detail').count()).toBe(0);
     } finally {
       await page.close();
       await new Promise<void>(r => handle.server.close(() => r()));

@@ -116,7 +116,7 @@ function MermaidSource({ src }: { src: string }) {
 }
 
 /** Renders one `##` section: heading + the appropriate body treatment. */
-function Section({ section }: { section: MarkdownSection }) {
+export function Section({ section }: { section: MarkdownSection }) {
   const heading = (
     <h3 className="reader__h2">
       <span className="hash">##</span>

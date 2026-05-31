@@ -14,7 +14,7 @@
  * corrected to `.ai/strikethroo/` and `--`.
  */
 
-import type { PlanSummary, PlanState } from '../data/api';
+import type { PlanSummary, PlanState, MarkdownSection } from '../data/api';
 
 /** The set of lifecycle states the views know how to render. */
 const KNOWN_STATES: readonly PlanState[] = ['drafted', 'ready', 'doing', 'done'];
@@ -141,6 +141,32 @@ export const planMdPath = (plan: Pick<PlanView, 'id' | 'slug'>): string => {
   if (plan.id == null) return '.ai/strikethroo/plans/NN--slug/plan-NN--slug.md';
   const dir = `${plan.id}--${plan.slug}`;
   return `.ai/strikethroo/plans/${dir}/plan-${dir}.md`;
+};
+
+/**
+ * Heading match for the Results boundary: the "Notes" or "Execution Blueprint"
+ * section (case-insensitive). These are the execution-time tail of a plan body;
+ * in the canonical structure `## Notes` is the last narrative section and
+ * `## Execution Blueprint` is appended after it during task generation, but a few
+ * older plans order them the other way — so the split point is whichever appears
+ * first.
+ */
+const RESULTS_BOUNDARY_RE = /^(notes|execution\s+blueprint)\b/i;
+
+/**
+ * Splits the parsed `##` sections of a plan body at the Results boundary
+ * (inclusive): `planSections` are the narrative sections before it;
+ * `resultsSections` are the first of "Notes" / "Execution Blueprint" and
+ * everything after it, to EOF. When neither heading exists, all sections stay in
+ * `planSections` and `resultsSections` is empty. The Plan tab renders
+ * `planSections`; the Results tab renders `resultsSections`.
+ */
+export const splitResultsSections = (
+  sections: MarkdownSection[]
+): { planSections: MarkdownSection[]; resultsSections: MarkdownSection[] } => {
+  const idx = sections.findIndex(s => RESULTS_BOUNDARY_RE.test(s.heading));
+  if (idx === -1) return { planSections: sections, resultsSections: [] };
+  return { planSections: sections.slice(0, idx), resultsSections: sections.slice(idx) };
 };
 
 /** A single progress dot's render state, mirroring the design's `progressDots`. */

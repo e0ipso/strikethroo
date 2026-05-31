@@ -14,7 +14,7 @@
  */
 
 import type { PlanDetail } from '../../data/api';
-import { humanizeSlug, stripIdPrefix } from '../derive';
+import { humanizeSlug, splitResultsSections, stripIdPrefix } from '../derive';
 import { BlueprintRail } from './BlueprintRail';
 import { ReaderProse } from './ReaderProse';
 
@@ -26,6 +26,9 @@ export function PlanDetailReader({ detail }: { detail: PlanDetail }) {
   const slug = stripIdPrefix(detail.name);
   const title = humanizeSlug(slug);
   const filename = basename(detail.file);
+  // The Notes / Execution Blueprint tail moves to the Results tab; the Plan tab
+  // shows the narrative sections that precede it.
+  const { planSections } = splitResultsSections(detail.sections);
 
   return (
     <div className="detail">
@@ -36,7 +39,7 @@ export function PlanDetailReader({ detail }: { detail: PlanDetail }) {
         created={detail.created}
         phaseCount={detail.phaseCount}
         taskCount={detail.tasks.length}
-        sections={detail.sections}
+        sections={planSections}
       />
       <BlueprintRail phases={detail.phases} tasks={detail.tasks} />
     </div>

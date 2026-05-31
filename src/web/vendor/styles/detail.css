@@ -483,13 +483,12 @@
   padding: 14px;
   background: var(--cream);
 }
-.lane-task--done {
-  background: var(--dalia-bg);
-  border-color: hsl(335 55% 65% / 0.35);
+.lane-task--done .lane-task__title {
+  text-decoration: line-through;
+  color: var(--ink-3);
 }
-.lane-task--doing {
-  background: var(--doing-bg);
-  border-color: oklch(0.62 0.13 75 / 0.35);
+.lane-task--doing .lane-task__title {
+  color: var(--doing);
 }
 .lane-task__head {
   display: flex;
@@ -624,11 +623,6 @@
   background: var(--dalia-bg);
   border-color: hsl(335 50% 50% / 0.45);
 }
-.dark .lane-task--done {
-  background: var(--dalia-bg);
-  border-color: hsl(335 50% 50% / 0.45);
-}
-.dark .lane-task--doing {
-  background: oklch(0.24 0.06 75);
-  border-color: oklch(0.62 0.13 75 / 0.45);
+.dark .lane-task--doing .lane-task__title {
+  color: var(--doing);
 }

@@ -41,7 +41,6 @@ function LaneTask({ task }: { task: Task }) {
     <div className={`lane-task lane-task--${state}`}>
       <div className="lane-task__head">
         <span className="lane-task__id">task · {pad(task.id)}</span>
-        <StatusPill kind={state} />
       </div>
       <div className="lane-task__title">{task.name}</div>
       <div className="lane-task__meta">

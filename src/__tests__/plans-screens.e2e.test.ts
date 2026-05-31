@@ -1,30 +1,34 @@
 /**
  * End-to-end validation for the Plan 86 Plans section.
  *
- * Drives the built SPA (dist-web) in a real Chromium browser against the live
- * `.ai/strikethroo/` workspace, following the plan's Self Validation. Per the
- * project test philosophy ("a few tests, mostly integration"), this is the
- * single critical-path run covering the section's custom behavior — view
- * switching, derived counters, the Board Show-done toggle, modal copy +
- * clipboard, plan navigation, and the naming-hygiene grep — rather than
- * per-view unit suites of trivial rendering.
+ * Drives the built SPA (dist-web) in a real Chromium browser against a
+ * disposable FIXTURE workspace seeded with one plan in each lifecycle state
+ * (drafted / ready / doing / done) plus an archived plan, following the plan's
+ * Self Validation. Per the project test philosophy ("a few tests, mostly
+ * integration"), this is the single critical-path run covering the section's
+ * custom behavior — view switching, derived counters, the Board and List
+ * Show-done toggles, modal copy + clipboard, plan navigation, and the
+ * naming-hygiene grep — rather than per-view unit suites of trivial rendering.
  *
- * Expectations are derived from the live `/api/plans` response, not hardcoded:
- * the design assumed an active plan 38 (done 3/3), but the real workspace
- * evolved (plan 38 is archived). Asserting against the actual derived model is
- * the correct gate.
+ * The suite owns a controlled workspace rather than reading the live
+ * `.ai/strikethroo/` tree: the live workspace evolves (Plan 95's own execution
+ * drives its sole active plan to `done`, which the List hides by default),
+ * which would leave these assertions with no visible active plan. A seeded
+ * fixture keeps the derived counts and the List/Cards/Board contents
+ * deterministic regardless of the real workspace's state. Expectations are
+ * still derived from the served `/api/plans` model, never hardcoded.
  *
  * If the build output or a Chromium binary is unavailable the suite skips
  * rather than failing, so it never blocks environments without browsers.
  */
 
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import type { Browser, Page } from 'playwright';
 import { startServer, ServeHandle } from '../serve/server';
 import type { PlanSummary } from '../serve/workspace-model';
 
-const LIVE_ROOT = path.resolve(process.cwd(), '.ai', 'strikethroo');
 const ASSETS_DIR = path.resolve(process.cwd(), 'dist-web');
 const INDEX_HTML = path.join(ASSETS_DIR, 'index.html');
 const BUNDLE_DIR = path.join(ASSETS_DIR, 'assets');
@@ -47,22 +51,94 @@ const maybe = assetsBuilt && browserAvailable ? describe : describe.skip;
 const deriveCounts = (plans: PlanSummary[]) => {
   const active = plans.filter(p => !p.archived);
   return {
+    // All / Active / Drafts tab counters: derived from the active set, and the
+    // `all` counter deliberately includes `done` plans that are not yet
+    // archived.
     all: active.length,
     active: active.filter(p => p.state === 'doing' || p.state === 'ready').length,
     drafts: active.filter(p => p.state === 'drafted').length,
+    // The List view hides `done` plans unless "Show done" is toggled on, so its
+    // default row count is the active-but-not-done set, NOT `all`.
+    activeNonDone: active.filter(p => p.state !== 'done').length,
     first: active[0],
   };
 };
 
+/**
+ * One seed plan: `id`/`slug`, lifecycle `state`, and whether it lives under
+ * `archive/`. Task files are written to produce the requested derived state
+ * (drafted = no tasks, ready = a pending task, doing = a started task, done =
+ * all tasks completed) per src/serve/derivation.ts.
+ */
+interface SeedPlan {
+  id: number;
+  slug: string;
+  state: 'drafted' | 'ready' | 'doing' | 'done';
+  archived?: boolean;
+}
+
+/** Task statuses that yield each derived plan state. */
+const STATUSES_FOR_STATE: Record<SeedPlan['state'], string[]> = {
+  drafted: [], // no tasks → drafted
+  ready: ['pending'], // a task, none started → ready
+  doing: ['in-progress', 'pending'], // ≥1 started, not all done → doing
+  done: ['completed'], // all tasks completed → done
+};
+
+/**
+ * Builds a disposable workspace root seeded with one plan per lifecycle state
+ * plus an archived plan, so the derived counters and per-view contents are
+ * deterministic and independent of the live `.ai/strikethroo/` tree. Returns
+ * the absolute root path.
+ */
+const makeFixtureWorkspace = (seeds: SeedPlan[]): string => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'st-plans-screens-fixture-'));
+  for (const seed of seeds) {
+    const base = seed.archived ? 'archive' : 'plans';
+    const planDir = path.join(root, base, `${seed.id}--${seed.slug}`);
+    const tasksDir = path.join(planDir, 'tasks');
+    fs.mkdirSync(tasksDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(planDir, `plan-${seed.id}--${seed.slug}.md`),
+      `---\nid: ${seed.id}\nsummary: "Fixture ${seed.state} plan"\ncreated: "2026-05-29"\n---\n\n# ${seed.slug}\n`
+    );
+    const statuses = STATUSES_FOR_STATE[seed.state];
+    statuses.forEach((status, i) => {
+      const num = String(i + 1).padStart(2, '0');
+      fs.writeFileSync(
+        path.join(tasksDir, `${num}--task-${num}.md`),
+        `---\nid: ${i + 1}\ngroup: "fixture"\ndependencies: []\nstatus: "${status}"\n` +
+          `created: 2026-05-29\nskills:\n  - test\n---\n# Fixture task ${num}\n`
+      );
+    });
+  }
+  return root;
+};
+
+/**
+ * The seed set: one active plan in each lifecycle state (so `all=4`,
+ * `active=2`, `drafts=1`, `activeNonDone=3`) plus an archived plan that must be
+ * excluded from every active counter and view.
+ */
+const SEED_PLANS: SeedPlan[] = [
+  { id: 201, slug: 'fixture-drafted', state: 'drafted' },
+  { id: 202, slug: 'fixture-ready', state: 'ready' },
+  { id: 203, slug: 'fixture-doing', state: 'doing' },
+  { id: 204, slug: 'fixture-done', state: 'done' },
+  { id: 200, slug: 'fixture-archived', state: 'done', archived: true },
+];
+
 maybe('Plans section (Playwright)', () => {
   let browser: Browser;
   let handle: ServeHandle;
+  let root: string;
   let counts: ReturnType<typeof deriveCounts>;
 
   beforeAll(async () => {
     browser = await chromium!.launch();
+    root = makeFixtureWorkspace(SEED_PLANS);
     handle = await startServer({
-      root: LIVE_ROOT,
+      root,
       port: 0,
       open: false,
       assetsDir: ASSETS_DIR,
@@ -75,6 +151,7 @@ maybe('Plans section (Playwright)', () => {
   afterAll(async () => {
     await browser?.close();
     await new Promise<void>(r => handle.server.close(() => r()));
+    if (root) fs.rmSync(root, { recursive: true, force: true });
   });
 
   const newPage = async (): Promise<Page> => {
@@ -110,9 +187,15 @@ maybe('Plans section (Playwright)', () => {
       await page.waitForSelector('.cards .card');
       expect(await page.locator('.cards .card').count()).toBe(counts.all);
 
-      // Switch to List in place; one row per active plan.
+      // Switch to List in place. The List hides `done` plans by default, so its
+      // default row count is the active-but-not-done set, not every active plan.
       await page.getByText('List', { exact: true }).click();
       await page.waitForSelector('.tbl--head');
+      expect(await page.locator('.tbl--row').count()).toBe(counts.activeNonDone);
+
+      // Toggling "Show done" reveals the done plan too — now every active plan.
+      await page.getByText('Show done', { exact: true }).click();
+      await page.waitForFunction(n => document.querySelectorAll('.tbl--row').length === n, counts.all);
       expect(await page.locator('.tbl--row').count()).toBe(counts.all);
     } finally {
       await page.close();

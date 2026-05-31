@@ -14,10 +14,12 @@
 .detail {
   flex: 1;
   display: grid;
-  /* Wide prose is the primary column; the blueprint rail sits on the right. */
-  grid-template-columns: 1fr 300px;
+  /* Wide prose is the primary column; the blueprint rail sits on the right.
+     No `overflow` here on purpose: the document is the single scroll container,
+     so neither column gets its own scrollbar (no double scrollbar) and a long
+     task rail is fully reachable by the page scroll. */
+  grid-template-columns: 1fr 420px;
   min-height: 0;
-  overflow: hidden;
 }
 /* Below 900px the right rail reflows to a single column, stacking under
    the prose. */
@@ -30,14 +32,12 @@
   border-left: 1px solid var(--border);
   background: var(--cream-mid);
   padding: 18px 16px;
-  overflow: auto;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  position: sticky;
-  top: 0;
-  align-self: start;
-  max-height: 100vh;
+  /* In normal flow (no sticky, no height cap, no internal scroll): the rail is
+     as tall as its task list and the single document scrollbar reveals all of
+     it, however long. Dropped stickiness so a long list is fully reachable. */
 }
 .rail__phase {
   background: var(--cream);

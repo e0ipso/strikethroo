@@ -142,7 +142,7 @@ test.describe('Plans section (Playwright)', () => {
     if (root) fs.rmSync(root, { recursive: true, force: true });
   });
 
-  test('switches Board / Cards / List in place and shows derived counters', async ({ page }) => {
+  test('switches Board / Cards in place and shows derived counters', async ({ page }) => {
     page.setDefaultTimeout(15_000);
     try {
       await page.goto(handle.url, { waitUntil: 'domcontentloaded' });
@@ -161,21 +161,11 @@ test.describe('Plans section (Playwright)', () => {
         `Drafts ${counts.drafts}`
       );
 
-      // Switch to Cards in place.
+      // Switch to Cards in place. The Cards grid renders every plan (done
+      // included), so its card count is the full set.
       await page.getByText('Cards', { exact: true }).click();
       await page.waitForSelector('.cards .card');
       expect(await page.locator('.cards .card').count()).toBe(counts.all);
-
-      // Switch to List in place. The List hides `done` plans by default, so its
-      // default row count is the active-but-not-done set, not every active plan.
-      await page.getByText('List', { exact: true }).click();
-      await page.waitForSelector('.tbl--head');
-      expect(await page.locator('.tbl--row').count()).toBe(counts.activeNonDone);
-
-      // Toggling "Show done" reveals the done plan too — now every active plan.
-      await page.getByText('Show done', { exact: true }).click();
-      await page.waitForFunction(n => document.querySelectorAll('.tbl--row').length === n, counts.all);
-      expect(await page.locator('.tbl--row').count()).toBe(counts.all);
     } finally {
       await page.close();
     }
@@ -230,15 +220,14 @@ test.describe('Plans section (Playwright)', () => {
     page.setDefaultTimeout(15_000);
     try {
       await page.goto(handle.url, { waitUntil: 'domcontentloaded' });
-      // Clickable rows live in the List view; the default Board has no rows.
-      await page.getByText('List', { exact: true }).click();
-      await page.waitForSelector('.tbl--row');
-      // The List defaults to id-descending sort, so the first row's id is not
-      // necessarily the API's first plan — read it off the row we click.
-      const firstRow = page.locator('.tbl--row').first();
-      const rowId = (await firstRow.locator('.tbl__id').textContent())?.trim();
+      // Switch to the Cards view, whose cards are clickable; read the id off the
+      // card we click rather than assuming an order.
+      await page.getByText('Cards', { exact: true }).click();
+      await page.waitForSelector('.cards .card');
+      const firstCard = page.locator('.cards .card').first();
+      const rowId = (await firstCard.locator('.card__id').textContent())?.replace(/\D/g, '');
       expect(rowId).toMatch(/^\d+$/);
-      await firstRow.click();
+      await firstCard.click();
       await page.waitForFunction(() => /^\/plans\/\d+$/.test(location.pathname));
       expect(page.url()).toContain(`/plans/${rowId}`);
     } finally {

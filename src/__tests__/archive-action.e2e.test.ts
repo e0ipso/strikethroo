@@ -93,23 +93,21 @@ test.describe('Archive action (Playwright, fixture)', () => {
     page.setDefaultTimeout(15_000);
     await page.goto(handle.url, { waitUntil: 'domcontentloaded' });
 
-    // Switch to the List view (Board is now the default). The List hides done
-    // plans by default, so reveal them via the Show-done toggle; then the done
-    // plan offers an actionable Archive control, the active plan does not (so
-    // exactly one Archive button is present).
-    await page.getByText('List', { exact: true }).click();
-    await page.waitForSelector('.tbl--row');
-    await page.getByText('Show done', { exact: true }).click();
-    await page.waitForFunction(() => document.querySelectorAll('.tbl--row').length === 2);
-    expect(await page.locator('.tbl--row').count()).toBe(2);
+    // Switch to the Cards view (Board is now the default). The Cards grid
+    // renders every plan, done included, so the done plan's card offers an
+    // actionable Archive control while the active plan's does not — exactly one
+    // Archive button is present.
+    await page.getByText('Cards', { exact: true }).click();
+    await page.waitForSelector('.cards .card');
+    expect(await page.locator('.cards .card').count()).toBe(2);
     expect(await page.getByRole('button', { name: 'Archive', exact: true }).count()).toBe(1);
 
     // Open the confirmation dialog and confirm.
     await page.getByRole('button', { name: 'Archive', exact: true }).click();
     await page.getByRole('button', { name: 'Archive plan' }).click();
 
-    // SSE revalidation drops the archived plan from the list with no reload.
-    await page.waitForFunction(() => document.querySelectorAll('.tbl--row').length === 1, null, {
+    // SSE revalidation drops the archived plan from the grid with no reload.
+    await page.waitForFunction(() => document.querySelectorAll('.cards .card').length === 1, null, {
       timeout: 5_000,
     });
     expect(await page.getByRole('button', { name: 'Archive', exact: true }).count()).toBe(0);

@@ -3,8 +3,8 @@
  *
  * The single routed feature module for the Plans section. It mounts the Task
  * 001 data layer once, surfaces its loading / error states through the shared
- * surfaces, holds the active-view tab (List / Cards / Board) in local state and
- * switches between the three views in place via the Chrome tabs, exposes the
+ * surfaces, holds the active-view tab (Board / Cards) in local state and
+ * switches between the two views in place via the Chrome tabs, exposes the
  * "Create plan" action that opens the Create modal, and feeds the derived
  * All / Active / Drafts counters into the Chrome. It composes Tasks 1–5; it
  * does not reimplement the views, modals, data layer, router, or primitives.
@@ -15,14 +15,13 @@ import { Chrome } from '../components/Chrome';
 import { Button } from '../components/primitives';
 import { ErrorSurface, LoadingSurface } from '../components/StateSurface';
 import { usePlansData } from './usePlansData';
-import { PlansListView } from './PlansListView';
 import { PlansCardView } from './PlansCardView';
 import { PlansKanbanView } from './PlansKanbanView';
 import { PlanModals, useModal } from './modals';
 import type { TabCounts } from './derive';
 
-/** The three interchangeable Plans views, in tab order. */
-const VIEWS = ['Board', 'Cards', 'List'] as const;
+/** The interchangeable Plans views, in tab order. */
+const VIEWS = ['Board', 'Cards'] as const;
 type ViewName = (typeof VIEWS)[number];
 
 /** The Chrome top bar for the Plans route: switcher tabs + Create action. */
@@ -86,15 +85,7 @@ export function PlansRoute() {
     body = <ErrorSurface error={resource.error} />;
   } else {
     const { plans } = resource.data;
-    if (view === 'List')
-      body = (
-        <PlansListView
-          plans={plans}
-          openReview={modal.openReview}
-          openArchive={modal.openArchive}
-        />
-      );
-    else if (view === 'Cards')
+    if (view === 'Cards')
       body = (
         <PlansCardView
           plans={plans}

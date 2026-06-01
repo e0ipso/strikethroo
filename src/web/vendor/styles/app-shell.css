@@ -661,6 +661,12 @@
 .dark .chip--branch::before {
   color: var(--dalia);
 }
+/* The command block is an always-dark terminal surface (background:--deep);
+   its body text rides --cream, which the flip above darkens. Re-light it so
+   the example line stays legible on the near-black block in dark mode. */
+.dark .modal__cmd {
+  color: var(--ink);
+}
 
 /* =====================================================================
    THEME SEGMENTED CONTROL — Sidebar-footer tri-state theme switcher.

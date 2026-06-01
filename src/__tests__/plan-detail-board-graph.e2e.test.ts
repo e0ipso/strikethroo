@@ -24,7 +24,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import type { Browser, Page } from 'playwright';
+import { test, expect, type Page } from '@playwright/test';
 import { startServer, ServeHandle } from '../serve/server';
 import type { PlanDetail } from '../serve/workspace-model';
 
@@ -34,18 +34,6 @@ const INDEX_HTML = path.join(ASSETS_DIR, 'index.html');
 const BUNDLE_DIR = path.join(ASSETS_DIR, 'assets');
 
 const assetsBuilt = fs.existsSync(INDEX_HTML);
-
-let chromium: typeof import('playwright').chromium | null = null;
-let browserAvailable = false;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  chromium = require('playwright').chromium;
-  browserAvailable = true;
-} catch {
-  browserAvailable = false;
-}
-
-const maybe = assetsBuilt && browserAvailable ? describe : describe.skip;
 
 /** Builds a disposable workspace root with a single fixture plan; returns root. */
 const makeFixtureWorkspace = (id: number, slug: string, body: string): string => {
@@ -81,13 +69,13 @@ this is not valid mermaid >>> @@@ %%% definitely not a flowchart
 - Renders an inline error, not a crash
 `;
 
-maybe('Plan Detail Graph (Playwright)', () => {
-  let browser: Browser;
+test.describe('Plan Detail Graph (Playwright)', () => {
+  test.skip(!assetsBuilt, 'dist-web not built');
+
   let liveHandle: ServeHandle;
   let plan38: PlanDetail;
 
-  beforeAll(async () => {
-    browser = await chromium!.launch();
+  test.beforeAll(async () => {
     liveHandle = await startServer({
       root: LIVE_ROOT,
       port: 0,
@@ -96,19 +84,11 @@ maybe('Plan Detail Graph (Playwright)', () => {
       debounceMs: 150,
     });
     plan38 = (await (await fetch(`${liveHandle.url}/api/plans/38`)).json()) as PlanDetail;
-  }, 60_000);
-
-  afterAll(async () => {
-    await browser?.close();
-    await new Promise<void>(r => liveHandle.server.close(() => r()));
   });
 
-  const newPage = async (): Promise<Page> => {
-    const context = await browser.newContext();
-    const page = await context.newPage();
-    page.setDefaultTimeout(15_000);
-    return page;
-  };
+  test.afterAll(async () => {
+    await new Promise<void>(r => liveHandle.server.close(() => r()));
+  });
 
   /** Opens plan 38 and clicks the Graph tab. */
   const openGraph = async (page: Page): Promise<void> => {
@@ -118,12 +98,14 @@ maybe('Plan Detail Graph (Playwright)', () => {
     await page.waitForSelector('.graph2');
   };
 
-  it('Graph: renders the model diagram and the Source toggle shows the extracted block', async () => {
+  test('Graph: renders the model diagram and the Source toggle shows the extracted block', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
     expect(plan38.mermaid.length).toBeGreaterThan(0);
     // The view prefers the Architectural Approach block, else the first.
     const expected = plan38.mermaid.find(m => m.isArchitecturalApproach) ?? plan38.mermaid[0]!;
 
-    const page = await newPage();
     try {
       await openGraph(page);
 
@@ -144,9 +126,9 @@ maybe('Plan Detail Graph (Playwright)', () => {
     } finally {
       await page.close();
     }
-  }, 45_000);
+  });
 
-  it('Graph: mermaid loads as a separate lazy chunk, absent from the eager bundle', () => {
+  test('Graph: mermaid loads as a separate lazy chunk, absent from the eager bundle', () => {
     const jsFiles = fs.readdirSync(BUNDLE_DIR).filter(f => f.endsWith('.js'));
 
     // The eager entry bundle must not contain the mermaid renderer internals.
@@ -162,7 +144,10 @@ maybe('Plan Detail Graph (Playwright)', () => {
     expect(hasMermaidChunk).toBe(true);
   });
 
-  it('Graph: a plan with no mermaid block shows the no-diagram empty state, not an error', async () => {
+  test('Graph: a plan with no mermaid block shows the no-diagram empty state, not an error', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
     const root = makeFixtureWorkspace(881, 'no-diagram', NO_DIAGRAM_BODY);
     const handle = await startServer({
       root,
@@ -171,7 +156,6 @@ maybe('Plan Detail Graph (Playwright)', () => {
       assetsDir: ASSETS_DIR,
       debounceMs: 150,
     });
-    const page = await newPage();
     try {
       await page.goto(`${handle.url}/plans/881`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.chrome__tabs');
@@ -189,9 +173,12 @@ maybe('Plan Detail Graph (Playwright)', () => {
       await new Promise<void>(r => handle.server.close(() => r()));
       fs.rmSync(root, { recursive: true, force: true });
     }
-  }, 45_000);
+  });
 
-  it('Graph: a malformed mermaid block surfaces an inline error without crashing the route', async () => {
+  test('Graph: a malformed mermaid block surfaces an inline error without crashing the route', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
     const root = makeFixtureWorkspace(882, 'malformed-diagram', MALFORMED_DIAGRAM_BODY);
     const handle = await startServer({
       root,
@@ -200,7 +187,6 @@ maybe('Plan Detail Graph (Playwright)', () => {
       assetsDir: ASSETS_DIR,
       debounceMs: 150,
     });
-    const page = await newPage();
     try {
       await page.goto(`${handle.url}/plans/882`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.chrome__tabs');
@@ -221,5 +207,5 @@ maybe('Plan Detail Graph (Playwright)', () => {
       await new Promise<void>(r => handle.server.close(() => r()));
       fs.rmSync(root, { recursive: true, force: true });
     }
-  }, 45_000);
+  });
 });

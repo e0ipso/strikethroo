@@ -99,3 +99,7 @@ skills-lock.json
 .ai/knowledge-base/.state/
 !.ai/knowledge-base/.state/installed-version
 # <<< @e0ipso/ai-knowledge-base <<<
+
+# Playwright test artifacts
+test-results/
+playwright-report/

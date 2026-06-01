@@ -9,13 +9,14 @@
  * - Metadata handling
  */
 
+import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } from 'vitest';
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import { init } from '../index';
 import { loadMetadata, calculateFileHash } from '../metadata';
 
 // Mock chalk before importing modules to avoid ESM issues in tests
-jest.mock('chalk', () => {
+vi.mock('chalk', () => {
   // Simple function that returns its input (strips colors in tests)
   const mockFn = (str: string) => str;
 
@@ -42,16 +43,16 @@ jest.mock('chalk', () => {
 
 // Mock the prompts module since it uses ESM and we can't test interactive prompts
 // in automated tests anyway. The key is to test the metadata and detection logic.
-jest.mock('../prompts', () => ({
-  promptForConflicts: jest.fn().mockResolvedValue(new Map()),
+vi.mock('../prompts', () => ({
+  promptForConflicts: vi.fn().mockResolvedValue(new Map()),
 }));
 
 describe('Conflict Detection Integration Tests', () => {
   const testDir = path.join(__dirname, '../../test-temp-conflict-detection');
 
   // Suppress console output during tests
-  let consoleLogSpy: jest.SpyInstance;
-  let consoleErrorSpy: jest.SpyInstance;
+  let consoleLogSpy: MockInstance;
+  let consoleErrorSpy: MockInstance;
 
   beforeEach(async () => {
     // Clean up test directory before each test
@@ -59,8 +60,8 @@ describe('Conflict Detection Integration Tests', () => {
     await fs.ensureDir(testDir);
 
     // Suppress console output
-    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(async () => {

@@ -25,7 +25,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import type { Browser, Page } from 'playwright';
+import { test, expect } from '@playwright/test';
 import { startServer, ServeHandle } from '../serve/server';
 import type { PlanDetail, PlanSummary } from '../serve/workspace-model';
 
@@ -35,18 +35,6 @@ const INDEX_HTML = path.join(ASSETS_DIR, 'index.html');
 const BUNDLE_DIR = path.join(ASSETS_DIR, 'assets');
 
 const assetsBuilt = fs.existsSync(INDEX_HTML);
-
-let chromium: typeof import('playwright').chromium | null = null;
-let browserAvailable = false;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  chromium = require('playwright').chromium;
-  browserAvailable = true;
-} catch {
-  browserAvailable = false;
-}
-
-const maybe = assetsBuilt && browserAvailable ? describe : describe.skip;
 
 /** Markdown body that exercises the sanitization boundary and a mermaid fence. */
 const HOSTILE_BODY = `## Overview
@@ -102,14 +90,15 @@ const makeFixtureWorkspace = (id: number, slug: string, body: string): string =>
   return root;
 };
 
-maybe('Plan Detail Reader (Playwright)', () => {
-  let browser: Browser;
+test.describe('Plan Detail Reader (Playwright)', () => {
+  test.skip(!assetsBuilt, 'dist-web not built');
+  test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
+
   let liveHandle: ServeHandle;
   let livePlan: PlanSummary;
   let liveDetail: PlanDetail;
 
-  beforeAll(async () => {
-    browser = await chromium!.launch();
+  test.beforeAll(async () => {
     liveHandle = await startServer({
       root: LIVE_ROOT,
       port: 0,
@@ -123,24 +112,14 @@ maybe('Plan Detail Reader (Playwright)', () => {
     liveDetail = (await (
       await fetch(`${liveHandle.url}/api/plans/${livePlan.id}`)
     ).json()) as PlanDetail;
-  }, 60_000);
+  });
 
-  afterAll(async () => {
-    await browser?.close();
+  test.afterAll(async () => {
     await new Promise<void>(r => liveHandle.server.close(() => r()));
   });
 
-  const newPage = async (): Promise<Page> => {
-    const context = await browser.newContext({
-      permissions: ['clipboard-read', 'clipboard-write'],
-    });
-    const page = await context.newPage();
+  test('renders a live plan: Plan tab active, prose + rail from the API', async ({ page }) => {
     page.setDefaultTimeout(15_000);
-    return page;
-  };
-
-  it('renders a live plan: Plan tab active, prose + rail from the API', async () => {
-    const page = await newPage();
     try {
       await page.goto(`${liveHandle.url}/plans/${livePlan.id}`, { waitUntil: 'domcontentloaded' });
 
@@ -169,10 +148,10 @@ maybe('Plan Detail Reader (Playwright)', () => {
     } finally {
       await page.close();
     }
-  }, 30_000);
+  });
 
-  it('renders /plans/38 faithfully from the live API (rail + prose)', async () => {
-    const page = await newPage();
+  test('renders /plans/38 faithfully from the live API (rail + prose)', async ({ page }) => {
+    page.setDefaultTimeout(15_000);
     try {
       const detail = (await (await fetch(`${liveHandle.url}/api/plans/38`)).json()) as PlanDetail;
 
@@ -192,9 +171,10 @@ maybe('Plan Detail Reader (Playwright)', () => {
     } finally {
       await page.close();
     }
-  }, 30_000);
+  });
 
-  it('sanitizes plan content: injected script / handler does not execute', async () => {
+  test('sanitizes plan content: injected script / handler does not execute', async ({ page }) => {
+    page.setDefaultTimeout(15_000);
     const root = makeFixtureWorkspace(701, 'hostile-fixture', HOSTILE_BODY);
     const handle = await startServer({
       root,
@@ -203,7 +183,6 @@ maybe('Plan Detail Reader (Playwright)', () => {
       assetsDir: ASSETS_DIR,
       debounceMs: 150,
     });
-    const page = await newPage();
     try {
       await page.goto(`${handle.url}/plans/701`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.detail .reader');
@@ -224,9 +203,10 @@ maybe('Plan Detail Reader (Playwright)', () => {
       await new Promise<void>(r => handle.server.close(() => r()));
       fs.rmSync(root, { recursive: true, force: true });
     }
-  }, 30_000);
+  });
 
-  it('shows an inline mermaid fence as source, not a rendered SVG', async () => {
+  test('shows an inline mermaid fence as source, not a rendered SVG', async ({ page }) => {
+    page.setDefaultTimeout(15_000);
     const root = makeFixtureWorkspace(702, 'mermaid-fixture', HOSTILE_BODY);
     const handle = await startServer({
       root,
@@ -235,7 +215,6 @@ maybe('Plan Detail Reader (Playwright)', () => {
       assetsDir: ASSETS_DIR,
       debounceMs: 150,
     });
-    const page = await newPage();
     try {
       await page.goto(`${handle.url}/plans/702`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.reader__mermaid');
@@ -250,9 +229,12 @@ maybe('Plan Detail Reader (Playwright)', () => {
       await new Promise<void>(r => handle.server.close(() => r()));
       fs.rmSync(root, { recursive: true, force: true });
     }
-  }, 30_000);
+  });
 
-  it('moves the Notes + Execution Blueprint tail to the Results tab, off the Plan tab', async () => {
+  test('moves the Notes + Execution Blueprint tail to the Results tab, off the Plan tab', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
     const root = makeFixtureWorkspace(703, 'results-fixture', RESULTS_BODY);
     const handle = await startServer({
       root,
@@ -261,7 +243,6 @@ maybe('Plan Detail Reader (Playwright)', () => {
       assetsDir: ASSETS_DIR,
       debounceMs: 150,
     });
-    const page = await newPage();
     try {
       await page.goto(`${handle.url}/plans/703`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.detail .reader');
@@ -288,9 +269,9 @@ maybe('Plan Detail Reader (Playwright)', () => {
       await new Promise<void>(r => handle.server.close(() => r()));
       fs.rmSync(root, { recursive: true, force: true });
     }
-  }, 30_000);
+  });
 
-  it('does not eagerly bundle mermaid into the Reader bundle', () => {
+  test('does not eagerly bundle mermaid into the Reader bundle', () => {
     // The served JS bundle for the app (which includes the Reader route) must
     // not contain the mermaid renderer; mermaid lives behind a dynamic import().
     const jsFiles = fs.readdirSync(BUNDLE_DIR).filter(f => f.endsWith('.js'));
@@ -305,7 +286,7 @@ maybe('Plan Detail Reader (Playwright)', () => {
     expect(eagerBundle).not.toContain('flowchart-elk');
   });
 
-  it('ships no legacy naming strings in the served bundle', () => {
+  test('ships no legacy naming strings in the served bundle', () => {
     const bundle = fs
       .readdirSync(BUNDLE_DIR)
       .filter(f => f.endsWith('.js'))

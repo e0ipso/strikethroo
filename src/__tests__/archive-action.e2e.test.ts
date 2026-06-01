@@ -15,24 +15,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import type { Browser, Page } from 'playwright';
+import { test, expect } from '@playwright/test';
 import { startServer, ServeHandle } from '../serve/server';
 import type { PlanSummary } from '../serve/workspace-model';
 
 const ASSETS_DIR = path.resolve(process.cwd(), 'dist-web');
 const assetsBuilt = fs.existsSync(path.join(ASSETS_DIR, 'index.html'));
-
-let chromium: typeof import('playwright').chromium | null = null;
-let browserAvailable = false;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  chromium = require('playwright').chromium;
-  browserAvailable = true;
-} catch {
-  browserAvailable = false;
-}
-
-const maybe = assetsBuilt && browserAvailable ? describe : describe.skip;
 
 const planMd = (id: number, title: string): string =>
   `---\nid: ${id}\nsummary: "${title}"\ncreated: 2026-05-28\n---\n# ${title}\n\nBody.\n`;
@@ -75,20 +63,13 @@ const buildFixture = (): string => {
   return root;
 };
 
-maybe('Archive action (Playwright, fixture)', () => {
-  let browser: Browser;
+test.describe('Archive action (Playwright, fixture)', () => {
+  test.skip(!assetsBuilt, 'dist-web not built');
+
   let handle: ServeHandle;
   let root: string;
 
-  beforeAll(async () => {
-    browser = await chromium!.launch();
-  }, 60_000);
-
-  afterAll(async () => {
-    await browser?.close();
-  });
-
-  beforeEach(async () => {
+  test.beforeEach(async () => {
     root = buildFixture();
     handle = await startServer({
       root,
@@ -99,48 +80,45 @@ maybe('Archive action (Playwright, fixture)', () => {
     });
   });
 
-  afterEach(async () => {
-    await new Promise<void>(r => handle.server.close(() => r()));
+  test.afterEach(async () => {
+    // The fixture page may still hold its SSE connection open, so force-terminate
+    // live connections before close() to keep teardown deterministic.
+    const done = new Promise<void>(r => handle.server.close(() => r()));
+    handle.server.closeAllConnections();
+    await done;
     fs.rmSync(path.resolve(root, '..', '..'), { recursive: true, force: true });
   });
 
-  it('archives a done plan from the UI and it leaves the Plans list live', async () => {
-    const context = await browser.newContext();
-    const page: Page = await context.newPage();
+  test('archives a done plan from the UI and it leaves the Plans list live', async ({ page }) => {
     page.setDefaultTimeout(15_000);
-    try {
-      await page.goto(handle.url, { waitUntil: 'domcontentloaded' });
+    await page.goto(handle.url, { waitUntil: 'domcontentloaded' });
 
-      // Switch to the List view (Board is now the default). The List hides done
-      // plans by default, so reveal them via the Show-done toggle; then the done
-      // plan offers an actionable Archive control, the active plan does not (so
-      // exactly one Archive button is present).
-      await page.getByText('List', { exact: true }).click();
-      await page.waitForSelector('.tbl--row');
-      await page.getByText('Show done', { exact: true }).click();
-      await page.waitForFunction(() => document.querySelectorAll('.tbl--row').length === 2);
-      expect(await page.locator('.tbl--row').count()).toBe(2);
-      expect(await page.getByRole('button', { name: 'Archive', exact: true }).count()).toBe(1);
+    // Switch to the List view (Board is now the default). The List hides done
+    // plans by default, so reveal them via the Show-done toggle; then the done
+    // plan offers an actionable Archive control, the active plan does not (so
+    // exactly one Archive button is present).
+    await page.getByText('List', { exact: true }).click();
+    await page.waitForSelector('.tbl--row');
+    await page.getByText('Show done', { exact: true }).click();
+    await page.waitForFunction(() => document.querySelectorAll('.tbl--row').length === 2);
+    expect(await page.locator('.tbl--row').count()).toBe(2);
+    expect(await page.getByRole('button', { name: 'Archive', exact: true }).count()).toBe(1);
 
-      // Open the confirmation dialog and confirm.
-      await page.getByRole('button', { name: 'Archive', exact: true }).click();
-      await page.getByRole('button', { name: 'Archive plan' }).click();
+    // Open the confirmation dialog and confirm.
+    await page.getByRole('button', { name: 'Archive', exact: true }).click();
+    await page.getByRole('button', { name: 'Archive plan' }).click();
 
-      // SSE revalidation drops the archived plan from the list with no reload.
-      await page.waitForFunction(() => document.querySelectorAll('.tbl--row').length === 1, null, {
-        timeout: 5_000,
-      });
-      expect(await page.getByRole('button', { name: 'Archive', exact: true }).count()).toBe(0);
+    // SSE revalidation drops the archived plan from the list with no reload.
+    await page.waitForFunction(() => document.querySelectorAll('.tbl--row').length === 1, null, {
+      timeout: 5_000,
+    });
+    expect(await page.getByRole('button', { name: 'Archive', exact: true }).count()).toBe(0);
 
-      // The API confirms the move actually happened on disk.
-      const plans = (await (await fetch(`${handle.url}/api/plans`)).json()) as PlanSummary[];
-      const moved = plans.find(p => p.id === 12);
-      expect(moved?.archived).toBe(true);
-      expect(fs.existsSync(path.join(root, 'plans', '12--example'))).toBe(false);
-      expect(fs.existsSync(path.join(root, 'archive', '12--example'))).toBe(true);
-    } finally {
-      await page.close();
-      await context.close();
-    }
-  }, 30_000);
+    // The API confirms the move actually happened on disk.
+    const plans = (await (await fetch(`${handle.url}/api/plans`)).json()) as PlanSummary[];
+    const moved = plans.find(p => p.id === 12);
+    expect(moved?.archived).toBe(true);
+    expect(fs.existsSync(path.join(root, 'plans', '12--example'))).toBe(false);
+    expect(fs.existsSync(path.join(root, 'archive', '12--example'))).toBe(true);
+  });
 });

@@ -25,7 +25,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import type { Browser, Page } from 'playwright';
+import { test, expect } from '@playwright/test';
 import { startServer, ServeHandle } from '../serve/server';
 import type { PlanSummary } from '../serve/workspace-model';
 
@@ -34,18 +34,6 @@ const INDEX_HTML = path.join(ASSETS_DIR, 'index.html');
 const BUNDLE_DIR = path.join(ASSETS_DIR, 'assets');
 
 const assetsBuilt = fs.existsSync(INDEX_HTML);
-
-let chromium: typeof import('playwright').chromium | null = null;
-let browserAvailable = false;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  chromium = require('playwright').chromium;
-  browserAvailable = true;
-} catch {
-  browserAvailable = false;
-}
-
-const maybe = assetsBuilt && browserAvailable ? describe : describe.skip;
 
 /** Derived counters mirroring src/web/plans/derive.ts tabCounts. */
 const deriveCounts = (plans: PlanSummary[]) => {
@@ -128,14 +116,15 @@ const SEED_PLANS: SeedPlan[] = [
   { id: 200, slug: 'fixture-archived', state: 'done', archived: true },
 ];
 
-maybe('Plans section (Playwright)', () => {
-  let browser: Browser;
+test.describe('Plans section (Playwright)', () => {
+  test.skip(!assetsBuilt, 'dist-web not built');
+  test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
+
   let handle: ServeHandle;
   let root: string;
   let counts: ReturnType<typeof deriveCounts>;
 
-  beforeAll(async () => {
-    browser = await chromium!.launch();
+  test.beforeAll(async () => {
     root = makeFixtureWorkspace(SEED_PLANS);
     handle = await startServer({
       root,
@@ -146,25 +135,15 @@ maybe('Plans section (Playwright)', () => {
     });
     const res = await fetch(`${handle.url}/api/plans`);
     counts = deriveCounts((await res.json()) as PlanSummary[]);
-  }, 60_000);
+  });
 
-  afterAll(async () => {
-    await browser?.close();
+  test.afterAll(async () => {
     await new Promise<void>(r => handle.server.close(() => r()));
     if (root) fs.rmSync(root, { recursive: true, force: true });
   });
 
-  const newPage = async (): Promise<Page> => {
-    const context = await browser.newContext({
-      permissions: ['clipboard-read', 'clipboard-write'],
-    });
-    const page = await context.newPage();
+  test('switches Board / Cards / List in place and shows derived counters', async ({ page }) => {
     page.setDefaultTimeout(15_000);
-    return page;
-  };
-
-  it('switches Board / Cards / List in place and shows derived counters', async () => {
-    const page = await newPage();
     try {
       await page.goto(handle.url, { waitUntil: 'domcontentloaded' });
 
@@ -200,10 +179,10 @@ maybe('Plans section (Playwright)', () => {
     } finally {
       await page.close();
     }
-  }, 30_000);
+  });
 
-  it('toggles the Done column via the Board Show-done tickbox', async () => {
-    const page = await newPage();
+  test('toggles the Done column via the Board Show-done tickbox', async ({ page }) => {
+    page.setDefaultTimeout(15_000);
     try {
       await page.goto(handle.url, { waitUntil: 'domcontentloaded' });
       await page.getByText('Board', { exact: true }).click();
@@ -221,10 +200,12 @@ maybe('Plans section (Playwright)', () => {
     } finally {
       await page.close();
     }
-  }, 30_000);
+  });
 
-  it('opens the Create modal with current command copy and a matching clipboard write', async () => {
-    const page = await newPage();
+  test('opens the Create modal with current command copy and a matching clipboard write', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
     try {
       await page.goto(handle.url, { waitUntil: 'domcontentloaded' });
       await page.getByText('Create plan', { exact: true }).click();
@@ -243,10 +224,10 @@ maybe('Plans section (Playwright)', () => {
     } finally {
       await page.close();
     }
-  }, 30_000);
+  });
 
-  it('navigates to /plans/:id when a plan row is clicked', async () => {
-    const page = await newPage();
+  test('navigates to /plans/:id when a plan row is clicked', async ({ page }) => {
+    page.setDefaultTimeout(15_000);
     try {
       await page.goto(handle.url, { waitUntil: 'domcontentloaded' });
       // Clickable rows live in the List view; the default Board has no rows.
@@ -263,9 +244,9 @@ maybe('Plans section (Playwright)', () => {
     } finally {
       await page.close();
     }
-  }, 30_000);
+  });
 
-  it('ships no legacy naming strings in the served bundle', () => {
+  test('ships no legacy naming strings in the served bundle', () => {
     const bundle = fs
       .readdirSync(BUNDLE_DIR)
       .filter(f => f.endsWith('.js'))

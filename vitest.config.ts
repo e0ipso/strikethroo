@@ -1,0 +1,48 @@
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  esbuild: {
+    jsx: 'automatic',
+  },
+  test: {
+    globals: true,
+    environment: 'node',
+    include: [
+      'src/__tests__/utils.test.ts',
+      'src/__tests__/cli.integration.test.ts',
+      'src/__tests__/conflict-detection.integration.test.ts',
+      'src/__tests__/self-review.test.ts',
+      'src/__tests__/serve-archive.integration.test.ts',
+      'src/__tests__/serve-server.integration.test.ts',
+      'src/__tests__/skill-scripts.test.ts',
+      'src/__tests__/st-full-workflow.skill.test.ts',
+      'src/__tests__/st-generate-tasks.skill.test.ts',
+      'src/__tests__/web-table-sort.test.ts',
+      'src/__tests__/workspace-model.integration.test.ts',
+      'src/web/__tests__/router.test.ts',
+      'src/web/archive/__tests__/helpers.test.tsx',
+      'src/web/components/__tests__/railCollapse.test.ts',
+      'src/web/plans/exec/__tests__/derive.test.ts',
+      'src/web/theme/__tests__/theme.test.ts',
+    ],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/dist-web/**',
+      'src/__tests__/*.e2e.test.ts',
+    ],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json-summary'],
+      reportsDirectory: 'coverage',
+      include: ['src/**/*.ts'],
+      exclude: ['src/**/*.d.ts', 'src/cli.ts', 'src/**/*.test.ts', 'src/**/__tests__/**'],
+      thresholds: {
+        branches: 19,
+        functions: 12,
+        lines: 24,
+        statements: 24,
+      },
+    },
+  },
+});

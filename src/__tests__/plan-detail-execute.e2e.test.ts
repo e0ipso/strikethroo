@@ -24,7 +24,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import type { Browser, Page } from 'playwright';
+import { test, expect, type Page } from '@playwright/test';
 import { startServer, ServeHandle } from '../serve/server';
 import type { PlanDetail } from '../serve/workspace-model';
 
@@ -34,18 +34,6 @@ const INDEX_HTML = path.join(ASSETS_DIR, 'index.html');
 
 const assetsBuilt = fs.existsSync(INDEX_HTML);
 
-let chromium: typeof import('playwright').chromium | null = null;
-let browserAvailable = false;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  chromium = require('playwright').chromium;
-  browserAvailable = true;
-} catch {
-  browserAvailable = false;
-}
-
-const maybe = assetsBuilt && browserAvailable ? describe : describe.skip;
-
 /** Maps a raw workspace status to the three presentational states. */
 const toState = (status: string | undefined): 'todo' | 'doing' | 'done' => {
   if (status === 'completed') return 'done';
@@ -53,13 +41,13 @@ const toState = (status: string | undefined): 'todo' | 'doing' | 'done' => {
   return 'doing';
 };
 
-maybe('Plan Detail Execute tab (Playwright)', () => {
-  let browser: Browser;
+test.describe('Plan Detail Execute tab (Playwright)', () => {
+  test.skip(!assetsBuilt, 'dist-web not built');
+
   let liveHandle: ServeHandle;
   let plan38: PlanDetail;
 
-  beforeAll(async () => {
-    browser = await chromium!.launch();
+  test.beforeAll(async () => {
     liveHandle = await startServer({
       root: LIVE_ROOT,
       port: 0,
@@ -68,19 +56,11 @@ maybe('Plan Detail Execute tab (Playwright)', () => {
       debounceMs: 150,
     });
     plan38 = (await (await fetch(`${liveHandle.url}/api/plans/38`)).json()) as PlanDetail;
-  }, 60_000);
-
-  afterAll(async () => {
-    await browser?.close();
-    await new Promise<void>(r => liveHandle.server.close(() => r()));
   });
 
-  const newPage = async (): Promise<Page> => {
-    const context = await browser.newContext();
-    const page = await context.newPage();
-    page.setDefaultTimeout(15_000);
-    return page;
-  };
+  test.afterAll(async () => {
+    await new Promise<void>(r => liveHandle.server.close(() => r()));
+  });
 
   /** Opens plan 38 and clicks the Tasks tab to reach the Execute blueprint. */
   const openExecute = async (page: Page): Promise<void> => {
@@ -90,9 +70,11 @@ maybe('Plan Detail Execute tab (Playwright)', () => {
     await page.waitForSelector('.snap__seg');
   };
 
-  it('Swimlanes (default): summary tally, first-class phases, and the sequential grid', async () => {
+  test('Swimlanes (default): summary tally, first-class phases, and the sequential grid', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
     expect(plan38.state).toBe('done');
-    const page = await newPage();
     try {
       await openExecute(page);
 
@@ -132,10 +114,12 @@ maybe('Plan Detail Execute tab (Playwright)', () => {
     } finally {
       await page.close();
     }
-  }, 45_000);
+  });
 
-  it('Outline: per-phase rows, done rows shown via strikethrough + StatusPill, and the Execution Summary callout', async () => {
-    const page = await newPage();
+  test('Outline: per-phase rows, done rows shown via strikethrough + StatusPill, and the Execution Summary callout', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
     try {
       await openExecute(page);
 
@@ -170,5 +154,5 @@ maybe('Plan Detail Execute tab (Playwright)', () => {
     } finally {
       await page.close();
     }
-  }, 45_000);
+  });
 });

@@ -22,7 +22,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as http from 'http';
-import type { Browser, Page } from 'playwright';
+import { test, expect } from '@playwright/test';
 import { startServer, ServeHandle } from '../serve/server';
 
 const LIVE_ROOT = path.resolve(process.cwd(), '.ai', 'strikethroo');
@@ -70,26 +70,13 @@ const startStaticOnly = (): Promise<{ url: string; server: http.Server }> => {
 
 const assetsBuilt = fs.existsSync(INDEX_HTML);
 
-// Lazy import so environments without the browser binary skip gracefully.
-let chromium: typeof import('playwright').chromium | null = null;
-let browserAvailable = false;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  chromium = require('playwright').chromium;
-  browserAvailable = true;
-} catch {
-  browserAvailable = false;
-}
+test.describe('app shell (Playwright)', () => {
+  test.skip(!assetsBuilt, 'dist-web not built');
 
-const maybe = assetsBuilt && browserAvailable ? describe : describe.skip;
-
-maybe('app shell (Playwright)', () => {
-  let browser: Browser;
   let full: ServeHandle;
   let staticOnly: { url: string; server: http.Server };
 
-  beforeAll(async () => {
-    browser = await chromium!.launch();
+  test.beforeAll(async () => {
     full = await startServer({
       root: LIVE_ROOT,
       port: 0,
@@ -98,22 +85,17 @@ maybe('app shell (Playwright)', () => {
       debounceMs: 150,
     });
     staticOnly = await startStaticOnly();
-  }, 60_000);
+  });
 
-  afterAll(async () => {
-    await browser?.close();
+  test.afterAll(async () => {
     await new Promise<void>((r) => full.server.close(() => r()));
     await new Promise<void>((r) => staticOnly.server.close(() => r()));
   });
 
-  const newPage = async (): Promise<Page> => {
-    const page = await browser.newPage();
+  test('renders the persistent Sidebar + Chrome and highlights the active nav per route', async ({
+    page,
+  }) => {
     page.setDefaultTimeout(15_000);
-    return page;
-  };
-
-  it('renders the persistent Sidebar + Chrome and highlights the active nav per route', async () => {
-    const page = await newPage();
     try {
       // Plans (root).
       await page.goto(full.url, { waitUntil: 'domcontentloaded' });
@@ -139,10 +121,12 @@ maybe('app shell (Playwright)', () => {
     } finally {
       await page.close();
     }
-  }, 30_000);
+  });
 
-  it('deep-links /plans/:id with a tab strip and survives back/forward + reload', async () => {
-    const page = await newPage();
+  test('deep-links /plans/:id with a tab strip and survives back/forward + reload', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
     try {
       await page.goto(`${full.url}/plans/38`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.chrome__tabs');
@@ -166,10 +150,10 @@ maybe('app shell (Playwright)', () => {
     } finally {
       await page.close();
     }
-  }, 30_000);
+  });
 
-  it('transitions loading → data against the live API', async () => {
-    const page = await newPage();
+  test('transitions loading → data against the live API', async ({ page }) => {
+    page.setDefaultTimeout(15_000);
     try {
       await page.goto(full.url, { waitUntil: 'domcontentloaded' });
       // The Plans route resolves to the real Board view (now the default, Plan
@@ -180,10 +164,12 @@ maybe('app shell (Playwright)', () => {
     } finally {
       await page.close();
     }
-  }, 30_000);
+  });
 
-  it('shows a visible error surface when the API is unreachable (no crash, no blank)', async () => {
-    const page = await newPage();
+  test('shows a visible error surface when the API is unreachable (no crash, no blank)', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
     try {
       await page.goto(staticOnly.url, { waitUntil: 'domcontentloaded' });
       // The shell still renders (sidebar present)...
@@ -196,10 +182,10 @@ maybe('app shell (Playwright)', () => {
     } finally {
       await page.close();
     }
-  }, 30_000);
+  });
 
-  it('renders every primitive in the gallery harness', async () => {
-    const page = await newPage();
+  test('renders every primitive in the gallery harness', async ({ page }) => {
+    page.setDefaultTimeout(15_000);
     try {
       await page.goto(`${full.url}/?gallery=1`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('[data-testid="gallery"]');
@@ -218,5 +204,5 @@ maybe('app shell (Playwright)', () => {
     } finally {
       await page.close();
     }
-  }, 30_000);
+  });
 });

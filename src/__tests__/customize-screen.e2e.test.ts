@@ -18,7 +18,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import type { Browser, Page } from 'playwright';
+import { test, expect } from '@playwright/test';
 import { startServer, ServeHandle } from '../serve/server';
 
 const LIVE_ROOT = path.resolve(process.cwd(), '.ai', 'strikethroo');
@@ -27,31 +27,20 @@ const INDEX_HTML = path.join(ASSETS_DIR, 'index.html');
 
 const assetsBuilt = fs.existsSync(INDEX_HTML);
 
-let chromium: typeof import('playwright').chromium | null = null;
-let browserAvailable = false;
-try {
-  chromium = require('playwright').chromium;
-  browserAvailable = true;
-} catch {
-  browserAvailable = false;
-}
-
-const maybe = assetsBuilt && browserAvailable ? describe : describe.skip;
-
 interface ConfigItem {
   id: string;
   file: string;
   content: string;
 }
 
-maybe('Customize screen (Playwright)', () => {
-  let browser: Browser;
+test.describe('Customize screen (Playwright)', () => {
+  test.skip(!assetsBuilt, 'dist-web not built');
+
   let handle: ServeHandle;
   let liveHooks: ConfigItem[];
   let liveTemplates: ConfigItem[];
 
-  beforeAll(async () => {
-    browser = await chromium!.launch();
+  test.beforeAll(async () => {
     handle = await startServer({
       root: LIVE_ROOT,
       port: 0,
@@ -63,21 +52,13 @@ maybe('Customize screen (Playwright)', () => {
     const cfg = (await res.json()) as { hooks: ConfigItem[]; templates: ConfigItem[] };
     liveHooks = cfg.hooks;
     liveTemplates = cfg.templates;
-  }, 60_000);
+  });
 
-  afterAll(async () => {
-    await browser?.close();
+  test.afterAll(async () => {
     await new Promise<void>(r => handle.server.close(() => r()));
   });
 
-  const newPage = async (): Promise<Page> => {
-    const context = await browser.newContext();
-    const page = await context.newPage();
-    page.setDefaultTimeout(15_000);
-    return page;
-  };
-
-  it('captures a non-empty live config payload (id/file/content)', () => {
+  test('captures a non-empty live config payload (id/file/content)', () => {
     expect(liveHooks.length).toBeGreaterThan(0);
     expect(liveTemplates.length).toBeGreaterThan(0);
     for (const item of [...liveHooks, ...liveTemplates]) {
@@ -87,8 +68,10 @@ maybe('Customize screen (Playwright)', () => {
     }
   });
 
-  it('renders the Hooks tab from live /api/config — counts and identifiers match', async () => {
-    const page = await newPage();
+  test('renders the Hooks tab from live /api/config — counts and identifiers match', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
     try {
       await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.cz__path-strip');
@@ -110,10 +93,10 @@ maybe('Customize screen (Playwright)', () => {
     } finally {
       await page.close();
     }
-  }, 30_000);
+  });
 
-  it('renders the Templates tab from live /api/config — identifiers match', async () => {
-    const page = await newPage();
+  test('renders the Templates tab from live /api/config — identifiers match', async ({ page }) => {
+    page.setDefaultTimeout(15_000);
     try {
       await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.cz__path-strip');
@@ -131,10 +114,12 @@ maybe('Customize screen (Playwright)', () => {
     } finally {
       await page.close();
     }
-  }, 30_000);
+  });
 
-  it('reveals read-only hook and template content with no Save/Edit/Revert control', async () => {
-    const page = await newPage();
+  test('reveals read-only hook and template content with no Save/Edit/Revert control', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
     try {
       await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.cz__hook');
@@ -170,10 +155,10 @@ maybe('Customize screen (Playwright)', () => {
     } finally {
       await page.close();
     }
-  }, 30_000);
+  });
 
-  it('uses .ai/strikethroo/config/ and never the stale task-manager literal', async () => {
-    const page = await newPage();
+  test('uses .ai/strikethroo/config/ and never the stale task-manager literal', async ({ page }) => {
+    page.setDefaultTimeout(15_000);
     try {
       await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.cz__path-strip');
@@ -183,5 +168,5 @@ maybe('Customize screen (Playwright)', () => {
     } finally {
       await page.close();
     }
-  }, 30_000);
+  });
 });

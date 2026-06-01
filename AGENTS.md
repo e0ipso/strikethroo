@@ -14,7 +14,7 @@ npm run build && node dist/cli.js serve        # or: npx strikethroo serve
 
 # Development workflow
 npm run dev           # Watch mode compilation
-npm test              # Run test suite
+npm test              # Full test gate: unit (Vitest) then e2e (@playwright/test)
 npm run lint:fix      # Auto-fix code style issues
 ```
 
@@ -194,7 +194,7 @@ A post-build smoke assertion in `scripts/build-skills.cjs` fails the build if th
 
 ### GitHub Releases
 
-Releases are handled by `semantic-release` via `.github/workflows/release.yml`, triggered on push to `main`. The workflow runs `npm ci && npm run build && npm test`, then `npx semantic-release` which: analyzes commits, bumps the version, publishes to npm, and creates a GitHub release with a git tag. The `@semantic-release/git` plugin's `assets` glob includes `templates/harness/skills/*/scripts/*.cjs`, `templates/harness/skills/*/SKILL.md`, and `dist-web/**`, so the otherwise git-ignored skill bundles, assembled prompts, and prebuilt SPA are force-added into the release commit. The tagged ref is self-contained so `npx skills add e0ipso/strikethroo@<tag>` resolves a fully installable input.
+Releases are handled by `semantic-release` via `.github/workflows/release.yml`, triggered on push to `main`. The workflow runs `npm ci && npm run build && npx playwright install --with-deps chromium && npm test` (the Playwright browser install is required because `npm test`'s e2e half runs on `@playwright/test` against a real Chromium), then `npx semantic-release` which: analyzes commits, bumps the version, publishes to npm, and creates a GitHub release with a git tag. The `@semantic-release/git` plugin's `assets` glob includes `templates/harness/skills/*/scripts/*.cjs`, `templates/harness/skills/*/SKILL.md`, and `dist-web/**`, so the otherwise git-ignored skill bundles, assembled prompts, and prebuilt SPA are force-added into the release commit. The tagged ref is self-contained so `npx skills add e0ipso/strikethroo@<tag>` resolves a fully installable input.
 
 Verify the invariant:
 
@@ -260,12 +260,16 @@ npm start            # Execute compiled CLI (requires build first)
 
 #### Testing and Quality Assurance
 ```bash
-npm test             # Run test suite
-npm run test:watch   # Tests in watch mode for development
+npm test             # Single CI gate: runs test:unit then test:e2e
+npm run test:unit    # vitest run --coverage — 16 unit/integration suites (Vitest, node env, v8 coverage gate)
+npm run test:e2e     # playwright test — 8 e2e suites (@playwright/test, real Chromium vs prebuilt dist-web/)
+npm run test:watch   # vitest — unit/integration tests in watch mode for development
 npm run lint         # ESLint validation (excludes test files)
 npm run lint:fix     # Automated lint fixes
 npm run format       # Prettier code formatting
 ```
+
+`npm test` chains `npm run test:unit && npm run test:e2e`, so unit failures short-circuit before e2e runs. `test:unit` runs the suites on Vitest in the `node` environment and enforces the v8 coverage thresholds (branches 19 / functions 12 / lines 24 / statements 24, text + json-summary reporters into `coverage/`). `test:e2e` runs the e2e suites on `@playwright/test`, which **requires Playwright browsers installed** — install them with `npx playwright install --with-deps chromium` before running e2e or `npm test` locally; CI runs that install step before `npm test`. Config lives in `vitest.config.ts` and `playwright.config.ts` at the repo root (there is no Jest, `ts-jest`, or `jest.config.js`).
 
 #### Security and Maintenance
 ```bash
@@ -279,9 +283,13 @@ npm run prepublishOnly        # Pre-publish validation (auto-runs)
 ### Testing Philosophy
 
 #### Test File Organization
+
+Unit/integration suites run on **Vitest** (`npm run test:unit`):
 - `src/__tests__/utils.test.ts`: Business logic validation
 - `src/__tests__/cli.integration.test.ts`: End-to-end workflows
 - `src/__tests__/get-next-plan-id.test.ts`: ID generation validation
+
+Browser-level e2e suites run on **@playwright/test** (`npm run test:e2e`) against the prebuilt `dist-web/` SPA with a real Chromium.
 
 #### Testing Guidelines
 **DO Test**:

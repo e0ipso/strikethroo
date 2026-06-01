@@ -70,7 +70,7 @@ export default [
         clearTimeout: 'readonly',
         setInterval: 'readonly',
         clearInterval: 'readonly',
-        jest: 'readonly',
+        vi: 'readonly',
         describe: 'readonly',
         it: 'readonly',
         test: 'readonly',

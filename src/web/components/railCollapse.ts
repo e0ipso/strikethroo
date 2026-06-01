@@ -2,7 +2,7 @@
  * Framework-agnostic sidebar-collapse controller.
  *
  * Single source of truth for the left-rail collapsed preference. Pure parsing
- * is isolated from storage access so it is unit-testable under jest's `node`
+ * is isolated from storage access so it is unit-testable under Vitest's `node`
  * environment, and all browser-global access is guarded against absent globals
  * and never throws. Mirrors the theme controller's shape (see ./theme.ts).
  * This module must NOT import React.

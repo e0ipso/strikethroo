@@ -4,7 +4,7 @@ import * as path from 'path';
 declare const EXPECTED_WORKSPACE_SCHEMA_VERSION: number;
 
 // In the bundled .cjs, esbuild's `define` substitutes the identifier with an
-// integer literal. In direct TS execution (ts-jest), the ambient declaration
+// integer literal. In direct TS execution (Vitest), the ambient declaration
 // has no runtime value; the `typeof` guard avoids a ReferenceError and falls
 // back to the initial schema version.
 const EXPECTED_SCHEMA: number =

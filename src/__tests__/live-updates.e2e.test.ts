@@ -24,7 +24,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import type { Browser, Page } from 'playwright';
+import { test, expect, type Page } from '@playwright/test';
 import { startServer, ServeHandle } from '../serve/server';
 import type { PlanSummary } from '../serve/workspace-model';
 
@@ -33,18 +33,6 @@ const ASSETS_DIR = path.resolve(process.cwd(), 'dist-web');
 const INDEX_HTML = path.join(ASSETS_DIR, 'index.html');
 
 const assetsBuilt = fs.existsSync(INDEX_HTML);
-
-let chromium: typeof import('playwright').chromium | null = null;
-let browserAvailable = false;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  chromium = require('playwright').chromium;
-  browserAvailable = true;
-} catch {
-  browserAvailable = false;
-}
-
-const maybe = assetsBuilt && browserAvailable ? describe : describe.skip;
 
 /** Tight debounce so a coalesced change lands well within the ~1s assertion. */
 const DEBOUNCE_MS = 80;
@@ -110,14 +98,18 @@ interface PlanFiles {
   taskFiles: string[];
 }
 
-maybe('Live updates: SSE client (Playwright)', () => {
-  let browser: Browser;
+test.describe('Live updates: SSE client (Playwright)', () => {
+  test.skip(!assetsBuilt, 'dist-web not built');
+  // These tests share a single in-process server over one mutable workspace
+  // fixture (the same task files are written across tests), so they must run in
+  // order rather than racing each other's disk mutations.
+  test.describe.configure({ mode: 'serial' });
+
   let root: string;
   let handle: ServeHandle;
   let plan: PlanFiles;
 
-  beforeAll(async () => {
-    browser = await chromium!.launch();
+  test.beforeAll(async () => {
     root = copyWorkspace();
     // A dedicated, deterministic fixture plan (all tasks pending) so live-edit
     // assertions do not depend on the evolving real plans.
@@ -129,10 +121,9 @@ maybe('Live updates: SSE client (Playwright)', () => {
       assetsDir: ASSETS_DIR,
       debounceMs: DEBOUNCE_MS,
     });
-  }, 60_000);
+  });
 
-  afterAll(async () => {
-    await browser?.close();
+  test.afterAll(async () => {
     if (handle) {
       const done = new Promise<void>(r => handle.server.close(() => r()));
       handle.server.closeAllConnections();
@@ -140,13 +131,6 @@ maybe('Live updates: SSE client (Playwright)', () => {
     }
     if (root) fs.rmSync(root, { recursive: true, force: true });
   });
-
-  const newPage = async (): Promise<Page> => {
-    const context = await browser.newContext();
-    const page = await context.newPage();
-    page.setDefaultTimeout(15_000);
-    return page;
-  };
 
   /**
    * The connection state is no longer surfaced as a DOM badge (Plan 95 removed
@@ -164,8 +148,10 @@ maybe('Live updates: SSE client (Playwright)', () => {
       () => (window as unknown as { __stRevalidationCount?: number }).__stRevalidationCount ?? 0
     );
 
-  it('Criterion 1+2: a task status edit on disk updates the open Plan Detail within ~1s', async () => {
-    const page = await newPage();
+  test('Criterion 1+2: a task status edit on disk updates the open Plan Detail within ~1s', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
     try {
       // Open the Tasks tab (Execute blueprint, Swimlanes by default) so task
       // cards by status are visible.
@@ -197,10 +183,12 @@ maybe('Live updates: SSE client (Playwright)', () => {
     } finally {
       await page.close();
     }
-  }, 45_000);
+  });
 
-  it('Criterion 2: creating then removing a plan directory updates the live Plans list', async () => {
-    const page = await newPage();
+  test('Criterion 2: creating then removing a plan directory updates the live Plans list', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
     const throwawayId = 970;
     // Single-token slug so the humanized list title contains it verbatim
     // (humanizeSlug would split a kebab slug into separate words).
@@ -242,9 +230,10 @@ maybe('Live updates: SSE client (Playwright)', () => {
       fs.rmSync(dir, { recursive: true, force: true });
       await page.close();
     }
-  }, 45_000);
+  });
 
-  it('Criterion 3: the stream reconnects after a server restart', async () => {
+  test('Criterion 3: the stream reconnects after a server restart', async ({ page }) => {
+    page.setDefaultTimeout(15_000);
     // Self-contained server lifecycle on its own port so a restart cannot
     // poison the shared handle the other tests use. The EventSource reconnects
     // to the page's origin, so the restart must reuse the same port.
@@ -256,7 +245,6 @@ maybe('Live updates: SSE client (Playwright)', () => {
       debounceMs: DEBOUNCE_MS,
     });
     const localPort = local.port;
-    const page = await newPage();
     try {
       await page.goto(`${local.url}/plans/${plan.id}`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.chrome__tabs');
@@ -319,10 +307,12 @@ maybe('Live updates: SSE client (Playwright)', () => {
       local.server.closeAllConnections();
       await done;
     }
-  }, 60_000);
+  });
 
-  it('Criterion 4: a burst of rapid writes coalesces into few revalidation passes', async () => {
-    const page = await newPage();
+  test('Criterion 4: a burst of rapid writes coalesces into few revalidation passes', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
     try {
       // Detail page: mounts the plan resource so a burst exercises the
       // coalescing seam.
@@ -361,5 +351,5 @@ maybe('Live updates: SSE client (Playwright)', () => {
     } finally {
       await page.close();
     }
-  }, 45_000);
+  });
 });

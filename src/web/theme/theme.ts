@@ -3,7 +3,7 @@
  *
  * Single source of truth for the tri-state theme preference. Pure logic
  * (parse/resolve) is isolated from DOM/storage access so it is unit-testable
- * under jest's `node` environment. All browser-global access is guarded against
+ * under Vitest's `node` environment. All browser-global access is guarded against
  * absent globals and never throws. This module must NOT import React.
  */
 

@@ -18,7 +18,6 @@ _49 nodes • ~8944 estimated tokens_
 - **Extract real font glyph outlines for favicon SVG rather than geometric approximation** [`nodes/practice/practice-extract-real-font-glyph-outlines-for-favicon-svg-rather-than-geometric-approximation.md`] #web #favicon #font #svg
 - **First publish of a new npm package name requires NPM_TOKEN; OIDC trusted publishing fails** [`nodes/practice/practice-first-publish-of-a-new-npm-package-name-requires-npm-token-oidc-trusted-publishing-fails.md`] #npm #publish #oidc #ci
 - **Hot-reload dev loop requires three concurrent processes** [`nodes/practice/practice-hot-reload-dev-loop-requires-three-concurrent-processes.md`] #dev #tooling #web #serve
-- **Jest test suite runs in node environment — browser APIs unavailable in tests** [`nodes/practice/practice-jest-test-suite-runs-in-node-environment-browser-apis-unavailable-in-tests.md`] #testing #jest #browser #dom #node
 - **Keep .ai/strikethroo (dogfood workspace) explicitly ignored in .gitignore** [`nodes/practice/practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore.md`] #git #gitignore #workspace
 - **Manual npm publish must be paired with a matching git tag to prevent semantic-release failure** [`nodes/practice/practice-manual-npm-publish-must-be-paired-with-a-matching-git-tag-to-prevent-semantic-release-failure.md`] #release #npm #semantic-release
 - **Manual npm publish requires force-adding git-ignored skill artifacts into git** [`nodes/practice/practice-manual-npm-publish-requires-force-adding-git-ignored-skill-artifacts-into-git.md`] #release #npm #skills #git
@@ -35,6 +34,7 @@ _49 nodes • ~8944 estimated tokens_
 - **Use build-time composition to eliminate cross-skill prompt duplication** [`nodes/practice/practice-use-build-time-composition-to-eliminate-cross-skill-prompt-duplication.md`] #build #skill-prompts #architecture
 - **Use git rm -r for tracked skill output dirs, not rm -rf** [`nodes/practice/practice-use-git-rm-r-for-tracked-skill-output-dirs-not-rm-rf.md`] #git #tracked-files #build-artifacts #skills
 - **Vendoring Dalia CSS requires the foundational .dark token block, not just per-component fixups** [`nodes/practice/practice-vendoring-dalia-css-requires-the-foundational-dark-token-block-not-just-per-component-fixups.md`] #web #css #dalia #dark-mode #vendoring
+- **Vitest test suite runs in node environment — browser APIs unavailable in tests** [`nodes/practice/practice-vitest-test-suite-runs-in-node-environment-browser-apis-unavailable-in-tests.md`] #testing #vitest #browser #dom #node
 - **When renaming an npm package, bump to next semver major rather than deleting old git tags** [`nodes/practice/practice-when-renaming-an-npm-package-bump-to-next-semver-major-rather-than-deleting-old-git-tags.md`] #npm #release #semantic-release #versioning
 
 ## Components (what exists)
@@ -71,7 +71,7 @@ _49 nodes • ~8944 estimated tokens_
 - **#npm (6):** Deprecate the old npm package after first successful publish of the renamed package, First publish of a new npm package name requires NPM_TOKEN; OIDC trusted publishing fails, Manual npm publish must be paired with a matching git tag to prevent semantic-release failure, Manual npm publish requires force-adding git-ignored skill artifacts into git, Two-channel release: npm tarball vs GitHub git tree, When renaming an npm package, bump to next semver major rather than deleting old git tags
 - **#skill-prompts (5):** Exclude README.md from skill-prompt template processing in the assembler, Nine shared section files under src/skill-prompts/sections/ cover the main cross-skill duplications, scripts/build-skill-prompts.cjs assembles SKILL.md from src/skill-prompts/ source templates, src/skill-prompts/ is the authored source of truth for SKILL.md content, Use build-time composition to eliminate cross-skill prompt duplication
 - **#spa (5):** Dalia UI design system: vendored into src/web/vendor/, not a package dependency, Plan Detail: blueprint markdown section is distinct from the tasks-frontmatter Tasks tab, serve SPA design: read-only viewer with archive as the only write mutation, serve UI PRD and tickets live under .ai/strikethroo/scratch/ui/, SPA assets are prebuilt and force-added into release commit, never built at runtime
-- **#testing (5):** Pre-commit test hook prevents per-phase commits during multi-phase plan execution, Jest test suite runs in node environment — browser APIs unavailable in tests, Playwright e2e suites flake under full-suite parallelism due to CPU contention, Serve layer mutation invariant: archive endpoint is the only route that writes workspace files, window.__stRevalidationCount — Playwright observability hook for SSE-driven revalidation
+- **#testing (5):** Pre-commit test hook prevents per-phase commits during multi-phase plan execution, Vitest test suite runs in node environment — browser APIs unavailable in tests, Playwright e2e suites flake under full-suite parallelism due to CPU contention, Serve layer mutation invariant: archive endpoint is the only route that writes workspace files, window.__stRevalidationCount — Playwright observability hook for SSE-driven revalidation
 - **#distribution (4):** Do not commit .agents/skills/ or skills-lock.json — they are local installation artifacts, SPA assets are prebuilt and force-added into release commit, never built at runtime, Two-channel release: npm tarball vs GitHub git tree, vercel-labs/skills installer scans standard dirs before plugin.json
 - **#git (4):** Keep .ai/strikethroo (dogfood workspace) explicitly ignored in .gitignore, Manual npm publish requires force-adding git-ignored skill artifacts into git, Project commit hook rejects AI co-authorship attribution trailers, Use git rm -r for tracked skill output dirs, not rm -rf
 - **#release (4):** Manual npm publish must be paired with a matching git tag to prevent semantic-release failure, Manual npm publish requires force-adding git-ignored skill artifacts into git, Two-channel release: npm tarball vs GitHub git tree, When renaming an npm package, bump to next semver major rather than deleting old git tags
@@ -100,7 +100,7 @@ _49 nodes • ~8944 estimated tokens_
 - **#assets (1):** src/web/public/favicon.svg — Strikethroo brand favicon
 - **#attribution (1):** Project commit hook rejects AI co-authorship attribution trailers
 - **#brand (1):** src/web/public/favicon.svg — Strikethroo brand favicon
-- **#browser (1):** Jest test suite runs in node environment — browser APIs unavailable in tests
+- **#browser (1):** Vitest test suite runs in node environment — browser APIs unavailable in tests
 - **#build-artifacts (1):** Use git rm -r for tracked skill output dirs, not rm -rf
 - **#cli (1):** CLI exposes only init and serve commands; all visualization/management commands removed
 - **#commit (1):** Project commit hook rejects AI co-authorship attribution trailers
@@ -112,7 +112,7 @@ _49 nodes • ~8944 estimated tokens_
 - **#design (1):** serve UI PRD and tickets live under .ai/strikethroo/scratch/ui/
 - **#design-system (1):** Dalia UI design system: vendored into src/web/vendor/, not a package dependency
 - **#docs (1):** docs/_config.yml controls GitHub Pages baseurl for the Jekyll docs site
-- **#dom (1):** Jest test suite runs in node environment — browser APIs unavailable in tests
+- **#dom (1):** Vitest test suite runs in node environment — browser APIs unavailable in tests
 - **#error-handling (1):** Serve layer uses discriminated-union result types, not custom error classes
 - **#flakiness (1):** Playwright e2e suites flake under full-suite parallelism due to CPU contention
 - **#font (1):** Extract real font glyph outlines for favicon SVG rather than geometric approximation
@@ -122,11 +122,10 @@ _49 nodes • ~8944 estimated tokens_
 - **#installer (1):** vercel-labs/skills installer scans standard dirs before plugin.json
 - **#invocation (1):** Skills are auto-loaded by intent matching, not slash-command prefix
 - **#jekyll (1):** docs/_config.yml controls GitHub Pages baseurl for the Jekyll docs site
-- **#jest (1):** Jest test suite runs in node environment — browser APIs unavailable in tests
 - **#layout (1):** Apply sticky positioning to .sb sidebar to keep footer visible on all pages
 - **#lint (1):** npm run lint only covers .ts files; .tsx web files need separate type-check
 - **#mutation (1):** Serve layer mutation invariant: archive endpoint is the only route that writes workspace files
-- **#node (1):** Jest test suite runs in node environment — browser APIs unavailable in tests
+- **#node (1):** Vitest test suite runs in node environment — browser APIs unavailable in tests
 - **#observability (1):** window.__stRevalidationCount — Playwright observability hook for SSE-driven revalidation
 - **#oidc (1):** First publish of a new npm package name requires NPM_TOKEN; OIDC trusted publishing fails
 - **#phase (1):** Pre-commit test hook prevents per-phase commits during multi-phase plan execution
@@ -147,5 +146,6 @@ _49 nodes • ~8944 estimated tokens_
 - **#tsx (1):** npm run lint only covers .ts files; .tsx web files need separate type-check
 - **#vendoring (1):** Vendoring Dalia CSS requires the foundational .dark token block, not just per-component fixups
 - **#versioning (1):** When renaming an npm package, bump to next semver major rather than deleting old git tags
+- **#vitest (1):** Vitest test suite runs in node environment — browser APIs unavailable in tests
 - **#workspace (1):** Keep .ai/strikethroo (dogfood workspace) explicitly ignored in .gitignore
 - **#workspace-root (1):** find-strikethroo-root.ts — skill-scripts utility that locates the .ai/strikethroo workspace root

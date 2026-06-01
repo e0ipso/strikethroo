@@ -1,18 +1,22 @@
 ---
 schema_version: 1
-nodes_hash: 'sha256:c154db7789bbd9356c2fb6fe34aa9f4a94776d11871025ee6fc6c7aea8be5c78'
-node_count: 49
+nodes_hash: 'sha256:1dc8326c0445e2092869ed5508327167d6825dfe841ab0db54f8bb6dcc5c2256'
+node_count: 54
 ---
 # KB Index
 
-_49 nodes • ~8944 estimated tokens_
+_54 nodes • ~10086 estimated tokens_
 
 
 ## Conventions (how we build)
 - **Pre-commit test hook prevents per-phase commits during multi-phase plan execution** [`nodes/practice/practice-pre-commit-test-hook-prevents-per-phase-commits-during-multi-phase-plan-execution.md`] #pre-commit #testing #phase #commits
+- **Project commit hook rejects AI co-authorship attribution trailers** [`nodes/practice/practice-project-commit-hook-rejects-ai-co-authorship-attribution-trailers.md`] #git #commit #hooks #attribution
 - **Apply sticky positioning to .sb sidebar to keep footer visible on all pages** [`nodes/practice/practice-apply-sticky-positioning-to-sb-sidebar-to-keep-footer-visible-on-all-pages.md`] #web #css #layout #sidebar #app-shell
+- **Commit subject ≤50 chars; body wrapped at 72 chars (hook enforced)** [`nodes/practice/practice-commit-subject-50-chars-body-wrapped-at-72-chars-hook-enforced.md`] #git #commit #hooks #formatting
+- **Convey done/undone state with strikethrough, color, or emoji — never a non-interactive checkbox** [`nodes/practice/practice-convey-done-state-with-strikethrough-color-or-emoji-not-non-interactive-checkboxes.md`] #web #ui #ux #accessibility #affordance
 - **Deprecate the old npm package after first successful publish of the renamed package** [`nodes/practice/practice-deprecate-the-old-npm-package-after-first-successful-publish-of-the-renamed-package.md`] #npm #deprecate #rebrand
 - **Do not commit .agents/skills/ or skills-lock.json — they are local installation artifacts** [`nodes/practice/practice-do-not-commit-agents-skills-or-skills-lock-json-they-are-local-installation-artifacts.md`] #distribution #skills #gitignore
+- **Do not use --no-verify to skip git commit hooks** [`nodes/practice/practice-do-not-use-no-verify-to-skip-git-commit-hooks.md`] #git #commits #pre-commit #hooks
 - **Documentation captures current state only** [`nodes/practice/practice-documentation-captures-current-state-only.md`] #documentation #conventions
 - **Exclude README.md from skill-prompt template processing in the assembler** [`nodes/practice/practice-exclude-readme-md-from-skill-prompt-template-processing-in-the-assembler.md`] #build #skill-prompts #assembler
 - **Extract real font glyph outlines for favicon SVG rather than geometric approximation** [`nodes/practice/practice-extract-real-font-glyph-outlines-for-favicon-svg-rather-than-geometric-approximation.md`] #web #favicon #font #svg
@@ -25,12 +29,13 @@ _49 nodes • ~8944 estimated tokens_
 - **Phase is reserved for execution blueprint task groups** [`nodes/practice/practice-phase-reserved-for-blueprint-task-groups.md`] #terminology #documentation #execution-blueprint
 - **Plan Detail: blueprint markdown section is distinct from the tasks-frontmatter Tasks tab** [`nodes/practice/practice-plan-detail-blueprint-markdown-vs-tasks-frontmatter.md`] #web #spa #serve #plan-detail #execution-blueprint
 - **Playwright e2e suites flake under full-suite parallelism due to CPU contention** [`nodes/practice/practice-playwright-e2e-suites-flake-under-full-suite-parallelism-due-to-cpu-contention.md`] #web #testing #playwright #e2e #flakiness #pre-commit
-- **Project commit hook rejects AI co-authorship attribution trailers** [`nodes/practice/practice-project-commit-hook-rejects-ai-co-authorship-attribution-trailers.md`] #git #commit #hooks #attribution
+- **Reuse shared SPA prose-rendering components across all markdown-rendering screens** [`nodes/practice/practice-reuse-shared-spa-prose-rendering-components-across-all-markdown-rendering-screens.md`] #web #spa #components #reuse #architecture
 - **Serve layer mutation invariant: archive endpoint is the only route that writes workspace files** [`nodes/practice/practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files.md`] #serve #architecture #testing #mutation
 - **Serve layer uses discriminated-union result types, not custom error classes** [`nodes/practice/practice-serve-layer-uses-discriminated-union-result-types-not-custom-error-classes.md`] #serve #architecture #error-handling
 - **SPA assets are prebuilt and force-added into release commit, never built at runtime** [`nodes/practice/practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime.md`] #web #spa #build #distribution #serve
 - **SVG favicon must use hex color values, not oklch or hsl** [`nodes/practice/practice-svg-favicon-must-use-hex-color-values-not-oklch-or-hsl.md`] #web #favicon #svg
 - **Update repositoryUrl in .releaserc.json after a GitHub repo rename** [`nodes/practice/practice-update-repositoryurl-in-releaserc-json-after-a-github-repo-rename.md`] #semantic-release #releaserc #ci
+- **Use BaseUI components for interactive UI elements in the SPA** [`nodes/practice/practice-use-baseui-components-for-interactive-ui-elements-in-the-spa.md`] #web #baseui #components #interactive #spa
 - **Use build-time composition to eliminate cross-skill prompt duplication** [`nodes/practice/practice-use-build-time-composition-to-eliminate-cross-skill-prompt-duplication.md`] #build #skill-prompts #architecture
 - **Use git rm -r for tracked skill output dirs, not rm -rf** [`nodes/practice/practice-use-git-rm-r-for-tracked-skill-output-dirs-not-rm-rf.md`] #git #tracked-files #build-artifacts #skills
 - **Vendoring Dalia CSS requires the foundational .dark token block, not just per-component fixups** [`nodes/practice/practice-vendoring-dalia-css-requires-the-foundational-dark-token-block-not-just-per-component-fixups.md`] #web #css #dalia #dark-mode #vendoring
@@ -63,25 +68,31 @@ _49 nodes • ~8944 estimated tokens_
 
 ## By topic
 
-- **#web (17):** Dalia UI design system: vendored into src/web/vendor/, not a package dependency, Apply sticky positioning to .sb sidebar to keep footer visible on all pages, Archive UI control — confirmation-gated Archive button on done plans, Extract real font glyph outlines for favicon SVG rather than geometric approximation, Hot-reload dev loop requires three concurrent processes, npm run dev:serve — ts-node backend hot-reload script, npm run lint only covers .ts files; .tsx web files need separate type-check, Plan 95 — wire and fix serve UI interactions, Plan Detail: blueprint markdown section is distinct from the tasks-frontmatter Tasks tab, Playwright e2e suites flake under full-suite parallelism due to CPU contention, serve SPA design: read-only viewer with archive as the only write mutation, serve UI PRD and tickets live under .ai/strikethroo/scratch/ui/, SPA assets are prebuilt and force-added into release commit, never built at runtime, src/web/public/favicon.svg — Strikethroo brand favicon, SVG favicon must use hex color values, not oklch or hsl, Vendoring Dalia CSS requires the foundational .dark token block, not just per-component fixups, window.__stRevalidationCount — Playwright observability hook for SSE-driven revalidation
+- **#web (20):** Dalia UI design system: vendored into src/web/vendor/, not a package dependency, Apply sticky positioning to .sb sidebar to keep footer visible on all pages, Archive UI control — confirmation-gated Archive button on done plans, Convey done/undone state with strikethrough, color, or emoji — never a non-interactive checkbox, Extract real font glyph outlines for favicon SVG rather than geometric approximation, Hot-reload dev loop requires three concurrent processes, npm run dev:serve — ts-node backend hot-reload script, npm run lint only covers .ts files; .tsx web files need separate type-check, Plan 95 — wire and fix serve UI interactions, Plan Detail: blueprint markdown section is distinct from the tasks-frontmatter Tasks tab, Playwright e2e suites flake under full-suite parallelism due to CPU contention, Reuse shared SPA prose-rendering components across all markdown-rendering screens, serve SPA design: read-only viewer with archive as the only write mutation, serve UI PRD and tickets live under .ai/strikethroo/scratch/ui/, SPA assets are prebuilt and force-added into release commit, never built at runtime, src/web/public/favicon.svg — Strikethroo brand favicon, SVG favicon must use hex color values, not oklch or hsl, Use BaseUI components for interactive UI elements in the SPA, Vendoring Dalia CSS requires the foundational .dark token block, not just per-component fixups, window.__stRevalidationCount — Playwright observability hook for SSE-driven revalidation
 - **#serve (10):** Hot-reload dev loop requires three concurrent processes, npm run dev:serve — ts-node backend hot-reload script, Plan Detail: blueprint markdown section is distinct from the tasks-frontmatter Tasks tab, Serve layer mutation invariant: archive endpoint is the only route that writes workspace files, Serve layer uses discriminated-union result types, not custom error classes, serve SPA design: read-only viewer with archive as the only write mutation, serve UI PRD and tickets live under .ai/strikethroo/scratch/ui/, SPA assets are prebuilt and force-added into release commit, never built at runtime, src/serve/archive.ts — archivePlan() operation, src/serve/self-review.ts — POST /api/self-review endpoint
 - **#skills (8):** Cross-harness code abstraction centralized in ~54 lines across 3 locations, Do not commit .agents/skills/ or skills-lock.json — they are local installation artifacts, Installed skills in .claude/skills/ are decoupled from repo builds, Manual npm publish requires force-adding git-ignored skill artifacts into git, Skills are auto-loaded by intent matching, not slash-command prefix, Two-channel release: npm tarball vs GitHub git tree, Use git rm -r for tracked skill output dirs, not rm -rf, vercel-labs/skills installer scans standard dirs before plugin.json
+- **#architecture (7):** CLI exposes only init and serve commands; all visualization/management commands removed, Cross-harness code abstraction centralized in ~54 lines across 3 locations, Reuse shared SPA prose-rendering components across all markdown-rendering screens, Serve layer mutation invariant: archive endpoint is the only route that writes workspace files, Serve layer uses discriminated-union result types, not custom error classes, serve SPA design: read-only viewer with archive as the only write mutation, Use build-time composition to eliminate cross-skill prompt duplication
 - **#build (7):** Exclude README.md from skill-prompt template processing in the assembler, Nine shared section files under src/skill-prompts/sections/ cover the main cross-skill duplications, npm run lint only covers .ts files; .tsx web files need separate type-check, scripts/build-skill-prompts.cjs assembles SKILL.md from src/skill-prompts/ source templates, SPA assets are prebuilt and force-added into release commit, never built at runtime, src/skill-prompts/ is the authored source of truth for SKILL.md content, Use build-time composition to eliminate cross-skill prompt duplication
-- **#architecture (6):** CLI exposes only init and serve commands; all visualization/management commands removed, Cross-harness code abstraction centralized in ~54 lines across 3 locations, Serve layer mutation invariant: archive endpoint is the only route that writes workspace files, Serve layer uses discriminated-union result types, not custom error classes, serve SPA design: read-only viewer with archive as the only write mutation, Use build-time composition to eliminate cross-skill prompt duplication
+- **#spa (7):** Dalia UI design system: vendored into src/web/vendor/, not a package dependency, Plan Detail: blueprint markdown section is distinct from the tasks-frontmatter Tasks tab, Reuse shared SPA prose-rendering components across all markdown-rendering screens, serve SPA design: read-only viewer with archive as the only write mutation, serve UI PRD and tickets live under .ai/strikethroo/scratch/ui/, SPA assets are prebuilt and force-added into release commit, never built at runtime, Use BaseUI components for interactive UI elements in the SPA
+- **#git (6):** Project commit hook rejects AI co-authorship attribution trailers, Commit subject ≤50 chars; body wrapped at 72 chars (hook enforced), Do not use --no-verify to skip git commit hooks, Keep .ai/strikethroo (dogfood workspace) explicitly ignored in .gitignore, Manual npm publish requires force-adding git-ignored skill artifacts into git, Use git rm -r for tracked skill output dirs, not rm -rf
 - **#npm (6):** Deprecate the old npm package after first successful publish of the renamed package, First publish of a new npm package name requires NPM_TOKEN; OIDC trusted publishing fails, Manual npm publish must be paired with a matching git tag to prevent semantic-release failure, Manual npm publish requires force-adding git-ignored skill artifacts into git, Two-channel release: npm tarball vs GitHub git tree, When renaming an npm package, bump to next semver major rather than deleting old git tags
 - **#skill-prompts (5):** Exclude README.md from skill-prompt template processing in the assembler, Nine shared section files under src/skill-prompts/sections/ cover the main cross-skill duplications, scripts/build-skill-prompts.cjs assembles SKILL.md from src/skill-prompts/ source templates, src/skill-prompts/ is the authored source of truth for SKILL.md content, Use build-time composition to eliminate cross-skill prompt duplication
-- **#spa (5):** Dalia UI design system: vendored into src/web/vendor/, not a package dependency, Plan Detail: blueprint markdown section is distinct from the tasks-frontmatter Tasks tab, serve SPA design: read-only viewer with archive as the only write mutation, serve UI PRD and tickets live under .ai/strikethroo/scratch/ui/, SPA assets are prebuilt and force-added into release commit, never built at runtime
-- **#testing (5):** Pre-commit test hook prevents per-phase commits during multi-phase plan execution, Vitest test suite runs in node environment — browser APIs unavailable in tests, Playwright e2e suites flake under full-suite parallelism due to CPU contention, Serve layer mutation invariant: archive endpoint is the only route that writes workspace files, window.__stRevalidationCount — Playwright observability hook for SSE-driven revalidation
+- **#testing (5):** Pre-commit test hook prevents per-phase commits during multi-phase plan execution, Playwright e2e suites flake under full-suite parallelism due to CPU contention, Serve layer mutation invariant: archive endpoint is the only route that writes workspace files, Vitest test suite runs in node environment — browser APIs unavailable in tests, window.__stRevalidationCount — Playwright observability hook for SSE-driven revalidation
 - **#distribution (4):** Do not commit .agents/skills/ or skills-lock.json — they are local installation artifacts, SPA assets are prebuilt and force-added into release commit, never built at runtime, Two-channel release: npm tarball vs GitHub git tree, vercel-labs/skills installer scans standard dirs before plugin.json
-- **#git (4):** Keep .ai/strikethroo (dogfood workspace) explicitly ignored in .gitignore, Manual npm publish requires force-adding git-ignored skill artifacts into git, Project commit hook rejects AI co-authorship attribution trailers, Use git rm -r for tracked skill output dirs, not rm -rf
 - **#release (4):** Manual npm publish must be paired with a matching git tag to prevent semantic-release failure, Manual npm publish requires force-adding git-ignored skill artifacts into git, Two-channel release: npm tarball vs GitHub git tree, When renaming an npm package, bump to next semver major rather than deleting old git tags
 - **#semantic-release (4):** .releaserc.json repositoryUrl must match current GitHub repo slug, Manual npm publish must be paired with a matching git tag to prevent semantic-release failure, Update repositoryUrl in .releaserc.json after a GitHub repo rename, When renaming an npm package, bump to next semver major rather than deleting old git tags
 - **#favicon (3):** Extract real font glyph outlines for favicon SVG rather than geometric approximation, src/web/public/favicon.svg — Strikethroo brand favicon, SVG favicon must use hex color values, not oklch or hsl
 - **#harness (3):** Cross-harness code abstraction centralized in ~54 lines across 3 locations, Installed skills in .claude/skills/ are decoupled from repo builds, Skills are auto-loaded by intent matching, not slash-command prefix
+- **#hooks (3):** Project commit hook rejects AI co-authorship attribution trailers, Commit subject ≤50 chars; body wrapped at 72 chars (hook enforced), Do not use --no-verify to skip git commit hooks
+- **#pre-commit (3):** Pre-commit test hook prevents per-phase commits during multi-phase plan execution, Do not use --no-verify to skip git commit hooks, Playwright e2e suites flake under full-suite parallelism due to CPU contention
+- **#ui (3):** Archive UI control — confirmation-gated Archive button on done plans, Convey done/undone state with strikethrough, color, or emoji — never a non-interactive checkbox, Plan 95 — wire and fix serve UI interactions
 - **#api (2):** src/serve/archive.ts — archivePlan() operation, src/serve/self-review.ts — POST /api/self-review endpoint
 - **#archive (2):** Archive UI control — confirmation-gated Archive button on done plans, src/serve/archive.ts — archivePlan() operation
 - **#assembler (2):** Exclude README.md from skill-prompt template processing in the assembler, scripts/build-skill-prompts.cjs assembles SKILL.md from src/skill-prompts/ source templates
 - **#ci (2):** First publish of a new npm package name requires NPM_TOKEN; OIDC trusted publishing fails, Update repositoryUrl in .releaserc.json after a GitHub repo rename
+- **#commit (2):** Project commit hook rejects AI co-authorship attribution trailers, Commit subject ≤50 chars; body wrapped at 72 chars (hook enforced)
+- **#commits (2):** Pre-commit test hook prevents per-phase commits during multi-phase plan execution, Do not use --no-verify to skip git commit hooks
+- **#components (2):** Reuse shared SPA prose-rendering components across all markdown-rendering screens, Use BaseUI components for interactive UI elements in the SPA
 - **#css (2):** Apply sticky positioning to .sb sidebar to keep footer visible on all pages, Vendoring Dalia CSS requires the foundational .dark token block, not just per-component fixups
 - **#dalia (2):** Dalia UI design system: vendored into src/web/vendor/, not a package dependency, Vendoring Dalia CSS requires the foundational .dark token block, not just per-component fixups
 - **#dev (2):** Hot-reload dev loop requires three concurrent processes, npm run dev:serve — ts-node backend hot-reload script
@@ -91,20 +102,19 @@ _49 nodes • ~8944 estimated tokens_
 - **#gitignore (2):** Do not commit .agents/skills/ or skills-lock.json — they are local installation artifacts, Keep .ai/strikethroo (dogfood workspace) explicitly ignored in .gitignore
 - **#plans (2):** Archive UI control — confirmation-gated Archive button on done plans, Plan 95 — wire and fix serve UI interactions
 - **#playwright (2):** Playwright e2e suites flake under full-suite parallelism due to CPU contention, window.__stRevalidationCount — Playwright observability hook for SSE-driven revalidation
-- **#pre-commit (2):** Pre-commit test hook prevents per-phase commits during multi-phase plan execution, Playwright e2e suites flake under full-suite parallelism due to CPU contention
 - **#releaserc (2):** .releaserc.json repositoryUrl must match current GitHub repo slug, Update repositoryUrl in .releaserc.json after a GitHub repo rename
 - **#scripts (2):** npm run dev:serve — ts-node backend hot-reload script, scripts/build-skill-prompts.cjs assembles SKILL.md from src/skill-prompts/ source templates
 - **#svg (2):** Extract real font glyph outlines for favicon SVG rather than geometric approximation, SVG favicon must use hex color values, not oklch or hsl
-- **#ui (2):** Archive UI control — confirmation-gated Archive button on done plans, Plan 95 — wire and fix serve UI interactions
+- **#accessibility (1):** Convey done/undone state with strikethrough, color, or emoji — never a non-interactive checkbox
+- **#affordance (1):** Convey done/undone state with strikethrough, color, or emoji — never a non-interactive checkbox
 - **#app-shell (1):** Apply sticky positioning to .sb sidebar to keep footer visible on all pages
 - **#assets (1):** src/web/public/favicon.svg — Strikethroo brand favicon
 - **#attribution (1):** Project commit hook rejects AI co-authorship attribution trailers
+- **#baseui (1):** Use BaseUI components for interactive UI elements in the SPA
 - **#brand (1):** src/web/public/favicon.svg — Strikethroo brand favicon
 - **#browser (1):** Vitest test suite runs in node environment — browser APIs unavailable in tests
 - **#build-artifacts (1):** Use git rm -r for tracked skill output dirs, not rm -rf
 - **#cli (1):** CLI exposes only init and serve commands; all visualization/management commands removed
-- **#commit (1):** Project commit hook rejects AI co-authorship attribution trailers
-- **#commits (1):** Pre-commit test hook prevents per-phase commits during multi-phase plan execution
 - **#config (1):** .releaserc.json repositoryUrl must match current GitHub repo slug
 - **#conventions (1):** Documentation captures current state only
 - **#dark-mode (1):** Vendoring Dalia CSS requires the foundational .dark token block, not just per-component fixups
@@ -116,10 +126,11 @@ _49 nodes • ~8944 estimated tokens_
 - **#error-handling (1):** Serve layer uses discriminated-union result types, not custom error classes
 - **#flakiness (1):** Playwright e2e suites flake under full-suite parallelism due to CPU contention
 - **#font (1):** Extract real font glyph outlines for favicon SVG rather than geometric approximation
+- **#formatting (1):** Commit subject ≤50 chars; body wrapped at 72 chars (hook enforced)
 - **#github-pages (1):** docs/_config.yml controls GitHub Pages baseurl for the Jekyll docs site
-- **#hooks (1):** Project commit hook rejects AI co-authorship attribution trailers
 - **#installation (1):** Installed skills in .claude/skills/ are decoupled from repo builds
 - **#installer (1):** vercel-labs/skills installer scans standard dirs before plugin.json
+- **#interactive (1):** Use BaseUI components for interactive UI elements in the SPA
 - **#invocation (1):** Skills are auto-loaded by intent matching, not slash-command prefix
 - **#jekyll (1):** docs/_config.yml controls GitHub Pages baseurl for the Jekyll docs site
 - **#layout (1):** Apply sticky positioning to .sb sidebar to keep footer visible on all pages
@@ -133,6 +144,7 @@ _49 nodes • ~8944 estimated tokens_
 - **#plan-detail (1):** Plan Detail: blueprint markdown section is distinct from the tasks-frontmatter Tasks tab
 - **#publish (1):** First publish of a new npm package name requires NPM_TOKEN; OIDC trusted publishing fails
 - **#rebrand (1):** Deprecate the old npm package after first successful publish of the renamed package
+- **#reuse (1):** Reuse shared SPA prose-rendering components across all markdown-rendering screens
 - **#scratch (1):** serve UI PRD and tickets live under .ai/strikethroo/scratch/ui/
 - **#sections (1):** Nine shared section files under src/skill-prompts/sections/ cover the main cross-skill duplications
 - **#self-review (1):** src/serve/self-review.ts — POST /api/self-review endpoint
@@ -144,6 +156,7 @@ _49 nodes • ~8944 estimated tokens_
 - **#tooling (1):** Hot-reload dev loop requires three concurrent processes
 - **#tracked-files (1):** Use git rm -r for tracked skill output dirs, not rm -rf
 - **#tsx (1):** npm run lint only covers .ts files; .tsx web files need separate type-check
+- **#ux (1):** Convey done/undone state with strikethrough, color, or emoji — never a non-interactive checkbox
 - **#vendoring (1):** Vendoring Dalia CSS requires the foundational .dark token block, not just per-component fixups
 - **#versioning (1):** When renaming an npm package, bump to next semver major rather than deleting old git tags
 - **#vitest (1):** Vitest test suite runs in node environment — browser APIs unavailable in tests

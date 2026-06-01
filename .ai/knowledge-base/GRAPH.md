@@ -1,11 +1,11 @@
 ---
 schema_version: 1
-nodes_hash: 'sha256:c154db7789bbd9356c2fb6fe34aa9f4a94776d11871025ee6fc6c7aea8be5c78'
-node_count: 49
+nodes_hash: 'sha256:1dc8326c0445e2092869ed5508327167d6825dfe841ab0db54f8bb6dcc5c2256'
+node_count: 54
 ---
 # KB Graph
 
-Total nodes: 49
+Total nodes: 54
 
 ## map-archive-ui-control-confirmation-gated-archive-button-on-done-plans
 
@@ -145,6 +145,19 @@ Total nodes: 49
 - **title:** Apply sticky positioning to .sb sidebar to keep footer visible on all pages
 - **tags:** web, css, layout, sidebar, app-shell
 
+## practice-commit-subject-50-chars-body-wrapped-at-72-chars-hook-enforced
+
+- **kind:** practice
+- **title:** Commit subject ≤50 chars; body wrapped at 72 chars (hook enforced)
+- **tags:** git, commit, hooks, formatting
+- **relates_to:** practice-project-commit-hook-rejects-ai-co-authorship-attribution-trailers
+
+## practice-convey-done-state-with-strikethrough-color-or-emoji-not-non-interactive-checkboxes
+
+- **kind:** practice
+- **title:** Convey done/undone state with strikethrough, color, or emoji — never a non-interactive checkbox
+- **tags:** web, ui, ux, accessibility, affordance
+
 ## practice-deprecate-the-old-npm-package-after-first-successful-publish-of-the-renamed-package
 
 - **kind:** practice
@@ -156,6 +169,13 @@ Total nodes: 49
 - **kind:** practice
 - **title:** Do not commit .agents/skills/ or skills-lock.json — they are local installation artifacts
 - **tags:** distribution, skills, gitignore
+
+## practice-do-not-use-no-verify-to-skip-git-commit-hooks
+
+- **kind:** practice
+- **title:** Do not use --no-verify to skip git commit hooks
+- **tags:** git, commits, pre-commit, hooks
+- **relates_to:** practice-pre-commit-test-hook-prevents-per-phase-commits-during-multi-phase-plan-execution
 
 ## practice-documentation-captures-current-state-only
 
@@ -186,12 +206,6 @@ Total nodes: 49
 - **kind:** practice
 - **title:** Hot-reload dev loop requires three concurrent processes
 - **tags:** dev, tooling, web, serve
-
-## practice-jest-test-suite-runs-in-node-environment-browser-apis-unavailable-in-tests
-
-- **kind:** practice
-- **title:** Jest test suite runs in node environment — browser APIs unavailable in tests
-- **tags:** testing, jest, browser, dom, node
 
 ## practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore
 
@@ -248,6 +262,12 @@ Total nodes: 49
 - **title:** Project commit hook rejects AI co-authorship attribution trailers
 - **tags:** git, commit, hooks, attribution
 
+## practice-reuse-shared-spa-prose-rendering-components-across-all-markdown-rendering-screens
+
+- **kind:** practice
+- **title:** Reuse shared SPA prose-rendering components across all markdown-rendering screens
+- **tags:** web, spa, components, reuse, architecture
+
 ## practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files
 
 - **kind:** practice
@@ -278,6 +298,12 @@ Total nodes: 49
 - **title:** Update repositoryUrl in .releaserc.json after a GitHub repo rename
 - **tags:** semantic-release, releaserc, ci
 
+## practice-use-baseui-components-for-interactive-ui-elements-in-the-spa
+
+- **kind:** practice
+- **title:** Use BaseUI components for interactive UI elements in the SPA
+- **tags:** web, baseui, components, interactive, spa
+
 ## practice-use-build-time-composition-to-eliminate-cross-skill-prompt-duplication
 
 - **kind:** practice
@@ -296,6 +322,12 @@ Total nodes: 49
 - **title:** Vendoring Dalia CSS requires the foundational .dark token block, not just per-component fixups
 - **tags:** web, css, dalia, dark-mode, vendoring
 - **relates_to:** map-dalia-ui-design-system-vendored-into-src-web-vendor-not-a-package-dependency
+
+## practice-vitest-test-suite-runs-in-node-environment-browser-apis-unavailable-in-tests
+
+- **kind:** practice
+- **title:** Vitest test suite runs in node environment — browser APIs unavailable in tests
+- **tags:** testing, vitest, browser, dom, node
 
 ## practice-when-renaming-an-npm-package-bump-to-next-semver-major-rather-than-deleting-old-git-tags
 

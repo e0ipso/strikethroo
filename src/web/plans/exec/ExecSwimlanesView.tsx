@@ -24,6 +24,8 @@
 import { StatusPill, Icon } from '../../components/primitives';
 import type { Phase, PlanDetail, Task } from '../../data/api';
 import { toTickboxState } from '../taskStatus';
+import { taskNavProps } from '../taskNav';
+import { useNavigate } from '../../router';
 import { stripIdPrefix, humanizeSlug } from '../derive';
 import { phaseStateOf, tally, tasksById } from './derive';
 
@@ -34,11 +36,13 @@ const pad = (n: number): string => String(n).padStart(2, '0');
 const phaseLabel = (phase: Phase): string => phase.name?.trim() || `Phase ${phase.index}`;
 
 /** A single lane task card within a phase grid. */
-function LaneTask({ task }: { task: Task }) {
+function LaneTask({ planId, task }: { planId: string; task: Task }) {
+  const navigate = useNavigate();
   const state = toTickboxState(task.status);
   const deps = task.dependencies ?? [];
+  const nav = taskNavProps(planId, task.id, navigate);
   return (
-    <div className={`lane-task lane-task--${state}`}>
+    <div className={`lane-task lane-task--${state}${nav ? ' lane-task--clickable' : ''}`} {...nav}>
       <div className="lane-task__head">
         <span className="lane-task__id">task · {pad(task.id)}</span>
       </div>
@@ -56,7 +60,15 @@ function LaneTask({ task }: { task: Task }) {
 }
 
 /** A single phase block: head (number, title, state, parallelism) + task grid. */
-function PhaseBlock({ phase, byId }: { phase: Phase; byId: Map<number, Task> }) {
+function PhaseBlock({
+  planId,
+  phase,
+  byId,
+}: {
+  planId: string;
+  phase: Phase;
+  byId: Map<number, Task>;
+}) {
   const state = phaseStateOf(phase, byId);
   const phaseTasks = phase.taskIds.map(id => byId.get(id)).filter((t): t is Task => t != null);
 
@@ -87,7 +99,7 @@ function PhaseBlock({ phase, byId }: { phase: Phase; byId: Map<number, Task> }) 
         }}
       >
         {phaseTasks.map(task => (
-          <LaneTask key={task.id} task={task} />
+          <LaneTask key={task.id} planId={planId} task={task} />
         ))}
       </div>
     </div>
@@ -95,7 +107,7 @@ function PhaseBlock({ phase, byId }: { phase: Phase; byId: Map<number, Task> }) 
 }
 
 /** The Swimlanes view: summary header + one phase container per phase. */
-export function ExecSwimlanesView({ detail }: { detail: PlanDetail }) {
+export function ExecSwimlanesView({ planId, detail }: { planId: string; detail: PlanDetail }) {
   const byId = tasksById(detail.tasks);
   const counts = tally(detail.tasks);
   const phaseWord = detail.phases.length === 1 ? 'phase' : 'phases';
@@ -123,7 +135,7 @@ export function ExecSwimlanesView({ detail }: { detail: PlanDetail }) {
       </div>
 
       {detail.phases.map(phase => (
-        <PhaseBlock key={phase.index} phase={phase} byId={byId} />
+        <PhaseBlock key={phase.index} planId={planId} phase={phase} byId={byId} />
       ))}
     </div>
   );

@@ -50,6 +50,10 @@ export interface Task {
   group?: string;
   dependencies?: number[];
   skills?: string[];
+  /** Full task markdown body. Serialized by the server; under-typed defensively. */
+  body?: string;
+  /** Absolute task file path. Serialized by the server; under-typed defensively. */
+  file?: string;
 }
 
 /** An inferred execution phase within a plan detail. */

@@ -22,6 +22,8 @@
 import { StatusPill } from '../../components/primitives';
 import type { Phase, PlanDetail, Task } from '../../data/api';
 import { toTickboxState } from '../taskStatus';
+import { taskNavProps } from '../taskNav';
+import { useNavigate } from '../../router';
 import { phaseStateOf, tasksById, execSummaryOf } from './derive';
 
 /** Two-digit, zero-padded number (`01`, `12`). */
@@ -31,10 +33,15 @@ const pad = (n: number): string => String(n).padStart(2, '0');
 const phaseLabel = (phase: Phase): string => phase.name?.trim() || `Phase ${phase.index}`;
 
 /** A single outline task row. */
-function OutlineRow({ task }: { task: Task }) {
+function OutlineRow({ planId, task }: { planId: string; task: Task }) {
+  const navigate = useNavigate();
   const state = toTickboxState(task.status);
+  const nav = taskNavProps(planId, task.id, navigate);
   return (
-    <div className={`outline__row outline__row--${state}`}>
+    <div
+      className={`outline__row outline__row--${state}${nav ? ' outline__row--clickable' : ''}`}
+      {...nav}
+    >
       <span className="outline__row-id">{pad(task.id)}</span>
       <span className="outline__row-title">{task.name}</span>
       <span className="outline__row-group">{task.group ?? ''}</span>
@@ -44,7 +51,15 @@ function OutlineRow({ task }: { task: Task }) {
 }
 
 /** A single phase block: phase head + a dashed-rail list of task rows. */
-function OutlinePhase({ phase, byId }: { phase: Phase; byId: Map<number, Task> }) {
+function OutlinePhase({
+  planId,
+  phase,
+  byId,
+}: {
+  planId: string;
+  phase: Phase;
+  byId: Map<number, Task>;
+}) {
   const state = phaseStateOf(phase, byId);
   const phaseTasks = phase.taskIds.map(id => byId.get(id)).filter((t): t is Task => t != null);
 
@@ -61,7 +76,7 @@ function OutlinePhase({ phase, byId }: { phase: Phase; byId: Map<number, Task> }
 
       <div className="outline__list">
         {phaseTasks.map(task => (
-          <OutlineRow key={task.id} task={task} />
+          <OutlineRow key={task.id} planId={planId} task={task} />
         ))}
       </div>
     </div>
@@ -69,14 +84,14 @@ function OutlinePhase({ phase, byId }: { phase: Phase; byId: Map<number, Task> }
 }
 
 /** The Outline view: per-phase task lists + an optional Execution Summary. */
-export function ExecOutlineView({ detail }: { detail: PlanDetail }) {
+export function ExecOutlineView({ planId, detail }: { planId: string; detail: PlanDetail }) {
   const byId = tasksById(detail.tasks);
   const summary = execSummaryOf(detail);
 
   return (
     <div className="outline">
       {detail.phases.map(phase => (
-        <OutlinePhase key={phase.index} phase={phase} byId={byId} />
+        <OutlinePhase key={phase.index} planId={planId} phase={phase} byId={byId} />
       ))}
 
       {summary && (

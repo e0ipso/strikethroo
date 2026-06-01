@@ -21,6 +21,7 @@ import { Sidebar } from './components/Sidebar';
 import { usePlans } from './data/api';
 import { PlansRoute } from './plans/PlansRoute';
 import { PlanDetailRoute } from './plans/detail/PlanDetailRoute';
+import { TaskDetailRoute } from './plans/detail/TaskDetailRoute';
 import { ArchiveRoute } from './archive/ArchiveRoute';
 import { CustomizeRoute } from './customize/CustomizeRoute';
 
@@ -57,6 +58,15 @@ function Shell() {
       // actions) and owns tab switching, so no separate top bar is composed here.
       chrome = null;
       content = <PlanDetailRoute id={id} />;
+      break;
+    }
+    case 'taskDetail': {
+      const id = route.params.id ?? '';
+      const taskId = route.params.taskId ?? '';
+      // The route container renders its own Chrome (crumbs / metadata header),
+      // so no separate top bar is composed here.
+      chrome = null;
+      content = <TaskDetailRoute id={id} taskId={taskId} />;
       break;
     }
     case 'archive':

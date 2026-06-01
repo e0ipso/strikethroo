@@ -51,13 +51,15 @@ function ExecToggle({ mode, onSelect }: { mode: ExecMode; onSelect: (mode: ExecM
 export function ExecuteTab({ detail }: { detail: PlanDetail }) {
   const [mode, setMode] = useState<ExecMode>('swimlanes');
 
+  const planId = String(detail.id);
+
   return (
     <>
       <ExecToggle mode={mode} onSelect={setMode} />
       {mode === 'swimlanes' ? (
-        <ExecSwimlanesView detail={detail} />
+        <ExecSwimlanesView planId={planId} detail={detail} />
       ) : (
-        <ExecOutlineView detail={detail} />
+        <ExecOutlineView planId={planId} detail={detail} />
       )}
     </>
   );

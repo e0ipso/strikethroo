@@ -41,7 +41,7 @@ export function PlanDetailReader({ detail }: { detail: PlanDetail }) {
         taskCount={detail.tasks.length}
         sections={planSections}
       />
-      <BlueprintRail phases={detail.phases} tasks={detail.tasks} />
+      <BlueprintRail planId={String(detail.id)} phases={detail.phases} tasks={detail.tasks} />
     </div>
   );
 }

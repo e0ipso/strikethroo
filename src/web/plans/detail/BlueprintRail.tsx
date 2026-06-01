@@ -14,8 +14,12 @@
 
 import type { Phase, Task } from '../../data/api';
 import { toTickboxState } from '../taskStatus';
+import { taskNavProps } from '../taskNav';
+import { useNavigate } from '../../router';
 
 export interface BlueprintRailProps {
+  /** The plan id, threaded down so each row links to its Task Detail route. */
+  planId: string;
   phases: Phase[];
   tasks: Task[];
 }
@@ -24,7 +28,8 @@ export interface BlueprintRailProps {
 const padId = (id: number): string => String(id).padStart(2, '0');
 
 /** The execution-blueprint rail: phases with their status-colored task rows. */
-export function BlueprintRail({ phases, tasks }: BlueprintRailProps) {
+export function BlueprintRail({ planId, phases, tasks }: BlueprintRailProps) {
+  const navigate = useNavigate();
   const tasksById = new Map(tasks.map(t => [t.id, t]));
 
   return (
@@ -47,8 +52,13 @@ export function BlueprintRail({ phases, tasks }: BlueprintRailProps) {
             const task = tasksById.get(taskId);
             if (!task) return null;
             const state = toTickboxState(task.status);
+            const nav = taskNavProps(planId, task.id, navigate);
             return (
-              <div key={taskId} className={`rail__task rail__task--${state}`}>
+              <div
+                key={taskId}
+                className={`rail__task rail__task--${state}${nav ? ' rail__task--clickable' : ''}`}
+                {...nav}
+              >
                 <span className="rail__task-num">{padId(task.id)}</span>
                 <div className="rail__task-body">
                   <div className="rail__task-name">{task.name}</div>

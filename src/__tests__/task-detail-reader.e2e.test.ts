@@ -51,8 +51,11 @@ flowchart LR
 - The pipeline runs to completion.
 
 ## Implementation Notes
+<details>
+<summary>Detailed implementation guidance</summary>
 
 A noteworthy event documented during execution.
+</details>
 `;
 
 /** A task body with a `##` heading but no Implementation Notes section. */
@@ -161,12 +164,18 @@ test.describe('Task Detail Reader (Playwright)', () => {
       expect(taskBody).not.toContain('Implementation Notes');
       expect(taskBody).not.toContain('noteworthy event documented');
 
-      // ...and selecting the Implementation Notes tab reveals that section.
+      // ...and selecting the Implementation Notes tab reveals that content. The
+      // tab drops the redundant `## Implementation Notes` heading (the tab label
+      // names it) and unwraps the root `<details>` — so neither the heading nor
+      // the `<summary>` label survive, only the inner guidance.
       await notesTab.click();
       await page.waitForSelector('.reader');
       const notesBody = (await page.locator('.reader').textContent()) ?? '';
-      expect(notesBody).toContain('Implementation Notes');
       expect(notesBody).toContain('noteworthy event documented');
+      expect(notesBody).not.toContain('Implementation Notes');
+      expect(notesBody).not.toContain('Detailed implementation guidance');
+      // The disclosure is unwrapped: no <details> element remains in the tab.
+      expect(await page.locator('.reader details').count()).toBe(0);
     } finally {
       await page.close();
     }

@@ -192,6 +192,21 @@ export const splitTaskSections = (
   return { bodySections: sections.slice(0, idx), notesSections: sections.slice(idx) };
 };
 
+/**
+ * Unwraps a root `<details>` disclosure in a task notes body. Task generators
+ * commonly wrap the entire `## Implementation Notes` content in a single
+ * `<details><summary>…</summary>…</details>` block; in the Implementation Notes
+ * tab that collapsible is redundant (the tab itself is the disclosure), so this
+ * lifts the inner content out — dropping the `<details>` wrapper and the leading
+ * `<summary>` label. When the trimmed content is not a single root `<details>`
+ * block, it is returned unchanged.
+ */
+export const unwrapRootDetails = (content: string): string => {
+  const match = content.trim().match(/^<details\b[^>]*>([\s\S]*)<\/details>\s*$/i);
+  if (!match) return content;
+  return match[1].replace(/^\s*<summary\b[^>]*>[\s\S]*?<\/summary>/i, '').trim();
+};
+
 /** A single progress dot's render state, mirroring the design's `progressDots`. */
 export type ProgressDot = 'done' | 'doing' | 'pending';
 

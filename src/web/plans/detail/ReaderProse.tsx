@@ -154,12 +154,14 @@ function MermaidDiagram({ src }: { src: string }) {
 
 /** Renders one `##` section: heading + the appropriate body treatment. */
 export function Section({ section }: { section: MarkdownSection }) {
-  const heading = (
+  // A section with no heading (e.g. the Implementation Notes tab, where the tab
+  // label replaces the `## Implementation Notes` heading) renders body-only.
+  const heading = section.heading.trim() ? (
     <h3 className="reader__h2">
       <span className="hash">##</span>
       {section.heading}
     </h3>
-  );
+  ) : null;
 
   // Success Criteria -> bespoke .crit checklist (unchecked: no completion data).
   if (SUCCESS_CRITERIA_RE.test(section.heading)) {

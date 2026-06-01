@@ -12,8 +12,10 @@
  * The body renders through the shared `Section` component (same path as the Plan
  * tab, so markdown still flows through the SPA's single `renderMarkdown`
  * boundary), with the `## Implementation Notes` section sliced into its own
- * local-state tab. The screen introduces no `Tickbox`, no status-editing
- * control, and no write.
+ * local-state tab. In that tab the redundant `## Implementation Notes` heading
+ * is dropped (the tab label names it) and a root `<details>` disclosure wrapping
+ * the notes is unwrapped to its inner content. The screen introduces no
+ * `Tickbox`, no status-editing control, and no write.
  */
 
 import { useState } from 'react';
@@ -22,7 +24,7 @@ import { StatusPill, Chip, type StatusKind } from '../../components/primitives';
 import { ErrorSurface, LoadingSurface } from '../../components/StateSurface';
 import { usePlanDetail, type PlanDetail, type Task } from '../../data/api';
 import { useNavigate } from '../../router';
-import { stripIdPrefix, splitTaskSections } from '../derive';
+import { stripIdPrefix, splitTaskSections, unwrapRootDetails } from '../derive';
 import { toTickboxState } from '../taskStatus';
 import { Section } from './ReaderProse';
 
@@ -65,8 +67,7 @@ function TaskNotFound({ id, slug, taskId }: { id: string; slug: string; taskId: 
  * no-`##`-section fallback must not re-render it as a second `<h1>` in the body.
  * Only a `#`-prefixed first heading is removed — `##` and deeper are untouched.
  */
-const stripLeadingTitle = (body: string): string =>
-  body.replace(/^\s*#[ \t]+[^\n]*(?:\r?\n)*/, '');
+const stripLeadingTitle = (body: string): string => body.replace(/^\s*#[ \t]+[^\n]*(?:\r?\n)*/, '');
 
 /** The dependency list: each resolved dep links to its task; others stay inert. */
 function Dependencies({ id, task, byId }: { id: string; task: Task; byId: Map<number, Task> }) {
@@ -97,20 +98,52 @@ function Dependencies({ id, task, byId }: { id: string; task: Task; byId: Map<nu
   );
 }
 
-/** The metadata header: status pill, group/skills chips, dependency links. */
-function MetaHeader({ id, task, byId }: { id: string; task: Task; byId: Map<number, Task> }) {
+/**
+ * The task metadata rail — the right column of the Task Detail `.detail` grid,
+ * the structural twin of the Plan tab's `BlueprintRail`. It reuses the shared
+ * `.rail` / `.label` / `.rail__phase*` classes and the `StatusPill` / `Chip`
+ * primitives so the task reading column left-aligns to and shares the plan's
+ * responsive `1fr` width (no centering offset, no dead space). Where the plan
+ * rail lists phases/tasks, this rail lists the task's own metadata: status,
+ * group, skills, and dependency links.
+ */
+function TaskMetaRail({ id, task, byId }: { id: string; task: Task; byId: Map<number, Task> }) {
   const state = toTickboxState(task.status);
   const skills = task.skills ?? [];
   return (
-    <div className="reader__meta" style={{ flexWrap: 'wrap', rowGap: '8px' }}>
-      <StatusPill kind={state as StatusKind} />
-      {task.group && <Chip>{task.group}</Chip>}
-      {skills.map(skill => (
-        <Chip key={skill}>{skill}</Chip>
-      ))}
-      <span>·</span>
-      <span>deps · </span>
-      <Dependencies id={id} task={task} byId={byId} />
+    <div className="rail">
+      <div className="label" style={{ marginBottom: 8 }}>
+        Task
+      </div>
+
+      <div className="rail__phase">
+        <div className="rail__phase-head">
+          <StatusPill kind={state as StatusKind} />
+        </div>
+        {task.group && (
+          <div className="rail__phase-meta">
+            group · <Chip>{task.group}</Chip>
+          </div>
+        )}
+      </div>
+
+      {skills.length > 0 && (
+        <div className="rail__phase">
+          <div className="rail__phase-meta">skills</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingBottom: 6 }}>
+            {skills.map(skill => (
+              <Chip key={skill}>{skill}</Chip>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="rail__phase">
+        <div className="rail__phase-meta">dependencies</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingBottom: 6 }}>
+          <Dependencies id={id} task={task} byId={byId} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -136,12 +169,20 @@ function LoadedRoute({ id, taskId, detail }: { id: string; taskId: string; detai
   const hasNotes = notesSections.length > 0;
   const tabs: ChromeTab[] = hasNotes ? ['Task', 'Implementation Notes'] : ['Task'];
 
+  // In the Implementation Notes tab, the tab label already names the section, so
+  // the leading `## Implementation Notes` heading is dropped, and a root
+  // `<details>` disclosure wrapping the notes is unwrapped to its inner content.
+  // Sections after the boundary (rare) keep their own headings untouched.
+  const notesForDisplay = notesSections.map((section, i) =>
+    i === 0 ? { heading: '', content: unwrapRootDetails(section.content) } : section
+  );
+
   // Render the active tab's sections through the shared `Section` component.
   // When the body has prose but no `##` headings at all, fall back to a single
   // synthetic section so leading-prose-only tasks do not blank — but render the
   // body with its leading `# ` title removed so it does not duplicate the page
   // heading as a second `<h1>`.
-  const activeSections = hasNotes && activeTab === 1 ? notesSections : bodySections;
+  const activeSections = hasNotes && activeTab === 1 ? notesForDisplay : bodySections;
   const fallbackBody = stripLeadingTitle(rawBody);
   const isEmpty = sections.length === 0 && fallbackBody.trim().length === 0;
   const renderSections =
@@ -158,13 +199,15 @@ function LoadedRoute({ id, taskId, detail }: { id: string; taskId: string; detai
         activeTab={activeTab}
         onTabSelect={setActiveTab}
       />
-      <div className="reader">
-        <MetaHeader id={id} task={task} byId={byId} />
-        {isEmpty ? (
-          <p className="reader__meta">This task has no description.</p>
-        ) : (
-          renderSections.map((section, i) => <Section key={i} section={section} />)
-        )}
+      <div className="detail">
+        <div className="reader">
+          {isEmpty ? (
+            <p className="reader__meta">This task has no description.</p>
+          ) : (
+            renderSections.map((section, i) => <Section key={i} section={section} />)
+          )}
+        </div>
+        <TaskMetaRail id={id} task={task} byId={byId} />
       </div>
     </>
   );

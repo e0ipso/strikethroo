@@ -29,6 +29,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { PlanDetail, MermaidBlock as MermaidModel } from '../../data/api';
 import { renderMermaid } from '../../render/mermaid';
+import { useTheme } from '../../theme/ThemeProvider';
 
 /** Basename of an absolute or relative path. */
 const basename = (filePath: string): string => filePath.split(/[\\/]/).pop() ?? filePath;
@@ -48,6 +49,7 @@ function pickDiagram(blocks: MermaidModel[]): MermaidModel | null {
  * an inline `.mermaid-err` notice instead of crashing the route.
  */
 function MermaidCanvas({ source }: { source: string }) {
+  const { resolved } = useTheme();
   const [svg, setSvg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,7 +57,7 @@ function MermaidCanvas({ source }: { source: string }) {
     let cancelled = false;
     setSvg(null);
     setError(null);
-    renderMermaid(source)
+    renderMermaid(source, resolved)
       .then(out => {
         if (!cancelled) setSvg(out);
       })
@@ -65,7 +67,7 @@ function MermaidCanvas({ source }: { source: string }) {
     return () => {
       cancelled = true;
     };
-  }, [source]);
+  }, [source, resolved]);
 
   if (error) return <div className="mermaid-err">mermaid error · {error}</div>;
   if (svg == null) return <div className="mermaid-loading">rendering mermaid…</div>;

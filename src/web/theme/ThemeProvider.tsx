@@ -21,6 +21,8 @@ import {
 
 interface ThemeContextValue {
   theme: Theme;
+  /** The concrete effective scheme after resolving `system` against the OS. */
+  resolved: 'light' | 'dark';
   setTheme: (t: Theme) => void;
 }
 
@@ -29,10 +31,15 @@ const ThemeCtx = createContext<ThemeContextValue | null>(null);
 /** Provides the theme preference and a persisting setter to the React tree. */
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => readStoredTheme());
+  const [resolved, setResolved] = useState<'light' | 'dark'>(() =>
+    resolveTheme(readStoredTheme(), prefersDark())
+  );
 
   // Apply on mount and whenever the preference changes.
   useEffect(() => {
-    applyTheme(resolveTheme(theme, prefersDark()));
+    const effective = resolveTheme(theme, prefersDark());
+    applyTheme(effective);
+    setResolved(effective);
   }, [theme]);
 
   // Subscribe once; re-apply on OS change only while the preference is `system`.
@@ -40,7 +47,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     () =>
       subscribeSystem(() => {
         if (readStoredTheme() === 'system') {
-          applyTheme(resolveTheme('system', prefersDark()));
+          const effective = resolveTheme('system', prefersDark());
+          applyTheme(effective);
+          setResolved(effective);
         }
       }),
     []
@@ -51,7 +60,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setThemeState(t);
   };
 
-  return <ThemeCtx.Provider value={{ theme, setTheme }}>{children}</ThemeCtx.Provider>;
+  return <ThemeCtx.Provider value={{ theme, resolved, setTheme }}>{children}</ThemeCtx.Provider>;
 }
 
 /** Read the active theme preference and its setter; throws outside the provider. */

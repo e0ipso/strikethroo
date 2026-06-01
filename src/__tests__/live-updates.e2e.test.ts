@@ -28,7 +28,13 @@ import { test, expect, type Page } from '@playwright/test';
 import { startServer, ServeHandle } from '../serve/server';
 import type { PlanSummary } from '../serve/workspace-model';
 
-const LIVE_ROOT = path.resolve(process.cwd(), '.ai', 'strikethroo');
+const FIXTURE_ROOT = path.resolve(
+  process.cwd(),
+  'src',
+  '__tests__',
+  'fixtures',
+  'serve-workspace'
+);
 const ASSETS_DIR = path.resolve(process.cwd(), 'dist-web');
 const INDEX_HTML = path.join(ASSETS_DIR, 'index.html');
 
@@ -40,7 +46,7 @@ const DEBOUNCE_MS = 80;
 /** Copies the live workspace into a disposable temp root; returns its path. */
 const copyWorkspace = (): string => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'st-live-updates-'));
-  fs.cpSync(LIVE_ROOT, root, { recursive: true });
+  fs.cpSync(FIXTURE_ROOT, root, { recursive: true });
   return root;
 };
 

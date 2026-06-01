@@ -25,7 +25,13 @@ import * as http from 'http';
 import { test, expect } from '@playwright/test';
 import { startServer, ServeHandle } from '../serve/server';
 
-const LIVE_ROOT = path.resolve(process.cwd(), '.ai', 'strikethroo');
+const FIXTURE_ROOT = path.resolve(
+  process.cwd(),
+  'src',
+  '__tests__',
+  'fixtures',
+  'serve-workspace'
+);
 const ASSETS_DIR = path.resolve(process.cwd(), 'dist-web');
 const INDEX_HTML = path.join(ASSETS_DIR, 'index.html');
 
@@ -78,7 +84,7 @@ test.describe('app shell (Playwright)', () => {
 
   test.beforeAll(async () => {
     full = await startServer({
-      root: LIVE_ROOT,
+      root: FIXTURE_ROOT,
       port: 0,
       open: false,
       assetsDir: ASSETS_DIR,

@@ -32,6 +32,7 @@ import type { MarkdownSection } from '../../data/api';
 import { renderMarkdown } from '../../render/markdown';
 import { renderMermaid } from '../../render/mermaid';
 import { useTheme } from '../../theme/ThemeProvider';
+import { MermaidError } from './MermaidError';
 
 export interface ReaderProseProps {
   /** Plan file basename, e.g. `plan-38--fix-jekyll-link-baseurl.md`. */
@@ -137,7 +138,7 @@ function MermaidDiagram({ src }: { src: string }) {
         <span className="reader__mermaid-hint">Graph tab</span>
       </div>
       {error ? (
-        <div className="mermaid-err">mermaid error · {error}</div>
+        <MermaidError message={error} />
       ) : svg == null ? (
         <div className="mermaid-loading">rendering mermaid…</div>
       ) : (

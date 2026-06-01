@@ -216,7 +216,40 @@
   color: var(--ink-3);
   padding: 28px;
 }
-.mermaid-err { color: oklch(0.5 0.18 25); }
+/* Graceful render-error block: friendly glyph + line + collapsible details. */
+.mermaid-err {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+.mermaid-err__glyph { color: oklch(0.6 0.15 25); opacity: 0.85; }
+.mermaid-err__title { font-weight: 600; color: var(--ink-2); }
+.mermaid-err__details { width: 100%; max-width: 560px; margin-top: 2px; }
+.mermaid-err__details > summary {
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.mermaid-err__details > summary:hover { color: var(--ink-2); }
+.mermaid-err__trace {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  background: var(--cream-mid);
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+}
 
 /* Mermaid label typography refinements */
 .mermaid-host .nodeLabel { line-height: 1.4; }

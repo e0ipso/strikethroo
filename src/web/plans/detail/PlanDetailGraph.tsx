@@ -30,6 +30,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { PlanDetail, MermaidBlock as MermaidModel } from '../../data/api';
 import { renderMermaid } from '../../render/mermaid';
 import { useTheme } from '../../theme/ThemeProvider';
+import { MermaidError } from './MermaidError';
 
 /** Basename of an absolute or relative path. */
 const basename = (filePath: string): string => filePath.split(/[\\/]/).pop() ?? filePath;
@@ -69,7 +70,7 @@ function MermaidCanvas({ source }: { source: string }) {
     };
   }, [source, resolved]);
 
-  if (error) return <div className="mermaid-err">mermaid error · {error}</div>;
+  if (error) return <MermaidError message={error} />;
   if (svg == null) return <div className="mermaid-loading">rendering mermaid…</div>;
   return <div className="mermaid-host" dangerouslySetInnerHTML={{ __html: svg }} />;
 }

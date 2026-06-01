@@ -89,6 +89,15 @@ export async function renderMermaid(
     // mermaid's `strict` default so authored diagram labels cannot inject
     // active HTML. Do NOT regress this to 'loose'.
     securityLevel: 'strict',
+    // Graceful degradation, NOT a fix for malformed diagrams. Without this,
+    // mermaid v11's `render` paints its own red "Syntax error" bomb SVG into a
+    // temp element under `<body>` and, on the throw path, never calls
+    // `removeTempElements()` (mermaid.core.mjs:1184-1212) — so a stray graphic
+    // leaks onto the page that a caller's `catch` cannot undo. With it set,
+    // mermaid removes the temp element and simply throws, letting the malformed
+    // diagram surface through our own `MermaidError` UI instead. The diagram
+    // still genuinely fails; this only stops mermaid drawing over us.
+    suppressErrorRendering: true,
     // Compact label typography: shrink the default theme font so diagram
     // labels pack more legibly. Casing is handled by the vendored
     // `.mermaid-host` CSS, not here.

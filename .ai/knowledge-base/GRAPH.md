@@ -1,11 +1,11 @@
 ---
 schema_version: 1
-nodes_hash: 'sha256:1d028fd72cec9cfc8766562cde502a33e563c52c5451d3371901eb6c6ba07f90'
-node_count: 43
+nodes_hash: 'sha256:c154db7789bbd9356c2fb6fe34aa9f4a94776d11871025ee6fc6c7aea8be5c78'
+node_count: 49
 ---
 # KB Graph
 
-Total nodes: 43
+Total nodes: 49
 
 ## map-archive-ui-control-confirmation-gated-archive-button-on-done-plans
 
@@ -133,6 +133,18 @@ Total nodes: 43
 - **title:** vercel-labs/skills installer scans standard dirs before plugin.json
 - **tags:** distribution, skills, installer
 
+## map-window-strevalidationcount-playwright-observability-hook-for-sse-driven-revalidation
+
+- **kind:** map
+- **title:** window.__stRevalidationCount — Playwright observability hook for SSE-driven revalidation
+- **tags:** web, testing, playwright, e2e, observability, sse
+
+## practice-apply-sticky-positioning-to-sb-sidebar-to-keep-footer-visible-on-all-pages
+
+- **kind:** practice
+- **title:** Apply sticky positioning to .sb sidebar to keep footer visible on all pages
+- **tags:** web, css, layout, sidebar, app-shell
+
 ## practice-deprecate-the-old-npm-package-after-first-successful-publish-of-the-renamed-package
 
 - **kind:** practice
@@ -175,6 +187,12 @@ Total nodes: 43
 - **title:** Hot-reload dev loop requires three concurrent processes
 - **tags:** dev, tooling, web, serve
 
+## practice-jest-test-suite-runs-in-node-environment-browser-apis-unavailable-in-tests
+
+- **kind:** practice
+- **title:** Jest test suite runs in node environment — browser APIs unavailable in tests
+- **tags:** testing, jest, browser, dom, node
+
 ## practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore
 
 - **kind:** practice
@@ -204,6 +222,19 @@ Total nodes: 43
 - **kind:** practice
 - **title:** Phase is reserved for execution blueprint task groups
 - **tags:** terminology, documentation, execution-blueprint
+
+## practice-plan-detail-blueprint-markdown-vs-tasks-frontmatter
+
+- **kind:** practice
+- **title:** Plan Detail: blueprint markdown section is distinct from the tasks-frontmatter Tasks tab
+- **tags:** web, spa, serve, plan-detail, execution-blueprint
+
+## practice-playwright-e2e-suites-flake-under-full-suite-parallelism-due-to-cpu-contention
+
+- **kind:** practice
+- **title:** Playwright e2e suites flake under full-suite parallelism due to CPU contention
+- **tags:** web, testing, playwright, e2e, flakiness, pre-commit
+- **relates_to:** practice-pre-commit-test-hook-prevents-per-phase-commits-during-multi-phase-plan-execution
 
 ## practice-pre-commit-test-hook-prevents-per-phase-commits-during-multi-phase-plan-execution
 
@@ -258,6 +289,13 @@ Total nodes: 43
 - **kind:** practice
 - **title:** Use git rm -r for tracked skill output dirs, not rm -rf
 - **tags:** git, tracked-files, build-artifacts, skills
+
+## practice-vendoring-dalia-css-requires-the-foundational-dark-token-block-not-just-per-component-fixups
+
+- **kind:** practice
+- **title:** Vendoring Dalia CSS requires the foundational .dark token block, not just per-component fixups
+- **tags:** web, css, dalia, dark-mode, vendoring
+- **relates_to:** map-dalia-ui-design-system-vendored-into-src-web-vendor-not-a-package-dependency
 
 ## practice-when-renaming-an-npm-package-bump-to-next-semver-major-rather-than-deleting-old-git-tags
 

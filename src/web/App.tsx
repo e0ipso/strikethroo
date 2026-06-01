@@ -12,12 +12,13 @@
  * and an unreachable API renders the visible error surface (never a blank).
  */
 
-import type { ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { RouterProvider, useRoute } from './router';
 import { LiveConnectionProvider } from './data/liveConnection';
 import { RevalidationProvider } from './data/revalidation';
 import { ThemeProvider } from './theme/ThemeProvider';
 import { Sidebar } from './components/Sidebar';
+import { persistCollapsed, readStoredCollapsed } from './components/railCollapse';
 import { usePlans } from './data/api';
 import { PlansRoute } from './plans/PlansRoute';
 import { PlanDetailRoute } from './plans/detail/PlanDetailRoute';
@@ -31,16 +32,27 @@ import { CustomizeRoute } from './customize/CustomizeRoute';
  * while loading or on error it renders the Sidebar without counts rather than
  * blocking the frame.
  */
-function SidebarWithCounts() {
+function SidebarWithCounts({
+  collapsed,
+  onCollapsedChange,
+}: {
+  collapsed: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
+}) {
   const plans = usePlans();
   const counts =
     plans.status === 'data' ? { Archive: plans.data.filter(p => p.archived).length } : undefined;
-  return <Sidebar counts={counts} />;
+  return <Sidebar counts={counts} collapsed={collapsed} onCollapsedChange={onCollapsedChange} />;
 }
 
 /** Reads the current route and renders the matching Chrome + content slot. */
 function Shell() {
   const route = useRoute();
+  const [railCollapsed, setRailCollapsed] = useState(readStoredCollapsed);
+  const onCollapsedChange = useCallback((next: boolean) => {
+    setRailCollapsed(next);
+    persistCollapsed(next);
+  }, []);
 
   let chrome: ReactNode;
   let content: ReactNode;
@@ -84,8 +96,8 @@ function Shell() {
   }
 
   return (
-    <div className="app">
-      <SidebarWithCounts />
+    <div className={`app${railCollapsed ? ' app--rail-collapsed' : ''}`}>
+      <SidebarWithCounts collapsed={railCollapsed} onCollapsedChange={onCollapsedChange} />
       <div className="main">
         {chrome}
         {content}

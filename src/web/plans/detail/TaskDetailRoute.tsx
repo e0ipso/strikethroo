@@ -2,7 +2,8 @@
  * Task Detail route container (`/plans/:id/tasks/:taskId`).
  *
  * A strictly read-only screen that renders one task's full markdown body plus a
- * metadata header (status, group, skills, dependency links). It owns NO data
+ * metadata header (group, skills, dependency links); a done task reads as a
+ * struck-through page title rather than a status pill. It owns NO data
  * fetch of its own — it reads the already-shared `usePlanDetail(id)` resource
  * and locates the task by numeric id within `detail.tasks`, mirroring how
  * `PlanDetailRoute` surfaces the shared `LoadingSurface`/`ErrorSurface` states.
@@ -18,9 +19,9 @@
  * `Tickbox`, no status-editing control, and no write.
  */
 
-import { useState } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import { Chrome, type ChromeTab } from '../../components/Chrome';
-import { StatusPill, Chip, type StatusKind } from '../../components/primitives';
+import { StatusPill, Chip } from '../../components/primitives';
 import { ErrorSurface, LoadingSurface } from '../../components/StateSurface';
 import { usePlanDetail, type PlanDetail, type Task } from '../../data/api';
 import { useNavigate } from '../../router';
@@ -99,51 +100,50 @@ function Dependencies({ id, task, byId }: { id: string; task: Task; byId: Map<nu
 }
 
 /**
- * The task metadata rail — the right column of the Task Detail `.detail` grid,
- * the structural twin of the Plan tab's `BlueprintRail`. It reuses the shared
- * `.rail` / `.label` / `.rail__phase*` classes and the `StatusPill` / `Chip`
- * primitives so the task reading column left-aligns to and shares the plan's
- * responsive `1fr` width (no centering offset, no dead space). Where the plan
- * rail lists phases/tasks, this rail lists the task's own metadata: status,
- * group, skills, and dependency links.
+ * The task metadata header — an inline `.reader__meta` row at the top of the
+ * reader column, mirroring the Plan reader's `filename · id · date` meta line
+ * (`ReaderProse`). It replaces the former right rail (the task's metadata is too
+ * sparse to justify a full column): group, skills, and dependency links sit
+ * dot-separated on one wrapping row, so the prose runs full-width below with no
+ * stranded dead space. Done state is conveyed by striking through the page
+ * title (see `LoadedRoute`), not by a status pill — matching the blueprint
+ * rails' done treatment.
  */
-function TaskMetaRail({ id, task, byId }: { id: string; task: Task; byId: Map<number, Task> }) {
-  const state = toTickboxState(task.status);
+function TaskMeta({ id, task, byId }: { id: string; task: Task; byId: Map<number, Task> }) {
   const skills = task.skills ?? [];
+  // The present meta items, dot-joined; the leading item carries no separator.
+  const items: ReactNode[] = [];
+  if (task.group) {
+    items.push(
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        group <Chip>{task.group}</Chip>
+      </span>
+    );
+  }
+  if (skills.length > 0) {
+    items.push(
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        skills
+        {skills.map(skill => (
+          <Chip key={skill}>{skill}</Chip>
+        ))}
+      </span>
+    );
+  }
+  items.push(
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      deps <Dependencies id={id} task={task} byId={byId} />
+    </span>
+  );
+
   return (
-    <div className="rail">
-      <div className="label" style={{ marginBottom: 8 }}>
-        Task
-      </div>
-
-      <div className="rail__phase">
-        <div className="rail__phase-head">
-          <StatusPill kind={state as StatusKind} />
-        </div>
-        {task.group && (
-          <div className="rail__phase-meta">
-            group · <Chip>{task.group}</Chip>
-          </div>
-        )}
-      </div>
-
-      {skills.length > 0 && (
-        <div className="rail__phase">
-          <div className="rail__phase-meta">skills</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingBottom: 6 }}>
-            {skills.map(skill => (
-              <Chip key={skill}>{skill}</Chip>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="rail__phase">
-        <div className="rail__phase-meta">dependencies</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingBottom: 6 }}>
-          <Dependencies id={id} task={task} byId={byId} />
-        </div>
-      </div>
+    <div className="reader__meta" style={{ alignItems: 'center' }}>
+      {items.map((item, i) => (
+        <Fragment key={i}>
+          {i > 0 && <span>·</span>}
+          {item}
+        </Fragment>
+      ))}
     </div>
   );
 }
@@ -190,24 +190,31 @@ function LoadedRoute({ id, taskId, detail }: { id: string; taskId: string; detai
       ? [{ heading: '', content: fallbackBody }]
       : activeSections;
 
+  // Done state reads as a struck-through, muted title (the blueprint rails'
+  // convention), replacing a status pill in the metadata header.
+  const isDone = toTickboxState(task.status) === 'done';
+  const titleNode = isDone ? (
+    <span style={{ color: 'var(--ink-3)', textDecoration: 'line-through' }}>{task.name}</span>
+  ) : (
+    task.name
+  );
+
   return (
     <>
       <Chrome
-        title={task.name}
+        title={titleNode}
         crumbs={['Plans', { label: slug, href: `/plans/${id}` }, 'tasks', task.name]}
         tabs={tabs}
         activeTab={activeTab}
         onTabSelect={setActiveTab}
       />
-      <div className="detail">
-        <div className="reader">
-          {isEmpty ? (
-            <p className="reader__meta">This task has no description.</p>
-          ) : (
-            renderSections.map((section, i) => <Section key={i} section={section} />)
-          )}
-        </div>
-        <TaskMetaRail id={id} task={task} byId={byId} />
+      <div className="reader">
+        <TaskMeta id={id} task={task} byId={byId} />
+        {isEmpty ? (
+          <p className="reader__meta">This task has no description.</p>
+        ) : (
+          renderSections.map((section, i) => <Section key={i} section={section} />)
+        )}
       </div>
     </>
   );

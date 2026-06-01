@@ -1,8 +1,8 @@
 /**
  * Minimal dependency-free client router for the Strikethroo SPA.
  *
- * The route set is small and static (Plans, Plan Detail, Archive, Customize),
- * so a hand-rolled History API router avoids a routing dependency entirely
+ * The route set is small and static (Plans, Plan Detail, Task Detail, Archive,
+ * Customize), so a hand-rolled History API router avoids a routing dependency entirely
  * (a stated PRD dependency-creep concern). Consumers read the current route
  * and navigate exclusively through the {@link useRoute}/{@link useNavigate}
  * hooks — no component touches `window.location` directly.
@@ -22,12 +22,12 @@ import {
 } from 'react';
 
 /** Logical app sections the router can resolve. */
-export type RouteSection = 'plans' | 'planDetail' | 'archive' | 'customize';
+export type RouteSection = 'plans' | 'planDetail' | 'archive' | 'customize' | 'taskDetail';
 
 /** A resolved route: the active section plus any parsed path params. */
 export interface Route {
   section: RouteSection;
-  params: { id?: string };
+  params: { id?: string; taskId?: string };
 }
 
 /**
@@ -36,6 +36,10 @@ export interface Route {
  * is the SPA fallback contract.
  */
 export function parsePath(pathname: string): Route {
+  const taskDetail = /^\/plans\/([^/]+)\/tasks\/([^/]+)\/?$/.exec(pathname);
+  if (taskDetail && taskDetail[1] && taskDetail[2]) {
+    return { section: 'taskDetail', params: { id: taskDetail[1], taskId: taskDetail[2] } };
+  }
   const planDetail = /^\/plans\/([^/]+)\/?$/.exec(pathname);
   if (planDetail && planDetail[1]) {
     return { section: 'planDetail', params: { id: planDetail[1] } };

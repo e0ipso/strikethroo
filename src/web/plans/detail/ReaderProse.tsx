@@ -212,8 +212,9 @@ export function ReaderProse({
 }: ReaderProseProps) {
   return (
     <div className="reader">
-      <div className="reader__filename">{filename}</div>
       <div className="reader__meta">
+        <span className="reader__filename">{filename}</span>
+        <span>·</span>
         <span>
           id · <strong style={{ color: 'var(--ink-2)' }}>{id}</strong>
         </span>

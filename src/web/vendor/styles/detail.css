@@ -157,7 +157,6 @@
 /* Text-bearing blocks stay at the legible prose width and center. The prose
    wrapper itself stays at the media width so the images it contains can exceed
    the text column; only its non-image children narrow back to text width. */
-.reader__filename,
 .reader__meta,
 .reader__h1,
 .reader__h2,
@@ -183,8 +182,7 @@
 .reader__filename {
   font-family: var(--font-mono);
   font-size: 13px;
-  color: var(--ink-3);
-  margin-bottom: 10px;
+  color: var(--ink-2);
 }
 .reader__h1 {
   font-family: var(--font-display);
@@ -198,12 +196,16 @@
 }
 .reader__meta {
   display: flex;
+  align-items: baseline;
   gap: 14px;
   flex-wrap: wrap;
   font-family: var(--font-mono);
   font-size: 13px;
   color: var(--ink-3);
   margin-bottom: 24px;
+}
+.reader__meta > * {
+  white-space: nowrap;
 }
 .reader__h2 {
   font-family: var(--font-display);

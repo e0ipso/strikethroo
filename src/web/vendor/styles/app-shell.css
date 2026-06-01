@@ -750,12 +750,13 @@
   gap: 8px;
 }
 
-/* Compact brand mark (the favicon glyph) shown when collapsed. */
+/* Compact brand mark (the favicon tile) shown when collapsed. */
 .sb__mark {
   display: inline-block;
   color: var(--ink);
 }
-.sb__mark svg {
+.sb__mark svg,
+.sb__mark img {
   display: block;
 }
 
@@ -775,8 +776,10 @@
   padding: 0 0 18px;
   justify-content: center;
 }
+/* Hide the text-bearing spans (label + count) but NOT the icon's own
+   <span class="icon"> wrapper, so the nav icons stay visible when collapsed. */
 .sb--collapsed .sb__group,
-.sb--collapsed .sb__item span,
+.sb--collapsed .sb__item span:not(.icon),
 .sb--collapsed .sb__count {
   display: none;
 }

@@ -28,10 +28,9 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 /**
- * Compact brand mark shown when the rail is collapsed: the struck-through
- * lowercase "s" from `public/favicon.svg`, redrawn in `currentColor` (instead
- * of the favicon's baked cream/ink hex) so it inherits the sidebar's `--ink`
- * and adapts to light/dark. No background tile — it sits on the rail surface.
+ * Compact brand mark shown when the rail is collapsed: the app favicon
+ * (`public/favicon.svg`, served at `/favicon.svg`) rendered as-is, so the
+ * collapsed rail shows the exact same struck-"s" tile logo as the browser tab.
  */
 function BrandMark({ size = 28 }: { size?: number }) {
   return (
@@ -41,14 +40,7 @@ function BrandMark({ size = 28 }: { size?: number }) {
       role="img"
       aria-label="strikethroo"
     >
-      <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
-        <path
-          transform="translate(50,50) scale(0.11,-0.11) translate(-208,-237.5)"
-          fill="currentColor"
-          d="M217 -10Q177 -10 141 0.5Q105 11 75.5 30.5Q46 50 24 77L82 135Q108 103 142 87.5Q176 72 218 72Q260 72 283 86.5Q306 101 306 127Q306 153 287.5 167.5Q269 182 240 191.5Q211 201 178.5 210Q146 219 117 234Q88 249 69.5 275.5Q51 302 51 345Q51 388 71.5 419.5Q92 451 130 468Q168 485 221 485Q277 485 320.5 465.5Q364 446 392 407L334 349Q313 375 284 389Q255 403 218 403Q179 403 158.5 389Q138 375 138 352Q138 328 156 315Q174 302 203.5 293Q233 284 265 274.5Q297 265 326 249Q355 233 373.5 206Q392 179 392 135Q392 68 344.5 29Q297 -10 217 -10Z"
-        />
-        <rect x="22" y="43" width="56" height="6.5" rx="3.25" fill="currentColor" />
-      </svg>
+      <img src="/favicon.svg" width={size} height={size} alt="" />
     </span>
   );
 }

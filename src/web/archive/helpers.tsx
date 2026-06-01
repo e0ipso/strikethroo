@@ -9,15 +9,19 @@
  *
  * The live `/api/plans` model names the phase field `phaseCount` (clarification
  * #2), unlike the design's `phases`; these helpers consume `phaseCount`.
- * `completedAt` and `branch` are optional and every helper guards their absence.
+ *
+ * Date axis: archived plans carry no completion date — the model surfaces only
+ * `created` (from plan frontmatter). `created` is therefore THE date these
+ * helpers sort, filter, and group by; it is not a fallback for an absent
+ * `completedAt`. `branch` is optional and guarded.
  */
 
 import { Fragment, type ReactNode } from 'react';
 
 /**
  * The archived-plan view shape these helpers and the Archive route consume.
- * Mirrors the data model's guaranteed fields (clarification #2); `completedAt`
- * and `branch` are optional and may be absent for a given archived plan.
+ * Mirrors the data model's guaranteed fields (clarification #2). `created` is
+ * the only date the model surfaces for an archived plan; `branch` is optional.
  */
 export interface ArchivePlanView {
   id: number;
@@ -29,7 +33,6 @@ export interface ArchivePlanView {
   phaseCount: number;
   created: string;
   archived: boolean;
-  completedAt?: string;
   branch?: string;
 }
 
@@ -38,18 +41,14 @@ const escapeRegExp = (query: string): string => query.replace(/[.*+?^${}()|[\]\\
 
 /**
  * Case-insensitive substring filter across `title`, `slug`, `summary`, and
- * `completedAt` (skipped when absent). An empty query returns the list as-is.
- * The query is regex-escaped so metacharacters match literally and never throw.
+ * `created` (the plan's only date). An empty query returns the list as-is. The
+ * query is regex-escaped so metacharacters match literally and never throw.
  */
 export function filterPlans<T extends ArchivePlanView>(plans: T[], query: string): T[] {
   if (!query) return plans;
   const re = new RegExp(escapeRegExp(query), 'i');
   return plans.filter(
-    p =>
-      re.test(p.title) ||
-      re.test(p.slug) ||
-      re.test(p.summary) ||
-      (p.completedAt != null && re.test(p.completedAt))
+    p => re.test(p.title) || re.test(p.slug) || re.test(p.summary) || re.test(p.created)
   );
 }
 
@@ -100,24 +99,23 @@ export function archiveStats(plans: ArchivePlanView[]): ArchiveStats {
 }
 
 /**
- * Comparator ordering by `completedAt` descending, falling back to `created`
- * for whichever side lacks `completedAt`. ISO `YYYY-MM-DD` dates compare
+ * Comparator ordering by `created` descending. ISO `YYYY-MM-DD` dates compare
  * correctly with a lexicographic string compare.
  */
-export function byCompletedDesc(a: ArchivePlanView, b: ArchivePlanView): number {
-  const aKey = a.completedAt ?? a.created ?? '';
-  const bKey = b.completedAt ?? b.created ?? '';
+export function byCreatedDesc(a: ArchivePlanView, b: ArchivePlanView): number {
+  const aKey = a.created ?? '';
+  const bKey = b.created ?? '';
   if (aKey === bKey) return 0;
   return aKey < bKey ? 1 : -1;
 }
 
 /**
- * Inclusive lexicographic date-range filter over `completedAt`. `from`/`to` are
- * ISO `YYYY-MM-DD` strings (or empty/undefined for an open bound); ISO dates
- * compare correctly with plain string comparison. Plans missing `completedAt`
- * are excluded whenever either bound is set (they have no date to place in the
- * range). An empty range (both bounds absent) returns the list unchanged. Pure:
- * never mutates the input.
+ * Inclusive lexicographic date-range filter over `created`. `from`/`to` are ISO
+ * `YYYY-MM-DD` strings (or empty/undefined for an open bound); ISO dates compare
+ * correctly with plain string comparison. Plans with no `created` are excluded
+ * whenever either bound is set (they have no date to place in the range). An
+ * empty range (both bounds absent) returns the list unchanged. Pure: never
+ * mutates the input.
  */
 export function filterByDateRange<T extends ArchivePlanView>(
   plans: T[],
@@ -126,7 +124,7 @@ export function filterByDateRange<T extends ArchivePlanView>(
 ): T[] {
   if (!from && !to) return plans;
   return plans.filter(p => {
-    const key = p.completedAt;
+    const key = p.created;
     if (key == null || key === '') return false;
     if (from && key < from) return false;
     if (to && key > to) return false;
@@ -157,7 +155,7 @@ const MONTH_NAMES = [
   'December',
 ];
 
-/** Sentinel key/label for plans with no usable `completedAt`. */
+/** Sentinel key/label for plans with no usable `created` date. */
 const UNKNOWN_MONTH = 'unknown';
 const UNKNOWN_LABEL = 'No date';
 
@@ -170,16 +168,16 @@ function monthLabel(key: string): string {
 }
 
 /**
- * Groups plans by completion month, deriving the `YYYY-MM` key from the first 7
- * chars of `completedAt`. Plans missing `completedAt` go to an explicit
- * "No date" bucket rather than being dropped. Real months are returned in
- * descending order; the unknown bucket (if any) is sorted last. Pure: never
- * mutates the input array or its members.
+ * Groups plans by month, deriving the `YYYY-MM` key from the first 7 chars of
+ * `created`. Plans with no `created` go to an explicit "No date" bucket rather
+ * than being dropped. Real months are returned in descending order; the unknown
+ * bucket (if any) is sorted last. Pure: never mutates the input array or its
+ * members.
  */
 export function groupByMonth(plans: ArchivePlanView[]): MonthGroup[] {
   const buckets = new Map<string, ArchivePlanView[]>();
   for (const p of plans) {
-    const raw = p.completedAt;
+    const raw = p.created;
     const key = raw && raw.length >= 7 ? raw.slice(0, 7) : UNKNOWN_MONTH;
     const bucket = buckets.get(key);
     if (bucket) bucket.push(p);

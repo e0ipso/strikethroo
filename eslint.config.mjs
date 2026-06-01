@@ -50,7 +50,12 @@ export default [
     },
   },
   {
-    files: ['src/**/*.test.ts', 'src/**/__tests__/**/*.ts'],
+    files: [
+      'src/**/*.test.ts',
+      'src/**/*.test.tsx',
+      'src/**/__tests__/**/*.ts',
+      'src/**/__tests__/**/*.tsx',
+    ],
     languageOptions: {
       parser: tsParser,
       parserOptions: {

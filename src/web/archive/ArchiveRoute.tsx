@@ -3,7 +3,7 @@
  *
  * The `/archive` section's single routed feature module. It consumes the live
  * `/api/plans` data through the Task 002 adapter (archived slice, sorted by
- * `completedAt` desc), drives a controlled search box through the Task 001
+ * `created` desc), drives a controlled search box through the Task 001
  * helpers (`filterPlans` / `highlight` / `archiveStats`), and renders the
  * six-column table that matches the Plans list density, the aggregate stats
  * strip, the result bar (when a query is active), and the empty-archive and
@@ -11,14 +11,15 @@
  *
  * Faithful to `scratch/ui/designs/screens-archive.jsx` with the plan's
  * corrections: no `ARCHIVE_PLANS` mock (live data only), the status bar reads
- * `.ai/strikethroo/archive/` (the design's `.ai/task-manager/` is stale).
- * Optional `completedAt`/`branch` are rendered defensively since the current
- * API model does not always surface them.
+ * `.ai/strikethroo/archive/` (the design's `.ai/task-manager/` is stale). The
+ * model surfaces no completion date for archived plans, so the date axis (sort,
+ * range filter, month grouping, the displayed column) is `created`; `branch` is
+ * rendered defensively since the API model does not surface it.
  *
  * The "Sort", "Date range", and "By month" controls are wired (Plan 95, Task
  * 06): the displayed list is composed search → date-range → sort over the
  * fetched archived plans (the result count and `archiveStats` reflect that
- * composed set), and the "By month" tab regroups it under completion-month
+ * composed set), and the "By month" tab regroups it under created-month
  * headings while "All" keeps the flat table.
  */
 
@@ -39,7 +40,7 @@ import {
 } from './helpers';
 
 /** The columns the Archive table can sort by (the displayed columns). */
-type ArchiveSortKey = 'id' | 'title' | 'total' | 'phaseCount' | 'completedAt';
+type ArchiveSortKey = 'id' | 'title' | 'total' | 'phaseCount' | 'created';
 
 /** Accessor map for the shared sort helper, keyed by displayed column. */
 const ARCHIVE_ACCESSORS: Record<ArchiveSortKey, (row: ArchivePlanView) => unknown> = {
@@ -47,7 +48,7 @@ const ARCHIVE_ACCESSORS: Record<ArchiveSortKey, (row: ArchivePlanView) => unknow
   title: row => row.title,
   total: row => row.total,
   phaseCount: row => row.phaseCount,
-  completedAt: row => row.completedAt ?? row.created ?? '',
+  created: row => row.created ?? '',
 };
 
 /** Human labels for the sortable columns, shown in the sort control. */
@@ -56,7 +57,7 @@ const SORT_LABELS: Record<ArchiveSortKey, string> = {
   title: 'plan',
   total: 'tasks',
   phaseCount: 'phases',
-  completedAt: 'completed',
+  created: 'created',
 };
 
 /** Grid column template ported verbatim from the design. */
@@ -89,14 +90,14 @@ function ArchiveControls({
       <label
         className="btn btn--outline btn--sm"
         style={{ cursor: 'pointer', gap: 6 }}
-        title="Filter archived plans by completion date"
+        title="Filter archived plans by created date"
       >
         <Icon name="filter" size={13} style={{ marginLeft: -2 }} />
         <input
           type="date"
           value={from}
           onChange={e => onFrom(e.target.value)}
-          aria-label="Completed from"
+          aria-label="Created from"
           style={{
             cursor: 'pointer',
             border: 'none',
@@ -110,7 +111,7 @@ function ArchiveControls({
           type="date"
           value={to}
           onChange={e => onTo(e.target.value)}
-          aria-label="Completed to"
+          aria-label="Created to"
           style={{
             cursor: 'pointer',
             border: 'none',
@@ -219,7 +220,7 @@ function ArchiveRow({ row, query }: { row: ArchivePlanView; query: string }) {
         {phases} phase{phases === 1 ? '' : 's'}
       </span>
       <span className="mono" style={{ color: 'var(--ink-2)', fontSize: 12 }}>
-        {row.completedAt ? highlight(row.completedAt, query) : '—'}
+        {row.created ? highlight(row.created, query) : '—'}
       </span>
       <div style={{ textAlign: 'right' }}>
         <span
@@ -254,7 +255,7 @@ function ArchiveTable({
         <span>plan</span>
         <span>tasks</span>
         <span>phases</span>
-        <span>completed</span>
+        <span>created</span>
         <span />
       </div>
       {total === 0 ? (
@@ -270,7 +271,9 @@ function ArchiveTable({
           <div className="archive__empty-title">
             No archived plans match <span className="chip">{query}</span>
           </div>
-          <div className="archive__empty-hint">Try a shorter query, or search by slug or month.</div>
+          <div className="archive__empty-hint">
+            Try a shorter query, or search by slug or month.
+          </div>
         </div>
       ) : (
         rows.map(row => <ArchiveRow key={row.id} row={row} query={query} />)
@@ -289,7 +292,7 @@ function ArchiveMonthGroups({ rows, query }: { rows: ArchivePlanView[]; query: s
         <span>plan</span>
         <span>tasks</span>
         <span>phases</span>
-        <span>completed</span>
+        <span>created</span>
         <span />
       </div>
       {groups.map(group => (
@@ -323,7 +326,7 @@ function ArchiveScreen({ plans }: { plans: ArchivePlanView[] }) {
   const [activeTab, setActiveTab] = useState(0);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const sort = useTableSort<ArchiveSortKey>({ key: 'completedAt', dir: 'desc' });
+  const sort = useTableSort<ArchiveSortKey>({ key: 'created', dir: 'desc' });
 
   // Composition order: search → date-range → sort, then group for By-month.
   const searched = filterPlans(plans, query);
@@ -341,7 +344,7 @@ function ArchiveScreen({ plans }: { plans: ArchivePlanView[] }) {
         right={
           <ArchiveControls
             sortState={sort.state}
-            onToggleSort={() => sort.toggle('completedAt')}
+            onToggleSort={() => sort.toggle('created')}
             from={from}
             to={to}
             onFrom={setFrom}
@@ -363,7 +366,7 @@ function ArchiveScreen({ plans }: { plans: ArchivePlanView[] }) {
             )}
           </span>
           <span className="archive__resultbar-hint">
-            searching across slug · summary · completion date
+            searching across slug · summary · created date
           </span>
         </div>
       )}

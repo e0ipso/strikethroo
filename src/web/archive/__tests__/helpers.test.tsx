@@ -2,8 +2,9 @@
  * Unit tests for the Archive helpers (Plan 90, Task 001).
  *
  * Covers the custom logic worth testing per the project's test philosophy: the
- * regex-escaped query path, a query matching nothing, optional-`completedAt`
- * handling in both `filterPlans` and the sort comparator, the `highlight`
+ * regex-escaped query path, a query matching nothing, `created`-based search,
+ * date-range filtering and month grouping (archived plans carry only `created`,
+ * which is the screen's sole date axis), the sort comparator, the `highlight`
  * fragment/`<mark>` output and its nullish-`text` guard, and the `archiveStats`
  * reduction. React output is asserted structurally on the element tree (no DOM
  * / testing-library dependency), which is sufficient to prove `highlight`
@@ -13,7 +14,7 @@
 import { isValidElement, type ReactElement } from 'react';
 import {
   archiveStats,
-  byCompletedDesc,
+  byCreatedDesc,
   filterByDateRange,
   filterPlans,
   groupByMonth,
@@ -35,8 +36,7 @@ const plan = (over: Partial<ArchivePlanView> & Pick<ArchivePlanView, 'id'>): Arc
 });
 
 /** Flattens highlight() output into an array of React nodes for inspection. */
-const nodes = (out: ReturnType<typeof highlight>): unknown[] =>
-  Array.isArray(out) ? out : [out];
+const nodes = (out: ReturnType<typeof highlight>): unknown[] => (Array.isArray(out) ? out : [out]);
 
 describe('filterPlans', () => {
   it('returns every plan for an empty query', () => {
@@ -44,21 +44,25 @@ describe('filterPlans', () => {
     expect(filterPlans(plans, '')).toEqual(plans);
   });
 
-  it('matches case-insensitively across title, slug, summary, and completedAt', () => {
+  it('matches case-insensitively across title, slug, summary, and created', () => {
     const plans = [
       plan({ id: 1, title: 'Cache invalidation' }),
       plan({ id: 2, summary: 'webform conditional logic' }),
-      plan({ id: 3, completedAt: '2026-03-15' }),
+      plan({ id: 3, created: '2026-03-15' }),
       plan({ id: 4, slug: 'path-alias-migration' }),
     ];
     expect(filterPlans(plans, 'CACHE').map(p => p.id)).toEqual([1]);
     expect(filterPlans(plans, 'webform').map(p => p.id)).toEqual([2]);
+    // Only id 3 has a 2026-03 created date; the rest default to 2026-01-01.
     expect(filterPlans(plans, '2026-03').map(p => p.id)).toEqual([3]);
     expect(filterPlans(plans, 'alias').map(p => p.id)).toEqual([4]);
   });
 
   it('escapes regex metacharacters so they match literally and never throw', () => {
-    const plans = [plan({ id: 1, summary: 'totals (a+b)*c' }), plan({ id: 2, summary: 'no parens' })];
+    const plans = [
+      plan({ id: 1, summary: 'totals (a+b)*c' }),
+      plan({ id: 2, summary: 'no parens' }),
+    ];
     // '(a+b)*' is invalid/greedy as a raw regex; escaped it must match literally.
     expect(() => filterPlans(plans, '(a+b)*')).not.toThrow();
     expect(filterPlans(plans, '(a+b)*').map(p => p.id)).toEqual([1]);
@@ -69,19 +73,19 @@ describe('filterPlans', () => {
     expect(filterPlans(plans, 'zzz-no-match')).toEqual([]);
   });
 
-  it('skips completedAt when it is absent (no throw, no false match)', () => {
-    const plans = [plan({ id: 1, completedAt: undefined, title: 'x', slug: 'x', summary: 'x' })];
-    expect(() => filterPlans(plans, '2026')).not.toThrow();
-    expect(filterPlans(plans, '2026')).toEqual([]);
+  it('matches on the created date and does not throw on an empty created', () => {
+    const dated = [plan({ id: 1, created: '2026-07-04', title: 'x', slug: 'x', summary: 'x' })];
+    expect(filterPlans(dated, '2026-07').map(p => p.id)).toEqual([1]);
+    const undatedish = [plan({ id: 2, created: '', title: 'x', slug: 'x', summary: 'x' })];
+    expect(() => filterPlans(undatedish, '2026')).not.toThrow();
+    expect(filterPlans(undatedish, '2026')).toEqual([]);
   });
 });
 
 describe('highlight', () => {
   it('wraps matches in <mark className="mark"> and leaves the rest as fragments', () => {
     const out = nodes(highlight('cache invalidation cache', 'cache'));
-    const marks = out.filter(
-      (n): n is ReactElement => isValidElement(n) && n.type === 'mark'
-    );
+    const marks = out.filter((n): n is ReactElement => isValidElement(n) && n.type === 'mark');
     expect(marks).toHaveLength(2);
     marks.forEach(m => expect((m.props as { className?: string }).className).toBe('mark'));
     // No node uses dangerouslySetInnerHTML.
@@ -117,55 +121,51 @@ describe('archiveStats', () => {
   });
 });
 
-describe('byCompletedDesc', () => {
-  it('orders by completedAt descending', () => {
+describe('byCreatedDesc', () => {
+  it('orders by created descending', () => {
     const plans = [
-      plan({ id: 1, completedAt: '2026-02-12' }),
-      plan({ id: 2, completedAt: '2026-05-13' }),
-      plan({ id: 3, completedAt: '2026-03-15' }),
+      plan({ id: 1, created: '2026-02-12' }),
+      plan({ id: 2, created: '2026-05-13' }),
+      plan({ id: 3, created: '2026-03-15' }),
     ];
-    expect([...plans].sort(byCompletedDesc).map(p => p.id)).toEqual([2, 3, 1]);
+    expect([...plans].sort(byCreatedDesc).map(p => p.id)).toEqual([2, 3, 1]);
   });
 
-  it('falls back to created when completedAt is missing on a side', () => {
+  it('treats an absent created as the lowest key', () => {
     const plans = [
-      plan({ id: 1, completedAt: undefined, created: '2026-04-01' }),
-      plan({ id: 2, completedAt: '2026-05-13', created: '2026-01-01' }),
-      plan({ id: 3, completedAt: undefined, created: '2026-02-01' }),
+      plan({ id: 1, created: '' }),
+      plan({ id: 2, created: '2026-05-13' }),
+      plan({ id: 3, created: '2026-02-01' }),
     ];
-    // Sort keys: id1 -> 2026-04-01, id2 -> 2026-05-13, id3 -> 2026-02-01.
-    expect([...plans].sort(byCompletedDesc).map(p => p.id)).toEqual([2, 1, 3]);
+    expect([...plans].sort(byCreatedDesc).map(p => p.id)).toEqual([2, 3, 1]);
   });
 });
 
 describe('filterByDateRange', () => {
   it('returns the list unchanged for an empty range (no bounds)', () => {
-    const plans = [plan({ id: 1, completedAt: '2026-03-01' }), plan({ id: 2 })];
+    const plans = [plan({ id: 1, created: '2026-03-01' }), plan({ id: 2 })];
     expect(filterByDateRange(plans, '', '')).toEqual(plans);
     expect(filterByDateRange(plans, undefined, undefined)).toEqual(plans);
   });
 
   it('includes the inclusive from/to boundary dates', () => {
     const plans = [
-      plan({ id: 1, completedAt: '2026-03-01' }),
-      plan({ id: 2, completedAt: '2026-03-15' }),
-      plan({ id: 3, completedAt: '2026-03-31' }),
-      plan({ id: 4, completedAt: '2026-04-01' }),
+      plan({ id: 1, created: '2026-03-01' }),
+      plan({ id: 2, created: '2026-03-15' }),
+      plan({ id: 3, created: '2026-03-31' }),
+      plan({ id: 4, created: '2026-04-01' }),
     ];
     expect(filterByDateRange(plans, '2026-03-01', '2026-03-31').map(p => p.id)).toEqual([1, 2, 3]);
   });
 
   it('applies an open-ended bound when only one side is set', () => {
-    const plans = [
-      plan({ id: 1, completedAt: '2026-02-01' }),
-      plan({ id: 2, completedAt: '2026-05-01' }),
-    ];
+    const plans = [plan({ id: 1, created: '2026-02-01' }), plan({ id: 2, created: '2026-05-01' })];
     expect(filterByDateRange(plans, '2026-03-01', undefined).map(p => p.id)).toEqual([2]);
     expect(filterByDateRange(plans, undefined, '2026-03-01').map(p => p.id)).toEqual([1]);
   });
 
-  it('excludes plans missing completedAt once any bound is set', () => {
-    const plans = [plan({ id: 1, completedAt: undefined }), plan({ id: 2, completedAt: '2026-03-10' })];
+  it('excludes plans with no created date once any bound is set', () => {
+    const plans = [plan({ id: 1, created: '' }), plan({ id: 2, created: '2026-03-10' })];
     expect(filterByDateRange(plans, '2026-01-01', '2026-12-31').map(p => p.id)).toEqual([2]);
   });
 });
@@ -177,10 +177,10 @@ describe('groupByMonth', () => {
 
   it('buckets plans by YYYY-MM and orders months descending', () => {
     const plans = [
-      plan({ id: 1, completedAt: '2026-02-12' }),
-      plan({ id: 2, completedAt: '2026-05-13' }),
-      plan({ id: 3, completedAt: '2026-05-02' }),
-      plan({ id: 4, completedAt: '2026-03-15' }),
+      plan({ id: 1, created: '2026-02-12' }),
+      plan({ id: 2, created: '2026-05-13' }),
+      plan({ id: 3, created: '2026-05-02' }),
+      plan({ id: 4, created: '2026-03-15' }),
     ];
     const groups = groupByMonth(plans);
     expect(groups.map(g => g.month)).toEqual(['2026-05', '2026-03', '2026-02']);
@@ -188,11 +188,8 @@ describe('groupByMonth', () => {
     expect(groups[0]?.plans.map(p => p.id)).toEqual([2, 3]);
   });
 
-  it('routes a plan missing completedAt to the trailing No date bucket', () => {
-    const plans = [
-      plan({ id: 1, completedAt: undefined }),
-      plan({ id: 2, completedAt: '2026-04-10' }),
-    ];
+  it('routes a plan with no created date to the trailing No date bucket', () => {
+    const plans = [plan({ id: 1, created: '' }), plan({ id: 2, created: '2026-04-10' })];
     const groups = groupByMonth(plans);
     expect(groups.map(g => g.month)).toEqual(['2026-04', 'unknown']);
     const unknown = groups[groups.length - 1];
@@ -201,7 +198,7 @@ describe('groupByMonth', () => {
   });
 
   it('does not mutate the input array', () => {
-    const plans = [plan({ id: 1, completedAt: '2026-02-01' }), plan({ id: 2, completedAt: '2026-05-01' })];
+    const plans = [plan({ id: 1, created: '2026-02-01' }), plan({ id: 2, created: '2026-05-01' })];
     const snapshot = plans.map(p => p.id);
     groupByMonth(plans);
     expect(plans.map(p => p.id)).toEqual(snapshot);

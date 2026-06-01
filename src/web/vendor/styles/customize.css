@@ -25,7 +25,7 @@
 }
 .cz__path-meta {
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 13px;
   color: var(--ink-3);
   margin-left: auto;
   font-style: italic;
@@ -50,7 +50,7 @@
 .cz__group-title {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 28px;
+  font-size: 32px;
   line-height: 1.1;
   letter-spacing: -0.02em;
   color: var(--ink);
@@ -58,7 +58,7 @@
   font-variation-settings: "opsz" 36;
 }
 .cz__group-desc {
-  font-size: 13.5px;
+  font-size: 15.5px;
   line-height: 1.55;
   color: var(--ink-2);
   margin: 0;
@@ -83,14 +83,14 @@
 }
 .cz__hook-id {
   font-family: var(--font-mono);
-  font-size: 14.5px;
+  font-size: 16.5px;
   font-weight: 600;
   color: var(--ink);
   letter-spacing: 0.01em;
 }
 .cz__hook-when {
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 13px;
   color: var(--ink-3);
   margin-bottom: 4px;
 }
@@ -99,11 +99,11 @@
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  font-size: 10px;
+  font-size: 11.5px;
   margin-right: 6px;
 }
 .cz__hook-purpose {
-  font-size: 13.5px;
+  font-size: 15.5px;
   color: var(--ink-2);
   line-height: 1.5;
   margin: 0;
@@ -113,14 +113,14 @@
   display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
 }
 .cz__file {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--ink-3);
 }
 
 .cz__tag {
   display: inline-flex; align-items: center;
   font-family: var(--font-body);
-  font-size: 10px;
+  font-size: 11.5px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -155,10 +155,10 @@
   padding: 14px 12px;
   overflow: auto;
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 13px;
 }
 .cz__tree-head {
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--ink-3);
   letter-spacing: 0.04em;
   padding: 0 6px 8px;
@@ -167,7 +167,7 @@
 }
 .cz__tree-section {
   font-family: var(--font-body);
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -204,7 +204,7 @@
 }
 .cz__pane-tab {
   padding: 10px 16px 11px;
-  font-size: 12.5px;
+  font-size: 14.5px;
   font-weight: 500;
   color: var(--ink-3);
   cursor: default;
@@ -223,7 +223,7 @@
 }
 .cz__pane-tab-meta {
   margin-left: auto;
-  font-size: 11px;
+  font-size: 12.5px;
   color: var(--ink-3);
   font-style: italic;
 }
@@ -233,7 +233,7 @@
   padding: 12px 0;
   background: var(--cream);
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 14.5px;
   line-height: 1.7;
 }
 .cz__line {
@@ -246,7 +246,7 @@
 .cz__line-num {
   text-align: right;
   color: var(--ink-4);
-  font-size: 11px;
+  font-size: 12.5px;
   user-select: none;
   padding-right: 4px;
   border-right: 1px solid var(--border-soft);
@@ -262,7 +262,7 @@
   border-left: 1px solid var(--border);
   padding: 18px 18px;
   overflow: auto;
-  font-size: 13px;
+  font-size: 15px;
   color: var(--ink-2);
   line-height: 1.55;
 }
@@ -293,7 +293,7 @@
   margin-bottom: 6px;
 }
 .cz__tpl-id {
-  font-size: 11px;
+  font-size: 12.5px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-3);
@@ -301,7 +301,7 @@
 }
 .cz__tpl-file {
   font-family: var(--font-display);
-  font-size: 19px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--ink);
   letter-spacing: -0.01em;
@@ -309,7 +309,7 @@
   font-variation-settings: "opsz" 24;
 }
 .cz__tpl-purpose {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--ink-2);
   line-height: 1.5;
   margin: 6px 0 14px;
@@ -329,13 +329,13 @@
   gap: 8px;
   padding: 6px 0;
   border-bottom: 1px solid var(--border-soft);
-  font-size: 13px;
+  font-size: 15px;
   color: var(--ink);
   align-items: baseline;
 }
 .cz__tpl-section-list li:last-child { border-bottom: none; }
 .cz__tpl-section-num {
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--ink-4);
   letter-spacing: 0.04em;
 }

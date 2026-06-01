@@ -27,14 +27,14 @@
 }
 .col__hint {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--ink-3);
   padding: 8px 14px 8px;
   margin-top: 0;
 }
 .col__count {
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 13px;
   color: var(--ink-3);
 }
 .col__body {
@@ -46,7 +46,7 @@
   flex: 1;
   display: flex; align-items: center; justify-content: center;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12.5px;
   color: var(--ink-4);
   letter-spacing: 0.04em;
   border: 1px dashed var(--border);
@@ -68,7 +68,7 @@
 
 .snap__label {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -87,7 +87,7 @@
   flex: 1;
   padding: 7px 12px;
   text-align: center;
-  font-size: 12.5px;
+  font-size: 14.5px;
   font-weight: 500;
   color: var(--ink-3);
   border-radius: 6px;
@@ -101,7 +101,7 @@
 }
 .snap__btn-meta {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11.5px;
   color: var(--ink-4);
   font-weight: 500;
   margin-top: 1px;
@@ -126,21 +126,21 @@
 .tcard__head {
   display: flex; justify-content: space-between; gap: 6px;
 }
-.tcard__id { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-3); letter-spacing: 0.04em; text-transform: uppercase; }
+.tcard__id { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); letter-spacing: 0.04em; text-transform: uppercase; }
 .tcard__phase {
-  font-family: var(--font-mono); font-size: 10px;
+  font-family: var(--font-mono); font-size: 11.5px;
   padding: 1px 6px; border-radius: 3px;
   background: var(--cream-mid); color: var(--ink-2);
   box-shadow: inset 0 0 0 1px var(--border-soft);
 }
 .tcard__title {
   font-family: var(--font-body);
-  font-size: 14px; font-weight: 600;
+  font-size: 16px; font-weight: 600;
   color: var(--ink); line-height: 1.25;
   margin: 6px 0 8px;
 }
 .tcard__meta {
-  font-family: var(--font-mono); font-size: 11px; color: var(--ink-3);
+  font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-3);
   display: flex; flex-direction: column; gap: 2px;
 }
 .tcard__meta strong { color: var(--ink-2); font-weight: 500; }
@@ -156,7 +156,7 @@
   border-bottom: 1px solid var(--border-soft);
 }
 .graph2__strip-left { display: flex; align-items: center; gap: 10px; }
-.graph2__strip-meta { color: var(--ink-3); font-size: 11.5px; font-style: italic; }
+.graph2__strip-meta { color: var(--ink-3); font-size: 13px; font-style: italic; }
 
 .graph2__toggle {
   display: inline-flex;
@@ -167,7 +167,7 @@
 }
 .graph2__toggle-btn {
   padding: 4px 12px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--ink-3);
   border-radius: 4px;
@@ -190,7 +190,7 @@
   overflow: hidden;
 }
 .graph2__fence-top, .graph2__fence-bot {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--ink-3);
   letter-spacing: 0.01em;
   user-select: none;
@@ -212,7 +212,7 @@
 .mermaid-host { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
 .mermaid-host svg { max-width: 100%; max-height: 100%; height: auto; }
 .mermaid-loading, .mermaid-err {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--ink-3);
   padding: 28px;
 }
@@ -223,7 +223,7 @@
 .mermaid-host .nodeLabel b {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 13.5px;
+  font-size: 15.5px;
   letter-spacing: -0.005em;
   display: inline-block;
   padding-bottom: 2px;
@@ -231,13 +231,13 @@
 .mermaid-host .nodeLabel i {
   font-family: var(--font-mono);
   font-style: normal;
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--ink-3);
   letter-spacing: 0.02em;
 }
 .mermaid-host .cluster-label .nodeLabel {
   font-family: var(--font-body);
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 600;
   letter-spacing: 0.01em;
   text-transform: none;
@@ -253,7 +253,7 @@
   background: var(--deep);
   color: var(--cream);
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 14.5px;
   line-height: 1.65;
   padding: 18px 22px;
   border-radius: 8px;
@@ -266,7 +266,7 @@
   margin-top: 12px;
   padding-top: 10px;
   border-top: 1px solid var(--border-soft);
-  font-size: 12px;
+  font-size: 14px;
   color: var(--ink-3);
 }
 .graph2__legend-item { display: inline-flex; align-items: center; gap: 6px; }
@@ -285,7 +285,7 @@
   box-shadow: inset 0 0 0 1.5px var(--done);
 }
 .graph2__legend-spacer { flex: 1; }
-.graph2__legend-foot { color: var(--ink-3); font-size: 11px; }
+.graph2__legend-foot { color: var(--ink-3); font-size: 12.5px; }
 
 /* =====================================================================
    DARK FIXUPS — Board + Graph

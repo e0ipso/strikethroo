@@ -43,14 +43,14 @@
   .dialog__title {
     font-family: var(--font-display);
     font-weight: 800;
-    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-size: clamp(1.725rem, 3vw, 2.3rem);
     letter-spacing: -0.02em;
     line-height: 1.15;
     margin: 0 0 0.75rem;
     color: var(--color-ink);
   }
   .dialog__description {
-    font-size: 0.9375rem;
+    font-size: 1.0781rem;
     line-height: 1.7;
     color: var(--color-ink-2);
     margin: 0 0 1.5rem;
@@ -119,7 +119,7 @@
     cursor: pointer;
     display: inline-flex; align-items: center; gap: 0.4rem;
     font-family: var(--font-sans);
-    font-size: 0.8125rem;
+    font-size: 0.9344rem;
     font-weight: 500;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -154,7 +154,7 @@
     gap: 1.5rem;
     font-family: var(--font-display);
     font-weight: 600;
-    font-size: 1.1875rem;
+    font-size: 1.3656rem;
     line-height: 1.3;
     color: var(--color-ink);
     transition: color 0.2s var(--ease-out);
@@ -187,7 +187,7 @@
   .accordion__content {
     padding: 0 0 1.5rem;
     font-family: var(--font-sans);
-    font-size: 0.9375rem;
+    font-size: 1.0781rem;
     line-height: 1.75;
     color: var(--color-ink-2);
     max-width: 56ch;
@@ -222,7 +222,7 @@
     padding: 0.75rem 1.125rem;
     border-radius: 8px;
     font-family: var(--font-sans);
-    font-size: 0.875rem;
+    font-size: 1.0062rem;
     font-weight: 500;
     box-shadow: var(--shadow-frame);
     display: flex; align-items: center; gap: 0.625rem;
@@ -261,7 +261,7 @@
     background: var(--color-ink);
     color: var(--color-cream);
     font-family: var(--font-sans);
-    font-size: 0.75rem;
+    font-size: 0.8625rem;
     font-weight: 500;
     line-height: 1.4;
     padding: 0.4rem 0.625rem;
@@ -301,7 +301,7 @@
   .callout__body { min-width: 0; }
   .callout__title {
     font-family: var(--font-sans);
-    font-size: 0.75rem;
+    font-size: 0.8625rem;
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -309,7 +309,7 @@
   }
   .callout__content {
     font-family: var(--font-sans);
-    font-size: 0.9375rem;
+    font-size: 1.0781rem;
     line-height: 1.7;
     margin: 0;
   }
@@ -365,7 +365,7 @@
   }
   .code-block__label {
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: 0.8625rem;
     color: var(--color-deep-3);
     letter-spacing: 0.04em;
   }
@@ -374,7 +374,7 @@
     border: none;
     color: var(--color-deep-3);
     font-family: var(--font-sans);
-    font-size: 0.75rem;
+    font-size: 0.8625rem;
     font-weight: 500;
     cursor: pointer;
     padding: 4px 8px;
@@ -392,7 +392,7 @@
     margin: 0;
     padding: 1.125rem 1.25rem;
     font-family: var(--font-mono);
-    font-size: 0.8125rem;
+    font-size: 0.9344rem;
     line-height: 1.65;
     color: oklch(0.92 0.01 75);
     overflow-x: auto;
@@ -428,7 +428,7 @@
     padding: 0;
     list-style: none;
     font-family: var(--font-sans);
-    font-size: 0.8125rem;
+    font-size: 0.9344rem;
     color: var(--color-ink-3);
   }
   .breadcrumb li { display: inline-flex; align-items: center; gap: 0.5rem 0.625rem; }
@@ -458,7 +458,7 @@
   .page-header__label { display: inline-block; margin-bottom: 1rem; }
   .page-header__title {
     font-family: var(--font-display);
-    font-size: clamp(2.5rem, 6vw, 4rem);
+    font-size: clamp(2.875rem, 6vw, 4.6rem);
     font-weight: 800;
     line-height: 1.05;
     letter-spacing: -0.03em;
@@ -468,7 +468,7 @@
   }
   .page-header__lede {
     font-family: var(--font-sans);
-    font-size: clamp(1.0625rem, 1.5vw, 1.25rem);
+    font-size: clamp(1.2219rem, 1.5vw, 1.4375rem);
     line-height: 1.65;
     color: var(--color-ink-2);
     margin: 0;
@@ -499,7 +499,7 @@
   /* TOC */
   .toc {
     font-family: var(--font-sans);
-    font-size: 0.8125rem;
+    font-size: 0.9344rem;
     list-style: none;
     margin: 0;
     padding: 0;
@@ -507,7 +507,7 @@
   }
   .toc__label {
     display: block;
-    font-size: 0.6875rem;
+    font-size: 0.7906rem;
     font-weight: 600;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -531,5 +531,5 @@
     border-left-color: var(--color-dalia-dark);
     font-weight: 500;
   }
-  .toc__item--nested .toc__link { padding-left: 1.75rem; font-size: 0.75rem; }
+  .toc__item--nested .toc__link { padding-left: 1.75rem; font-size: 0.8625rem; }
 }

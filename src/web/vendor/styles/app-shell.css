@@ -27,40 +27,38 @@
    --------------------------------------------------------------------- */
 :root {
   /* warm neutrals — bridge to @theme; --ink-4 / --cream-deep are app-only */
-  --cream:      var(--color-cream);
-  --cream-mid:  var(--color-cream-mid);
+  --cream: var(--color-cream);
+  --cream-mid: var(--color-cream-mid);
   --cream-deep: oklch(0.91 0.018 65); /* app.css:13 — absent from @theme */
-  --ink:        var(--color-ink);
-  --ink-2:      var(--color-ink-2);
-  --ink-3:      var(--color-ink-3);
-  --ink-4:      oklch(0.72 0.012 55); /* app.css:17 — absent from @theme */
+  --ink: var(--color-ink);
+  --ink-2: var(--color-ink-2);
+  --ink-3: var(--color-ink-3);
+  --ink-4: oklch(0.72 0.012 55); /* app.css:17 — absent from @theme */
 
   /* brand accent — bridge to @theme; --dalia-deep is app-only */
-  --dalia:      var(--color-dalia);
+  --dalia: var(--color-dalia);
   --dalia-dark: var(--color-dalia-dark);
   --dalia-deep: hsl(335 55% 28%); /* app.css:22 — absent from @theme */
-  --dalia-bg:   var(--color-dalia-bg);
+  --dalia-bg: var(--color-dalia-bg);
 
   /* deep contrast — bridge to @theme */
-  --deep:   var(--color-deep);
+  --deep: var(--color-deep);
   --deep-3: var(--color-deep-3);
 
   /* status colors — app.css:34–41, absent from @theme; copied verbatim */
-  --doing:     oklch(0.62 0.13 75);
-  --doing-ink: oklch(0.32 0.10 75);
-  --doing-bg:  oklch(0.95 0.045 80);
-  --done:      oklch(0.55 0.10 145);
-  --done-ink:  oklch(0.30 0.08 145);
-  --done-bg:   oklch(0.94 0.035 145);
+  --doing: oklch(0.62 0.13 75);
+  --doing-ink: oklch(0.32 0.1 75);
+  --doing-bg: oklch(0.95 0.045 80);
+  --done: oklch(0.55 0.1 145);
+  --done-ink: oklch(0.3 0.08 145);
+  --done-bg: oklch(0.94 0.035 145);
 
   /* type — app.css uses --font-body for Outfit; Plan 82 exposes --font-sans */
   --font-body: var(--font-sans);
 
   /* modal shadow — app.css:68–71, absent from @theme; copied verbatim */
   --shadow-modal:
-    0 1px 2px   oklch(0 0 0 / 0.04),
-    0 30px 80px oklch(0 0 0 / 0.18),
-    0 0 0 1px   oklch(0 0 0 / 0.06);
+    0 1px 2px oklch(0 0 0 / 0.04), 0 30px 80px oklch(0 0 0 / 0.18), 0 0 0 1px oklch(0 0 0 / 0.06);
 }
 
 /* =====================================================================
@@ -74,7 +72,7 @@
   background: var(--cream);
   color: var(--ink);
   font-family: var(--font-body);
-  font-size: 14px;
+  font-size: 16px;
   position: relative;
   isolation: isolate;
 }
@@ -109,7 +107,7 @@
   gap: 9px;
   font-family: var(--font-body);
   font-weight: 400;
-  font-size: 20px;
+  font-size: 23px;
   letter-spacing: -0.015em;
   color: var(--ink);
   padding: 0 6px 18px;
@@ -138,14 +136,23 @@
   transform: translateY(-50%);
   pointer-events: none;
 }
-.tl-mark--500 { font-weight: 500; --tl-line: 0.065em; }
-.tl-mark--600 { font-weight: 600; --tl-line: 0.075em; }
-.tl-mark--300 { font-weight: 300; --tl-line: 0.048em; }
+.tl-mark--500 {
+  font-weight: 500;
+  --tl-line: 0.065em;
+}
+.tl-mark--600 {
+  font-weight: 600;
+  --tl-line: 0.075em;
+}
+.tl-mark--300 {
+  font-weight: 300;
+  --tl-line: 0.048em;
+}
 
 .sb__brand-sub {
   margin-left: 4px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11.5px;
   font-weight: 500;
   letter-spacing: 0.06em;
   color: var(--ink-3);
@@ -153,31 +160,40 @@
 }
 .sb__group {
   font-family: var(--font-body);
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-3);
   padding: 12px 10px 6px;
 }
-.sb__nav { display: flex; flex-direction: column; gap: 1px; }
+.sb__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
 .sb__item {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 7px 10px;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   color: var(--ink-2);
   cursor: pointer;
   position: relative;
 }
-.sb__item:hover { background: oklch(0 0 0 / 0.025); color: var(--ink); }
+.sb__item:hover {
+  background: oklch(0 0 0 / 0.025);
+  color: var(--ink);
+}
 .sb__item--active {
   background: var(--cream);
   color: var(--ink);
-  box-shadow: 0 0 0 1px var(--border-soft), 0 1px 2px oklch(0 0 0 / 0.04);
+  box-shadow:
+    0 0 0 1px var(--border-soft),
+    0 1px 2px oklch(0 0 0 / 0.04);
 }
 .sb__item--active::before {
   content: '';
@@ -192,7 +208,7 @@
 .sb__count {
   margin-left: auto;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12.5px;
   color: var(--ink-3);
 }
 .sb__foot {
@@ -200,16 +216,22 @@
   padding: 12px 10px 0;
   border-top: 1px solid var(--border-soft);
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--ink-3);
   line-height: 1.5;
 }
-.sb__foot strong { color: var(--ink-2); font-weight: 600; }
+.sb__foot strong {
+  color: var(--ink-2);
+  font-weight: 600;
+}
 
 /* =====================================================================
    TOP CHROME — app.css:370–419
    ===================================================================== */
-.chrome { padding: 18px 28px 0; border-bottom: 1px solid var(--border); }
+.chrome {
+  padding: 18px 28px 0;
+  border-bottom: 1px solid var(--border);
+}
 .chrome__top {
   display: flex;
   align-items: flex-end;
@@ -218,35 +240,55 @@
 }
 .chrome__crumb {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12.5px;
   color: var(--ink-3);
   letter-spacing: 0.02em;
   margin-bottom: 4px;
 }
-.chrome__crumb .seg { color: var(--ink-3); }
-.chrome__crumb .seg--cur { color: var(--ink-2); font-weight: 500; }
-.chrome__crumb .sep { color: var(--ink-4); margin: 0 6px; }
+.chrome__crumb .seg {
+  color: var(--ink-3);
+}
+.chrome__crumb .seg--cur {
+  color: var(--ink-2);
+  font-weight: 500;
+}
+.chrome__crumb .sep {
+  color: var(--ink-4);
+  margin: 0 6px;
+}
 .chrome__title {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 30px;
+  font-size: 34.5px;
   line-height: 1.05;
   letter-spacing: -0.02em;
   color: var(--ink);
   margin: 0;
-  font-variation-settings: "opsz" 36;
+  font-variation-settings: 'opsz' 36;
 }
-.chrome__actions { display: flex; align-items: center; gap: 8px; }
-.chrome__tabs { display: flex; gap: 2px; margin-top: 14px; margin-bottom: -1px; }
+.chrome__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.chrome__tabs {
+  display: flex;
+  gap: 2px;
+  margin-top: 14px;
+  margin-bottom: -1px;
+}
 .tab {
   position: relative;
   padding: 8px 14px 11px;
-  font-size: 13.5px;
+  font-size: 15.5px;
   font-weight: 500;
   color: var(--ink-3);
   cursor: pointer;
 }
-.tab--active { color: var(--ink); font-weight: 600; }
+.tab--active {
+  color: var(--ink);
+  font-weight: 600;
+}
 .tab--active::after {
   content: '';
   position: absolute;
@@ -257,11 +299,13 @@
   background: var(--ink);
   border-radius: 2px;
 }
-.tab:hover:not(.tab--active) { color: var(--ink-2); }
+.tab:hover:not(.tab--active) {
+  color: var(--ink-2);
+}
 .tab__count {
   margin-left: 6px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12.5px;
   color: var(--ink-4);
   font-weight: 500;
 }
@@ -275,23 +319,25 @@
   gap: 7px;
   padding: 7px 13px;
   font-family: var(--font-body);
-  font-size: 13.5px;
+  font-size: 15.5px;
   font-weight: 500;
   border: none;
   border-radius: 6px;
   cursor: pointer;
   white-space: nowrap;
-  transition: transform 0.15s var(--ease-out), box-shadow 0.15s var(--ease-out);
+  transition:
+    transform 0.15s var(--ease-out),
+    box-shadow 0.15s var(--ease-out);
 }
 .btn--primary {
   background: var(--ink);
   color: var(--cream);
-  box-shadow: 0 1px 2px oklch(0 0 0 / 0.10);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.1);
 }
 .btn--dalia {
   background: var(--dalia-dark);
   color: var(--cream);
-  box-shadow: 0 1px 2px oklch(0 0 0 / 0.10);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.1);
 }
 .btn--outline {
   background: var(--cream);
@@ -303,11 +349,23 @@
   color: var(--ink-2);
   box-shadow: inset 0 0 0 1px transparent;
 }
-.btn--ghost:hover { background: oklch(0 0 0 / 0.04); color: var(--ink); }
-.btn--sm { padding: 5px 10px; font-size: 12.5px; }
-.btn__icon { width: 14px; height: 14px; flex: 0 0 14px; }
+.btn--ghost:hover {
+  background: oklch(0 0 0 / 0.04);
+  color: var(--ink);
+}
+.btn--sm {
+  padding: 5px 10px;
+  font-size: 14.5px;
+}
+.btn__icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+}
 .btn--primary .btn__icon,
-.btn--dalia .btn__icon { color: var(--cream); }
+.btn--dalia .btn__icon {
+  color: var(--cream);
+}
 
 /* =====================================================================
    STATUS PILLS — app.css:459–507
@@ -319,7 +377,7 @@
   padding: 3px 9px 3px 8px;
   border-radius: 999px;
   font-family: var(--font-body);
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: lowercase;
@@ -343,13 +401,17 @@
   background: var(--doing-bg);
   box-shadow: inset 0 0 0 1px oklch(0.62 0.13 75 / 0.4);
 }
-.pill--doing .pill__dot { background: var(--doing); }
+.pill--doing .pill__dot {
+  background: var(--doing);
+}
 .pill--done {
   color: var(--done-ink);
   background: var(--done-bg);
-  box-shadow: inset 0 0 0 1px oklch(0.55 0.10 145 / 0.35);
+  box-shadow: inset 0 0 0 1px oklch(0.55 0.1 145 / 0.35);
 }
-.pill--done .pill__dot { background: var(--done); }
+.pill--done .pill__dot {
+  background: var(--done);
+}
 .pill--drafted {
   color: var(--ink-2);
   background: transparent;
@@ -360,7 +422,9 @@
   background: var(--dalia-bg);
   box-shadow: inset 0 0 0 1px hsl(335 55% 65% / 0.4);
 }
-.pill--ready .pill__dot { background: var(--dalia-dark); }
+.pill--ready .pill__dot {
+  background: var(--dalia-dark);
+}
 
 /* =====================================================================
    TICKBOX — app.css:510–535
@@ -375,7 +439,7 @@
   flex: 0 0 16px;
   background: var(--cream);
   box-shadow: inset 0 0 0 1.5px var(--ink-3);
-  font-size: 11px;
+  font-size: 12.5px;
   color: transparent;
   line-height: 1;
 }
@@ -399,8 +463,13 @@
 /* =====================================================================
    ICON — app.css:538–539
    ===================================================================== */
-.icon { display: inline-block; vertical-align: middle; }
-.icon svg { display: block; }
+.icon {
+  display: inline-block;
+  vertical-align: middle;
+}
+.icon svg {
+  display: block;
+}
 
 /* =====================================================================
    CODE CHIP — app.css:556–576
@@ -409,7 +478,7 @@
   display: inline-flex;
   align-items: center;
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 13px;
   padding: 1px 6px;
   background: var(--cream-mid);
   color: var(--ink);
@@ -420,7 +489,7 @@
   content: '⎇';
   margin-right: 5px;
   color: var(--dalia-dark);
-  font-size: 11px;
+  font-size: 12.5px;
 }
 
 /* =====================================================================
@@ -460,10 +529,13 @@
   color: var(--ink-3);
   cursor: pointer;
 }
-.modal__close:hover { background: var(--cream-mid); color: var(--ink); }
+.modal__close:hover {
+  background: var(--cream-mid);
+  color: var(--ink);
+}
 .modal__eyebrow {
   font-family: var(--font-body);
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -472,15 +544,22 @@
 .modal__title {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 28px;
+  font-size: 32px;
   line-height: 1.05;
   letter-spacing: -0.02em;
   color: var(--ink);
   margin: 4px 0 12px;
-  font-variation-settings: "opsz" 36;
+  font-variation-settings: 'opsz' 36;
 }
-.modal__body { font-size: 14px; color: var(--ink-2); line-height: 1.6; }
-.modal__body strong { color: var(--ink); font-weight: 600; }
+.modal__body {
+  font-size: 16px;
+  color: var(--ink-2);
+  line-height: 1.6;
+}
+.modal__body strong {
+  color: var(--ink);
+  font-weight: 600;
+}
 .modal__actions {
   display: flex;
   justify-content: flex-end;
@@ -500,50 +579,46 @@
    ===================================================================== */
 .dark {
   /* page surfaces + text — flip cream → deep, ink → cream (@theme tokens) */
-  --color-cream:      oklch(0.155 0.018 295);
-  --color-cream-mid:  oklch(0.205 0.020 295);
-  --color-ink:        oklch(0.945 0.012 75);
-  --color-ink-2:      oklch(0.78  0.012 75);
-  --color-ink-3:      oklch(0.62  0.012 75);
+  --color-cream: oklch(0.155 0.018 295);
+  --color-cream-mid: oklch(0.205 0.02 295);
+  --color-ink: oklch(0.945 0.012 75);
+  --color-ink-2: oklch(0.78 0.012 75);
+  --color-ink-3: oklch(0.62 0.012 75);
 
   /* brand accent — brightens for legibility on dark (@theme tokens) */
-  --color-dalia:      hsl(335 65% 72%);
+  --color-dalia: hsl(335 65% 72%);
   --color-dalia-dark: hsl(335 60% 76%);
-  --color-dalia-bg:   hsl(335 30% 22%);
-  --color-dalia-ink:  hsl(335 70% 88%);
+  --color-dalia-bg: hsl(335 30% 22%);
+  --color-dalia-ink: hsl(335 70% 88%);
 
   /* deep contrast (@theme tokens) */
-  --color-deep:       oklch(0.08 0.02 300);
-  --color-deep-2:     oklch(0.55 0.02 300);
-  --color-deep-3:     oklch(0.78 0.01 75);
+  --color-deep: oklch(0.08 0.02 300);
+  --color-deep-2: oklch(0.55 0.02 300);
+  --color-deep-3: oklch(0.78 0.01 75);
 
   /* app-only aliases defined as absolute values above — re-flip here */
   --cream-deep: oklch(0.245 0.022 295);
-  --ink-4:      oklch(0.46 0.012 75);
+  --ink-4: oklch(0.46 0.012 75);
   --dalia-deep: hsl(335 70% 85%);
 
   /* status — bg darkens, ink brightens so pills still read clearly */
-  --doing:     oklch(0.78 0.13 75);
-  --doing-ink: oklch(0.90 0.10 80);
-  --doing-bg:  oklch(0.30 0.06 75);
-  --done:      oklch(0.72 0.12 145);
-  --done-ink:  oklch(0.92 0.08 145);
-  --done-bg:   oklch(0.26 0.05 145);
+  --doing: oklch(0.78 0.13 75);
+  --doing-ink: oklch(0.9 0.1 80);
+  --doing-bg: oklch(0.3 0.06 75);
+  --done: oklch(0.72 0.12 145);
+  --done-ink: oklch(0.92 0.08 145);
+  --done-bg: oklch(0.26 0.05 145);
 
   /* borders — white at low alpha, per dark-band rules (override :root) */
-  --border-soft:   oklch(1 0 0 / 0.06);
-  --border:        oklch(1 0 0 / 0.10);
-  --border-strong: oklch(1 0 0 / 0.20);
+  --border-soft: oklch(1 0 0 / 0.06);
+  --border: oklch(1 0 0 / 0.1);
+  --border-strong: oklch(1 0 0 / 0.2);
 
   /* shadows deepen on dark */
   --shadow-frame:
-    0 1px 2px  oklch(0 0 0 / 0.4),
-    0 12px 32px oklch(0 0 0 / 0.5),
-    0 0 0 1px  oklch(1 0 0 / 0.06);
+    0 1px 2px oklch(0 0 0 / 0.4), 0 12px 32px oklch(0 0 0 / 0.5), 0 0 0 1px oklch(1 0 0 / 0.06);
   --shadow-modal:
-    0 1px 2px   oklch(0 0 0 / 0.4),
-    0 30px 80px oklch(0 0 0 / 0.65),
-    0 0 0 1px   oklch(1 0 0 / 0.08);
+    0 1px 2px oklch(0 0 0 / 0.4), 0 30px 80px oklch(0 0 0 / 0.65), 0 0 0 1px oklch(1 0 0 / 0.08);
 
   color-scheme: dark;
 }
@@ -552,22 +627,40 @@
    DARK-MODE COMPONENT FIXUPS — app.css:135–157
    Carried over so theming fidelity holds (no theme-switcher UI built here).
    ===================================================================== */
-.dark .sb__item:hover { background: oklch(1 0 0 / 0.04); }
-.dark .sb__item--active {
-  box-shadow: 0 0 0 1px var(--border-soft), 0 1px 2px oklch(0 0 0 / 0.35);
+.dark .sb__item:hover {
+  background: oklch(1 0 0 / 0.04);
 }
-.dark .btn--ghost:hover { background: oklch(1 0 0 / 0.06); }
-.dark .btn--primary { box-shadow: 0 1px 2px oklch(0 0 0 / 0.4); }
-.dark .btn--dalia   { box-shadow: 0 1px 2px oklch(0 0 0 / 0.4); }
-.dark .tickbox { background: var(--cream-mid); }
-.dark .tickbox--done  { color: oklch(0.15 0.02 145); }
-.dark .tickbox--doing { background: var(--doing-bg); }
+.dark .sb__item--active {
+  box-shadow:
+    0 0 0 1px var(--border-soft),
+    0 1px 2px oklch(0 0 0 / 0.35);
+}
+.dark .btn--ghost:hover {
+  background: oklch(1 0 0 / 0.06);
+}
+.dark .btn--primary {
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.4);
+}
+.dark .btn--dalia {
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.4);
+}
+.dark .tickbox {
+  background: var(--cream-mid);
+}
+.dark .tickbox--done {
+  color: oklch(0.15 0.02 145);
+}
+.dark .tickbox--doing {
+  background: var(--doing-bg);
+}
 .dark .chip {
   background: oklch(1 0 0 / 0.06);
   box-shadow: inset 0 0 0 1px oklch(1 0 0 / 0.06);
   color: var(--ink);
 }
-.dark .chip--branch::before { color: var(--dalia); }
+.dark .chip--branch::before {
+  color: var(--dalia);
+}
 
 /* =====================================================================
    THEME SEGMENTED CONTROL — Sidebar-footer tri-state theme switcher.
@@ -590,21 +683,122 @@
   border-radius: 6px;
   background: transparent;
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--ink-3);
   cursor: pointer;
 }
-.theme-seg__btn:hover:not(.theme-seg__btn--active) { color: var(--ink-2); }
+.theme-seg__btn:hover:not(.theme-seg__btn--active) {
+  color: var(--ink-2);
+}
 .theme-seg__btn--active {
   background: var(--cream);
   color: var(--ink);
   box-shadow: 0 1px 2px oklch(0 0 0 / 0.08);
 }
 
-.dark .theme-seg { background: oklch(1 0 0 / 0.04); }
-.dark .theme-seg__btn:hover:not(.theme-seg__btn--active) { color: var(--ink); }
+.dark .theme-seg {
+  background: oklch(1 0 0 / 0.04);
+}
+.dark .theme-seg__btn:hover:not(.theme-seg__btn--active) {
+  color: var(--ink);
+}
 .dark .theme-seg__btn--active {
   background: oklch(1 0 0 / 0.08);
   box-shadow: 0 1px 2px oklch(0 0 0 / 0.4);
+}
+
+/* =====================================================================
+   COLLAPSIBLE LEFT RAIL — additive, new class names / modifiers only.
+   Toggling collapses .sb to a ~64px icon-only bar. No existing vendored
+   rule is modified; the .app grid and .sb layout are narrowed via the
+   .app--rail-collapsed / .sb--collapsed modifiers the React shell sets.
+   ===================================================================== */
+
+/* The collapse toggle (BaseUI <Toggle> → <button>) lives in the footer. */
+.sb__collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.sb__collapse:hover {
+  background: oklch(0 0 0 / 0.04);
+  color: var(--ink);
+}
+/* Chevron points "left" (toward the edge) when expanded — i.e. "collapse". */
+.sb__collapse .icon {
+  transform: rotate(90deg);
+}
+.dark .sb__collapse:hover {
+  background: oklch(1 0 0 / 0.06);
+}
+
+/* Footer row: workspace path + collapse toggle on one line when expanded. */
+.sb__foot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Compact brand mark (the favicon glyph) shown when collapsed. */
+.sb__mark {
+  display: inline-block;
+  color: var(--ink);
+}
+.sb__mark svg {
+  display: block;
+}
+
+/* Collapsed: narrow the grid column. */
+.app--rail-collapsed {
+  grid-template-columns: 64px 1fr;
+}
+
+/* Collapsed rail: center contents, hide text-bearing chrome — nav ICONS stay
+   visible and interactive (only their text labels and counts are hidden). */
+.sb--collapsed {
+  padding-left: 10px;
+  padding-right: 10px;
+  align-items: center;
+}
+.sb--collapsed .sb__brand {
+  padding: 0 0 18px;
+  justify-content: center;
+}
+.sb--collapsed .sb__group,
+.sb--collapsed .sb__item span,
+.sb--collapsed .sb__count {
+  display: none;
+}
+.sb--collapsed .sb__nav {
+  align-items: center;
+}
+.sb--collapsed .sb__item {
+  justify-content: center;
+  padding: 7px;
+  width: 38px;
+}
+/* Re-align the active accent bar to the narrowed padding. */
+.sb--collapsed .sb__item--active::before {
+  left: -10px;
+}
+/* Footer holds only the collapse toggle, centered; chevron points outward. */
+.sb--collapsed .sb__foot {
+  border-top: none;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+}
+.sb--collapsed .sb__collapse .icon {
+  transform: rotate(-90deg);
 }

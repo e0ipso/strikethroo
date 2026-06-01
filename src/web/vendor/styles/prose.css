@@ -7,7 +7,7 @@
   .prose {
     font-family: var(--font-sans);
     color: var(--color-ink-2);
-    font-size: 1rem;
+    font-size: 1.15rem;
     line-height: 1.75;
     max-width: 40rem;
   }
@@ -17,7 +17,7 @@
   .prose h2 {
     font-family: var(--font-display);
     font-weight: 800;
-    font-size: clamp(1.75rem, 3vw, 2.25rem);
+    font-size: clamp(2.0125rem, 3vw, 2.5875rem);
     line-height: 1.15;
     letter-spacing: -0.02em;
     color: var(--color-ink);
@@ -30,7 +30,7 @@
   .prose h3 {
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: clamp(1.25rem, 2vw, 1.5rem);
+    font-size: clamp(1.4375rem, 2vw, 1.725rem);
     line-height: 1.2;
     color: var(--color-ink);
     margin-top: 2em;
@@ -41,13 +41,13 @@
   .prose h4 {
     font-family: var(--font-sans);
     font-weight: 600;
-    font-size: 1.0625rem;
+    font-size: 1.2219rem;
     color: var(--color-ink);
     margin-top: 1.5em;
     margin-bottom: 0.5em;
   }
 
-  .prose p { color: var(--color-ink-2); font-size: 1rem; }
+  .prose p { color: var(--color-ink-2); font-size: 1.15rem; }
   .prose p strong { color: var(--color-ink); font-weight: 600; }
   .prose em { font-style: italic; color: var(--color-ink); }
 
@@ -68,11 +68,22 @@
   .prose li { margin-top: 0.5rem; color: var(--color-ink-2); }
   .prose li::marker { color: var(--color-ink-3); }
 
+  /* GFM task-list items render WITHOUT a checkbox (it would be a read-only input
+     masquerading as a done cue). State is conveyed the way the rest of the app
+     conveys it: an open item is a plain row, a done item is struck through. */
+  .prose li.md-task { list-style: none; margin-left: -1.25rem; }
+  .prose li.md-task::before {
+    content: '–';
+    color: var(--color-ink-3);
+    margin-right: 0.5rem;
+  }
+  .prose li.md-task--done { color: var(--color-ink-3); text-decoration: line-through; }
+
   .prose blockquote {
     font-family: var(--font-display);
     font-style: italic;
     font-weight: 400;
-    font-size: 1.25rem;
+    font-size: 1.4375rem;
     line-height: 1.45;
     color: var(--color-ink);
     border-left: 3px solid var(--color-dalia);
@@ -97,7 +108,7 @@
     padding: 1.125rem 1.25rem;
     overflow-x: auto;
     font-family: var(--font-mono);
-    font-size: 0.8125rem;
+    font-size: 0.9344rem;
     line-height: 1.65;
   }
   .prose pre code { background: transparent; padding: 0; color: inherit; font-size: 1em; }
@@ -114,7 +125,7 @@
   .prose table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.9375rem;
+    font-size: 1.0781rem;
     margin: 1.5em 0;
   }
   .prose th, .prose td {
@@ -126,7 +137,7 @@
     font-family: var(--font-sans);
     font-weight: 600;
     color: var(--color-ink);
-    font-size: 0.8125rem;
+    font-size: 0.9344rem;
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }

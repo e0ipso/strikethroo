@@ -15,10 +15,13 @@
   flex: 1;
   display: grid;
   /* Wide prose is the primary column; the blueprint rail sits on the right.
-     No `overflow` here on purpose: the document is the single scroll container,
-     so neither column gets its own scrollbar (no double scrollbar) and a long
-     task rail is fully reachable by the page scroll. */
-  grid-template-columns: 1fr 420px;
+     The rail width scales with the breakpoint (clamp) so it doesn't starve the
+     prose on laptop widths: it shrinks toward 300px on smaller screens and only
+     reaches its full 420px once there is room. No `overflow` here on purpose:
+     the document is the single scroll container, so neither column gets its own
+     scrollbar (no double scrollbar) and a long task rail is fully reachable by
+     the page scroll. */
+  grid-template-columns: 1fr clamp(300px, 24vw, 420px);
   min-height: 0;
 }
 /* Below 900px the right rail reflows to a single column, stacking under
@@ -60,7 +63,7 @@
   align-items: center;
   justify-content: center;
   font-family: var(--font-display);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   background: var(--cream-mid);
   color: var(--ink);
@@ -69,14 +72,14 @@
 .rail__phase-title {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 14.5px;
+  font-size: 16.5px;
   color: var(--ink);
   flex: 1;
   line-height: 1.2;
 }
 .rail__phase-meta {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--ink-3);
   padding: 0 0 6px;
 }
@@ -88,7 +91,7 @@
 }
 .rail__task-num {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12.5px;
   color: var(--ink-3);
   margin-top: 1px;
 }
@@ -97,7 +100,7 @@
   flex: 1;
 }
 .rail__task-name {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   line-height: 1.3;
   color: var(--ink);
@@ -115,14 +118,14 @@
 }
 .rail__task-group {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--ink-3);
   margin-top: 1px;
 }
 .rail__hint {
   margin-top: auto;
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--ink-3);
   font-style: italic;
   line-height: 1.5;
@@ -132,23 +135,65 @@
 
 /* reader prose */
 .reader {
-  padding: 28px 40px;
+  /* The reader fills the 1fr column; its inner content is width-capped and
+     horizontally centered, so the prose sits centered between the left edge and
+     the blueprint rail. The text column is capped at a legible 72rem (1152px)
+     and the media column (diagrams/images) at 20% wider, so they run wider than
+     the text but stay centered. The width scales with the breakpoint naturally:
+     the prose fills the column until it reaches the cap, so narrower screens get
+     narrower prose and wider screens get wider prose, never past the cap. Side
+     padding scales so narrow columns waste less gutter. */
+  --reader-prose: 72rem;
+  --reader-media: calc(var(--reader-prose) * 1.2);
+  padding: 28px clamp(20px, 4vw, 40px);
   overflow: hidden;
+}
+/* Top-level reader blocks center; media-bearing blocks (e.g. the mermaid
+   diagram, a direct child) may run out to the wider media cap. */
+.reader > * {
+  max-width: var(--reader-media);
+  margin-inline: auto;
+}
+/* Text-bearing blocks stay at the legible prose width and center. The prose
+   wrapper itself stays at the media width so the images it contains can exceed
+   the text column; only its non-image children narrow back to text width. */
+.reader__filename,
+.reader__meta,
+.reader__h1,
+.reader__h2,
+.reader__summary,
+.reader__quote,
+.clar,
+.crit,
+.reader .prose > :not(:has(> img:only-child)) {
+  max-width: var(--reader-prose);
+  margin-inline: auto;
+}
+/* Image-only paragraphs (marked wraps a bare image in a <p>) and the images
+   they hold center at the wider media width. */
+.reader .prose p:has(> img:only-child) {
+  max-width: var(--reader-media);
+}
+.reader .prose img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
 }
 .reader__filename {
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 13px;
   color: var(--ink-3);
   margin-bottom: 10px;
 }
 .reader__h1 {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 36px;
+  font-size: 41.5px;
   line-height: 1.1;
   letter-spacing: -0.025em;
   color: var(--ink);
-  margin: 0 0 14px;
+  margin: 0 auto 14px;
   font-variation-settings: 'opsz' 48;
 }
 .reader__meta {
@@ -156,33 +201,61 @@
   gap: 14px;
   flex-wrap: wrap;
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 13px;
   color: var(--ink-3);
   margin-bottom: 24px;
 }
 .reader__h2 {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 19px;
-  letter-spacing: -0.01em;
+  font-size: 30px;
+  line-height: 1.15;
+  letter-spacing: -0.018em;
   color: var(--ink);
-  margin: 28px 0 10px;
+  margin: 32px auto 12px;
 }
 .reader__h2 .hash {
   color: var(--dalia);
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: 20.5px;
   font-weight: 500;
   margin-right: 6px;
   vertical-align: 0.05em;
 }
+
+/* In-prose markdown headings (### and deeper) sit BELOW the section's `##`
+   heading in the hierarchy: each gets its level's worth of pink pound signs
+   and a font size that shrinks as the level deepens. Scoped to `.reader` so
+   the shared `.prose` long-form pages keep their own scale. */
+.reader .prose :is(h3, h4, h5, h6) {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.reader .prose :is(h3, h4, h5, h6)::before {
+  color: var(--dalia);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  margin-right: 6px;
+  vertical-align: 0.05em;
+}
+.reader .prose h3 { font-size: 23px; margin-top: 22px; margin-bottom: 8px; }
+.reader .prose h3::before { content: '###'; font-size: 16px; }
+.reader .prose h4 { font-size: 19px; font-weight: 600; margin-top: 18px; margin-bottom: 6px; }
+.reader .prose h4::before { content: '####'; font-size: 14px; }
+.reader .prose h5 { font-size: 16.5px; font-weight: 600; margin-top: 16px; margin-bottom: 6px; }
+.reader .prose h5::before { content: '#####'; font-size: 12.5px; }
+.reader .prose h6 { font-size: 15px; font-weight: 600; margin-top: 14px; margin-bottom: 6px; }
+.reader .prose h6::before { content: '######'; font-size: 11.5px; }
 .reader__quote {
   border-left: 2px solid var(--dalia);
   padding: 4px 0 4px 14px;
   font-family: var(--font-display);
   font-style: italic;
   font-weight: 400;
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.5;
   color: var(--ink-2);
 }
@@ -190,12 +263,12 @@
   background: var(--dalia-bg);
   border-radius: 8px;
   padding: 14px 16px;
-  margin: 14px 0;
+  margin: 14px auto;
   border-left: 3px solid var(--dalia-dark);
 }
 .reader__summary-eyebrow {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 12px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   font-weight: 700;
@@ -203,7 +276,7 @@
   margin-bottom: 4px;
 }
 .reader__summary-text {
-  font-size: 13.5px;
+  font-size: 15.5px;
   line-height: 1.55;
   color: var(--ink);
 }
@@ -218,7 +291,7 @@
 .clar__row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  font-size: 12.5px;
+  font-size: 14.5px;
 }
 .clar__row + .clar__row {
   border-top: 1px solid var(--border-soft);
@@ -231,7 +304,7 @@
 .clar__q {
   color: var(--ink-2);
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 13px;
   background: var(--cream-mid);
 }
 .clar__a {
@@ -251,12 +324,20 @@
   align-items: center;
   gap: 8px;
   padding: 4px 0;
-  font-size: 13px;
+  font-size: 15px;
   color: var(--ink-3);
 }
 .crit__row--done .crit__text {
   text-decoration: line-through;
   color: var(--ink-3);
+}
+/* A static list marker, not a checkbox: criteria carry no completion state, and
+   a checkbox here would be a read-only input pretending to be toggleable. */
+.crit__marker {
+  flex: 0 0 16px;
+  text-align: center;
+  color: var(--ink-3);
+  line-height: 1.4;
 }
 .crit__text {
   line-height: 1.4;
@@ -268,7 +349,7 @@
    tables) for arbitrary plans, since the design only hand-authored the bespoke
    markup for its hardcoded sample. */
 .reader .prose {
-  font-size: 14px;
+  font-size: 16px;
 }
 .reader .prose > * + * {
   margin-top: 0.9em;
@@ -276,11 +357,11 @@
 .reader .prose blockquote {
   border-left: 2px solid var(--dalia);
   padding: 4px 0 4px 14px;
-  margin: 0;
+  margin: 0 auto;
   font-family: var(--font-display);
   font-style: italic;
   font-weight: 400;
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.5;
   color: var(--ink-2);
   background: transparent;
@@ -292,7 +373,7 @@
   border-collapse: separate;
   border-spacing: 0;
   overflow: hidden;
-  font-size: 12.5px;
+  font-size: 14.5px;
 }
 .reader .prose th,
 .reader .prose td {
@@ -308,7 +389,7 @@
 .reader .prose th {
   color: var(--ink-2);
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 600;
   background: var(--cream-mid);
 }
@@ -320,16 +401,36 @@
   border-left: 1px solid var(--border-soft);
 }
 
-/* mermaid source affordance — non-rendered fence shown as source in the
-   Reader. Mermaid rendering itself belongs to the Graph tab (a later
-   ticket); here the block is surfaced as styled source so no content is
-   lost and the Reader route ships no mermaid renderer. */
+/* mermaid block — the fence is rendered inline as an SVG diagram via the
+   shared lazy `renderMermaid` boundary (mermaid stays code-split, fetched
+   only when a Plan tab with a diagram is opened). The raw source remains
+   available under a collapsed `<details>` so nothing is lost. */
 .reader__mermaid {
-  margin: 14px 0;
+  margin: 14px auto;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--cream-mid);
   overflow: hidden;
+}
+.reader__mermaid .mermaid-host {
+  height: auto;
+  padding: 16px 14px;
+}
+.reader__mermaid .mermaid-loading,
+.reader__mermaid .mermaid-err {
+  padding: 16px 14px;
+}
+.reader__mermaid-details {
+  border-top: 1px solid var(--border-soft);
+}
+.reader__mermaid-details > summary {
+  padding: 7px 12px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-3);
 }
 .reader__mermaid-head {
   display: flex;
@@ -339,7 +440,7 @@
   padding: 7px 12px;
   border-bottom: 1px solid var(--border-soft);
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 12px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--ink-3);
@@ -353,7 +454,7 @@
   margin: 0;
   padding: 12px 14px;
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--ink-2);
   white-space: pre;
@@ -380,7 +481,8 @@
   border-left-color: var(--dalia);
   color: var(--ink-2);
 }
-.dark .reader__h2 .hash {
+.dark .reader__h2 .hash,
+.dark .reader .prose :is(h3, h4, h5, h6)::before {
   color: var(--dalia);
 }
 .dark .clar {
@@ -419,13 +521,13 @@
 .exec__sum-title {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 19px;
+  font-size: 22px;
   color: var(--ink);
   letter-spacing: -0.01em;
 }
 .exec__sum-meta {
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 13px;
   color: var(--ink-3);
 }
 .exec__sum-meta strong {
@@ -458,14 +560,14 @@
   justify-content: center;
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 17px;
+  font-size: 19.5px;
   color: var(--ink);
   font-variation-settings: 'opsz' 18;
 }
 .phase__title {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 22px;
+  font-size: 25.5px;
   color: var(--ink);
   letter-spacing: -0.015em;
   line-height: 1.15;
@@ -476,7 +578,7 @@
   gap: 12px;
   align-items: center;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12.5px;
   color: var(--ink-3);
   flex-wrap: wrap;
 }
@@ -512,7 +614,7 @@
 }
 .lane-task__id {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--ink-3);
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -521,7 +623,7 @@
 .lane-task__title {
   font-family: var(--font-body);
   font-weight: 600;
-  font-size: 14.5px;
+  font-size: 16.5px;
   line-height: 1.3;
   color: var(--ink);
   margin: 6px 0 8px;
@@ -531,7 +633,7 @@
   flex-direction: column;
   gap: 2px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12.5px;
   color: var(--ink-3);
 }
 .lane-task__meta strong {
@@ -559,7 +661,7 @@
 }
 .outline__phase-num {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.12em;
   color: var(--ink-3);
@@ -567,14 +669,14 @@
 .outline__phase-title {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 20px;
+  font-size: 23px;
   color: var(--ink);
   letter-spacing: -0.01em;
   flex: 1;
 }
 .outline__phase-meta {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12.5px;
   color: var(--ink-3);
 }
 .outline__list {
@@ -604,14 +706,14 @@
 }
 .outline__row-id {
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 13px;
   color: var(--ink-3);
   font-weight: 500;
 }
 .outline__row-title {
   font-family: var(--font-body);
   font-weight: 600;
-  font-size: 14px;
+  font-size: 16px;
   color: var(--ink);
   line-height: 1.3;
 }
@@ -627,7 +729,7 @@
 }
 .outline__row-group {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12.5px;
   color: var(--ink-3);
 }
 

@@ -47,9 +47,6 @@ pids/
 coverage/
 *.lcov
 
-# Jest cache
-.jest/
-
 # Optional npm cache directory
 .npm
 
@@ -75,7 +72,6 @@ temp/
 
 # Generated TOML files (these are created on-the-fly from MD templates)
 templates/commands/tasks/*.toml
-.jest-cache
 
 # Generated skill script bundles
 templates/harness/skills/*/scripts/

@@ -163,13 +163,13 @@ describe('workspace-model against synthetic fixtures', () => {
           // inline-array dependencies, dashed-list skills
           name: '01--inline-and-dashed.md',
           body:
-            '---\nid: 1\ngroup: "g"\ndependencies: []\nstatus: "pending"\nskills:\n  - typescript\n  - jest\n---\n# First\n\nBody.\n',
+            '---\nid: 1\ngroup: "g"\ndependencies: []\nstatus: "pending"\nskills:\n  - typescript\n  - vitest\n---\n# First\n\nBody.\n',
         },
         {
           // inline-array deps with values, inline-array skills
           name: '02--inline-both.md',
           body:
-            '---\nid: 2\ngroup: "g"\ndependencies: [1]\nstatus: "pending"\nskills: [typescript, jest]\n---\n# Second\n\nBody.\n',
+            '---\nid: 2\ngroup: "g"\ndependencies: [1]\nstatus: "pending"\nskills: [typescript, vitest]\n---\n# Second\n\nBody.\n',
         },
       ]
     );
@@ -179,8 +179,8 @@ describe('workspace-model against synthetic fixtures', () => {
     const first = detail!.tasks.find(t => t.id === 1)!;
     const second = detail!.tasks.find(t => t.id === 2)!;
     expect(first.dependencies).toEqual([]);
-    expect(first.skills).toEqual(['typescript', 'jest']);
+    expect(first.skills).toEqual(['typescript', 'vitest']);
     expect(second.dependencies).toEqual([1]);
-    expect(second.skills).toEqual(['typescript', 'jest']);
+    expect(second.skills).toEqual(['typescript', 'vitest']);
   });
 });

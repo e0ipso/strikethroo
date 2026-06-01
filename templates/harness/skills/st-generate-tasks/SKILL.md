@@ -97,9 +97,9 @@ Each task must be:
 Skill assignment (kebab-case, automatically inferred from the task's
 technical requirements):
 
-- 1 skill — single-domain task (e.g. `["css"]`, `["jest"]`).
+- 1 skill — single-domain task (e.g. `["css"]`, `["vitest"]`).
 - 2 skills — complementary domains (e.g. `["api-endpoints", "database"]`,
-  `["react-components", "jest"]`).
+  `["react-components", "vitest"]`).
 - 3+ skills indicates the task should be broken down further.
 
 ### 6. Test philosophy: "write a few tests, mostly integration"

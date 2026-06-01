@@ -16,6 +16,7 @@ import type { ReactNode } from 'react';
 import { RouterProvider, useRoute } from './router';
 import { LiveConnectionProvider } from './data/liveConnection';
 import { RevalidationProvider } from './data/revalidation';
+import { ThemeProvider } from './theme/ThemeProvider';
 import { Sidebar } from './components/Sidebar';
 import { usePlans } from './data/api';
 import { PlansRoute } from './plans/PlansRoute';
@@ -91,15 +92,20 @@ function Shell() {
  *   - RevalidationProvider: subscribes to the connection's `changed` signal and
  *     exposes the coalesced revalidation token the data layer folds in;
  *   - RouterProvider: route state the mounted screens read at fetch time.
+ *
+ * ThemeProvider wraps the whole stack so the Sidebar (and its ThemeToggle) and
+ * every screen are inside it; it owns no data and is order-independent here.
  */
 export function App() {
   return (
-    <LiveConnectionProvider>
-      <RevalidationProvider>
-        <RouterProvider>
-          <Shell />
-        </RouterProvider>
-      </RevalidationProvider>
-    </LiveConnectionProvider>
+    <ThemeProvider>
+      <LiveConnectionProvider>
+        <RevalidationProvider>
+          <RouterProvider>
+            <Shell />
+          </RouterProvider>
+        </RevalidationProvider>
+      </LiveConnectionProvider>
+    </ThemeProvider>
   );
 }

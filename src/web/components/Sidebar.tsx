@@ -10,6 +10,7 @@
  */
 
 import { Icon, type IconName } from './primitives';
+import { ThemeToggle } from '../theme/ThemeToggle';
 import { useNavigate, useRoute, type RouteSection } from '../router';
 
 interface NavItem {
@@ -72,6 +73,7 @@ export function Sidebar({ counts = {} }: SidebarProps) {
         })}
       </nav>
       <div className="sb__foot">
+        <ThemeToggle />
         <strong>.ai/strikethroo/</strong>
       </div>
     </aside>

@@ -508,3 +508,43 @@
   color: var(--ink);
 }
 .dark .chip--branch::before { color: var(--dalia); }
+
+/* =====================================================================
+   THEME SEGMENTED CONTROL — Sidebar-footer tri-state theme switcher.
+   Additively scoped (new class names only); a .dark variant follows for
+   parity. No existing token values or .dark rules are modified above.
+   ===================================================================== */
+.theme-seg {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 10px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--cream-mid);
+  box-shadow: inset 0 0 0 1px var(--border-soft);
+}
+.theme-seg__btn {
+  flex: 1;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.theme-seg__btn:hover:not(.theme-seg__btn--active) { color: var(--ink-2); }
+.theme-seg__btn--active {
+  background: var(--cream);
+  color: var(--ink);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.08);
+}
+
+.dark .theme-seg { background: oklch(1 0 0 / 0.04); }
+.dark .theme-seg__btn:hover:not(.theme-seg__btn--active) { color: var(--ink); }
+.dark .theme-seg__btn--active {
+  background: oklch(1 0 0 / 0.08);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.4);
+}

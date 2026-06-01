@@ -54,6 +54,9 @@ export interface Task {
   body?: string;
   /** Absolute task file path. Serialized by the server; under-typed defensively. */
   file?: string;
+  /** Ordered `##` sections of the body. Serialized by the server (mirrors
+   * PlanDetail.sections); under-typed defensively. */
+  sections?: MarkdownSection[];
 }
 
 /** An inferred execution phase within a plan detail. */

@@ -169,6 +169,29 @@ export const splitResultsSections = (
   return { planSections: sections.slice(0, idx), resultsSections: sections.slice(idx) };
 };
 
+/**
+ * Heading match for the task-body Implementation Notes boundary
+ * (case-insensitive). `## Implementation Notes` is the execution-time tail of a
+ * task body; everything before it is the task narrative.
+ */
+const NOTES_BOUNDARY_RE = /^implementation\s+notes\b/i;
+
+/**
+ * Splits the parsed `##` sections of a task body at the Implementation Notes
+ * boundary (inclusive): `bodySections` are the narrative sections before it;
+ * `notesSections` are the "Implementation Notes" section and everything after
+ * it, to EOF. When the heading does not exist, all sections stay in
+ * `bodySections` and `notesSections` is empty. The Task tab renders
+ * `bodySections`; the Implementation Notes tab renders `notesSections`.
+ */
+export const splitTaskSections = (
+  sections: MarkdownSection[]
+): { bodySections: MarkdownSection[]; notesSections: MarkdownSection[] } => {
+  const idx = sections.findIndex(s => NOTES_BOUNDARY_RE.test(s.heading));
+  if (idx === -1) return { bodySections: sections, notesSections: [] };
+  return { bodySections: sections.slice(0, idx), notesSections: sections.slice(idx) };
+};
+
 /** A single progress dot's render state, mirroring the design's `progressDots`. */
 export type ProgressDot = 'done' | 'doing' | 'pending';
 

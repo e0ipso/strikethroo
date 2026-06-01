@@ -12,7 +12,13 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { parseFrontmatter, extractBody, extractTitle } from './markdown';
+import {
+  parseFrontmatter,
+  extractBody,
+  extractTitle,
+  sectionBody,
+  type MarkdownSection,
+} from './markdown';
 
 /** A single task parsed from a plan's `tasks/` directory. */
 export interface Task {
@@ -27,6 +33,9 @@ export interface Task {
   file: string;
   /** Raw markdown body after frontmatter. */
   body: string;
+  /** Ordered named `##` sections of the body (via `sectionBody`, mirrors
+   * `PlanDetail.sections`). Additive to `body`, which is retained. */
+  sections: MarkdownSection[];
 }
 
 /** Derived lifecycle state of a plan. */
@@ -90,6 +99,7 @@ export const scanTasks = (planDir: string): Task[] => {
           skills: fm.skills,
           file: e.name,
           body,
+          sections: sectionBody(body).sections,
         },
       ];
     });

@@ -12,13 +12,14 @@
  * this component never parses or sanitizes markdown itself. Two sections get a
  * bespoke treatment matching the design instead of the generic prose path:
  *
- *  - **Success Criteria** renders as a `.crit` checklist of `Tickbox` rows. The
+ *  - **Success Criteria** renders as a `.crit` list of plain marker rows. The
  *    model exposes no per-criterion completion (criteria are prose list items,
- *    not tasks), so every criterion renders unchecked rather than fabricating a
- *    `done` state.
- *  - **Inline ` ```mermaid ` fences** render as a non-rendered `.reader__mermaid`
- *    source affordance pointing at the Graph tab. Mermaid is NOT rendered here;
- *    that belongs to the Graph view via the lazy path in render/mermaid.ts.
+ *    not tasks), so each criterion renders as a static list row — never as a
+ *    checkbox, which would be a read-only input falsely implying a toggle.
+ *  - **Inline ` ```mermaid ` fences** render as the actual diagram via the shared
+ *    lazy `renderMermaid` boundary (render/mermaid.ts). The mermaid library stays
+ *    code-split behind that dynamic `import()`, so it is fetched only when a Plan
+ *    tab containing a diagram is first opened — not on every plan load.
  *
  * The `.reader__summary` execution-summary callout renders only when structured
  * execution-summary metadata is supplied; the live model exposes none today, so
@@ -26,16 +27,15 @@
  * Summary section, if present in the body, still renders as ordinary prose.
  */
 
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { MarkdownSection } from '../../data/api';
 import { renderMarkdown } from '../../render/markdown';
-import { Tickbox } from '../../components/primitives';
+import { renderMermaid } from '../../render/mermaid';
+import { useTheme } from '../../theme/ThemeProvider';
 
 export interface ReaderProseProps {
   /** Plan file basename, e.g. `plan-38--fix-jekyll-link-baseurl.md`. */
   filename: string;
-  /** Derived plan title (the `# ` heading / summary). */
-  title: string;
   /** Numeric plan id. */
   id: number;
   /** ISO created date, when known. */
@@ -102,15 +102,51 @@ function segmentMermaid(
   return segments;
 }
 
-/** The non-rendered mermaid source affordance with a pointer to the Graph tab. */
-function MermaidSource({ src }: { src: string }) {
+/**
+ * Renders an inline mermaid diagram through the shared lazy `renderMermaid`
+ * boundary. Holds its own loading / error / svg state (the render is async) so a
+ * malformed diagram degrades to an inline notice instead of crashing the Reader,
+ * mirroring the Graph tab's `MermaidCanvas`. The raw source stays available in a
+ * `<details>` so the affordance is non-destructive.
+ */
+function MermaidDiagram({ src }: { src: string }) {
+  const { resolved } = useTheme();
+  const [svg, setSvg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSvg(null);
+    setError(null);
+    renderMermaid(src, resolved)
+      .then(out => {
+        if (!cancelled) setSvg(out);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [src, resolved]);
+
   return (
     <div className="reader__mermaid">
       <div className="reader__mermaid-head">
         <span>mermaid</span>
-        <span className="reader__mermaid-hint">rendered in the Graph tab</span>
+        <span className="reader__mermaid-hint">Graph tab</span>
       </div>
-      <pre className="reader__mermaid-src">{src}</pre>
+      {error ? (
+        <div className="mermaid-err">mermaid error · {error}</div>
+      ) : svg == null ? (
+        <div className="mermaid-loading">rendering mermaid…</div>
+      ) : (
+        <div className="mermaid-host" dangerouslySetInnerHTML={{ __html: svg }} />
+      )}
+      <details className="reader__mermaid-details">
+        <summary>source</summary>
+        <pre className="reader__mermaid-src">{src}</pre>
+      </details>
     </div>
   );
 }
@@ -134,7 +170,9 @@ export function Section({ section }: { section: MarkdownSection }) {
           <div className="crit">
             {criteria.map((text, i) => (
               <div key={i} className="crit__row">
-                <Tickbox state="todo" />
+                <span className="crit__marker" aria-hidden="true">
+                  –
+                </span>
                 <span className="crit__text">{text}</span>
               </div>
             ))}
@@ -144,7 +182,7 @@ export function Section({ section }: { section: MarkdownSection }) {
     }
   }
 
-  // Everything else: markdown prose, with mermaid fences shown as source.
+  // Everything else: markdown prose, with mermaid fences rendered inline.
   const segments = segmentMermaid(section.content);
   return (
     <>
@@ -152,7 +190,7 @@ export function Section({ section }: { section: MarkdownSection }) {
       {segments.map(
         (seg, i): ReactNode =>
           seg.kind === 'mermaid' ? (
-            <MermaidSource key={i} src={seg.src} />
+            <MermaidDiagram key={i} src={seg.src} />
           ) : (
             <Markdown key={i} source={seg.text} />
           )
@@ -164,7 +202,6 @@ export function Section({ section }: { section: MarkdownSection }) {
 /** The Reader prose column: header block + the plan's rendered sections. */
 export function ReaderProse({
   filename,
-  title,
   id,
   created,
   phaseCount,
@@ -175,7 +212,6 @@ export function ReaderProse({
   return (
     <div className="reader">
       <div className="reader__filename">{filename}</div>
-      <h2 className="reader__h1">{title}</h2>
       <div className="reader__meta">
         <span>
           id · <strong style={{ color: 'var(--ink-2)' }}>{id}</strong>

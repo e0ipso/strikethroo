@@ -19,9 +19,15 @@ import { useState } from 'react';
 import { Chrome, type ChromeTab } from '../../components/Chrome';
 import { StatusPill, Button, type StatusKind } from '../../components/primitives';
 import { ErrorSurface, LoadingSurface } from '../../components/StateSurface';
-import { usePlanDetail, type PlanDetail } from '../../data/api';
-import { humanizeSlug, stripIdPrefix } from '../derive';
+import {
+  usePlanDetail,
+  useCapabilities,
+  launchSelfReview,
+  type PlanDetail,
+} from '../../data/api';
+import { humanizeSlug, planMdPath, stripIdPrefix } from '../derive';
 import { copyToClipboard } from '../../vendor/utils/clipboard';
+import { useModal, PlanModals } from '../modals';
 import { PlanDetailReader } from './PlanDetailReader';
 import { PlanDetailResults } from './PlanDetailResults';
 import { PlanDetailGraph } from './PlanDetailGraph';
@@ -36,9 +42,32 @@ const TAB_TASKS = 3;
 /** The loaded route: shared Chrome plus the body for the active tab. */
 function LoadedRoute({ detail }: { detail: PlanDetail }) {
   const [activeTab, setActiveTab] = useState<number>(TAB_PLAN);
+  const modal = useModal();
+  const caps = useCapabilities();
+  const [launching, setLaunching] = useState(false);
 
   const slug = stripIdPrefix(detail.name);
   const title = humanizeSlug(slug);
+
+  // The plan markdown path self-review opens.
+  const planPath = planMdPath({ id: detail.id, slug });
+
+  // The header Review action launches self-review directly when the binary is
+  // installed. When it isn't (or a launch fails), fall back to the modal — the
+  // not-installed variant carries the install promo and the launcher variant
+  // surfaces the terminal-command fallback.
+  const onReview = () => {
+    const available = caps.status === 'data' && caps.data.selfReview;
+    if (!available) {
+      modal.openReview(planPath);
+      return;
+    }
+    setLaunching(true);
+    void launchSelfReview(planPath).then(result => {
+      setLaunching(false);
+      if (!result.ok) modal.openReview(planPath);
+    });
+  };
 
   // The plan-detail tab set; only the Tasks tab carries a count.
   const tabs: ChromeTab[] = ['Plan', 'Results', 'Graph', ['Tasks', detail.tasks.length]];
@@ -71,6 +100,16 @@ function LoadedRoute({ detail }: { detail: PlanDetail }) {
         right={
           <>
             <StatusPill kind={detail.state as StatusKind} />
+            {detail.state === 'drafted' && (
+              <Button
+                kind="outline"
+                size="sm"
+                icon="review"
+                onClick={launching ? undefined : onReview}
+              >
+                {launching ? 'Launching…' : 'Review in self-review'}
+              </Button>
+            )}
             <Button kind="ghost" size="sm" icon="copy" onClick={() => copyToClipboard(detail.file)}>
               Copy path
             </Button>
@@ -78,6 +117,7 @@ function LoadedRoute({ detail }: { detail: PlanDetail }) {
         }
       />
       {body}
+      <PlanModals modal={modal.modal} onClose={modal.close} />
     </>
   );
 }

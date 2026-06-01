@@ -14,7 +14,7 @@
  */
 
 import type { PlanDetail } from '../../data/api';
-import { humanizeSlug, splitResultsSections, stripIdPrefix } from '../derive';
+import { splitResultsSections } from '../derive';
 import { BlueprintRail } from './BlueprintRail';
 import { ReaderProse } from './ReaderProse';
 
@@ -23,8 +23,6 @@ const basename = (filePath: string): string => filePath.split(/[\\/]/).pop() ?? 
 
 /** The Reader body: the `.detail` rail/prose grid bound to `detail`. */
 export function PlanDetailReader({ detail }: { detail: PlanDetail }) {
-  const slug = stripIdPrefix(detail.name);
-  const title = humanizeSlug(slug);
   const filename = basename(detail.file);
   // The Notes / Execution Blueprint tail moves to the Results tab; the Plan tab
   // shows the narrative sections that precede it.
@@ -34,7 +32,6 @@ export function PlanDetailReader({ detail }: { detail: PlanDetail }) {
     <div className="detail">
       <ReaderProse
         filename={filename}
-        title={title}
         id={detail.id}
         created={detail.created}
         phaseCount={detail.phaseCount}

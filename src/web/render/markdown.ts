@@ -23,6 +23,35 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 
 /**
+ * GFM task lists (`- [ ]` / `- [x]`) are authored throughout the plan and task
+ * markdown, but a checkbox is an *input* — a control the reader expects to
+ * toggle. In a read-only viewer it is a lie: a disabled `<input type=checkbox>`
+ * dressed up as a done/not-done indicator the user can never change. So we strip
+ * the checkbox entirely and convey task state the way the rest of the app does —
+ * `done` items render as strikethrough text (`.md-task--done`), open items as a
+ * plain list row (`.md-task`). Normal and ordered list items are untouched.
+ */
+marked.use({
+  renderer: {
+    // Defense in depth: should any path still ask for a checkbox, emit nothing.
+    checkbox() {
+      return '';
+    },
+    listitem(item) {
+      // Mirror marked's own list-item body rendering (`parser.parse` with the
+      // item's loose flag) so nested lists and multi-paragraph items render
+      // correctly — `parseInline` alone throws on a nested `list` token. The
+      // only departure from the default is dropping the checkbox `<input>`.
+      const body = this.parser.parse(item.tokens, Boolean(item.loose));
+      if (item.task) {
+        return `<li class="md-task${item.checked ? ' md-task--done' : ''}">${body}</li>\n`;
+      }
+      return `<li>${body}</li>\n`;
+    },
+  },
+});
+
+/**
  * Parses a markdown string and returns sanitized HTML safe to insert into the
  * DOM (e.g. via `dangerouslySetInnerHTML`).
  *

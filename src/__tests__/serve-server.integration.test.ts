@@ -2,18 +2,17 @@
  * Integration tests for the `serve` server's critical paths.
  *
  * Following the project's "write a few tests, mostly integration" philosophy,
- * these drive a real HTTP server bound to an ephemeral port against the live
- * `.ai/strikethroo/` workspace and a temp fixture. They cover the
+ * these drive a real HTTP server bound to an ephemeral port against a committed
+ * fixture workspace (`src/__tests__/fixtures/serve-workspace/`). They cover the
  * application-specific behavior — the JSON API shape, the coalesced SSE
  * `changed` event under rapid writes, and the clear failure when no workspace
  * is found — rather than re-testing Node's http/fs primitives.
  *
- * NOTE on plan 38: the plan text references a 3/3 reference fixture
- * (`38--fix-category-3-harness-drift`) that does not exist in this workspace.
- * The real archived plan 38 here is `38--fix-jekyll-link-baseurl` (two
- * completed tasks, `state: done`). These tests assert plan 38's actual
- * observable shape, matching the workspace-model integration tests and the
- * deviation recorded in plan 83's execution summary.
+ * The fixture holds real plan data copied from this project's own gitignored
+ * `.ai/strikethroo/` so the suite runs identically on a clean CI checkout. The
+ * archived plan 38 (`38--fix-jekyll-link-baseurl`) has two completed tasks and
+ * `state: done`; these tests assert that observable shape, matching the
+ * workspace-model integration tests.
  */
 
 import * as fs from 'fs';
@@ -22,7 +21,13 @@ import * as http from 'http';
 import { startServer, ServeHandle } from '../serve/server';
 import { resolveWorkspaceRoot, isResolveError } from '../serve/root';
 
-const LIVE_ROOT = path.resolve(process.cwd(), '.ai', 'strikethroo');
+const FIXTURE_ROOT = path.resolve(
+  process.cwd(),
+  'src',
+  '__tests__',
+  'fixtures',
+  'serve-workspace'
+);
 const ASSETS_DIR = path.resolve(process.cwd(), 'dist-web');
 
 interface HttpResponse {
@@ -69,7 +74,7 @@ describe('serve server: read-only JSON API', () => {
 
   beforeAll(async () => {
     handle = await startServer({
-      root: LIVE_ROOT,
+      root: FIXTURE_ROOT,
       port: 0,
       open: false,
       assetsDir: ASSETS_DIR,
@@ -130,7 +135,7 @@ describe('serve server: read-only JSON API', () => {
     // Availability depends on the host; assert the wiring/contract, not the
     // verdict: a well-formed body always yields a numeric status and { ok }.
     const rel =
-      '.ai/strikethroo/plans/38--fix-jekyll-link-baseurl/plan-38--fix-jekyll-link-baseurl.md';
+      'archive/38--fix-jekyll-link-baseurl/plan-38--fix-jekyll-link-baseurl.md';
     const res = await httpPost(`${handle.url}/api/self-review`, JSON.stringify({ path: rel }));
     expect([200, 400, 404, 409, 500]).toContain(res.status);
     const body = JSON.parse(res.body);
@@ -149,11 +154,11 @@ describe('serve server: read-only JSON API', () => {
 
 describe('serve server: SSE change stream coalescing', () => {
   let handle: ServeHandle;
-  const scratchFile = path.join(LIVE_ROOT, 'plans', '.sse-integration-tmp.md');
+  const scratchFile = path.join(FIXTURE_ROOT, 'plans', '.sse-integration-tmp.md');
 
   beforeAll(async () => {
     handle = await startServer({
-      root: LIVE_ROOT,
+      root: FIXTURE_ROOT,
       port: 0,
       open: false,
       assetsDir: ASSETS_DIR,

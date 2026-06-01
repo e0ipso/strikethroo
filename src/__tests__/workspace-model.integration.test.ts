@@ -4,19 +4,18 @@
  *
  * Following the project's "write a few tests, mostly integration" philosophy,
  * coverage is driven through the assembled model against real on-disk data:
- * this repository's own `.ai/strikethroo/` for the happy path, and small
- * synthetic fixtures in a temp directory for edge cases. The parsing
- * primitives are exercised transitively rather than via exhaustive unit tests.
+ * a committed fixture workspace (`src/__tests__/fixtures/serve-workspace/`) for
+ * the happy path, and small synthetic fixtures in a temp directory for edge
+ * cases. The parsing primitives are exercised transitively rather than via
+ * exhaustive unit tests.
  *
- * NOTE on plan 38: plan 83's success criteria were authored against a reference
- * fixture (`38--fix-category-3-harness-drift`, three completed tasks, single
- * phase, Architectural Approach mermaid) that does not exist in this workspace.
- * The real plan 38 here is the archived `38--fix-jekyll-link-baseurl`: two
- * completed tasks, a two-phase blueprint, and its mermaid block under
- * "Technical Implementation Approach" rather than "Architectural Approach".
- * These tests therefore assert plan 38's actual observable shape and verify
- * Architectural-Approach mermaid extraction against a live plan that genuinely
- * has one. See the plan's execution summary for the recorded deviation.
+ * The fixture workspace holds real, representative plan data copied from this
+ * project's own `.ai/strikethroo/` (which is gitignored and therefore absent in
+ * CI). It carries the archived plan 38 (`38--fix-jekyll-link-baseurl`: two
+ * completed tasks, a two-phase blueprint), the archived plan 83
+ * (`83--workspace-data-layer`, whose body has an Architectural Approach mermaid
+ * block), and the full set of 9 config hooks and 4 config templates. These
+ * tests assert that observable shape so they run identically on any checkout.
  */
 
 import * as fs from 'fs';
@@ -28,11 +27,17 @@ import {
   getConfig,
 } from '../serve/workspace-model';
 
-const LIVE_ROOT = path.resolve(process.cwd(), '.ai', 'strikethroo');
+const FIXTURE_ROOT = path.resolve(
+  process.cwd(),
+  'src',
+  '__tests__',
+  'fixtures',
+  'serve-workspace'
+);
 
-describe('workspace-model against the live .ai/strikethroo workspace', () => {
+describe('workspace-model against the committed fixture workspace', () => {
   it('derives plan 38 state and counts from its real on-disk shape', () => {
-    const model = getWorkspaceModel(LIVE_ROOT);
+    const model = getWorkspaceModel(FIXTURE_ROOT);
     const plan38 = model.plans.find(p => p.id === 38);
     expect(plan38).toBeDefined();
     // Real plan 38 (38--fix-jekyll-link-baseurl): two completed tasks, archived,
@@ -46,7 +51,7 @@ describe('workspace-model against the live .ai/strikethroo workspace', () => {
 
   it('extracts an Architectural Approach mermaid block from a plan that has one', () => {
     // Plan 83 (this very plan) carries an Architectural Approach mermaid block.
-    const detail = getPlanDetail(LIVE_ROOT, 83);
+    const detail = getPlanDetail(FIXTURE_ROOT, 83);
     expect(detail).toBeDefined();
     const arch = detail!.mermaid.filter(b => b.isArchitecturalApproach);
     expect(arch.length).toBeGreaterThan(0);
@@ -54,13 +59,13 @@ describe('workspace-model against the live .ai/strikethroo workspace', () => {
   });
 
   it('parses archived plans and flags them archived: true', () => {
-    const model = getWorkspaceModel(LIVE_ROOT);
+    const model = getWorkspaceModel(FIXTURE_ROOT);
     const archived = model.plans.filter(p => p.archived);
     expect(archived.length).toBeGreaterThan(0);
   });
 
   it('enumerates 9 config hooks and 4 config templates with id, file, and content', () => {
-    const config = getConfig(LIVE_ROOT);
+    const config = getConfig(FIXTURE_ROOT);
     expect(config.hooks).toHaveLength(9);
     expect(config.templates).toHaveLength(4);
     for (const entry of [...config.hooks, ...config.templates]) {

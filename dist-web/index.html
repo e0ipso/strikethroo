@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Strikethroo</title>
+    <script>
+      // Pre-paint theme guard: applies `.dark` before first paint so dark-mode
+      // users see no flash of light. Intentionally duplicates the storage key and
+      // resolution rule from src/web/theme/theme.ts because this runs before any
+      // module loads. This is static shell markup (not runtime-rendered content),
+      // so it is outside the SPA's markdown/DOMPurify sanitization boundary.
+      (function () {
+        try {
+          var pref = localStorage.getItem('strikethroo-theme');
+          if (pref !== 'light' && pref !== 'dark' && pref !== 'system') pref = 'system';
+          var dark = pref === 'dark' ||
+            (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.toggle('dark', dark);
+        } catch (e) { /* no-op: never block render on storage/matchMedia errors */ }
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-BoWJQkSy.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DDJFTV_M.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

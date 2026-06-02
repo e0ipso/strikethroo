@@ -19,9 +19,9 @@
     "test:unit": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:watch": "vitest",
-    "lint": "eslint 'src/**/*.ts' --ignore-pattern 'src/**/*.test.ts' --ignore-pattern 'src/**/__tests__/**'",
-    "lint:fix": "eslint 'src/**/*.ts' --ignore-pattern 'src/**/*.test.ts' --ignore-pattern 'src/**/__tests__/**' --fix",
-    "format": "prettier --write src/**/*.ts",
+    "lint": "eslint 'src/**/*.{ts,tsx}'",
+    "lint:fix": "eslint 'src/**/*.{ts,tsx}' --fix",
+    "format": "prettier --write 'src/**/*.{ts,tsx,css}'",
     "commitlint": "commitlint --edit",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run build",
@@ -30,6 +30,15 @@
     "security:audit-json": "npm audit --json",
     "security:fix": "npm audit fix",
     "security:fix-force": "npm audit fix --force"
+  },
+  "lint-staged": {
+    "src/**/*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "src/**/*.css": [
+      "prettier --write"
+    ]
   },
   "keywords": [
     "cli",
@@ -102,6 +111,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
     "husky": "^9.1.7",
+    "lint-staged": "^17.0.7",
     "lucide-react": "^0.460.0",
     "marked": "^15.0.12",
     "mermaid": "^11.15.0",

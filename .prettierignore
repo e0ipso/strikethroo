@@ -1,7 +1,11 @@
 node_modules/
 dist/
+dist-web/
 *.json
 *.md
 .ai/
 .idea/
 .devcontainer/
+
+# Vendored verbatim from the Dalia design source — must not diverge.
+src/web/vendor/

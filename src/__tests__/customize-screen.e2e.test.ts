@@ -157,9 +157,10 @@ test.describe('Customize section (Playwright, fixture)', () => {
     await page.keyboard.press('Control+End');
     await page.keyboard.type(marker);
 
-    // Save and await the success indicator.
+    // Save and await the success indicator. The redesigned detail header renders
+    // the save-status text ("saving…" → "saved") in the Chrome actions area.
     await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(page.locator('.cz__path-meta')).toHaveText(/saved/, { timeout: 5_000 });
+    await expect(page.locator('.chrome__actions')).toContainText('saved', { timeout: 5_000 });
 
     // The marker landed on disk in the isolated fixture.
     const onDisk = fs.readFileSync(path.join(root, 'config', 'hooks', 'PRE_PLAN.md'), 'utf8');

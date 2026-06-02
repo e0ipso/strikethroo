@@ -8,7 +8,7 @@
  * provides the component.
  */
 
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, type CSSProperties, type ReactNode } from 'react';
 
 import { useNavigate } from '../router';
 
@@ -34,13 +34,26 @@ export interface ChromeProps {
    * omitted, tabs stay purely presentational.
    */
   onTabSelect?: (index: number) => void;
+  /** Optional inline style merged onto the title `h1` (e.g. extra top padding). */
+  titleStyle?: CSSProperties;
 }
 
 /** The top bar: breadcrumbs, title, actions, and an optional tab strip. */
-export function Chrome({ title, crumbs, tabs, activeTab = 0, right, onTabSelect }: ChromeProps) {
+export function Chrome({
+  title,
+  crumbs,
+  tabs,
+  activeTab = 0,
+  right,
+  onTabSelect,
+  titleStyle,
+}: ChromeProps) {
   const navigate = useNavigate();
   return (
-    <div className="chrome">
+    // Without a tab strip the chrome content would sit flush on the bottom
+    // border (the design's `.chrome` has zero bottom padding because tabs
+    // normally provide that gap). Restore symmetric spacing when tabless.
+    <div className="chrome" style={tabs ? undefined : { paddingBottom: 18 }}>
       <div className="chrome__top">
         <div>
           {crumbs && (
@@ -68,7 +81,9 @@ export function Chrome({ title, crumbs, tabs, activeTab = 0, right, onTabSelect 
               })}
             </div>
           )}
-          <h1 className="chrome__title">{title}</h1>
+          <h1 className="chrome__title" style={titleStyle}>
+            {title}
+          </h1>
         </div>
         {right != null && <div className="chrome__actions">{right}</div>}
       </div>

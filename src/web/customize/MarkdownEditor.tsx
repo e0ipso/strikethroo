@@ -34,15 +34,23 @@ interface LazyEditorProps {
 
 /**
  * The code-split editor. The dynamic `import()` pulls `react-codemirror`, the
- * markdown language, and the `oneDark` theme together; they resolve in one
- * chunk, and the composed component is what `React.lazy` renders. The markdown
- * extension drives syntax highlighting; `basicSetup` provides line numbers and
- * editing affordances but NO WYSIWYG toolbar.
+ * markdown language, its language-data registry, and the `oneDark` theme
+ * together; they resolve in one chunk, and the composed component is what
+ * `React.lazy` renders. The markdown extension drives syntax highlighting;
+ * `basicSetup` provides line numbers and editing affordances but NO WYSIWYG
+ * toolbar.
+ *
+ * `codeLanguages` is wired to the `@codemirror/language-data` registry so that
+ * fenced code blocks tagged with a language (```ts, ```bash, ```json, …) get
+ * nested-language highlighting. Without it, `markdown()` leaves fenced bodies
+ * unhighlighted. Each grammar is itself lazily fetched on demand by the
+ * registry's own dynamic loaders, so this does not bloat the editor chunk.
  */
 const LazyEditor = lazy(async () => {
-  const [{ default: CodeMirror }, { markdown }, { oneDark }] = await Promise.all([
+  const [{ default: CodeMirror }, { markdown }, { languages }, { oneDark }] = await Promise.all([
     import('@uiw/react-codemirror'),
     import('@codemirror/lang-markdown'),
+    import('@codemirror/language-data'),
     import('@codemirror/theme-one-dark'),
   ]);
 
@@ -51,7 +59,7 @@ const LazyEditor = lazy(async () => {
       <CodeMirror
         value={value}
         onChange={onChange}
-        extensions={[markdown()]}
+        extensions={[markdown({ codeLanguages: languages })]}
         theme={theme === 'dark' ? oneDark : 'light'}
         basicSetup={{
           lineNumbers: true,

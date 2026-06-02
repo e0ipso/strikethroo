@@ -23,7 +23,6 @@ import { Chrome } from '../components/Chrome';
 import { Button, StatusPill } from '../components/primitives';
 import { ErrorSurface, LoadingSurface } from '../components/StateSurface';
 import { useConfig, saveConfigFile, type ConfigFile } from '../data/api';
-import { useNavigate } from '../router';
 import { MarkdownEditor } from './MarkdownEditor';
 import { useTheme } from '../theme/ThemeProvider';
 
@@ -74,7 +73,6 @@ type SaveState =
 
 /** The loaded editor screen for a resolved hook/template file. */
 function LoadedEditor({ kind, file }: { kind: ConfigKind; file: ConfigFile }) {
-  const navigate = useNavigate();
   const { resolved } = useTheme();
 
   // The editor's working copy, plus the saved baseline it is diffed against.
@@ -112,16 +110,30 @@ function LoadedEditor({ kind, file }: { kind: ConfigKind; file: ConfigFile }) {
     setSave(prev => (prev.phase === 'idle' || prev.phase === 'saving' ? prev : { phase: 'idle' }));
   }, []);
 
+  const kindLabel = kind === 'hooks' ? 'hook' : 'template';
+
   return (
     <>
       <Chrome
-        title={file.id}
+        titleStyle={{ paddingTop: 18 }}
+        title={`${file.id} ${kindLabel}`}
         crumbs={['workspace', 'config', { label: kind, href: '/customize' }, file.id]}
         right={
           <>
-            <Button kind="ghost" size="sm" icon="arrow" onClick={() => navigate('/customize')}>
-              Back to Customize
-            </Button>
+            <span
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: 13,
+                color: save.phase === 'error' ? 'var(--dalia-deep, var(--ink-2))' : 'var(--ink-3)',
+                // Bold the message when there are unsaved changes so it stands out.
+                fontWeight: save.phase === 'idle' && dirty ? 700 : 400,
+              }}
+            >
+              {save.phase === 'saving' && 'saving…'}
+              {save.phase === 'saved' && 'saved'}
+              {save.phase === 'error' && `save failed: ${save.message}`}
+              {save.phase === 'idle' && (dirty ? 'unsaved changes' : 'no changes')}
+            </span>
             <Button
               kind="primary"
               size="sm"
@@ -133,21 +145,20 @@ function LoadedEditor({ kind, file }: { kind: ConfigKind; file: ConfigFile }) {
           </>
         }
       />
-      <div className="cz__path-strip">
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--ink-2)' }}>
-          {file.relPath}
-        </span>
-        <span className="cz__path-meta">
-          {save.phase === 'saving' && 'saving…'}
-          {save.phase === 'saved' && 'saved'}
-          {save.phase === 'error' && (
-            <span style={{ color: 'var(--dalia-deep, var(--ink-2))' }}>
-              save failed: {save.message}
-            </span>
-          )}
-          {save.phase === 'idle' && (dirty ? 'unsaved changes' : 'no changes')}
-        </span>
-      </div>
+      {file.description && (
+        <p
+          style={{
+            margin: 0,
+            padding: '12px 28px',
+            color: 'var(--ink-3)',
+            fontFamily: 'var(--font-body)',
+            fontSize: 14,
+            lineHeight: 1.5,
+          }}
+        >
+          {file.description}
+        </p>
+      )}
       <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <MarkdownEditor
           value={value}

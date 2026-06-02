@@ -69,7 +69,7 @@ describe('phaseStateOf', () => {
     const tasks = statuses.map((s, i) => task(i + 1, s));
     const ph = phase(
       1,
-      tasks.map(t => t.id),
+      tasks.map(t => t.id)
     );
     return phaseStateOf(ph, tasksById(tasks));
   };
@@ -96,9 +96,11 @@ describe('phaseStateOf', () => {
 
 describe('execSummaryOf', () => {
   it('surfaces the parsed Execution Summary section when present', () => {
-    const detail = detailOf([], [], [
-      { heading: 'Execution Summary', content: '\n- **Status**: Completed Successfully\n' },
-    ]);
+    const detail = detailOf(
+      [],
+      [],
+      [{ heading: 'Execution Summary', content: '\n- **Status**: Completed Successfully\n' }]
+    );
     expect(execSummaryOf(detail)).toEqual({
       eyebrow: 'Execution summary',
       text: '**Status**: Completed Successfully',

@@ -19,12 +19,7 @@ import { useState } from 'react';
 import { Chrome, type ChromeTab } from '../../components/Chrome';
 import { StatusPill, Button, type StatusKind } from '../../components/primitives';
 import { ErrorSurface, LoadingSurface } from '../../components/StateSurface';
-import {
-  usePlanDetail,
-  useCapabilities,
-  launchSelfReview,
-  type PlanDetail,
-} from '../../data/api';
+import { usePlanDetail, useCapabilities, launchSelfReview, type PlanDetail } from '../../data/api';
 import { humanizeSlug, planMdPath, stripIdPrefix } from '../derive';
 import { copyToClipboard } from '../../vendor/utils/clipboard';
 import { useModal, PlanModals } from '../modals';

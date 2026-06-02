@@ -26,7 +26,6 @@ import * as os from 'os';
 import * as path from 'path';
 import { test, expect, type Page } from '@playwright/test';
 import { startServer, ServeHandle } from '../serve/server';
-import type { PlanSummary } from '../serve/workspace-model';
 
 const FIXTURE_ROOT = path.resolve(process.cwd(), 'src', '__tests__', 'fixtures', 'serve-workspace');
 const ASSETS_DIR = path.resolve(process.cwd(), 'dist-web');

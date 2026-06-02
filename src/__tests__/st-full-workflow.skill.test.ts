@@ -10,10 +10,6 @@ import { execFileSync } from 'child_process';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const SKILL_DIR = path.join(REPO_ROOT, 'templates', 'harness', 'skills', 'st-full-workflow');
-const writeFile = (filePath: string, contents: string): void => {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, contents);
-};
 
 const buildFixtureRoot = (root: string): string => {
   const tm = path.join(root, '.ai', 'strikethroo');

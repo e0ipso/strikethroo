@@ -5,13 +5,7 @@
  * or cause data corruption. Skips simple wrappers and obvious functionality.
  */
 
-import {
-  parseHarnesses,
-  validateHarnesses,
-  convertAgentMdToToml,
-  getAgentFormat,
-  parseFrontmatter,
-} from '../utils';
+import { parseHarnesses, validateHarnesses, convertAgentMdToToml, getAgentFormat } from '../utils';
 import { Harness } from '../types';
 
 describe('Critical Utils Business Logic', () => {

@@ -4,6 +4,31 @@ import tsParser from '@typescript-eslint/parser';
 import prettierConfig from 'eslint-config-prettier';
 import prettierPlugin from 'eslint-plugin-prettier';
 
+// Browser/DOM globals shared by the SPA source and by e2e tests whose
+// `page.evaluate(...)` callbacks execute in the browser context.
+const browserGlobals = {
+  window: 'readonly',
+  document: 'readonly',
+  navigator: 'readonly',
+  fetch: 'readonly',
+  getComputedStyle: 'readonly',
+  AbortController: 'readonly',
+  AbortSignal: 'readonly',
+  Response: 'readonly',
+  Request: 'readonly',
+  Headers: 'readonly',
+  EventSource: 'readonly',
+  history: 'readonly',
+  location: 'readonly',
+  URL: 'readonly',
+  URLSearchParams: 'readonly',
+  HTMLElement: 'readonly',
+  Element: 'readonly',
+  Event: 'readonly',
+  MouseEvent: 'readonly',
+  PopStateEvent: 'readonly',
+};
+
 export default [
   {
     files: ['src/**/*.ts'],
@@ -63,6 +88,7 @@ export default [
         sourceType: 'module',
       },
       globals: {
+        ...browserGlobals,
         process: 'readonly',
         require: 'readonly',
         console: 'readonly',
@@ -118,30 +144,14 @@ export default [
         ecmaFeatures: { jsx: true },
       },
       globals: {
-        window: 'readonly',
-        document: 'readonly',
-        navigator: 'readonly',
-        fetch: 'readonly',
-        AbortController: 'readonly',
-        AbortSignal: 'readonly',
-        Response: 'readonly',
-        Request: 'readonly',
-        Headers: 'readonly',
-        EventSource: 'readonly',
-        history: 'readonly',
-        location: 'readonly',
-        URL: 'readonly',
-        URLSearchParams: 'readonly',
+        ...browserGlobals,
         console: 'readonly',
         setTimeout: 'readonly',
         clearTimeout: 'readonly',
         setInterval: 'readonly',
         clearInterval: 'readonly',
-        HTMLElement: 'readonly',
-        Element: 'readonly',
-        Event: 'readonly',
-        MouseEvent: 'readonly',
-        PopStateEvent: 'readonly',
+        // Injected by Vite's `define` at build time (see vite.config.mts).
+        __APP_VERSION__: 'readonly',
       },
     },
     plugins: {

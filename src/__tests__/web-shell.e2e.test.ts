@@ -25,13 +25,7 @@ import * as http from 'http';
 import { test, expect } from '@playwright/test';
 import { startServer, ServeHandle } from '../serve/server';
 
-const FIXTURE_ROOT = path.resolve(
-  process.cwd(),
-  'src',
-  '__tests__',
-  'fixtures',
-  'serve-workspace'
-);
+const FIXTURE_ROOT = path.resolve(process.cwd(), 'src', '__tests__', 'fixtures', 'serve-workspace');
 const ASSETS_DIR = path.resolve(process.cwd(), 'dist-web');
 const INDEX_HTML = path.join(ASSETS_DIR, 'index.html');
 
@@ -65,7 +59,7 @@ const startStaticOnly = (): Promise<{ url: string; server: http.Server }> => {
     res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] ?? 'text/html' });
     fs.createReadStream(file).pipe(res);
   });
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     server.listen(0, () => {
       const addr = server.address();
       const port = typeof addr === 'object' && addr ? addr.port : 0;
@@ -94,8 +88,8 @@ test.describe('app shell (Playwright)', () => {
   });
 
   test.afterAll(async () => {
-    await new Promise<void>((r) => full.server.close(() => r()));
-    await new Promise<void>((r) => staticOnly.server.close(() => r()));
+    await new Promise<void>(r => full.server.close(() => r()));
+    await new Promise<void>(r => staticOnly.server.close(() => r()));
   });
 
   test('renders the persistent Sidebar + Chrome and highlights the active nav per route', async ({

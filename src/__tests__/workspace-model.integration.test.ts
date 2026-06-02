@@ -21,19 +21,9 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import {
-  getWorkspaceModel,
-  getPlanDetail,
-  getConfig,
-} from '../serve/workspace-model';
+import { getWorkspaceModel, getPlanDetail, getConfig } from '../serve/workspace-model';
 
-const FIXTURE_ROOT = path.resolve(
-  process.cwd(),
-  'src',
-  '__tests__',
-  'fixtures',
-  'serve-workspace'
-);
+const FIXTURE_ROOT = path.resolve(process.cwd(), 'src', '__tests__', 'fixtures', 'serve-workspace');
 
 describe('workspace-model against the committed fixture workspace', () => {
   it('derives plan 38 state and counts from its real on-disk shape', () => {
@@ -142,8 +132,7 @@ describe('workspace-model against synthetic fixtures', () => {
       [
         {
           name: '01--weird.md',
-          body:
-            '---\nid: 1\ngroup: "g"\ndependencies: []\nstatus: "in-progress"\nskills: [typescript]\n---\n# Weird Task\n\nBody.\n',
+          body: '---\nid: 1\ngroup: "g"\ndependencies: []\nstatus: "in-progress"\nskills: [typescript]\n---\n# Weird Task\n\nBody.\n',
         },
       ]
     );
@@ -167,14 +156,12 @@ describe('workspace-model against synthetic fixtures', () => {
         {
           // inline-array dependencies, dashed-list skills
           name: '01--inline-and-dashed.md',
-          body:
-            '---\nid: 1\ngroup: "g"\ndependencies: []\nstatus: "pending"\nskills:\n  - typescript\n  - vitest\n---\n# First\n\nBody.\n',
+          body: '---\nid: 1\ngroup: "g"\ndependencies: []\nstatus: "pending"\nskills:\n  - typescript\n  - vitest\n---\n# First\n\nBody.\n',
         },
         {
           // inline-array deps with values, inline-array skills
           name: '02--inline-both.md',
-          body:
-            '---\nid: 2\ngroup: "g"\ndependencies: [1]\nstatus: "pending"\nskills: [typescript, vitest]\n---\n# Second\n\nBody.\n',
+          body: '---\nid: 2\ngroup: "g"\ndependencies: [1]\nstatus: "pending"\nskills: [typescript, vitest]\n---\n# Second\n\nBody.\n',
         },
       ]
     );

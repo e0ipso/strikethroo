@@ -37,33 +37,29 @@ const row = (id: number, title: string, completedAt?: string): Row => ({
 describe('makeComparator', () => {
   it('orders numbers numerically (not lexicographically) ascending and descending', () => {
     const rows = [row(10, 'a'), row(2, 'b'), row(1, 'c')];
-    const asc = [...rows].sort(makeComparator<Row>((r) => r.id, 'asc'));
-    expect(asc.map((r) => r.id)).toEqual([1, 2, 10]);
+    const asc = [...rows].sort(makeComparator<Row>(r => r.id, 'asc'));
+    expect(asc.map(r => r.id)).toEqual([1, 2, 10]);
 
-    const desc = [...rows].sort(makeComparator<Row>((r) => r.id, 'desc'));
-    expect(desc.map((r) => r.id)).toEqual([10, 2, 1]);
+    const desc = [...rows].sort(makeComparator<Row>(r => r.id, 'desc'));
+    expect(desc.map(r => r.id)).toEqual([10, 2, 1]);
   });
 
   it('orders strings via localeCompare with case handling', () => {
     const rows = [row(1, 'banana'), row(2, 'Apple'), row(3, 'cherry')];
-    const asc = [...rows].sort(makeComparator<Row>((r) => r.title, 'asc'));
+    const asc = [...rows].sort(makeComparator<Row>(r => r.title, 'asc'));
     // localeCompare is case-insensitive-leaning: Apple < banana < cherry.
-    expect(asc.map((r) => r.title)).toEqual(['Apple', 'banana', 'cherry']);
+    expect(asc.map(r => r.title)).toEqual(['Apple', 'banana', 'cherry']);
   });
 
   it('orders date-ish strings chronologically and pushes missing/empty last', () => {
-    const rows = [
-      row(1, 'x', '2026-03-01'),
-      row(2, 'y', ''),
-      row(3, 'z', '2025-12-31'),
-    ];
-    const asc = [...rows].sort(makeComparator<Row>((r) => r.completedAt, 'asc'));
+    const rows = [row(1, 'x', '2026-03-01'), row(2, 'y', ''), row(3, 'z', '2025-12-31')];
+    const asc = [...rows].sort(makeComparator<Row>(r => r.completedAt, 'asc'));
     // Chronological, with the empty value sorted to the end.
-    expect(asc.map((r) => r.id)).toEqual([3, 1, 2]);
+    expect(asc.map(r => r.id)).toEqual([3, 1, 2]);
   });
 
   it('returns 0 for equal values (stable)', () => {
-    const cmp = makeComparator<Row>((r) => r.id, 'asc');
+    const cmp = makeComparator<Row>(r => r.id, 'asc');
     expect(cmp(row(5, 'a'), row(5, 'b'))).toBe(0);
   });
 });
@@ -71,15 +67,15 @@ describe('makeComparator', () => {
 describe('sortRows', () => {
   it('returns a new sorted array and does not mutate the input', () => {
     const input = [row(3, 'c'), row(1, 'a'), row(2, 'b')];
-    const snapshot = input.map((r) => r.id);
+    const snapshot = input.map(r => r.id);
     const state: SortState<Key> = { key: 'id', dir: 'asc' };
 
     const result = sortRows(input, accessors, state);
 
     expect(result).not.toBe(input);
-    expect(result.map((r) => r.id)).toEqual([1, 2, 3]);
+    expect(result.map(r => r.id)).toEqual([1, 2, 3]);
     // Input array untouched.
-    expect(input.map((r) => r.id)).toEqual(snapshot);
+    expect(input.map(r => r.id)).toEqual(snapshot);
   });
 
   it('preserves relative order of equal values (stable sort)', () => {

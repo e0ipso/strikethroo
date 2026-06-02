@@ -28,13 +28,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { startServer, ServeHandle } from '../serve/server';
 import type { PlanDetail } from '../serve/workspace-model';
 
-const FIXTURE_ROOT = path.resolve(
-  process.cwd(),
-  'src',
-  '__tests__',
-  'fixtures',
-  'serve-workspace'
-);
+const FIXTURE_ROOT = path.resolve(process.cwd(), 'src', '__tests__', 'fixtures', 'serve-workspace');
 const ASSETS_DIR = path.resolve(process.cwd(), 'dist-web');
 const INDEX_HTML = path.join(ASSETS_DIR, 'index.html');
 const BUNDLE_DIR = path.join(ASSETS_DIR, 'assets');

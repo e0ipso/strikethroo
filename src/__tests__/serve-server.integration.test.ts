@@ -21,13 +21,7 @@ import * as http from 'http';
 import { startServer, ServeHandle } from '../serve/server';
 import { resolveWorkspaceRoot, isResolveError } from '../serve/root';
 
-const FIXTURE_ROOT = path.resolve(
-  process.cwd(),
-  'src',
-  '__tests__',
-  'fixtures',
-  'serve-workspace'
-);
+const FIXTURE_ROOT = path.resolve(process.cwd(), 'src', '__tests__', 'fixtures', 'serve-workspace');
 const ASSETS_DIR = path.resolve(process.cwd(), 'dist-web');
 
 interface HttpResponse {
@@ -146,8 +140,7 @@ describe('serve server: read-only JSON API', () => {
   it('POST /api/self-review answers with a JSON ok-envelope', async () => {
     // Availability depends on the host; assert the wiring/contract, not the
     // verdict: a well-formed body always yields a numeric status and { ok }.
-    const rel =
-      'archive/38--fix-jekyll-link-baseurl/plan-38--fix-jekyll-link-baseurl.md';
+    const rel = 'archive/38--fix-jekyll-link-baseurl/plan-38--fix-jekyll-link-baseurl.md';
     const res = await httpPost(`${handle.url}/api/self-review`, JSON.stringify({ path: rel }));
     expect([200, 400, 404, 409, 500]).toContain(res.status);
     const body = JSON.parse(res.body);

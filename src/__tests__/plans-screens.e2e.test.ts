@@ -153,7 +153,9 @@ test.describe('Plans section (Playwright)', () => {
       expect(await page.locator('.board .col').count()).toBe(3);
 
       // Counters equal the values derived from /api/plans (not hardcoded).
-      expect(await page.locator('[data-testid="count-all"]').textContent()).toBe(`All ${counts.all}`);
+      expect(await page.locator('[data-testid="count-all"]').textContent()).toBe(
+        `All ${counts.all}`
+      );
       expect(await page.locator('[data-testid="count-active"]').textContent()).toBe(
         `Active ${counts.active}`
       );
@@ -210,7 +212,9 @@ test.describe('Plans section (Playwright)', () => {
 
       await page.locator('.modal__cmd-copy').first().click();
       const clip = await page.evaluate(() => navigator.clipboard.readText());
-      expect(clip).toBe('st-create-plan Add a Stripe customer-portal webhook with idempotent handling');
+      expect(clip).toBe(
+        'st-create-plan Add a Stripe customer-portal webhook with idempotent handling'
+      );
     } finally {
       await page.close();
     }
@@ -252,7 +256,12 @@ test.describe('Plans section (Playwright)', () => {
       expect(bundle).not.toContain(legacy);
     }
     // The current names must be present.
-    for (const current of ['st-create-plan', 'st-refine-plan', 'st-generate-tasks', 'self-review']) {
+    for (const current of [
+      'st-create-plan',
+      'st-refine-plan',
+      'st-generate-tasks',
+      'self-review',
+    ]) {
       expect(bundle).toContain(current);
     }
   });

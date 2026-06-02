@@ -162,10 +162,7 @@ test.describe('Customize section (Playwright, fixture)', () => {
     await expect(page.locator('.cz__path-meta')).toHaveText(/saved/, { timeout: 5_000 });
 
     // The marker landed on disk in the isolated fixture.
-    const onDisk = fs.readFileSync(
-      path.join(root, 'config', 'hooks', 'PRE_PLAN.md'),
-      'utf8'
-    );
+    const onDisk = fs.readFileSync(path.join(root, 'config', 'hooks', 'PRE_PLAN.md'), 'utf8');
     expect(onDisk).toContain('e2e-marker-');
 
     // And it survives a fresh load of the detail route (re-fetched content).

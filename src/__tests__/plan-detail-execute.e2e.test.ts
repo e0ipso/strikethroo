@@ -28,13 +28,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { startServer, ServeHandle } from '../serve/server';
 import type { PlanDetail } from '../serve/workspace-model';
 
-const FIXTURE_ROOT = path.resolve(
-  process.cwd(),
-  'src',
-  '__tests__',
-  'fixtures',
-  'serve-workspace'
-);
+const FIXTURE_ROOT = path.resolve(process.cwd(), 'src', '__tests__', 'fixtures', 'serve-workspace');
 const ASSETS_DIR = path.resolve(process.cwd(), 'dist-web');
 const INDEX_HTML = path.join(ASSETS_DIR, 'index.html');
 
@@ -107,9 +101,9 @@ test.describe('Plan Detail Execute tab (Playwright)', () => {
       // Plan 38's phases are sequential: each task grid uses a single column.
       const grids = page.locator('.phase__tasks');
       for (let i = 0; i < (await grids.count()); i++) {
-        const cols = await grids.nth(i).evaluate(
-          el => getComputedStyle(el as HTMLElement).gridTemplateColumns,
-        );
+        const cols = await grids
+          .nth(i)
+          .evaluate(el => getComputedStyle(el as HTMLElement).gridTemplateColumns);
         // A single-column grid resolves to one track (no space-separated tracks).
         expect(cols.trim().split(/\s+/).length).toBe(1);
       }
@@ -149,9 +143,7 @@ test.describe('Plan Detail Execute tab (Playwright)', () => {
 
       // The Outline still renders a StatusPill per row; done rows carry a
       // `pill--done` pill inside a `.outline__row--done` row.
-      expect(
-        await page.locator('.outline__row--done .pill--done').count()
-      ).toBe(doneCount);
+      expect(await page.locator('.outline__row--done .pill--done').count()).toBe(doneCount);
 
       // Plan 38 has an Execution Summary section, so the callout is present.
       expect(await page.locator('.reader__summary').count()).toBe(1);

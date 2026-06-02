@@ -13,13 +13,7 @@ import { resolvePlan } from '../skill-scripts/shared/plan-resolve';
 import { computeNextTaskId } from '../skill-scripts/shared/task-scan';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const SKILL_DIR = path.join(
-  REPO_ROOT,
-  'templates',
-  'harness',
-  'skills',
-  'st-generate-tasks'
-);
+const SKILL_DIR = path.join(REPO_ROOT, 'templates', 'harness', 'skills', 'st-generate-tasks');
 const writeFile = (filePath: string, contents: string): void => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, contents);
@@ -34,10 +28,7 @@ const taskFrontmatter = (id: number): string =>
 const buildFixtureRoot = (root: string): string => {
   const tm = path.join(root, '.ai', 'strikethroo');
   fs.mkdirSync(tm, { recursive: true });
-  fs.writeFileSync(
-    path.join(tm, '.init-metadata.json'),
-    JSON.stringify({ version: 'test' })
-  );
+  fs.writeFileSync(path.join(tm, '.init-metadata.json'), JSON.stringify({ version: 'test' }));
   return tm;
 };
 
@@ -55,10 +46,7 @@ const buildPlanWithTasks = (
   writeFile(planFile, planFrontmatter(planId));
   taskIds.forEach(tid => {
     const tpad = String(tid).padStart(2, '0');
-    writeFile(
-      path.join(planDir, 'tasks', `${tpad}--task.md`),
-      taskFrontmatter(tid)
-    );
+    writeFile(path.join(planDir, 'tasks', `${tpad}--task.md`), taskFrontmatter(tid));
   });
   return { planDir, planFile };
 };
@@ -154,11 +142,7 @@ describe('st-generate-tasks bundle smoke', () => {
   });
 
   test('find-strikethroo-root.cjs resolves the fixture root', () => {
-    const scriptPath = path.join(
-      fixtureSkillDir,
-      'scripts',
-      'find-strikethroo-root.cjs'
-    );
+    const scriptPath = path.join(fixtureSkillDir, 'scripts', 'find-strikethroo-root.cjs');
     const inner = path.join(tm, 'plans', '12--fixture');
     const stdout = execFileSync('node', [scriptPath], {
       cwd: inner,
@@ -168,11 +152,7 @@ describe('st-generate-tasks bundle smoke', () => {
   });
 
   test('validate-plan-blueprint.cjs returns planFile for a fixture plan', () => {
-    const scriptPath = path.join(
-      fixtureSkillDir,
-      'scripts',
-      'validate-plan-blueprint.cjs'
-    );
+    const scriptPath = path.join(fixtureSkillDir, 'scripts', 'validate-plan-blueprint.cjs');
     const stdout = execFileSync('node', [scriptPath, '12', 'planFile'], {
       cwd: tempDir,
       encoding: 'utf8',
@@ -182,31 +162,22 @@ describe('st-generate-tasks bundle smoke', () => {
   });
 
   test('validate-plan-blueprint.cjs reports taskCount and blueprintExists', () => {
-    const scriptPath = path.join(
-      fixtureSkillDir,
-      'scripts',
-      'validate-plan-blueprint.cjs'
-    );
+    const scriptPath = path.join(fixtureSkillDir, 'scripts', 'validate-plan-blueprint.cjs');
     const countOut = execFileSync('node', [scriptPath, '12', 'taskCount'], {
       cwd: tempDir,
       encoding: 'utf8',
     }).trim();
     expect(parseInt(countOut, 10)).toBe(3);
 
-    const blueprintOut = execFileSync(
-      'node',
-      [scriptPath, '12', 'blueprintExists'],
-      { cwd: tempDir, encoding: 'utf8' }
-    ).trim();
+    const blueprintOut = execFileSync('node', [scriptPath, '12', 'blueprintExists'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+    }).trim();
     expect(blueprintOut).toBe('no');
   });
 
   test('get-next-task-id.cjs bundled script produces correct output', () => {
-    const bundledScript = path.join(
-      fixtureSkillDir,
-      'scripts',
-      'get-next-task-id.cjs'
-    );
+    const bundledScript = path.join(fixtureSkillDir, 'scripts', 'get-next-task-id.cjs');
     const bundled = execFileSync('node', [bundledScript, '12'], {
       cwd: tempDir,
       encoding: 'utf8',

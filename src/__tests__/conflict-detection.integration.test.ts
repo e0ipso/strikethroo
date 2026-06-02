@@ -109,7 +109,6 @@ describe('Conflict Detection Integration Tests', () => {
       expect(metadata?.files['config/STRIKETHROO.md']).toBeDefined();
       expect(metadata?.files['config/hooks/POST_PHASE.md']).toBeDefined();
     });
-
   });
 
   describe('Re-initialization with no changes', () => {

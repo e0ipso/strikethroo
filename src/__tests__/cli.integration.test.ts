@@ -97,7 +97,6 @@ describe('CLI Integration', () => {
       expect(await fs.pathExists(path.join(testDir, '.claude/agents'))).toBe(true);
       expect(await fs.pathExists(path.join(testDir, '.claude/agents/plan-creator.md'))).toBe(true);
     });
-
   });
 
   describe('init — non-Claude harnesses', () => {
@@ -183,9 +182,7 @@ describe('CLI Integration', () => {
     });
 
     it('rejects partially-invalid harness lists', () => {
-      const result = executeCommand(
-        `node "${cliPath}" init --harnesses claude,invalid,gemini`
-      );
+      const result = executeCommand(`node "${cliPath}" init --harnesses claude,invalid,gemini`);
       expect(result.exitCode).toBe(1);
       const output = result.stdout + result.stderr;
       expect(output).toContain('Invalid harness');
@@ -220,27 +217,21 @@ describe('CLI Integration', () => {
     it('creates .agent.md file for github', async () => {
       const result = executeCommand(`node "${cliPath}" init --harnesses github`);
       expect(result.exitCode).toBe(0);
-      expect(
-        await fs.pathExists(path.join(testDir, '.github/agents/plan-creator.agent.md'))
-      ).toBe(true);
+      expect(await fs.pathExists(path.join(testDir, '.github/agents/plan-creator.agent.md'))).toBe(
+        true
+      );
     });
   });
 
   describe('init — multi-harness simultaneous output', () => {
     it('creates agent files for multiple harnesses simultaneously', async () => {
-      const result = executeCommand(
-        `node "${cliPath}" init --harnesses claude,codex,github`
-      );
+      const result = executeCommand(`node "${cliPath}" init --harnesses claude,codex,github`);
       expect(result.exitCode).toBe(0);
-      expect(await fs.pathExists(path.join(testDir, '.claude/agents/plan-creator.md'))).toBe(
+      expect(await fs.pathExists(path.join(testDir, '.claude/agents/plan-creator.md'))).toBe(true);
+      expect(await fs.pathExists(path.join(testDir, '.codex/agents/plan-creator.toml'))).toBe(true);
+      expect(await fs.pathExists(path.join(testDir, '.github/agents/plan-creator.agent.md'))).toBe(
         true
       );
-      expect(await fs.pathExists(path.join(testDir, '.codex/agents/plan-creator.toml'))).toBe(
-        true
-      );
-      expect(
-        await fs.pathExists(path.join(testDir, '.github/agents/plan-creator.agent.md'))
-      ).toBe(true);
     });
   });
 

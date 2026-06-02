@@ -15,14 +15,8 @@ import * as path from 'path';
 import { execFileSync } from 'child_process';
 
 import { findStrikethrooRoot } from '../skill-scripts/shared/root';
-import {
-  getAllPlans,
-  computeNextPlanId,
-} from '../skill-scripts/shared/plan-scan';
-import {
-  _sanitizeBranchName,
-  _extractPlanName,
-} from '../skill-scripts/create-feature-branch';
+import { getAllPlans, computeNextPlanId } from '../skill-scripts/shared/plan-scan';
+import { _sanitizeBranchName, _extractPlanName } from '../skill-scripts/create-feature-branch';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const SKILL_DIR = path.join(REPO_ROOT, 'templates', 'harness', 'skills', 'st-create-plan');
@@ -35,10 +29,7 @@ const writeFile = (filePath: string, contents: string): void => {
 const buildMixedFixture = (root: string): void => {
   const tm = path.join(root, '.ai', 'strikethroo');
   fs.mkdirSync(tm, { recursive: true });
-  fs.writeFileSync(
-    path.join(tm, '.init-metadata.json'),
-    JSON.stringify({ version: 'test' })
-  );
+  fs.writeFileSync(path.join(tm, '.init-metadata.json'), JSON.stringify({ version: 'test' }));
 
   writeFile(
     path.join(tm, 'plans', '03--alpha', 'plan-03--alpha.md'),
@@ -89,10 +80,7 @@ describe('skill-scripts plan ID allocation', () => {
     try {
       const tm = path.join(fresh, '.ai', 'strikethroo');
       fs.mkdirSync(tm, { recursive: true });
-      fs.writeFileSync(
-        path.join(tm, '.init-metadata.json'),
-        JSON.stringify({ version: 'test' })
-      );
+      fs.writeFileSync(path.join(tm, '.init-metadata.json'), JSON.stringify({ version: 'test' }));
       expect(computeNextPlanId(tm)).toBe(1);
     } finally {
       fs.rmSync(fresh, { recursive: true, force: true });
@@ -113,13 +101,7 @@ describe('skill-scripts root discovery', () => {
   });
 
   test('finds the strikethroo root from a nested working directory', () => {
-    const nested = path.join(
-      tempDir,
-      '.ai',
-      'strikethroo',
-      'plans',
-      '03--alpha'
-    );
+    const nested = path.join(tempDir, '.ai', 'strikethroo', 'plans', '03--alpha');
     const found = findStrikethrooRoot(nested);
     expect(found).not.toBeNull();
     expect(path.resolve(found as string)).toBe(
@@ -164,27 +146,17 @@ describe('skill bundle smoke check', () => {
   });
 
   test('find-strikethroo-root.cjs resolves the fixture root', () => {
-    const scriptPath = path.join(
-      fixtureSkillDir,
-      'scripts',
-      'find-strikethroo-root.cjs'
-    );
+    const scriptPath = path.join(fixtureSkillDir, 'scripts', 'find-strikethroo-root.cjs');
     const cwd = path.join(tempDir, '.ai', 'strikethroo', 'plans', '03--alpha');
     const stdout = execFileSync('node', [scriptPath], {
       cwd,
       encoding: 'utf8',
     }).trim();
-    expect(path.resolve(stdout)).toBe(
-      path.resolve(path.join(tempDir, '.ai', 'strikethroo'))
-    );
+    expect(path.resolve(stdout)).toBe(path.resolve(path.join(tempDir, '.ai', 'strikethroo')));
   });
 
   test('get-next-plan-id.cjs bundled script produces correct output', () => {
-    const bundledScript = path.join(
-      fixtureSkillDir,
-      'scripts',
-      'get-next-plan-id.cjs'
-    );
+    const bundledScript = path.join(fixtureSkillDir, 'scripts', 'get-next-plan-id.cjs');
 
     const bundledOut = execFileSync('node', [bundledScript], {
       cwd: tempDir,
@@ -203,9 +175,9 @@ describe('create-feature-branch helpers', () => {
   });
 
   test('_extractPlanName extracts name from id--name pattern', () => {
-    expect(
-      _extractPlanName('/some/path/70--st-execute-blueprint-skill')
-    ).toBe('st-execute-blueprint-skill');
+    expect(_extractPlanName('/some/path/70--st-execute-blueprint-skill')).toBe(
+      'st-execute-blueprint-skill'
+    );
     expect(_extractPlanName('/some/path/unknown')).toBe('unknown');
   });
 });
@@ -213,17 +185,10 @@ describe('create-feature-branch helpers', () => {
 describe('create-feature-branch integration', () => {
   let tempDir: string;
 
-  const buildGitFixture = (
-    root: string,
-    planName: string,
-    planId: number
-  ): string => {
+  const buildGitFixture = (root: string, planName: string, planId: number): string => {
     const tm = path.join(root, '.ai', 'strikethroo');
     fs.mkdirSync(tm, { recursive: true });
-    fs.writeFileSync(
-      path.join(tm, '.init-metadata.json'),
-      JSON.stringify({ version: 'test' })
-    );
+    fs.writeFileSync(path.join(tm, '.init-metadata.json'), JSON.stringify({ version: 'test' }));
     const planDir = path.join(tm, 'plans', `${planId}--${planName}`);
     fs.mkdirSync(planDir, { recursive: true });
     const planFile = path.join(planDir, `plan-${planId}--${planName}.md`);
@@ -367,10 +332,7 @@ describe('st-execute-blueprint bundle smoke check', () => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-smoke-exec-'));
     const tm = path.join(tempDir, '.ai', 'strikethroo');
     fs.mkdirSync(tm, { recursive: true });
-    fs.writeFileSync(
-      path.join(tm, '.init-metadata.json'),
-      JSON.stringify({ version: 'test' })
-    );
+    fs.writeFileSync(path.join(tm, '.init-metadata.json'), JSON.stringify({ version: 'test' }));
     const planDir = path.join(tm, 'plans', '03--alpha');
     fs.mkdirSync(planDir, { recursive: true });
     fs.writeFileSync(
@@ -405,7 +367,9 @@ describe('st-execute-blueprint bundle smoke check', () => {
       encoding: 'utf8',
     }).trim();
     expect(path.resolve(stdout)).toBe(
-      path.resolve(path.join(tempDir, '.ai', 'strikethroo', 'plans', '03--alpha', 'plan-03--alpha.md'))
+      path.resolve(
+        path.join(tempDir, '.ai', 'strikethroo', 'plans', '03--alpha', 'plan-03--alpha.md')
+      )
     );
   });
 
@@ -460,10 +424,7 @@ describe('st-refine-plan bundle smoke check', () => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-smoke-refine-'));
     const tm = path.join(tempDir, '.ai', 'strikethroo');
     fs.mkdirSync(tm, { recursive: true });
-    fs.writeFileSync(
-      path.join(tm, '.init-metadata.json'),
-      JSON.stringify({ version: '1.0.0' })
-    );
+    fs.writeFileSync(path.join(tm, '.init-metadata.json'), JSON.stringify({ version: '1.0.0' }));
     const planDir = path.join(tm, 'plans', '03--alpha');
     fs.mkdirSync(planDir, { recursive: true });
     fs.writeFileSync(
@@ -498,7 +459,9 @@ describe('st-refine-plan bundle smoke check', () => {
       encoding: 'utf8',
     }).trim();
     expect(path.resolve(stdout)).toBe(
-      path.resolve(path.join(tempDir, '.ai', 'strikethroo', 'plans', '03--alpha', 'plan-03--alpha.md'))
+      path.resolve(
+        path.join(tempDir, '.ai', 'strikethroo', 'plans', '03--alpha', 'plan-03--alpha.md')
+      )
     );
   });
 });
@@ -511,10 +474,7 @@ const buildTaskFixture = (
 ): void => {
   const tm = path.join(root, '.ai', 'strikethroo');
   fs.mkdirSync(tm, { recursive: true });
-  fs.writeFileSync(
-    path.join(tm, '.init-metadata.json'),
-    JSON.stringify({ version: 'test' })
-  );
+  fs.writeFileSync(path.join(tm, '.init-metadata.json'), JSON.stringify({ version: 'test' }));
   const paddedPlanId = String(planId).padStart(2, '0');
   const planDir = path.join(tm, 'plans', `${paddedPlanId}--${planName}`);
   fs.mkdirSync(planDir, { recursive: true });
@@ -570,9 +530,7 @@ describe('st-execute-task bundle smoke check', () => {
     const script = path.join(fixtureSkillDir, 'scripts', 'find-strikethroo-root.cjs');
     const cwd = path.join(tempDir, '.ai', 'strikethroo', 'plans', '03--alpha');
     const stdout = execFileSync('node', [script], { cwd, encoding: 'utf8' }).trim();
-    expect(path.resolve(stdout)).toBe(
-      path.resolve(path.join(tempDir, '.ai', 'strikethroo'))
-    );
+    expect(path.resolve(stdout)).toBe(path.resolve(path.join(tempDir, '.ai', 'strikethroo')));
   });
 
   test('validate-plan-blueprint.cjs returns plan file path', () => {
@@ -654,9 +612,7 @@ describe('check-task-dependencies scenarios', () => {
   });
 
   test('no dependencies', () => {
-    buildTaskFixture(tempDir, 1, 'no-deps', [
-      { id: 1, status: 'pending', dependencies: [] },
-    ]);
+    buildTaskFixture(tempDir, 1, 'no-deps', [{ id: 1, status: 'pending', dependencies: [] }]);
     const script = path.join(
       REPO_ROOT,
       'templates',

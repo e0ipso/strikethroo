@@ -9,13 +9,7 @@ import * as path from 'path';
 import { execFileSync } from 'child_process';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const SKILL_DIR = path.join(
-  REPO_ROOT,
-  'templates',
-  'harness',
-  'skills',
-  'st-full-workflow'
-);
+const SKILL_DIR = path.join(REPO_ROOT, 'templates', 'harness', 'skills', 'st-full-workflow');
 const writeFile = (filePath: string, contents: string): void => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, contents);
@@ -24,18 +18,11 @@ const writeFile = (filePath: string, contents: string): void => {
 const buildFixtureRoot = (root: string): string => {
   const tm = path.join(root, '.ai', 'strikethroo');
   fs.mkdirSync(tm, { recursive: true });
-  fs.writeFileSync(
-    path.join(tm, '.init-metadata.json'),
-    JSON.stringify({ version: 'test' })
-  );
+  fs.writeFileSync(path.join(tm, '.init-metadata.json'), JSON.stringify({ version: 'test' }));
   return tm;
 };
 
-const buildGitFixture = (
-  root: string,
-  planName: string,
-  planId: number
-): string => {
+const buildGitFixture = (root: string, planName: string, planId: number): string => {
   const tm = buildFixtureRoot(root);
   const planDir = path.join(tm, 'plans', `${planId}--${planName}`);
   fs.mkdirSync(planDir, { recursive: true });
@@ -111,28 +98,18 @@ describe('st-full-workflow bundle smoke', () => {
   });
 
   test('find-strikethroo-root.cjs resolves fixture root from nested dir', () => {
-    const script = path.join(
-      fixtureSkillDir,
-      'scripts',
-      'find-strikethroo-root.cjs'
-    );
+    const script = path.join(fixtureSkillDir, 'scripts', 'find-strikethroo-root.cjs');
     const cwd = path.join(tempDir, '.ai', 'strikethroo', 'plans', '01--dummy');
     fs.mkdirSync(cwd, { recursive: true });
     const stdout = execFileSync('node', [script], {
       cwd,
       encoding: 'utf8',
     }).trim();
-    expect(path.resolve(stdout)).toBe(
-      path.resolve(path.join(tempDir, '.ai', 'strikethroo'))
-    );
+    expect(path.resolve(stdout)).toBe(path.resolve(path.join(tempDir, '.ai', 'strikethroo')));
   });
 
   test('get-next-plan-id.cjs returns 1 for fresh fixture', () => {
-    const script = path.join(
-      fixtureSkillDir,
-      'scripts',
-      'get-next-plan-id.cjs'
-    );
+    const script = path.join(fixtureSkillDir, 'scripts', 'get-next-plan-id.cjs');
     const stdout = execFileSync('node', [script], {
       cwd: tempDir,
       encoding: 'utf8',
@@ -146,15 +123,8 @@ describe('st-full-workflow bundle smoke', () => {
     const planDir = path.join(tm, 'plans', '05--sample');
     fs.mkdirSync(planDir, { recursive: true });
     const planFile = path.join(planDir, 'plan-05--sample.md');
-    fs.writeFileSync(
-      planFile,
-      '---\nid: 5\nsummary: "sample"\ncreated: 2026-01-01\n---\n'
-    );
-    const script = path.join(
-      fixtureSkillDir,
-      'scripts',
-      'validate-plan-blueprint.cjs'
-    );
+    fs.writeFileSync(planFile, '---\nid: 5\nsummary: "sample"\ncreated: 2026-01-01\n---\n');
+    const script = path.join(fixtureSkillDir, 'scripts', 'validate-plan-blueprint.cjs');
     const stdout = execFileSync('node', [script, '5', 'planFile'], {
       cwd: tempDir,
       encoding: 'utf8',
@@ -164,11 +134,7 @@ describe('st-full-workflow bundle smoke', () => {
 
   test('get-next-task-id.cjs returns 3 for plan with tasks [1, 2]', () => {
     buildPlanWithTasks(tempDir, 7, 'sample', [1, 2]);
-    const script = path.join(
-      fixtureSkillDir,
-      'scripts',
-      'get-next-task-id.cjs'
-    );
+    const script = path.join(fixtureSkillDir, 'scripts', 'get-next-task-id.cjs');
     const stdout = execFileSync('node', [script, '7'], {
       cwd: tempDir,
       encoding: 'utf8',
@@ -179,11 +145,7 @@ describe('st-full-workflow bundle smoke', () => {
 
   test('create-feature-branch.cjs creates and switches to feature branch', () => {
     const planFile = buildGitFixture(tempDir, 'my-plan', 9);
-    const script = path.join(
-      fixtureSkillDir,
-      'scripts',
-      'create-feature-branch.cjs'
-    );
+    const script = path.join(fixtureSkillDir, 'scripts', 'create-feature-branch.cjs');
     const stdout = execFileSync('node', [script, planFile], {
       cwd: tempDir,
       encoding: 'utf8',
@@ -196,4 +158,3 @@ describe('st-full-workflow bundle smoke', () => {
     expect(branches).toContain('feature/9--my-plan');
   });
 });
-

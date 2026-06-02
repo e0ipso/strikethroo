@@ -150,9 +150,9 @@ describe('archivePlan operation against fixtures', () => {
     expect(fs.existsSync(path.join(root, 'archive', '12--example', 'plan-12--example.md'))).toBe(
       true
     );
-    expect(
-      fs.existsSync(path.join(root, 'archive', '12--example', 'tasks', '01--first.md'))
-    ).toBe(true);
+    expect(fs.existsSync(path.join(root, 'archive', '12--example', 'tasks', '01--first.md'))).toBe(
+      true
+    );
   });
 
   it('rejects a non-done plan with reason not-done and no filesystem change', async () => {

@@ -28,13 +28,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { startServer, ServeHandle } from '../serve/server';
 import type { PlanSummary } from '../serve/workspace-model';
 
-const FIXTURE_ROOT = path.resolve(
-  process.cwd(),
-  'src',
-  '__tests__',
-  'fixtures',
-  'serve-workspace'
-);
+const FIXTURE_ROOT = path.resolve(process.cwd(), 'src', '__tests__', 'fixtures', 'serve-workspace');
 const ASSETS_DIR = path.resolve(process.cwd(), 'dist-web');
 const INDEX_HTML = path.join(ASSETS_DIR, 'index.html');
 
@@ -87,7 +81,12 @@ const writeFixturePlan = (root: string, count: number): PlanFiles => {
     );
     taskFiles.push(file);
   }
-  return { id: FIXTURE_ID, dir, planFile: path.join(dir, `plan-${FIXTURE_ID}--${FIXTURE_SLUG}.md`), taskFiles };
+  return {
+    id: FIXTURE_ID,
+    dir,
+    planFile: path.join(dir, `plan-${FIXTURE_ID}--${FIXTURE_SLUG}.md`),
+    taskFiles,
+  };
 };
 
 /** Rewrites the `status:` frontmatter of a task file to `value`. */
@@ -218,11 +217,9 @@ test.describe('Live updates: SSE client (Playwright)', () => {
         path.join(dir, `plan-${throwawayId}--${slug}.md`),
         `---\nid: ${throwawayId}\nsummary: "Throwaway"\ncreated: "2026-05-29"\n---\n\n# ${slug}\n`
       );
-      await page.waitForFunction(
-        s => document.body.textContent?.includes(s) ?? false,
-        rendered,
-        { timeout: 5_000 }
-      );
+      await page.waitForFunction(s => document.body.textContent?.includes(s) ?? false, rendered, {
+        timeout: 5_000,
+      });
 
       // Remove it; it must disappear live.
       fs.rmSync(dir, { recursive: true, force: true });

@@ -1,3 +1,18 @@
+## 3.3.0 (2026-06-02)
+
+* Merge remote-tracking branch 'origin/main' ([dc58000](https://github.com/e0ipso/strikethroo/commit/dc58000))
+* feat(capture): repeatable captures via fixture ([8f4f0a1](https://github.com/e0ipso/strikethroo/commit/8f4f0a1))
+* feat(web): drop view tabs from Archive screen ([94cf101](https://github.com/e0ipso/strikethroo/commit/94cf101))
+* feat(web): editable Customize card grid + editor ([46e8db5](https://github.com/e0ipso/strikethroo/commit/46e8db5))
+* feat(web): show hosting project in sidebar footer ([233f39c](https://github.com/e0ipso/strikethroo/commit/233f39c))
+* docs(web-app): add capture harness and visuals ([776cbcb](https://github.com/e0ipso/strikethroo/commit/776cbcb))
+* fix: minor improvements ([677eec2](https://github.com/e0ipso/strikethroo/commit/677eec2))
+* build: add lint-staged for lint and format ([a0019d0](https://github.com/e0ipso/strikethroo/commit/a0019d0))
+* chore: fix formatting ([e26114f](https://github.com/e0ipso/strikethroo/commit/e26114f))
+* chore: remove dist assets from the repo ([92b10a8](https://github.com/e0ipso/strikethroo/commit/92b10a8))
+* chore(lint): lint tsx and test files, fix violations ([0a36468](https://github.com/e0ipso/strikethroo/commit/0a36468))
+* test(web): rewrite Customize e2e for the redesign ([72a3c84](https://github.com/e0ipso/strikethroo/commit/72a3c84))
+
 ## 3.2.0 (2026-06-01)
 
 * feat(web): drop the List view from the Plans switcher ([bdb46a2](https://github.com/e0ipso/strikethroo/commit/bdb46a2))

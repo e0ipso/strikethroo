@@ -6,10 +6,13 @@
  * `plan · id`, title, summary, progress dots (via `progressDots`), a
  * `done/total · N phase(s)` line, a footer date, and a Review action for
  * drafted plans. Cards with no tasks show the "no tasks generated yet"
- * affordance. View switching / Chrome belong to the Task 006 route container.
+ * affordance. With no plans at all, a centered empty-state message replaces
+ * the grid (mirroring the Board view's per-column "empty" affordance and the
+ * Archive screen's empty state). View switching / Chrome belong to the Task
+ * 006 route container.
  */
 
-import { Button, StatusPill } from '../components/primitives';
+import { Button, Chip, StatusPill } from '../components/primitives';
 import { useNavigate } from '../router';
 import { cn } from '../vendor/utils/cn';
 import { progressDots, planMdPath, type PlanView } from './derive';
@@ -25,6 +28,21 @@ export interface PlansCardViewProps {
 /** The Cards (grid) view of the active plans. */
 export function PlansCardView({ plans, openReview, openArchive }: PlansCardViewProps) {
   const navigate = useNavigate();
+
+  if (plans.length === 0) {
+    return (
+      <div
+        data-testid="plans-empty"
+        className="flex flex-1 flex-col items-center justify-center gap-1.5 px-7 py-12 text-center"
+      >
+        <div className="font-display text-2xl font-semibold text-ink">No plans yet</div>
+        <div className="max-w-md text-base text-ink-3">
+          Plans are produced by the <Chip>st-create-plan</Chip> skill running inside your AI
+          assistant and appear here automatically.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="grid flex-1 grid-cols-1 content-start gap-6 overflow-y-auto px-7 py-6 sm:grid-cols-2 lg:grid-cols-3">

@@ -177,7 +177,7 @@ Each skill's `SKILL.md` prompt is assembled at build time from source templates 
 
 The entrypoint → skill mapping is the `SKILL_ENTRYPOINTS` array at the top of `scripts/build-skills.cjs`, which currently registers six shipping skills. To add a future skill: drop a TypeScript entrypoint under `src/skill-scripts/`, add an entry to `SKILL_ENTRYPOINTS`, add the skill's path to `.claude-plugin/plugin.json`, create a source template in `src/skill-prompts/`, and `npm run build` produces both the bundled `.cjs` and assembled `SKILL.md` alongside the skill. No other plumbing changes are needed.
 
-There are three categories of generated-but-shipped artifacts, all git-ignored on `main` and force-added into the release commit by `@semantic-release/git` (which uses `git add --force`): (1) the bundled `.cjs` files under `templates/harness/skills/*/scripts/`, (2) the assembled `SKILL.md` files under `templates/harness/skills/*/`, and (3) the prebuilt SPA under `dist-web/`. The skill bundles and prompts ship in the published npm package via the `files: ["templates/"]` entry in `package.json` (which covers all skill content); the SPA ships via the `files: ["dist-web/"]` entry (verify all three with `npm pack --dry-run`).
+There are two categories of generated artifacts that are git-ignored on `main` yet force-added into the release commit by `@semantic-release/git` (which uses `git add --force`): (1) the bundled `.cjs` files under `templates/harness/skills/*/scripts/`, and (2) the assembled `SKILL.md` files under `templates/harness/skills/*/`. These must live at the tagged git ref because `npx skills add e0ipso/strikethroo@<tag>` reads `templates/` directly from that ref. The prebuilt SPA under `dist-web/` is **not** committed to git (no git-tag consumer reads it — only the npm package's `serve` does); it stays git-ignored on `main` and ships solely through the published npm package via the `files: ["dist-web/"]` entry in `package.json`, built fresh by `prepublishOnly`/CI before publish. The skill bundles and prompts also ship in the npm package via `files: ["templates/"]` (verify with `npm pack --dry-run`).
 
 ### Distribution
 
@@ -202,14 +202,15 @@ A post-build smoke assertion in `scripts/build-skills.cjs` fails the build if th
 
 ### GitHub Releases
 
-Releases are handled by `semantic-release` via `.github/workflows/release.yml`, triggered on push to `main`. The workflow runs `npm ci && npm run build && npx playwright install --with-deps chromium && npm test` (the Playwright browser install is required because `npm test`'s e2e half runs on `@playwright/test` against a real Chromium), then `npx semantic-release` which: analyzes commits, bumps the version, publishes to npm, and creates a GitHub release with a git tag. The `@semantic-release/git` plugin's `assets` glob includes `templates/harness/skills/*/scripts/*.cjs`, `templates/harness/skills/*/SKILL.md`, and `dist-web/**`, so the otherwise git-ignored skill bundles, assembled prompts, and prebuilt SPA are force-added into the release commit. The tagged ref is self-contained so `npx skills add e0ipso/strikethroo@<tag>` resolves a fully installable input.
+Releases are handled by `semantic-release` via `.github/workflows/release.yml`, triggered on push to `main`. The workflow runs `npm ci && npm run build && npx playwright install --with-deps chromium && npm test` (the Playwright browser install is required because `npm test`'s e2e half runs on `@playwright/test` against a real Chromium), then `npx semantic-release` which: analyzes commits, bumps the version, publishes to npm, and creates a GitHub release with a git tag. The `@semantic-release/git` plugin's `assets` glob includes `templates/harness/skills/*/scripts/*.cjs` and `templates/harness/skills/*/SKILL.md`, so the otherwise git-ignored skill bundles and assembled prompts are force-added into the release commit. The tagged ref is self-contained for the skills channel so `npx skills add e0ipso/strikethroo@<tag>` resolves a fully installable input. The prebuilt SPA (`dist-web/`) is deliberately **not** in the assets glob — it has no git-tag consumer and ships only via the npm package's `files` entry.
 
 Verify the invariant:
 
 ```bash
 git ls-tree -r v<tag> -- 'templates/harness/skills/*/scripts/*.cjs'   # expect: bundles listed
 git ls-tree -r v<tag> -- 'templates/harness/skills/*/SKILL.md'        # expect: prompts listed
-git ls-tree -r v<tag> -- 'dist-web/*'                                 # expect: SPA assets listed
+git ls-tree -r v<tag> -- 'dist-web/*'                                 # expect: EMPTY (SPA ships via npm, not git)
+npm pack --dry-run | grep dist-web                                    # expect: SPA assets in the tarball
 ```
 
 Release commits are labeled `chore(release):` in the subject and carry `[skip ci]` to avoid re-triggering the workflow.

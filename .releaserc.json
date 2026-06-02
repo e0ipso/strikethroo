@@ -90,8 +90,7 @@
           "package.json",
           "package-lock.json",
           "templates/harness/skills/*/scripts/*.cjs",
-          "templates/harness/skills/*/SKILL.md",
-          "dist-web/**"
+          "templates/harness/skills/*/SKILL.md"
         ],
         "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
       }

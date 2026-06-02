@@ -140,7 +140,7 @@ describe('archivePlan operation against fixtures', () => {
   });
 
   it('moves a done plan from plans/ to archive/ and returns the updated model', async () => {
-    const result = await archivePlan(root, 12);
+    const result = await archivePlan(root, '12--example');
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
@@ -157,7 +157,7 @@ describe('archivePlan operation against fixtures', () => {
 
   it('rejects a non-done plan with reason not-done and no filesystem change', async () => {
     const before = checksumTree(root);
-    const result = await archivePlan(root, 13);
+    const result = await archivePlan(root, '13--active');
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toBe('not-done');
@@ -165,9 +165,9 @@ describe('archivePlan operation against fixtures', () => {
     expect(checksumTree(root)).toEqual(before);
   });
 
-  it('rejects an unknown plan id with reason not-found', async () => {
+  it('rejects an unknown plan name with reason not-found', async () => {
     const before = checksumTree(root);
-    const result = await archivePlan(root, 999);
+    const result = await archivePlan(root, '999--nope');
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toBe('not-found');
@@ -175,9 +175,9 @@ describe('archivePlan operation against fixtures', () => {
   });
 
   it('rejects re-archiving an already-archived plan', async () => {
-    const first = await archivePlan(root, 12);
+    const first = await archivePlan(root, '12--example');
     expect(first.ok).toBe(true);
-    const second = await archivePlan(root, 12);
+    const second = await archivePlan(root, '12--example');
     expect(second.ok).toBe(false);
     if (second.ok) return;
     expect(second.reason).toBe('already-archived');
@@ -186,7 +186,7 @@ describe('archivePlan operation against fixtures', () => {
   it('refuses to overwrite an existing archive destination', async () => {
     fs.mkdirSync(path.join(root, 'archive', '12--example'), { recursive: true });
     const before = checksumTree(root);
-    const result = await archivePlan(root, 12);
+    const result = await archivePlan(root, '12--example');
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toBe('destination-exists');
@@ -199,7 +199,7 @@ describe('archivePlan operation against fixtures', () => {
 
   it('preserves file contents byte-for-byte across the move (no-write invariant)', async () => {
     const planFiles = checksumTree(path.join(root, 'plans', '12--example'));
-    const result = await archivePlan(root, 12);
+    const result = await archivePlan(root, '12--example');
     expect(result.ok).toBe(true);
     const archivedFiles = checksumTree(path.join(root, 'archive', '12--example'));
     expect(archivedFiles).toEqual(planFiles);
@@ -227,7 +227,7 @@ describe('POST /api/plans/:id/archive endpoint against fixtures', () => {
   });
 
   it('archives a done plan: 200 with the updated model and the directory moved', async () => {
-    const res = await httpRequest(`${handle.url}/api/plans/12/archive`, 'POST');
+    const res = await httpRequest(`${handle.url}/api/plans/12--example/archive`, 'POST');
     expect(res.status).toBe(200);
     const body = JSON.parse(res.body);
     expect(body.id).toBe(12);
@@ -238,7 +238,7 @@ describe('POST /api/plans/:id/archive endpoint against fixtures', () => {
 
   it('returns 409 for a non-done plan with an actionable message and no FS change', async () => {
     const before = checksumTree(root);
-    const res = await httpRequest(`${handle.url}/api/plans/13/archive`, 'POST');
+    const res = await httpRequest(`${handle.url}/api/plans/13--active/archive`, 'POST');
     expect(res.status).toBe(409);
     expect(typeof JSON.parse(res.body).error).toBe('string');
     expect(checksumTree(root)).toEqual(before);
@@ -246,15 +246,44 @@ describe('POST /api/plans/:id/archive endpoint against fixtures', () => {
 
   it('returns 404 for an unknown plan id with no FS change', async () => {
     const before = checksumTree(root);
-    const res = await httpRequest(`${handle.url}/api/plans/999/archive`, 'POST');
+    const res = await httpRequest(`${handle.url}/api/plans/999--nope/archive`, 'POST');
     expect(res.status).toBe(404);
     expect(typeof JSON.parse(res.body).error).toBe('string');
     expect(checksumTree(root)).toEqual(before);
   });
 
-  it('returns 400 for a non-numeric plan id', async () => {
-    const res = await httpRequest(`${handle.url}/api/plans/not-a-number/archive`, 'POST');
-    expect(res.status).toBe(400);
+  it('returns 400 for an invalid composite key', async () => {
+    // A bare numeric id no longer satisfies the composite grammar (clean break),
+    // and a free-form string is rejected before any lookup.
+    const numeric = await httpRequest(`${handle.url}/api/plans/12/archive`, 'POST');
+    expect(numeric.status).toBe(400);
+    const garbage = await httpRequest(`${handle.url}/api/plans/not-a-valid-key/archive`, 'POST');
+    expect(garbage.status).toBe(400);
+  });
+
+  it('rejects traversal payloads in the id segment with no filesystem change', async () => {
+    const before = checksumTree(root);
+    // Encoded separators / parent refs / backslash / empty — each must fail the
+    // grammar after a single decode, return 400, and never read or move a file
+    // outside the workspace (no plan directory is constructed from the segment).
+    // NB: these encode their separators (%2f/%5c) so the WHATWG URL parser in the
+    // test client does not collapse them as dot-segments before they reach the
+    // server — each arrives as one route segment and must fail the grammar there.
+    const payloads = [
+      '..%2f..%2f..%2fetc%2fpasswd',
+      '..%5c..%5cwindows',
+      '12--example%2f..%2f..',
+      '12--example..%2f..',
+    ];
+    for (const payload of payloads) {
+      const res = await httpRequest(`${handle.url}/api/plans/${payload}/archive`, 'POST');
+      expect(res.status).toBe(400);
+      // The response never leaks file contents from outside the workspace.
+      expect(res.body).not.toMatch(/root:.*:0:0:/);
+    }
+    expect(checksumTree(root)).toEqual(before);
+    // The real done plan is still present and unarchived.
+    expect(fs.existsSync(path.join(root, 'plans', '12--example'))).toBe(true);
   });
 
   it('mutation-surface audit: archive is the only route that writes the workspace', async () => {
@@ -267,10 +296,10 @@ describe('POST /api/plans/:id/archive endpoint against fixtures', () => {
     await httpRequest(`${handle.url}/api/plans`, 'POST');
     await httpRequest(`${handle.url}/api/plans`, 'DELETE');
     await httpRequest(`${handle.url}/api/config`, 'POST');
-    await httpRequest(`${handle.url}/api/plans/12`, 'PUT');
-    await httpRequest(`${handle.url}/api/plans/12`, 'DELETE');
+    await httpRequest(`${handle.url}/api/plans/12--example`, 'PUT');
+    await httpRequest(`${handle.url}/api/plans/12--example`, 'DELETE');
     // A non-POST method on the archive path must NOT archive.
-    await httpRequest(`${handle.url}/api/plans/12/archive`, 'DELETE');
+    await httpRequest(`${handle.url}/api/plans/12--example/archive`, 'DELETE');
     // self-review with an invalid path is rejected before any spawn.
     await httpRequest(`${handle.url}/api/self-review`, 'POST', JSON.stringify({ path: '' }));
 
@@ -278,7 +307,7 @@ describe('POST /api/plans/:id/archive endpoint against fixtures', () => {
     expect(fs.existsSync(path.join(root, 'plans', '12--example'))).toBe(true);
 
     // The archive POST is the one request that does mutate the workspace.
-    const res = await httpRequest(`${handle.url}/api/plans/12/archive`, 'POST');
+    const res = await httpRequest(`${handle.url}/api/plans/12--example/archive`, 'POST');
     expect(res.status).toBe(200);
     expect(checksumTree(root)).not.toEqual(before);
   });

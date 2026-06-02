@@ -8,7 +8,7 @@
  * Results markdown, the Graph, and the Execution blueprint (Tasks). The route
  * has no tab in its URL — tab selection is local UI state, mirroring the design
  * where each Plan Detail screen shares one Chrome and differs only in body. The
- * Tasks tab renders the Execution blueprint (Swimlanes / Outline) via
+ * Tasks tab renders the Execution blueprint (Swimlanes) via
  * `ExecuteTab`. The tab strip itself is rendered (with Tailwind utilities) by
  * the shared `Chrome`; this container only supplies the tab data + state.
  *
@@ -47,7 +47,7 @@ function LoadedRoute({ detail }: { detail: PlanDetail }) {
   const title = humanizeSlug(slug);
 
   // The plan markdown path self-review opens.
-  const planPath = planMdPath({ id: detail.id, slug });
+  const planPath = planMdPath({ name: detail.name });
 
   // The header Review action launches self-review directly when the binary is
   // installed. When it isn't (or a launch fails), fall back to the modal — the

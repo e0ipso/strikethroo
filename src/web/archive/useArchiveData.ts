@@ -23,6 +23,7 @@ const mapArchivePlan = (api: PlanSummary): ArchivePlanView => {
   const slug = stripIdPrefix(api.name);
   return {
     id: api.id,
+    name: api.name,
     slug,
     title: humanizeSlug(slug),
     summary: api.summary ?? '',

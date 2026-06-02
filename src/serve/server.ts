@@ -126,20 +126,44 @@ const sendJson = (res: http.ServerResponse, status: number, body: unknown): void
   res.end(payload);
 };
 
-/** Parses `/api/plans/:id` -> numeric id, or `null` if the segment is not numeric. */
-const parsePlanId = (pathname: string): number | null => {
-  const match = /^\/api\/plans\/([^/]+)\/?$/.exec(pathname);
-  if (!match || match[1] === undefined) return null;
-  const id = Number(decodeURIComponent(match[1]));
-  return Number.isInteger(id) && id >= 0 ? id : null;
+/** The composite plan key grammar: `{id}--{slug}`, e.g. `28--plan-name`. */
+const COMPOSITE_KEY = /^[0-9]+--[a-z0-9-]+$/;
+
+/**
+ * Validates a captured route segment as a composite plan key (`{id}--{slug}`).
+ * URL-decodes exactly once, then accepts the result only if it is non-empty,
+ * carries no path separator (`/`, `\`), no `..`, no NUL byte, no leading `.`,
+ * and matches the composite grammar. The grammar already excludes separators
+ * and dots; the explicit checks are defense-in-depth. Returns the validated key
+ * string, or `null`. No path is ever constructed from the segment.
+ */
+const validateCompositeKey = (segment: string): string | null => {
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(segment);
+  } catch {
+    return null;
+  }
+  if (decoded === '') return null;
+  if (decoded.includes('/') || decoded.includes('\\') || decoded.includes('..')) return null;
+  if (decoded.includes('\0')) return null;
+  if (decoded.startsWith('.')) return null;
+  if (!COMPOSITE_KEY.test(decoded)) return null;
+  return decoded;
 };
 
-/** Parses `/api/plans/:id/archive` -> numeric id, or `null` if not numeric. */
-const parseArchivePlanId = (pathname: string): number | null => {
+/** Parses `/api/plans/:key` -> composite key, or `null` if it fails validation. */
+const parsePlanId = (pathname: string): string | null => {
+  const match = /^\/api\/plans\/([^/]+)\/?$/.exec(pathname);
+  if (!match || match[1] === undefined) return null;
+  return validateCompositeKey(match[1]);
+};
+
+/** Parses `/api/plans/:key/archive` -> composite key, or `null` if it fails validation. */
+const parseArchivePlanId = (pathname: string): string | null => {
   const match = /^\/api\/plans\/([^/]+)\/archive\/?$/.exec(pathname);
   if (!match || match[1] === undefined) return null;
-  const id = Number(decodeURIComponent(match[1]));
-  return Number.isInteger(id) && id >= 0 ? id : null;
+  return validateCompositeKey(match[1]);
 };
 
 /**
@@ -148,13 +172,13 @@ const parseArchivePlanId = (pathname: string): number | null => {
  * without duplicating validation. Returns `true` once it owns the response.
  */
 const handleArchive = (res: http.ServerResponse, root: string, pathname: string): boolean => {
-  const id = parseArchivePlanId(pathname);
-  if (id === null) {
+  const key = parseArchivePlanId(pathname);
+  if (key === null) {
     sendJson(res, 400, { error: 'Invalid plan id.' });
     return true;
   }
 
-  archivePlan(root, id)
+  archivePlan(root, key)
     .then(result => {
       if (result.ok) {
         sendJson(res, 200, result.plan);
@@ -199,14 +223,14 @@ const handleApi = (res: http.ServerResponse, root: string, pathname: string): bo
     }
 
     if (/^\/api\/plans\/[^/]+\/?$/.test(pathname)) {
-      const id = parsePlanId(pathname);
-      if (id === null) {
+      const key = parsePlanId(pathname);
+      if (key === null) {
         sendJson(res, 404, { error: 'Invalid plan id' });
         return true;
       }
-      const detail = getPlanDetail(root, id);
+      const detail = getPlanDetail(root, key);
       if (!detail) {
-        sendJson(res, 404, { error: `Plan ${id} not found` });
+        sendJson(res, 404, { error: `Plan ${key} not found` });
         return true;
       }
       sendJson(res, 200, detail);

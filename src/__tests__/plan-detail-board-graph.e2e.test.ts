@@ -83,7 +83,9 @@ test.describe('Plan Detail Graph (Playwright)', () => {
       assetsDir: ASSETS_DIR,
       debounceMs: 150,
     });
-    plan38 = (await (await fetch(`${liveHandle.url}/api/plans/38`)).json()) as PlanDetail;
+    plan38 = (await (
+      await fetch(`${liveHandle.url}/api/plans/38--fix-jekyll-link-baseurl`)
+    ).json()) as PlanDetail;
   });
 
   test.afterAll(async () => {
@@ -92,7 +94,9 @@ test.describe('Plan Detail Graph (Playwright)', () => {
 
   /** Opens plan 38 and clicks the Graph tab. */
   const openGraph = async (page: Page): Promise<void> => {
-    await page.goto(`${liveHandle.url}/plans/38`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${liveHandle.url}/plans/38--fix-jekyll-link-baseurl`, {
+      waitUntil: 'domcontentloaded',
+    });
     await page.getByRole('tablist').waitFor();
     await page.getByRole('tab', { name: 'Graph' }).click();
     await page.getByTestId('graph').waitFor();
@@ -159,7 +163,7 @@ test.describe('Plan Detail Graph (Playwright)', () => {
       debounceMs: 150,
     });
     try {
-      await page.goto(`${handle.url}/plans/881`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`${handle.url}/plans/881--no-diagram`, { waitUntil: 'domcontentloaded' });
       await page.getByRole('tablist').waitFor();
       await page.getByRole('tab', { name: 'Graph' }).click();
       await page.getByTestId('graph').waitFor();
@@ -190,7 +194,9 @@ test.describe('Plan Detail Graph (Playwright)', () => {
       debounceMs: 150,
     });
     try {
-      await page.goto(`${handle.url}/plans/882`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`${handle.url}/plans/882--malformed-diagram`, {
+        waitUntil: 'domcontentloaded',
+      });
       await page.getByRole('tablist').waitFor();
       await page.getByRole('tab', { name: 'Graph' }).click();
       await page.getByTestId('graph').waitFor();

@@ -24,6 +24,7 @@ import {
 
 /** Builds an archived-plan view with sensible defaults. */
 const plan = (over: Partial<ArchivePlanView> & Pick<ArchivePlanView, 'id'>): ArchivePlanView => ({
+  name: `${over.id}--slug-${over.id}`,
   slug: `slug-${over.id}`,
   title: `Title ${over.id}`,
   summary: `Summary ${over.id}`,

@@ -130,7 +130,9 @@ test.describe('app shell (Playwright)', () => {
   }) => {
     page.setDefaultTimeout(15_000);
     try {
-      await page.goto(`${full.url}/plans/38`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`${full.url}/plans/38--fix-jekyll-link-baseurl`, {
+        waitUntil: 'domcontentloaded',
+      });
       await page.getByRole('tablist').waitFor();
       expect(await page.getByRole('tab').count()).toBeGreaterThan(0);
       // Plans nav highlights for planDetail.
@@ -139,13 +141,13 @@ test.describe('app shell (Playwright)', () => {
       // A hard refresh restores the same deep-linked route (SPA fallback).
       await page.reload({ waitUntil: 'domcontentloaded' });
       await page.getByRole('tablist').waitFor();
-      expect(page.url()).toContain('/plans/38');
+      expect(page.url()).toContain('/plans/38--fix-jekyll-link-baseurl');
 
       // Back/forward through the History API.
       await page.getByRole('navigation').getByText('Customize', { exact: true }).click();
       await page.waitForFunction(() => location.pathname === '/customize');
       await page.goBack();
-      await page.waitForFunction(() => location.pathname === '/plans/38');
+      await page.waitForFunction(() => location.pathname === '/plans/38--fix-jekyll-link-baseurl');
       await page.getByRole('tablist').waitFor();
       await page.goForward();
       await page.waitForFunction(() => location.pathname === '/customize');

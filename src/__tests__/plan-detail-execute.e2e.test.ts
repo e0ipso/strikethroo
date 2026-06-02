@@ -55,7 +55,9 @@ test.describe('Plan Detail Tasks tab (Playwright)', () => {
       assetsDir: ASSETS_DIR,
       debounceMs: 150,
     });
-    plan38 = (await (await fetch(`${liveHandle.url}/api/plans/38`)).json()) as PlanDetail;
+    plan38 = (await (
+      await fetch(`${liveHandle.url}/api/plans/38--fix-jekyll-link-baseurl`)
+    ).json()) as PlanDetail;
   });
 
   test.afterAll(async () => {
@@ -64,7 +66,9 @@ test.describe('Plan Detail Tasks tab (Playwright)', () => {
 
   /** Opens plan 38 and clicks the Tasks tab to reach the Swimlanes blueprint. */
   const openExecute = async (page: Page): Promise<void> => {
-    await page.goto(`${liveHandle.url}/plans/38`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${liveHandle.url}/plans/38--fix-jekyll-link-baseurl`, {
+      waitUntil: 'domcontentloaded',
+    });
     await page.getByRole('tablist').waitFor();
     await page.getByRole('tab', { name: 'Tasks' }).click();
     await page.getByTestId('swimlanes').waitFor();

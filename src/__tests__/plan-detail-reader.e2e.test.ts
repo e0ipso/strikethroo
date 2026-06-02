@@ -110,7 +110,7 @@ test.describe('Plan Detail Reader (Playwright)', () => {
     // First active plan with at least one task — a stable, real Reader target.
     livePlan = plans.find(p => !p.archived && p.total > 0) ?? plans[0]!;
     liveDetail = (await (
-      await fetch(`${liveHandle.url}/api/plans/${livePlan.id}`)
+      await fetch(`${liveHandle.url}/api/plans/${livePlan.name}`)
     ).json()) as PlanDetail;
   });
 
@@ -121,7 +121,9 @@ test.describe('Plan Detail Reader (Playwright)', () => {
   test('renders a live plan: Plan tab active, prose + rail from the API', async ({ page }) => {
     page.setDefaultTimeout(15_000);
     try {
-      await page.goto(`${liveHandle.url}/plans/${livePlan.id}`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`${liveHandle.url}/plans/${livePlan.name}`, {
+        waitUntil: 'domcontentloaded',
+      });
 
       // The two-column reader (prose + blueprint rail) is present.
       await page.getByTestId('reader').waitFor();
@@ -150,12 +152,18 @@ test.describe('Plan Detail Reader (Playwright)', () => {
     }
   });
 
-  test('renders /plans/38 faithfully from the live API (rail + prose)', async ({ page }) => {
+  test('renders /plans/38--fix-jekyll-link-baseurl faithfully from the live API (rail + prose)', async ({
+    page,
+  }) => {
     page.setDefaultTimeout(15_000);
     try {
-      const detail = (await (await fetch(`${liveHandle.url}/api/plans/38`)).json()) as PlanDetail;
+      const detail = (await (
+        await fetch(`${liveHandle.url}/api/plans/38--fix-jekyll-link-baseurl`)
+      ).json()) as PlanDetail;
 
-      await page.goto(`${liveHandle.url}/plans/38`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`${liveHandle.url}/plans/38--fix-jekyll-link-baseurl`, {
+        waitUntil: 'domcontentloaded',
+      });
       await page.getByTestId('reader').waitFor();
 
       // Rail matches plan 38's actual derived phases/tasks (live, not the
@@ -184,7 +192,9 @@ test.describe('Plan Detail Reader (Playwright)', () => {
       debounceMs: 150,
     });
     try {
-      await page.goto(`${handle.url}/plans/701`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`${handle.url}/plans/701--hostile-fixture`, {
+        waitUntil: 'domcontentloaded',
+      });
       await page.getByTestId('reader').waitFor();
 
       // The injected script never ran.
@@ -218,7 +228,9 @@ test.describe('Plan Detail Reader (Playwright)', () => {
       debounceMs: 150,
     });
     try {
-      await page.goto(`${handle.url}/plans/702`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`${handle.url}/plans/702--mermaid-fixture`, {
+        waitUntil: 'domcontentloaded',
+      });
       await page.getByTestId('reader-mermaid').waitFor();
 
       // The fence's raw source stays available in the affordance's <details>.
@@ -251,7 +263,9 @@ test.describe('Plan Detail Reader (Playwright)', () => {
       debounceMs: 150,
     });
     try {
-      await page.goto(`${handle.url}/plans/703`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`${handle.url}/plans/703--results-fixture`, {
+        waitUntil: 'domcontentloaded',
+      });
       await page.getByTestId('reader').waitFor();
 
       // Plan tab: shows the narrative section but NOT Notes / Execution Blueprint.

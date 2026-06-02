@@ -92,18 +92,27 @@ describe('serve server: read-only JSON API', () => {
     expect(plan38.total).toBeGreaterThan(0);
   });
 
-  it('GET /api/plans/38 returns the task list and a non-empty mermaid string', async () => {
-    const res = await httpGet(`${handle.url}/api/plans/38`);
+  it('GET /api/plans/:name (composite) returns the task list and a non-empty mermaid string', async () => {
+    const res = await httpGet(`${handle.url}/api/plans/38--fix-jekyll-link-baseurl`);
     expect(res.status).toBe(200);
     const detail = JSON.parse(res.body);
+    expect(detail.id).toBe(38);
+    expect(detail.name).toBe('38--fix-jekyll-link-baseurl');
     expect(Array.isArray(detail.tasks)).toBe(true);
     expect(detail.tasks.length).toBeGreaterThan(0);
     expect(detail.mermaid.length).toBeGreaterThan(0);
     expect(detail.mermaid[0].source.length).toBeGreaterThan(0);
   });
 
-  it('GET /api/plans/:id with an unknown id returns 404 with a JSON error body', async () => {
-    const res = await httpGet(`${handle.url}/api/plans/999999`);
+  it('GET /api/plans/:id by bare numeric id no longer resolves (clean break)', async () => {
+    const res = await httpGet(`${handle.url}/api/plans/38`);
+    expect(res.status).toBe(404);
+    const body = JSON.parse(res.body);
+    expect(typeof body.error).toBe('string');
+  });
+
+  it('GET /api/plans/:name with a grammar-valid but unknown name returns 404', async () => {
+    const res = await httpGet(`${handle.url}/api/plans/999999--nope`);
     expect(res.status).toBe(404);
     const body = JSON.parse(res.body);
     expect(typeof body.error).toBe('string');

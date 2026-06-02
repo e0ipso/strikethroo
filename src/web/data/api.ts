@@ -293,14 +293,15 @@ export interface ArchiveResult {
 
 /**
  * Asks the server to archive a done plan — the SPA's single permitted workspace
- * mutation — which moves its directory from `plans/` to `archive/`. Never
- * throws: a network or non-2xx failure resolves to `{ ok: false, error }`. On
- * success the server's `changed` SSE event drives the plan list to revalidate,
- * so callers typically just close their confirmation UI.
+ * mutation — which moves its directory from `plans/` to `archive/`. Addressed by
+ * the plan's composite `name` (`{id}--{slug}`), the canonical workspace key.
+ * Never throws: a network or non-2xx failure resolves to `{ ok: false, error }`.
+ * On success the server's `changed` SSE event drives the plan list to
+ * revalidate, so callers typically just close their confirmation UI.
  */
-export async function archivePlan(id: number): Promise<ArchiveResult> {
+export async function archivePlan(name: string): Promise<ArchiveResult> {
   try {
-    const res = await fetch(`/api/plans/${encodeURIComponent(String(id))}/archive`, {
+    const res = await fetch(`/api/plans/${encodeURIComponent(name)}/archive`, {
       method: 'POST',
     });
     const data = (await res.json().catch(() => ({}))) as { error?: string };

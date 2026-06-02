@@ -46,7 +46,7 @@ export function PlanDetailReader({ detail }: { detail: PlanDetail }) {
         />
       </div>
       <div className="lg:w-96 lg:shrink-0">
-        <BlueprintRail planId={String(detail.id)} phases={detail.phases} tasks={detail.tasks} />
+        <BlueprintRail planId={detail.name} phases={detail.phases} tasks={detail.tasks} />
       </div>
     </div>
   );

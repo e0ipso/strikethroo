@@ -188,7 +188,7 @@ function ArchiveRow({ row, query }: { row: ArchivePlanView; query: string }) {
       data-testid="archive-row"
       className="grid cursor-pointer items-center gap-4 border-b border-border-soft px-7 py-3 hover:bg-cream-mid"
       style={{ gridTemplateColumns: COL_TPL }}
-      onClick={() => navigate(`/plans/${row.id}`)}
+      onClick={() => navigate(`/plans/${encodeURIComponent(row.name)}`)}
     >
       <span className="font-mono text-base font-semibold text-ink-2">{row.id}</span>
       <div className="min-w-0">
@@ -212,7 +212,7 @@ function ArchiveRow({ row, query }: { row: ArchivePlanView; query: string }) {
         <span
           onClick={e => {
             e.stopPropagation();
-            navigate(`/plans/${row.id}`);
+            navigate(`/plans/${encodeURIComponent(row.name)}`);
           }}
         >
           <Button kind="outline" size="sm" icon="book">

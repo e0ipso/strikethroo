@@ -159,7 +159,9 @@ test.describe('Live updates: SSE client (Playwright)', () => {
     try {
       // Open the Tasks tab (Execute blueprint, Swimlanes by default) so task
       // cards by status are visible.
-      await page.goto(`${handle.url}/plans/${plan.id}`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`${handle.url}/plans/${FIXTURE_ID}--${FIXTURE_SLUG}`, {
+        waitUntil: 'domcontentloaded',
+      });
       await page.getByRole('tablist').waitFor();
       await page.getByRole('tab', { name: 'Tasks' }).click();
       await page.getByTestId('swimlanes').waitFor();
@@ -249,7 +251,9 @@ test.describe('Live updates: SSE client (Playwright)', () => {
     });
     const localPort = local.port;
     try {
-      await page.goto(`${local.url}/plans/${plan.id}`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`${local.url}/plans/${FIXTURE_ID}--${FIXTURE_SLUG}`, {
+        waitUntil: 'domcontentloaded',
+      });
       await page.getByRole('tablist').waitFor();
       await settleStream(page);
 
@@ -319,7 +323,9 @@ test.describe('Live updates: SSE client (Playwright)', () => {
     try {
       // Detail page: mounts the plan resource so a burst exercises the
       // coalescing seam.
-      await page.goto(`${handle.url}/plans/${plan.id}`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`${handle.url}/plans/${FIXTURE_ID}--${FIXTURE_SLUG}`, {
+        waitUntil: 'domcontentloaded',
+      });
       await page.getByRole('tablist').waitFor();
       await settleStream(page);
 

@@ -59,7 +59,7 @@ const MODAL_LINK = 'text-dalia-dark';
  * ------------------------------------------------------------------------- */
 
 /** Default placeholder plan path when no concrete plan path is supplied. */
-const PLACEHOLDER_PLAN_PATH = planMdPath({ id: 0, slug: 'slug' }).replace('0--slug', 'NN--slug');
+const PLACEHOLDER_PLAN_PATH = planMdPath({ name: 'NN--slug' });
 
 /** The Create-plan example command shown (and copied) in the Create modal. */
 const CREATE_COMMAND =
@@ -114,11 +114,15 @@ function CmdCopyButton({ value }: { value: string }) {
  * useModal — mirrors the design's hook contract.
  * ------------------------------------------------------------------------- */
 
-/** The open modal descriptor, or `null` when no modal is open. */
+/**
+ * The open modal descriptor, or `null` when no modal is open. The archive
+ * variant carries the composite `name` (the canonical key the archive request
+ * is addressed by) alongside the numeric `id` and `title` it displays.
+ */
 export type ModalState =
   | { kind: 'create' }
   | { kind: 'review'; path: string }
-  | { kind: 'archive'; id: number; title: string }
+  | { kind: 'archive'; name: string; id: number; title: string }
   | null;
 
 /** The modal-state handles shared across the Plans views and route container. */
@@ -126,7 +130,7 @@ export interface UseModalResult {
   modal: ModalState;
   openCreate: () => void;
   openReview: (path: string) => void;
-  openArchive: (id: number, title: string) => void;
+  openArchive: (name: string, id: number, title: string) => void;
   close: () => void;
 }
 
@@ -137,7 +141,8 @@ export function useModal(init: ModalState = null): UseModalResult {
     modal,
     openCreate: () => setModal({ kind: 'create' }),
     openReview: (path: string) => setModal({ kind: 'review', path }),
-    openArchive: (id: number, title: string) => setModal({ kind: 'archive', id, title }),
+    openArchive: (name: string, id: number, title: string) =>
+      setModal({ kind: 'archive', name, id, title }),
     close: () => setModal(null),
   };
 }
@@ -356,10 +361,12 @@ function ReviewPlanUnavailable({ onClose }: { onClose: () => void }) {
  * workspace is left untouched. Cancelling sends no request.
  */
 export function ArchivePlanModal({
+  name,
   id,
   title,
   onClose,
 }: {
+  name: string;
   id: number;
   title: string;
   onClose: () => void;
@@ -370,7 +377,7 @@ export function ArchivePlanModal({
   const onConfirm = () => {
     setArchiving(true);
     setError(null);
-    void archivePlan(id).then(result => {
+    void archivePlan(name).then(result => {
       if (result.ok) {
         onClose();
         return;
@@ -436,6 +443,8 @@ export function PlanModals({
   if (!modal) return null;
   if (modal.kind === 'create') return <CreatePlanModal onClose={onClose} />;
   if (modal.kind === 'archive')
-    return <ArchivePlanModal id={modal.id} title={modal.title} onClose={onClose} />;
+    return (
+      <ArchivePlanModal name={modal.name} id={modal.id} title={modal.title} onClose={onClose} />
+    );
   return <ReviewPlanModal path={modal.path} onClose={onClose} />;
 }

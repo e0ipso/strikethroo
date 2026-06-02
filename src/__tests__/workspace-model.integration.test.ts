@@ -41,7 +41,7 @@ describe('workspace-model against the committed fixture workspace', () => {
 
   it('extracts an Architectural Approach mermaid block from a plan that has one', () => {
     // Plan 83 (this very plan) carries an Architectural Approach mermaid block.
-    const detail = getPlanDetail(FIXTURE_ROOT, 83);
+    const detail = getPlanDetail(FIXTURE_ROOT, '83--workspace-data-layer');
     expect(detail).toBeDefined();
     const arch = detail!.mermaid.filter(b => b.isArchitecturalApproach);
     expect(arch.length).toBeGreaterThan(0);
@@ -166,7 +166,7 @@ describe('workspace-model against synthetic fixtures', () => {
       ]
     );
 
-    const detail = getPlanDetail(root, 12);
+    const detail = getPlanDetail(root, '12--list-forms');
     expect(detail).toBeDefined();
     const first = detail!.tasks.find(t => t.id === 1)!;
     const second = detail!.tasks.find(t => t.id === 2)!;

@@ -196,10 +196,16 @@ export const getConfig = (root?: string): WorkspaceConfig => {
   };
 };
 
-/** Returns the full detail for a single plan by numeric id, or undefined. */
-export const getPlanDetail = (root: string | undefined, planId: number): PlanDetail | undefined => {
+/**
+ * Returns the full detail for a single plan by its composite directory `name`
+ * (`{id}--{slug}`), or undefined. Resolution is pure string equality against the
+ * enumerated directory listing — no path is ever constructed from `name`. When
+ * two entries share a name (active before archive in `getAllPlans` order), the
+ * first match wins deterministically.
+ */
+export const getPlanDetail = (root: string | undefined, name: string): PlanDetail | undefined => {
   const resolved = resolveRoot(root);
-  const entry = getAllPlans(resolved).find(p => p.id === planId);
+  const entry = getAllPlans(resolved).find(p => p.name === name);
   if (!entry) return undefined;
   return buildDetail(entry);
 };

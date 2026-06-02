@@ -22,7 +22,7 @@ export interface PlansCardViewProps {
   /** Opens the Review command-hint modal for the given plan path. */
   openReview: (path: string) => void;
   /** Opens the archive-confirmation modal for a done plan. */
-  openArchive: (id: number, title: string) => void;
+  openArchive: (name: string, id: number, title: string) => void;
 }
 
 /** The Cards (grid) view of the active plans. */
@@ -58,7 +58,7 @@ export function PlansCardView({ plans, openReview, openArchive }: PlansCardViewP
                 ? 'border border-dashed border-ink-3 bg-transparent'
                 : 'border border-border-soft bg-cream shadow-sm'
             )}
-            onClick={() => navigate(`/plans/${card.id}`)}
+            onClick={() => navigate(`/plans/${encodeURIComponent(card.name)}`)}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
@@ -127,7 +127,7 @@ export function PlansCardView({ plans, openReview, openArchive }: PlansCardViewP
                 <span
                   onClick={e => {
                     e.stopPropagation();
-                    openArchive(card.id, card.title);
+                    openArchive(card.name, card.id, card.title);
                   }}
                 >
                   <Button kind="outline" size="sm" icon="archive">

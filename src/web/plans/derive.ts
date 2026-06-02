@@ -26,6 +26,12 @@ const KNOWN_STATES: readonly PlanState[] = ['drafted', 'ready', 'doing', 'done']
  */
 export interface PlanView {
   id: number;
+  /**
+   * The plan's composite directory name (`{id}--{slug}`), e.g.
+   * `103--composite-plan-id-web-routing`. The canonical, URL-safe key used to
+   * address the plan in routes and plan-scoped API calls.
+   */
+  name: string;
   /** Directory slug with the `NN--` id prefix stripped, e.g. `plans-screens`. */
   slug: string;
   /** Human-facing title derived from the slug (the API carries no title). */
@@ -70,6 +76,7 @@ export const mapPlan = (api: PlanSummary): PlanView => {
   const hasTasks = typeof api.total === 'number' && api.total > 0;
   return {
     id: api.id,
+    name: api.name,
     slug,
     title: humanizeSlug(slug),
     summary: api.summary ?? '',
@@ -134,12 +141,13 @@ export const groupByState = (plans: PlanView[]): StateGroups => {
 /**
  * The plan's markdown path. Reimplements the design's `planMdPath`, correcting
  * its stale `.ai/task-manager/` root and em-dash separator to the strikethroo
- * `.ai/strikethroo/` root and `--` separator. The no-id case uses the
- * `NN--slug` placeholder.
+ * `.ai/strikethroo/` root and `--` separator. Keyed off the plan's composite
+ * `name` (the authoritative directory key) rather than re-concatenating
+ * `${id}--${slug}`. The no-name case uses the `NN--slug` placeholder.
  */
-export const planMdPath = (plan: Pick<PlanView, 'id' | 'slug'>): string => {
-  if (plan.id == null) return '.ai/strikethroo/plans/NN--slug/plan-NN--slug.md';
-  const dir = `${plan.id}--${plan.slug}`;
+export const planMdPath = (plan: Pick<PlanView, 'name'>): string => {
+  const dir = plan.name;
+  if (!dir) return '.ai/strikethroo/plans/NN--slug/plan-NN--slug.md';
   return `.ai/strikethroo/plans/${dir}/plan-${dir}.md`;
 };
 

@@ -238,7 +238,9 @@ test.describe('Plans section (Playwright)', () => {
       const rowId = (await firstCard.getByText(/^plan · /).textContent())?.replace(/\D/g, '');
       expect(rowId).toMatch(/^\d+$/);
       await firstCard.click();
-      await page.waitForFunction(() => /^\/plans\/\d+$/.test(location.pathname));
+      // Routing key is now the composite `<id>--<slug>` directory name; the
+      // numeric id remains a prefix of it, so the rowId containment still holds.
+      await page.waitForFunction(() => /^\/plans\/\d+--[a-z0-9-]+$/.test(location.pathname));
       expect(page.url()).toContain(`/plans/${rowId}`);
     } finally {
       await page.close();

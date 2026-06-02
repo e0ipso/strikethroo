@@ -140,7 +140,9 @@ test.describe('Task Detail Reader (Playwright)', () => {
   }) => {
     page.setDefaultTimeout(15_000);
     try {
-      await page.goto(`${handle.url}/plans/901/tasks/1`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`${handle.url}/plans/901--task-detail-fixture/tasks/1`, {
+        waitUntil: 'domcontentloaded',
+      });
       await page.getByTestId('reader').waitFor();
 
       // (a) Heading parity: a `##` section renders a reader heading carrying the
@@ -184,7 +186,9 @@ test.describe('Task Detail Reader (Playwright)', () => {
   test('no-notes task shows no Implementation Notes tab', async ({ page }) => {
     page.setDefaultTimeout(15_000);
     try {
-      await page.goto(`${handle.url}/plans/901/tasks/2`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`${handle.url}/plans/901--task-detail-fixture/tasks/2`, {
+        waitUntil: 'domcontentloaded',
+      });
       await page.getByTestId('reader').waitFor();
       await page.getByTestId('reader-hash').first().waitFor();
 
@@ -203,7 +207,9 @@ test.describe('Task Detail Reader (Playwright)', () => {
   }) => {
     page.setDefaultTimeout(15_000);
     try {
-      await page.goto(`${handle.url}/plans/901/tasks/4`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`${handle.url}/plans/901--task-detail-fixture/tasks/4`, {
+        waitUntil: 'domcontentloaded',
+      });
       await page.getByTestId('reader').waitFor();
 
       // The page heading shows the title once.
@@ -223,7 +229,9 @@ test.describe('Task Detail Reader (Playwright)', () => {
   test('empty-body task renders the graceful empty state', async ({ page }) => {
     page.setDefaultTimeout(15_000);
     try {
-      await page.goto(`${handle.url}/plans/901/tasks/3`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`${handle.url}/plans/901--task-detail-fixture/tasks/3`, {
+        waitUntil: 'domcontentloaded',
+      });
       await page.getByTestId('reader').waitFor();
 
       const body = (await page.getByTestId('reader').textContent()) ?? '';

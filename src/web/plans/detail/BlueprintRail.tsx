@@ -21,7 +21,10 @@ import { Chip } from '../../components/primitives';
 import { cn } from '../../vendor/utils/cn';
 
 export interface BlueprintRailProps {
-  /** The plan id, threaded down so each row links to its Task Detail route. */
+  /**
+   * The plan's composite `name` (`{id}--{slug}`), threaded down so each row
+   * links to its Task Detail route under the canonical plan segment.
+   */
   planId: string;
   phases: Phase[];
   tasks: Task[];

@@ -44,7 +44,7 @@ export interface PlansKanbanViewProps {
   /** Opens the Review command-hint modal for the given plan path. */
   openReview: (path: string) => void;
   /** Opens the archive-confirmation modal for a done plan. */
-  openArchive: (id: number, title: string) => void;
+  openArchive: (name: string, id: number, title: string) => void;
 }
 
 /** The Board (Kanban) view of the active plans. */
@@ -106,7 +106,7 @@ export function PlansKanbanView({ plans, openReview, openArchive }: PlansKanbanV
                         ? 'border border-dashed border-ink-3 bg-transparent'
                         : 'bg-cream shadow-sm ring-1 ring-border-soft'
                     )}
-                    onClick={() => navigate(`/plans/${p.id}`)}
+                    onClick={() => navigate(`/plans/${encodeURIComponent(p.name)}`)}
                   >
                     <div className="flex justify-between gap-1.5">
                       <span className="font-mono text-sm text-ink-3">#{p.id}</span>
@@ -150,7 +150,7 @@ export function PlansKanbanView({ plans, openReview, openArchive }: PlansKanbanV
                         <span
                           onClick={e => {
                             e.stopPropagation();
-                            openArchive(p.id, p.title);
+                            openArchive(p.name, p.id, p.title);
                           }}
                         >
                           <Button kind="outline" size="sm" icon="archive">

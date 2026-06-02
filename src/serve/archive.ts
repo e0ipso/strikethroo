@@ -34,22 +34,27 @@ export type ArchiveResult =
     };
 
 /**
- * Validates the archive preconditions for plan `planId` under `root` (the
- * absolute `.ai/strikethroo` directory) and, if they pass, atomically renames
- * its directory from `plans/` into `archive/`, returning the refreshed model.
+ * Validates the archive preconditions for the plan whose composite directory
+ * `name` (`{id}--{slug}`) is given, under `root` (the absolute `.ai/strikethroo`
+ * directory) and, if they pass, atomically renames its directory from `plans/`
+ * into `archive/`, returning the refreshed model.
  *
  * On any precondition failure it performs zero filesystem changes and returns a
  * typed failure with an actionable message. The only write it performs beyond
  * the rename is creating the `archive/` directory if it does not yet exist,
  * which is required for the rename's destination parent to resolve.
+ *
+ * Resolution is by composite `name` via {@link getPlanDetail}; the source and
+ * destination paths derive from the RESOLVED entry's `dir`/`name`, never from
+ * the raw request segment.
  */
-export const archivePlan = async (root: string, planId: number): Promise<ArchiveResult> => {
-  const detail = getPlanDetail(root, planId);
+export const archivePlan = async (root: string, name: string): Promise<ArchiveResult> => {
+  const detail = getPlanDetail(root, name);
   if (!detail) {
     return {
       ok: false,
       reason: 'not-found',
-      message: `Plan ${planId} was not found.`,
+      message: `Plan ${name} was not found.`,
     };
   }
 
@@ -57,7 +62,7 @@ export const archivePlan = async (root: string, planId: number): Promise<Archive
     return {
       ok: false,
       reason: 'already-archived',
-      message: `Plan ${planId} is already archived.`,
+      message: `Plan ${name} is already archived.`,
     };
   }
 
@@ -65,7 +70,7 @@ export const archivePlan = async (root: string, planId: number): Promise<Archive
     return {
       ok: false,
       reason: 'not-done',
-      message: `Plan ${planId} is not in the done state and cannot be archived.`,
+      message: `Plan ${name} is not in the done state and cannot be archived.`,
     };
   }
 
@@ -76,7 +81,7 @@ export const archivePlan = async (root: string, planId: number): Promise<Archive
     return {
       ok: false,
       reason: 'destination-exists',
-      message: `Plan ${planId} cannot be archived: a directory already exists at its archive location.`,
+      message: `Plan ${name} cannot be archived: a directory already exists at its archive location.`,
     };
   }
 
@@ -89,17 +94,17 @@ export const archivePlan = async (root: string, planId: number): Promise<Archive
     return {
       ok: false,
       reason: 'fs-error',
-      message: `Plan ${planId} could not be archived due to a filesystem error.`,
+      message: `Plan ${name} could not be archived due to a filesystem error.`,
     };
   }
 
   // Re-resolve so the returned model reflects the new archive/ location.
-  const moved = getPlanDetail(root, planId);
+  const moved = getPlanDetail(root, name);
   if (!moved) {
     return {
       ok: false,
       reason: 'fs-error',
-      message: `Plan ${planId} was moved but could not be re-read.`,
+      message: `Plan ${name} was moved but could not be re-read.`,
     };
   }
 

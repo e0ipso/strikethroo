@@ -25,6 +25,11 @@ import { Fragment, type ReactNode } from 'react';
  */
 export interface ArchivePlanView {
   id: number;
+  /**
+   * The plan's composite directory name (`{id}--{slug}`). The canonical,
+   * URL-safe key used to address the plan in routes.
+   */
+  name: string;
   slug: string;
   title: string;
   summary: string;

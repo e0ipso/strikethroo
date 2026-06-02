@@ -1,0 +1,21 @@
+{
+  "version": "3.0.1",
+  "workspaceSchemaVersion": 1,
+  "timestamp": "2026-05-28T20:54:27.088Z",
+  "files": {
+    "config/STRIKETHROO.md": "98331dd4834b916d0b603263ac8d8306a6591bfd5889ea83873b04c3b0437177",
+    "config/hooks/POST_ERROR_DETECTION.md": "a8d17efccf8c88f539c22fa9d031d64ff106130280752896a67d4115471846c1",
+    "config/hooks/POST_EXECUTION.md": "5fa68acecf31546dfd4fa27d311ff48b1194f7207cc22639d302541ec3e6caf2",
+    "config/hooks/POST_PHASE.md": "d79fccfee4629ffc226db97f6f755c4dd068ee9c30f7d8bf98dfc55b104003c5",
+    "config/hooks/POST_PLAN.md": "4aa55bab300db517f3a7712a1c6cdb6d4acf9098db6f128a64a1c0975627240e",
+    "config/hooks/POST_TASK_GENERATION_ALL.md": "61ac2230c98c51e19435e8103b02f476ff812c6718d118b956397b3bcba435c9",
+    "config/hooks/PRE_PHASE.md": "f29cb909f700e38adadf44db8dc9f62466300f0e2fe45c2a28094f468ab19e93",
+    "config/hooks/PRE_PLAN.md": "821a4730ecf3a4fdaafcdca4e17c93f207db8bd68ee20210e5a2f3092b8beaab",
+    "config/hooks/PRE_TASK_ASSIGNMENT.md": "03f6c50926ccb7460c4849cff9297f35b569695ca634d31adb91ad96cf30a1c1",
+    "config/hooks/PRE_TASK_EXECUTION.md": "1dc680f47c64958e70d51c0f333ba5330b41c52eab0adcebbbabb0470f3d9842",
+    "config/templates/BLUEPRINT_TEMPLATE.md": "22184bbf3fb78323526a1ca5f314c838cbcbf01341572cc280cf31db0884a40b",
+    "config/templates/EXECUTION_SUMMARY_TEMPLATE.md": "ffc5329f070b10088be0ad17c67b98468a6e850cbb9749755bbc6a275e78ab35",
+    "config/templates/PLAN_TEMPLATE.md": "714115b5c3c3d4f6ddc281cbc7ea3872f1e436654d4a2442ce64b051ceb83870",
+    "config/templates/TASK_TEMPLATE.md": "e0fa4d9bde7d9ab9edcf4f32785011c7125424f5199a0994c5900ef0352c4e02"
+  }
+}

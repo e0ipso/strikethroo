@@ -3,9 +3,11 @@
  *
  * A standalone, runnable Playwright script — deliberately NOT part of the
  * `npm test` gate — that drives the built `dist-web/` SPA in a real Chromium
- * against this repo's own `.ai/strikethroo/` workspace and writes the full
- * Capture Inventory of still screenshots (PNG) and short interaction videos
- * (webm) into `docs/assets/`.
+ * against the committed capture fixture workspace
+ * (`src/capture/fixtures/capture-workspace/`) and writes the full Capture
+ * Inventory of still screenshots (PNG) and short interaction videos (webm) into
+ * `docs/assets/`. The workspace is fixed for deterministic, repeatable output;
+ * set `CAPTURE_WORKSPACE` to point at a different workspace root if needed.
  *
  * Design constraints (mirroring the `src/__tests__/*.e2e.test.ts` suites):
  *   - Guarded: if `dist-web/index.html` is missing OR Chromium is not
@@ -34,7 +36,11 @@ import type { PlanSummary, PlanDetail, Task } from '../serve/workspace-model';
 /** Repo root: this file compiles to nothing, but at run time `__dirname` is
  *  `<repo>/src/capture` under ts-node, so the repo root is two levels up. */
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const WORKSPACE_ROOT = path.join(REPO_ROOT, '.ai', 'strikethroo');
+/** Default to the committed fixture for deterministic captures; allow an
+ *  absolute override via `CAPTURE_WORKSPACE`. */
+const WORKSPACE_ROOT = process.env.CAPTURE_WORKSPACE
+  ? path.resolve(process.env.CAPTURE_WORKSPACE)
+  : path.join(__dirname, 'fixtures', 'capture-workspace');
 const ASSETS_DIR = path.join(REPO_ROOT, 'dist-web');
 const INDEX_HTML = path.join(ASSETS_DIR, 'index.html');
 const OUT_DIR = path.join(REPO_ROOT, 'docs', 'assets');
@@ -43,6 +49,11 @@ const OUT_DIR = path.join(REPO_ROOT, 'docs', 'assets');
 const VIEWPORT = { width: 1440, height: 900 } as const;
 
 const log = (msg: string): void => console.log(`[capture:web] ${msg}`);
+
+/** The plans chosen from the live API for the detail captures. `detail` drives
+ *  every Plan Detail capture; `graphDetail` is the simpler, distinct plan used
+ *  ONLY for the Graph capture; `task` is the deep-linkable Task Detail target. */
+type Picked = { detail: PlanDetail; task: Task; graphDetail: PlanDetail };
 
 /**
  * Deliberate video-pacing pause. This is ONLY for human-viewing of the recorded
@@ -111,6 +122,9 @@ const skip = (reason: string): never => {
   process.exit(0);
 };
 
+/** Two-digit zero-padded task id — mirrors the swimlane `lane-task__id` text. */
+const pad2 = (n: number | undefined): string => String(n ?? 0).padStart(2, '0');
+
 /** Maps a raw task status to the three presentational states (mirrors the UI). */
 const toState = (status: string | undefined): 'todo' | 'doing' | 'done' => {
   if (status === 'completed') return 'done';
@@ -126,12 +140,11 @@ const toState = (status: string | undefined): 'todo' | 'doing' | 'done' => {
  * the strikethrough capture), and a mermaid block. Falls back progressively so
  * the harness still produces output on a sparse workspace.
  */
-const selectPlan = async (
-  baseUrl: string,
-  summaries: PlanSummary[]
-): Promise<{ detail: PlanDetail; task: Task } | null> => {
+const selectPlan = async (baseUrl: string, summaries: PlanSummary[]): Promise<Picked | null> => {
+  // Only ACTIVE plans are reachable through the Plans board / Plan Detail
+  // routes the detail captures drive, so archived plans are out of scope here.
   const details: PlanDetail[] = [];
-  for (const s of summaries) {
+  for (const s of summaries.filter(s => !s.archived)) {
     const res = await fetch(`${baseUrl}/api/plans/${s.id}`);
     if (!res.ok) continue;
     details.push((await res.json()) as PlanDetail);
@@ -162,7 +175,16 @@ const selectPlan = async (
     chosen.tasks.find(t => t.id != null) ??
     chosen.tasks[0];
   if (!task) return null;
-  return { detail: chosen, task };
+
+  // The Graph capture wants a DIFFERENT, visually simpler plan: among plans
+  // that render a graph and are not the primary, pick the one with the FEWEST
+  // tasks (a cleaner DAG). Fall back to the primary if none qualifies.
+  const graphDetail =
+    details
+      .filter(p => p.id !== chosen.id && hasGraph(p))
+      .sort((a, b) => a.tasks.length - b.tasks.length)[0] ?? chosen;
+
+  return { detail: chosen, task, graphDetail };
 };
 
 /** Selects an archived plan id for Archive captures, if any exist. */
@@ -261,7 +283,7 @@ const openTasks = async (page: Page, baseUrl: string, planId: number): Promise<v
 const captureStills = async (
   context: BrowserContext,
   baseUrl: string,
-  picked: { detail: PlanDetail; task: Task } | null,
+  picked: Picked | null,
   archived: boolean,
   config: { kind: string; id: string } | null
 ): Promise<void> => {
@@ -273,15 +295,13 @@ const captureStills = async (
     await page.waitForSelector('.sb'); // persistent shell mounted
     await page.waitForSelector('.board .col');
     await shot(page, 'plans-board');
-    // The persistent shell (sidebar, chrome) is in frame here too.
-    await shot(page, 'app-shell');
 
     await page.getByText('Cards', { exact: true }).click();
     await page.waitForSelector('.cards .card');
     await shot(page, 'plans-cards');
 
     if (picked) {
-      const { detail, task } = picked;
+      const { detail, task, graphDetail } = picked;
 
       // --- Plan Detail: Plan tab (Reader + blueprint rail) ---
       await page.goto(`${baseUrl}/plans/${detail.id}`, { waitUntil: 'domcontentloaded' });
@@ -289,19 +309,14 @@ const captureStills = async (
       await page.waitForSelector('.reader');
       await shot(page, 'plan-detail-plan');
 
-      // --- Plan Detail: Graph tab (mermaid SVG present) ---
-      await openGraph(page, baseUrl, detail.id);
+      // --- Plan Detail: Graph tab — uses the simpler, distinct graph plan ---
+      await openGraph(page, baseUrl, graphDetail.id);
       await shot(page, 'plan-detail-graph');
 
       // --- Plan Detail: Tasks tab — Swimlanes (default) ---
       await openTasks(page, baseUrl, detail.id);
       await page.waitForSelector('.exec');
       await shot(page, 'plan-detail-tasks-swimlanes');
-
-      // --- Plan Detail: Tasks tab — Outline view ---
-      await page.locator('.snap__seg .snap__btn', { hasText: 'Outline' }).click();
-      await page.waitForSelector('.outline');
-      await shot(page, 'plan-detail-tasks-outline');
 
       // --- Task Detail: main body ---
       await page.goto(`${baseUrl}/plans/${detail.id}/tasks/${task.id}`, {
@@ -323,7 +338,7 @@ const captureStills = async (
       log('skip Plan Detail / Graph / Tasks / Task Detail stills (no plan with tasks found)');
     }
 
-    // --- Archive: full table + date-range-filtered variant ---
+    // --- Archive: the full ("All") table ---
     await page.goto(`${baseUrl}/archive`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.archive__head');
     if (archived) {
@@ -331,16 +346,7 @@ const captureStills = async (
       // headings (there is no dedicated group container class).
       await page.waitForSelector('.tbl--row');
     }
-    // The Archive renders its rows grouped by created-month; this is the full,
-    // unfiltered ("All") table and the By-month grouping in one layout.
     await shot(page, 'archive-all');
-    await shot(page, 'archive-by-month');
-
-    // Apply a wide date range so the range filter is visibly engaged.
-    await page.getByLabel('Created from').fill('2000-01-01');
-    await page.getByLabel('Created to').fill('2999-12-31');
-    await page.waitForSelector('.archive__resultbar');
-    await shot(page, 'archive-date-range');
 
     // --- Customize: hooks grid, templates grid, and the editor detail ---
     await page.goto(`${baseUrl}/customize`, { waitUntil: 'domcontentloaded' });
@@ -369,26 +375,42 @@ const captureStills = async (
 const captureVideos = async (
   browser: Browser,
   baseUrl: string,
-  workspaceRoot: string,
-  picked: { detail: PlanDetail; task: Task } | null,
+  picked: Picked | null,
   config: { kind: string; id: string } | null
 ): Promise<void> => {
   if (picked) {
     const { detail, task } = picked;
 
-    // Navigating Plans -> Plan Detail -> Task Detail.
+    // Navigating Plans -> Plan Detail -> Task Detail as a human would: the
+    // pointer visibly travels and CLICKS a plan card, then a blueprint task row
+    // (no URL jumps — the whole point is followable interaction).
     await video(browser, baseUrl, 'nav-plans-to-task-detail', async page => {
       page.setDefaultTimeout(20_000);
       await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.board .col');
       await beat(page); // video pacing: hold on the Plans board
-      await page.goto(`${baseUrl}/plans/${detail.id}`, { waitUntil: 'domcontentloaded' });
+      // Click the primary plan's board card (`.bcard`, navigates to detail).
+      const planCard = page
+        .locator('.board .bcard')
+        .filter({ has: page.locator('.bcard__id', { hasText: `#${detail.id}` }) })
+        .first();
+      await planCard.hover(); // move the visible cursor to the card before clicking
+      await planCard.click();
       await page.waitForSelector('.reader');
       await beat(page); // video pacing: hold on the Plan Detail Reader
-      // Click a blueprint task row to reach Task Detail (rows are clickable).
-      await page.goto(`${baseUrl}/plans/${detail.id}/tasks/${task.id}`, {
-        waitUntil: 'domcontentloaded',
-      });
+      // Open the Tasks tab so the swimlane task rows are visible and clickable.
+      const tasksTab = page.locator('.chrome__tabs .tab', { hasText: 'Tasks' });
+      await tasksTab.hover();
+      await tasksTab.click();
+      await page.waitForSelector('.exec');
+      await beat(page); // video pacing: hold on the execution blueprint
+      // Click a clickable task card to navigate to its Task Detail page.
+      const taskCard = page
+        .locator('.lane-task--clickable')
+        .filter({ has: page.locator('.lane-task__id', { hasText: `task · ${pad2(task.id)}` }) })
+        .first();
+      await taskCard.hover(); // move the visible cursor to the task before clicking
+      await taskCard.click();
       await page.waitForSelector('.reader');
       await beat(page, 1200); // video pacing: final hold on Task Detail
     });
@@ -438,30 +460,6 @@ const captureVideos = async (
     await beat(page, 1200); // video pacing: final hold back on the Board view
   });
 
-  // Archive: sorting a column and applying the date-range filter / regrouping.
-  await video(browser, baseUrl, 'archive-sort-and-filter', async page => {
-    page.setDefaultTimeout(20_000);
-    await page.goto(`${baseUrl}/archive`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.archive__head');
-    await beat(page); // video pacing: hold on the Archive table
-    // Toggle the sort direction.
-    const sortBtn = page.getByRole('button', { name: /^Sort:/ });
-    await sortBtn.hover(); // move the visible cursor to the target before clicking
-    await sortBtn.click();
-    await page.waitForSelector('.archive__head');
-    await beat(page); // video pacing: hold on the re-sorted table
-    // Apply a date range; the result bar reflects the regrouped, filtered set.
-    const from = page.getByLabel('Created from');
-    await from.hover(); // move the visible cursor to the date inputs
-    await from.fill('2000-01-01');
-    await beat(page); // video pacing: register the "from" filter
-    const to = page.getByLabel('Created to');
-    await to.hover();
-    await to.fill('2999-12-31');
-    await page.waitForSelector('.archive__resultbar');
-    await beat(page, 1200); // video pacing: final hold on the filtered result
-  });
-
   // Customize Detail: typing in the editor and triggering Save. The Save
   // persists to a real config file, so the original content is captured first
   // and restored afterward via the sanctioned config-write route — the harness
@@ -508,48 +506,6 @@ const captureVideos = async (
   } else {
     log('skip customize-editor-save.webm (no config files found)');
   }
-
-  // SSE live update: a workspace change reflected without a manual reload. Drive
-  // it through the sanctioned config-write route the watcher observes, then
-  // observe the open Plans list staying live (revalidation pass fires).
-  await video(browser, baseUrl, 'live-update-sse', async page => {
-    page.setDefaultTimeout(20_000);
-    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.board .col');
-    // Let the shared EventSource open before mutating the workspace.
-    await page.waitForSelector('.sb');
-    await beat(page); // video pacing: hold on the initial Plans board
-    // Touch a watched file: append a throwaway plan directory, then remove it,
-    // so the live Plans list visibly changes and reverts without a reload.
-    const probeId = 999_001;
-    const slug = 'zzcaptureprobe';
-    const dir = path.join(workspaceRoot, 'plans', `${probeId}--${slug}`);
-    try {
-      fs.mkdirSync(path.join(dir, 'tasks'), { recursive: true });
-      fs.writeFileSync(
-        path.join(dir, `plan-${probeId}--${slug}.md`),
-        `---\nid: ${probeId}\nsummary: "Capture probe"\ncreated: "2026-06-02"\n---\n\n# ${slug}\n`
-      );
-      await page.waitForFunction(
-        s => document.body.textContent?.includes(s) ?? false,
-        'Zzcaptureprobe',
-        { timeout: 5_000 }
-      );
-      await beat(page); // video pacing: hold on the live-inserted plan row
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
-      await page
-        .waitForFunction(
-          s => !(document.body.textContent?.includes(s) ?? false),
-          'Zzcaptureprobe',
-          {
-            timeout: 5_000,
-          }
-        )
-        .catch(() => undefined);
-      await beat(page, 1200); // video pacing: final hold on the reverted board
-    }
-  });
 };
 
 const main = async (): Promise<void> => {
@@ -599,6 +555,9 @@ const main = async (): Promise<void> => {
     const picked = await selectPlan(baseUrl, summaries);
     if (picked) {
       log(`selected plan ${picked.detail.id} (${picked.detail.name}) for detail captures`);
+      log(
+        `selected plan ${picked.graphDetail.id} (${picked.graphDetail.name}) for the Graph capture`
+      );
     } else {
       log('no plan with tasks available; detail captures will be skipped');
     }
@@ -619,7 +578,14 @@ const main = async (): Promise<void> => {
       await context.close();
     }
 
-    await captureVideos(browser, baseUrl, WORKSPACE_ROOT, picked, config);
+    await captureVideos(browser, baseUrl, picked, config);
+
+    // The README preview mirrors the Plans board still, kept in sync each run.
+    fs.copyFileSync(
+      path.join(OUT_DIR, 'plans-board.png'),
+      path.join(OUT_DIR, 'readme-preview.png')
+    );
+    log('wrote readme-preview.png (copy of plans-board.png)');
 
     log(`done. Assets written to ${path.relative(REPO_ROOT, OUT_DIR)}/`);
   } finally {

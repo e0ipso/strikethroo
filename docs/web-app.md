@@ -25,15 +25,7 @@ Strikethroo has two halves, and most of the documentation so far has only shown 
 
 **The visualization half lives in the web app.** Once those files exist, you need to *see* them -- which plans are drafted, which are mid-execution, which tasks are done, how tasks depend on one another. The web app never authors anything (with two narrow, guarded exceptions: archiving a finished plan and saving a config-file edit). It is a read-only lens over the same files the assistant just wrote. Edit a file in the harness and the web app reflects it instantly; the two halves stay in sync because they share one source of truth: the files on disk.
 
-Everything below is that lens. Each screen exists to answer a question you would otherwise have to grep for.
-
-## The App Shell
-
-Every screen shares a persistent shell: a sidebar (Plans, Archive, Customize) and header chrome.
-
-![The persistent app shell]({{ '/assets/app-shell.png' | relative_url }})
-
-*The shell frames every screen so the three top-level concerns -- active plans, completed work, and customization -- are always one click away.*
+Everything below is that lens. Each screen exists to answer a question you would otherwise have to grep for. A persistent shell -- the sidebar (Plans, Archive, Customize) and header chrome visible in every screenshot below -- keeps those three top-level concerns one click away.
 
 ## Plans Home
 
@@ -69,19 +61,15 @@ Click a plan to open its detail screen. This is where a single plan's full story
 
 ![Plan Detail, Graph tab]({{ '/assets/plan-detail-graph.png' | relative_url }})
 
-*The task dependency DAG, rendered as a real mermaid `<svg>` -- not a baked image. This is the view that makes parallelism legible: you can see at a glance which tasks gate which, and which phases can run at once. A dependency graph is hard to hold in your head from reading task frontmatter; here it is just a picture.*
+*The task dependency DAG, rendered as a real mermaid `<svg>` -- not a baked image. This is the view that makes parallelism legible: you can see at a glance which tasks gate which, and which phases can run at once. (Shown here for a plan with a smaller graph, so the structure stays readable.) A dependency graph is hard to hold in your head from reading task frontmatter; here it is just a picture.*
 
 ### Tasks tab
 
-The Tasks tab renders the execution blueprint two ways.
+The Tasks tab renders the execution blueprint as swimlanes:
 
 ![Tasks tab, Swimlanes view]({{ '/assets/plan-detail-tasks-swimlanes.png' | relative_url }})
 
-*Swimlanes view: each phase is a lane, so you read execution order top-to-bottom and parallelism left-to-right.*
-
-![Tasks tab, Outline view]({{ '/assets/plan-detail-tasks-outline.png' | relative_url }})
-
-*Outline view: the same tasks as compact, phase-grouped rows -- a denser scan when a plan has many tasks.*
+*Swimlanes view: each phase is a lane, so you read execution order top-to-bottom and parallelism left-to-right. (An Outline view toggles the same tasks into compact, phase-grouped rows for a denser scan when a plan has many tasks.)*
 
 Switching between all three Plan Detail tabs is instant:
 
@@ -112,15 +100,7 @@ Finished plans move to the Archive -- the historical record of everything you ha
 
 ![Archive]({{ '/assets/archive-all.png' | relative_url }})
 
-*Completed plans grouped by completion month, with aggregate stats: plans archived, tasks completed, phases run. This is the "what did we get done" view, and the running totals turn a pile of finished plans into a sense of velocity.*
-
-![Archive, date-range filter engaged]({{ '/assets/archive-date-range.png' | relative_url }})
-
-*Engage the created-date range filter and the result bar and counts reflect only the filtered set -- useful for "what shipped this quarter" without scrolling through everything.*
-
-Sorting and filtering regroup the list live:
-
-<video controls src="{{ '/assets/archive-sort-and-filter.webm' | relative_url }}"></video>
+*Completed plans grouped by completion month, with aggregate stats: plans archived, tasks completed, phases run. This is the "what did we get done" view, and the running totals turn a pile of finished plans into a sense of velocity. A created-date range filter and column sorting (not shown) narrow the list live -- useful for "what shipped this quarter" without scrolling through everything.*
 
 ## Customize
 
@@ -144,8 +124,6 @@ Editing and saving gives immediate inline feedback:
 
 ## Live, Without Reloading
 
-Because the app is a lens over the files, anything that changes the files changes the view -- automatically. Add or remove a plan in the harness and the Plans list updates over SSE, with no manual refresh:
-
-<video controls src="{{ '/assets/live-update-sse.webm' | relative_url }}"></video>
+Because the app is a lens over the files, anything that changes the files changes the view -- automatically. Add or remove a plan in the harness and the Plans list updates over SSE, with no manual refresh.
 
 This is why the two halves work together. The assistant authors in the harness; you watch it take shape, in real time, in the web app.

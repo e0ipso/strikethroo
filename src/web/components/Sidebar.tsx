@@ -13,6 +13,7 @@ import { Toggle } from '@base-ui-components/react/toggle';
 import { Icon, type IconName } from './primitives';
 import { cn } from '../vendor/utils/cn';
 import { ThemeToggle } from '../theme/ThemeToggle';
+import { useCapabilities } from '../data/api';
 import { useNavigate, useRoute, type RouteSection } from '../router';
 
 interface NavItem {
@@ -73,6 +74,11 @@ export function Sidebar({ counts = {}, collapsed = false, onCollapsedChange }: S
   const navigate = useNavigate();
   const active = activeLabelFor(route.section);
 
+  // The hosting project's identity (folder containing `.ai/strikethroo`).
+  // Falls back to the workspace path until capabilities resolve.
+  const caps = useCapabilities();
+  const project = caps.status === 'data' ? caps.data.project : undefined;
+
   const collapseToggle = (
     <Toggle
       className="sb__collapse"
@@ -120,9 +126,11 @@ export function Sidebar({ counts = {}, collapsed = false, onCollapsedChange }: S
           collapseToggle
         ) : (
           <>
-            <ThemeToggle />
+            <strong className="sb__project" title={project?.path ?? undefined}>
+              {project?.name ?? '.ai/strikethroo/'}
+            </strong>
             <div className="sb__foot-row">
-              <strong>.ai/strikethroo/</strong>
+              <ThemeToggle />
               {collapseToggle}
             </div>
           </>

@@ -224,6 +224,16 @@
   color: var(--ink-2);
   font-weight: 600;
 }
+/* Project name in the footer: its own line above the controls row; truncate
+   long names with the full path on hover. */
+.sb__project {
+  display: block;
+  margin-bottom: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+}
 
 /* =====================================================================
    TOP CHROME — app.css:370–419
@@ -674,9 +684,9 @@
    parity. No existing token values or .dark rules are modified above.
    ===================================================================== */
 .theme-seg {
+  flex: 1;
   display: flex;
   gap: 2px;
-  margin-bottom: 10px;
   padding: 2px;
   border-radius: 8px;
   background: var(--cream-mid);
@@ -684,7 +694,10 @@
 }
 .theme-seg__btn {
   flex: 1;
-  padding: 4px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 6px;
   border: 0;
   border-radius: 6px;
   background: transparent;

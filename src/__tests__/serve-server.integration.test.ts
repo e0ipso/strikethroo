@@ -131,6 +131,18 @@ describe('serve server: read-only JSON API', () => {
     expect(typeof caps.selfReview).toBe('boolean');
   });
 
+  it('GET /api/capabilities reports the hosting project name and path', async () => {
+    const res = await httpGet(`${handle.url}/api/capabilities`);
+    expect(res.status).toBe(200);
+    const caps = JSON.parse(res.body);
+    // The fixture root is not nested under `.ai/strikethroo`, so the project
+    // resolves to the root directory itself.
+    expect(caps.project).toEqual({
+      name: 'serve-workspace',
+      path: FIXTURE_ROOT,
+    });
+  });
+
   it('POST /api/self-review answers with a JSON ok-envelope', async () => {
     // Availability depends on the host; assert the wiring/contract, not the
     // verdict: a well-formed body always yields a numeric status and { ok }.

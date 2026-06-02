@@ -95,6 +95,21 @@ const mimeFor = (filePath: string): string =>
   MIME_TYPES[path.extname(filePath).toLowerCase()] ?? 'application/octet-stream';
 
 /**
+ * Derives the hosting project's identity from the workspace root. `root` is the
+ * `.ai/strikethroo` directory (`<project>/.ai/strikethroo`), so the project is
+ * two levels up; its basename is the display name and its absolute path is the
+ * tooltip. Falls back to the root itself for a non-standard layout (e.g. a test
+ * fixture that is not nested under `.ai/strikethroo`).
+ */
+const deriveProject = (root: string): { name: string; path: string } => {
+  const parent = path.dirname(root);
+  const grandparent = path.dirname(parent);
+  const isStandard = path.basename(root) === 'strikethroo' && path.basename(parent) === '.ai';
+  const projectPath = isStandard ? grandparent : root;
+  return { name: path.basename(projectPath), path: projectPath };
+};
+
+/**
  * Resolves the default prebuilt SPA assets directory relative to the installed
  * package. The compiled server lives at `<pkg>/dist/serve/server.js`, so the
  * package root is two levels up and the Plan 82 Vite output is `<pkg>/dist-web`.
@@ -179,7 +194,7 @@ const handleApi = (res: http.ServerResponse, root: string, pathname: string): bo
     }
 
     if (pathname === '/api/capabilities' || pathname === '/api/capabilities/') {
-      sendJson(res, 200, { selfReview: isSelfReviewAvailable() });
+      sendJson(res, 200, { selfReview: isSelfReviewAvailable(), project: deriveProject(root) });
       return true;
     }
 

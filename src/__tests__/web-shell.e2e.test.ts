@@ -108,8 +108,10 @@ test.describe('app shell (Playwright)', () => {
       await page.waitForSelector('.sb');
       expect(await page.locator('.chrome__title').first().textContent()).toBe('Plans');
       expect(await page.locator('.sb__item--active').textContent()).toContain('Plans');
-      // Footer carries the rebrand, never the stale name.
-      expect(await page.locator('.sb__foot').textContent()).toContain('.ai/strikethroo/');
+      // Footer shows the hosting project's directory name (the folder that
+      // contains the workspace), with the absolute path as its tooltip.
+      await expect(page.locator('.sb__project')).toHaveText('serve-workspace');
+      expect(await page.locator('.sb__project').getAttribute('title')).toBe(FIXTURE_ROOT);
 
       // Navigate to Archive via the sidebar; active item + URL update. Scope
       // to the sidebar nav: the Plans List status bar also contains the word

@@ -3,23 +3,25 @@
  *
  * A segmented control wired to `useTheme`: each segment is a real `<button>`
  * (natively keyboard-operable), marks the active preference, and carries an
- * `aria-label` plus `aria-pressed`. The fixed `Icon` set carries no
- * sun/moon/monitor glyphs, so segments use text labels per the task's guidance
- * (do not invent unregistered icon names). Emits canonical `.theme-seg` classes.
+ * `aria-label` plus `aria-pressed`. Each segment shows an icon (sun / moon /
+ * monitor) with the human label exposed as native hover/focus tooltip text via
+ * `title`. Emits canonical `.theme-seg` classes.
  */
 
+import { Icon, type IconName } from '../components/primitives';
 import { useTheme } from './ThemeProvider';
 import type { Theme } from './theme';
 
 interface Segment {
   value: Theme;
   label: string;
+  icon: IconName;
 }
 
 const SEGMENTS: Segment[] = [
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light', icon: 'sun' },
+  { value: 'dark', label: 'Dark', icon: 'moon' },
+  { value: 'system', label: 'System', icon: 'monitor' },
 ];
 
 /** The Sidebar-footer segmented control for the theme preference. */
@@ -37,9 +39,10 @@ export function ThemeToggle() {
             className={`theme-seg__btn${active ? ' theme-seg__btn--active' : ''}`}
             aria-label={`${seg.label} theme`}
             aria-pressed={active}
+            title={`${seg.label} theme`}
             onClick={() => setTheme(seg.value)}
           >
-            {seg.label}
+            <Icon name={seg.icon} size={15} />
           </button>
         );
       })}

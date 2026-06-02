@@ -119,10 +119,20 @@ export interface Config {
   templates: ConfigFile[];
 }
 
+/** Identity of the project whose workspace the server is hosting. */
+export interface ProjectInfo {
+  /** Directory name of the project (the folder containing `.ai/strikethroo`). */
+  name: string;
+  /** Absolute path to that project directory. */
+  path: string;
+}
+
 /** Server-side capabilities the SPA gates UI on (`GET /api/capabilities`). */
 export interface Capabilities {
   /** True when the `self-review` binary is installed on the server's PATH. */
   selfReview: boolean;
+  /** The hosting project's identity, used for the sidebar footer label. */
+  project?: ProjectInfo;
 }
 
 /* ---------------------------------------------------------------------------

@@ -1,3 +1,10 @@
+## <small>3.3.1 (2026-06-02)</small>
+
+* Merge remote-tracking branch 'origin/main' ([b809af1](https://github.com/e0ipso/strikethroo/commit/b809af1))
+* fix: dev server optimizations ([50cd0b9](https://github.com/e0ipso/strikethroo/commit/50cd0b9))
+* chore: add empty message ([91b6918](https://github.com/e0ipso/strikethroo/commit/91b6918))
+* refactor(web): utility-first Tailwind styling ([8b3b179](https://github.com/e0ipso/strikethroo/commit/8b3b179))
+
 ## 3.3.0 (2026-06-02)
 
 * Merge remote-tracking branch 'origin/main' ([dc58000](https://github.com/e0ipso/strikethroo/commit/dc58000))

@@ -16,11 +16,11 @@
  * range filter, month grouping, the displayed column) is `created`; `branch` is
  * rendered defensively since the API model does not surface it.
  *
- * The "Sort", "Date range", and "By month" controls are wired (Plan 95, Task
- * 06): the displayed list is composed search → date-range → sort over the
- * fetched archived plans (the result count and `archiveStats` reflect that
- * composed set), and the "By month" tab regroups it under created-month
- * headings while "All" keeps the flat table.
+ * The "Sort" and "Date range" controls are wired (Plan 95, Task 06): the
+ * displayed list is composed search → date-range → sort over the fetched
+ * archived plans (the result count and `archiveStats` reflect that composed
+ * set), then regrouped under created-month headings. The archive has no view
+ * switcher — the By-month grouping is the only view.
  */
 
 import { useState, type ReactNode } from 'react';
@@ -125,27 +125,10 @@ function ArchiveControls({
   );
 }
 
-/** The top chrome bar for the Archive route: crumbs, tabs, and controls. */
-function ArchiveChrome({
-  count,
-  activeTab,
-  onSelectTab,
-  right,
-}: {
-  count: number;
-  activeTab: number;
-  onSelectTab?: (index: number) => void;
-  right?: ReactNode;
-}) {
+/** The top chrome bar for the Archive route: crumbs and controls. */
+function ArchiveChrome({ right }: { right?: ReactNode }) {
   return (
-    <Chrome
-      title="Archive"
-      crumbs={[{ label: 'workspace', href: '/' }, 'archive']}
-      tabs={[['All', count], 'By month']}
-      activeTab={activeTab}
-      onTabSelect={onSelectTab}
-      right={right}
-    />
+    <Chrome title="Archive" crumbs={[{ label: 'workspace', href: '/' }, 'archive']} right={right} />
   );
 }
 
@@ -238,8 +221,8 @@ function ArchiveRow({ row, query }: { row: ArchivePlanView; query: string }) {
   );
 }
 
-/** The archive table, including the empty-archive and no-results branches. */
-function ArchiveTable({
+/** The composed rows grouped by completion month, each under a heading. */
+function ArchiveMonthGroups({
   rows,
   total,
   query,
@@ -248,6 +231,7 @@ function ArchiveTable({
   total: number;
   query: string;
 }) {
+  const groups = groupByMonth(rows);
   return (
     <div className="scroll">
       <div className="tbl tbl--head" style={{ gridTemplateColumns: COL_TPL }}>
@@ -276,46 +260,31 @@ function ArchiveTable({
           </div>
         </div>
       ) : (
-        rows.map(row => <ArchiveRow key={row.id} row={row} query={query} />)
-      )}
-    </div>
-  );
-}
-
-/** The composed rows grouped by completion month, each under a heading. */
-function ArchiveMonthGroups({ rows, query }: { rows: ArchivePlanView[]; query: string }) {
-  const groups = groupByMonth(rows);
-  return (
-    <div className="scroll">
-      <div className="tbl tbl--head" style={{ gridTemplateColumns: COL_TPL }}>
-        <span>id</span>
-        <span>plan</span>
-        <span>tasks</span>
-        <span>phases</span>
-        <span>created</span>
-        <span />
-      </div>
-      {groups.map(group => (
-        <div key={group.month}>
-          <div
-            className="mono"
-            style={{
-              padding: '10px 14px 6px',
-              fontSize: 12,
-              fontWeight: 600,
-              color: 'var(--ink-2)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
-            }}
-          >
-            {group.label}
-            <span style={{ color: 'var(--ink-3)', fontWeight: 400 }}> · {group.plans.length}</span>
+        groups.map(group => (
+          <div key={group.month}>
+            <div
+              className="mono"
+              style={{
+                padding: '10px 14px 6px',
+                fontSize: 12,
+                fontWeight: 600,
+                color: 'var(--ink-2)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+              }}
+            >
+              {group.label}
+              <span style={{ color: 'var(--ink-3)', fontWeight: 400 }}>
+                {' '}
+                · {group.plans.length}
+              </span>
+            </div>
+            {group.plans.map(row => (
+              <ArchiveRow key={row.id} row={row} query={query} />
+            ))}
           </div>
-          {group.plans.map(row => (
-            <ArchiveRow key={row.id} row={row} query={query} />
-          ))}
-        </div>
-      ))}
+        ))
+      )}
     </div>
   );
 }
@@ -323,7 +292,6 @@ function ArchiveMonthGroups({ rows, query }: { rows: ArchivePlanView[]; query: s
 /** The Archive screen body, driven by the resolved archived-plan list. */
 function ArchiveScreen({ plans }: { plans: ArchivePlanView[] }) {
   const [query, setQuery] = useState('');
-  const [activeTab, setActiveTab] = useState(0);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const sort = useTableSort<ArchiveSortKey>({ key: 'created', dir: 'desc' });
@@ -338,9 +306,6 @@ function ArchiveScreen({ plans }: { plans: ArchivePlanView[] }) {
   return (
     <>
       <ArchiveChrome
-        count={plans.length}
-        activeTab={activeTab}
-        onSelectTab={setActiveTab}
         right={
           <ArchiveControls
             sortState={sort.state}
@@ -370,11 +335,7 @@ function ArchiveScreen({ plans }: { plans: ArchivePlanView[] }) {
           </span>
         </div>
       )}
-      {activeTab === 1 ? (
-        <ArchiveMonthGroups rows={rows} query={query} />
-      ) : (
-        <ArchiveTable rows={rows} total={plans.length} query={query} />
-      )}
+      <ArchiveMonthGroups rows={rows} total={plans.length} query={query} />
       <div className="statusbar">
         <span>
           workspace · <strong>{ARCHIVE_PATH}</strong>
@@ -391,7 +352,7 @@ export function ArchiveRoute() {
   if (resource.status === 'loading') {
     return (
       <>
-        <ArchiveChrome count={0} activeTab={0} />
+        <ArchiveChrome />
         <LoadingSurface label="Loading archive…" />
       </>
     );
@@ -399,7 +360,7 @@ export function ArchiveRoute() {
   if (resource.status === 'error') {
     return (
       <>
-        <ArchiveChrome count={0} activeTab={0} />
+        <ArchiveChrome />
         <ErrorSurface error={resource.error} />
       </>
     );

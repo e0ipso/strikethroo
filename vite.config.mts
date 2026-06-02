@@ -19,6 +19,22 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(version),
   },
   plugins: [react(), tailwindcss(), yaml()],
+  // Dev server only; ignored by `vite build`. These CodeMirror packages are
+  // reached EXCLUSIVELY through the lazy `import()` in src/web/customize/
+  // MarkdownEditor.tsx, so Vite's startup dep scan does not discover them. Left
+  // to on-the-fly optimization, the first navigation to /customize/:kind/:id
+  // serves the `.vite/deps/` modules before pre-bundling completes — the
+  // browser then blocks them as an empty/disallowed MIME type. Pre-bundling
+  // them up front makes the chunk load reliably. Production code-splitting is
+  // unaffected (this key has no effect on the build).
+  optimizeDeps: {
+    include: [
+      '@uiw/react-codemirror',
+      '@codemirror/lang-markdown',
+      '@codemirror/language-data',
+      '@codemirror/theme-one-dark',
+    ],
+  },
   // Dev server only (`npm run dev:web`); ignored by `vite build`. The SPA
   // fetches relative `/api/*` (plans, config) and the `/api/events` SSE
   // stream, which the `serve` backend provides, not Vite. Proxy them to the

@@ -76,7 +76,7 @@ The `st-execute-blueprint` skill runs tasks grouped into phases. Within each pha
 
 If you skipped step 3, the skill auto-generates tasks and the blueprint before starting.
 
-The `st-execute-blueprint` skill drives progress end to end: it updates task statuses, archives the completed plan automatically, and you can inspect plan and task files directly under `.ai/strikethroo/plans/` (or `.ai/strikethroo/archive/` once complete) at any point.
+The `st-execute-blueprint` skill drives progress end to end: it updates task statuses, archives the completed plan automatically, and you can inspect plan and task files directly under `.ai/strikethroo/plans/` (or `.ai/strikethroo/archive/` once complete) at any point. Prefer a visual view? Run `npx strikethroo serve` to watch progress in [The Web App](web-app.html), which renders plans, tasks, and the dependency graph live from those same files.
 
 ## File Structure
 
@@ -125,5 +125,6 @@ Create two plans: a quick spike plan (low quality gates, research-focused tasks)
 
 ## Next Steps
 
+- **[The Web App](web-app.html)**: Visualize plans, tasks, and the dependency graph
 - **[Customization Guide](customization.html)**: Tailor hooks, templates, and project context
 - **[Reference](reference.html)**: CLI commands, hook catalog, template variables

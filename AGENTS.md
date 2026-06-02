@@ -158,6 +158,10 @@ The second sanctioned mutation is the guarded **config write** (`config-write.ts
 
 **No frontend runtime dependencies.** Because `serve` ships only the prebuilt static `dist-web/` bundle, the published package's runtime `dependencies` carry no frontend libraries. Vite, React, react-dom, Tailwind, `@base-ui-components/react`, `lucide-react`, `mermaid`, `marked`, `dompurify`, `@uiw/react-codemirror`, `@codemirror/lang-markdown`, `@codemirror/language-data`, `@codemirror/theme-one-dark`, and `@modyfi/vite-plugin-yaml` all stay in `devDependencies` and must never move to `dependencies` — they are build-time only. The runtime server (`src/serve/`) uses Node built-ins exclusively.
 
+### Capture harness (`src/capture/`)
+
+The documentation visuals under `docs/assets/` (the stills, interaction videos, and `readme-preview.png` embedded in the README and the `docs/web-app.md` page) are produced by the Playwright capture harness entry point `src/capture/capture-web.ts`, run via `npm run capture:web`. It serves the repo's **own** `.ai/strikethroo/` workspace through `serve`, drives the SPA with a real Chromium, and writes every asset into `docs/assets/`. It is deliberately **not** part of `npm test` (it is a manual, on-demand regeneration tool, not a gate). To regenerate the assets, first `npm run build:web` (the harness drives the prebuilt `dist-web/`) and have Chromium installed (`npx playwright install --with-deps chromium`), then run `npm run capture:web`.
+
 ### Prompt source of truth
 
 Each skill's `SKILL.md` prompt is assembled at build time from source templates in `src/skill-prompts/`. Shared procedural blocks (root discovery, plan resolution, phase execution loop, test philosophy, task minimization, etc.) live in `src/skill-prompts/sections/` and are referenced via `{{include sections/<name>.md}}` directives. Per-skill differences are handled with `{{variable}}` substitution from the source template's YAML frontmatter `vars` block. See `src/skill-prompts/README.md` for editing and authoring details.

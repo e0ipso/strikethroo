@@ -80,6 +80,10 @@ export default [
       'src/**/*.test.tsx',
       'src/**/__tests__/**/*.ts',
       'src/**/__tests__/**/*.tsx',
+      // The documentation capture harness drives Playwright and runs
+      // `waitForFunction` callbacks in the browser, so it shares the
+      // Node + DOM globals of the e2e suites.
+      'src/capture/**/*.ts',
     ],
     languageOptions: {
       parser: tsParser,

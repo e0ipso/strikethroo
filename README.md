@@ -25,11 +25,17 @@ The CLI's `init` emits the shared workspace plus harness-specific agents (e.g., 
 
 ## 🌐 Serve the Workspace
 
+The web app is Strikethroo's **visualization layer** — the way to *see* your plans, tasks, the dependency graph, and the strikethrough done-state instead of reading a tree of Markdown files by hand. It is the other half of the story: the assistant authors plan and task files inside your harness (Claude Code, Gemini CLI, opencode, the desktop app), and the web app is the read-only window onto those same files.
+
+![Strikethroo web app](docs/assets/readme-preview.png)
+
 Run a local web app over an initialized `.ai/strikethroo/` workspace:
 
 ```bash
 npx strikethroo serve
 ```
+
+See [The Web App](https://mateuaguilo.com/strikethroo/web-app.html) for a full tour of the Board, Plan Detail, dependency graph, archive, and customization screens.
 
 `serve` boots a dependency-light Node server that hosts the prebuilt single-page app as static files, exposes a read-only JSON API over the workspace model, and streams a coalesced `changed` event over Server-Sent Events whenever the workspace mutates on disk. Run it from inside an initialized workspace; if none is found it prints guidance to run `init` and exits without binding.
 

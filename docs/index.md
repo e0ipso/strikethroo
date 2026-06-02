@@ -54,7 +54,7 @@ Three steps, each delivered as an Agent Skill that loads when you describe what 
 
 Human review gates between steps catch scope creep before any code is written. Each step runs with clean context -- the planning agent sees only the work order, the task agent sees only the approved plan, and each execution sub-agent receives only its specific task.
 
-See the [Workflow Guide](workflow.html) for the full step-by-step with advanced patterns.
+See the [Workflow Guide](workflow.html) for the full step-by-step with advanced patterns. Once a plan exists, visualize its plans, tasks, and dependency graph in [The Web App](web-app.html).
 
 ## Documentation
 
@@ -62,4 +62,5 @@ See the [Workflow Guide](workflow.html) for the full step-by-step with advanced 
 - [Workflow Guide](workflow.html) -- Step-by-step workflow with visual guides
 - [Customization Guide](customization.html) -- Hooks, templates, and project context
 - [Reference](reference.html) -- Glossary, CLI reference, FAQ
+- [The Web App](web-app.html) -- Visualize plans, tasks, and the dependency graph
 - [Migrating from 1.x](migration.html) -- Upgrade from slash commands to Agent Skills

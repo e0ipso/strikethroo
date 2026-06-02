@@ -1,3 +1,7 @@
+## 3.2.0 (2026-06-01)
+
+* feat(web): drop the List view from the Plans switcher ([bdb46a2](https://github.com/e0ipso/strikethroo/commit/bdb46a2))
+
 ## 3.1.0 (2026-06-01)
 
 * docs: document the archive action as serve's single mutation (plan 93 phase 4) ([04b3749](https://github.com/e0ipso/strikethroo/commit/04b3749))

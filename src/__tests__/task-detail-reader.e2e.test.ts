@@ -6,7 +6,7 @@
  * Drives the built SPA (dist-web) in a real Chromium browser. Per the project
  * test philosophy ("a few tests, mostly integration"), this is a small set of
  * critical-path runs covering the app-specific behavior the refactor
- * introduces — `##` heading parity (`.reader__h2 .hash`), inline mermaid
+ * introduces — `##` heading parity (the `reader-hash` affordance), inline mermaid
  * activation (`.mermaid-host svg`, unlike the Plan reader which shows the fence
  * as inert source), the Implementation Notes tab slicing, and the empty-body
  * graceful state — not per-component unit suites for the shared `Section`
@@ -141,12 +141,12 @@ test.describe('Task Detail Reader (Playwright)', () => {
     page.setDefaultTimeout(15_000);
     try {
       await page.goto(`${handle.url}/plans/901/tasks/1`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.reader');
+      await page.getByTestId('reader').waitFor();
 
-      // (a) Heading parity: a `##` section renders a `.reader__h2` carrying the
-      //     leading `##` hash affordance — the same selector the Plan reader uses.
-      await page.waitForSelector('.reader__h2 .hash');
-      expect(await page.locator('.reader__h2 .hash').first().textContent()).toContain('##');
+      // (a) Heading parity: a `##` section renders a reader heading carrying the
+      //     leading `##` hash affordance — the same component the Plan reader uses.
+      await page.getByTestId('reader-hash').first().waitFor();
+      expect(await page.getByTestId('reader-hash').first().textContent()).toContain('##');
 
       // (b) The mermaid fence renders an actual SVG (await the async render),
       //     not an inert source-only affordance like the Plan reader.
@@ -154,12 +154,12 @@ test.describe('Task Detail Reader (Playwright)', () => {
       expect(await page.locator('.mermaid-host svg').count()).toBeGreaterThan(0);
 
       // (c) The Chrome tab strip is present with an Implementation Notes tab.
-      await page.waitForSelector('.chrome__tabs');
-      const notesTab = page.locator('.chrome__tabs .tab', { hasText: 'Implementation Notes' });
+      await page.getByRole('tablist').waitFor();
+      const notesTab = page.getByRole('tab', { name: 'Implementation Notes' });
       expect(await notesTab.count()).toBe(1);
 
       // The main (Task) tab body omits the Implementation Notes heading text...
-      const taskBody = (await page.locator('.reader').textContent()) ?? '';
+      const taskBody = (await page.getByTestId('reader').textContent()) ?? '';
       expect(taskBody).toContain('Objective');
       expect(taskBody).not.toContain('Implementation Notes');
       expect(taskBody).not.toContain('noteworthy event documented');
@@ -169,13 +169,13 @@ test.describe('Task Detail Reader (Playwright)', () => {
       // names it) and unwraps the root `<details>` — so neither the heading nor
       // the `<summary>` label survive, only the inner guidance.
       await notesTab.click();
-      await page.waitForSelector('.reader');
-      const notesBody = (await page.locator('.reader').textContent()) ?? '';
+      await page.getByTestId('reader').waitFor();
+      const notesBody = (await page.getByTestId('reader').textContent()) ?? '';
       expect(notesBody).toContain('noteworthy event documented');
       expect(notesBody).not.toContain('Implementation Notes');
       expect(notesBody).not.toContain('Detailed implementation guidance');
       // The disclosure is unwrapped: no <details> element remains in the tab.
-      expect(await page.locator('.reader details').count()).toBe(0);
+      expect(await page.getByTestId('reader').locator('details').count()).toBe(0);
     } finally {
       await page.close();
     }
@@ -185,13 +185,13 @@ test.describe('Task Detail Reader (Playwright)', () => {
     page.setDefaultTimeout(15_000);
     try {
       await page.goto(`${handle.url}/plans/901/tasks/2`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.reader');
-      await page.waitForSelector('.reader__h2 .hash');
+      await page.getByTestId('reader').waitFor();
+      await page.getByTestId('reader-hash').first().waitFor();
 
       // The narrative renders, but there is no Implementation Notes tab.
-      const body = (await page.locator('.reader').textContent()) ?? '';
+      const body = (await page.getByTestId('reader').textContent()) ?? '';
       expect(body).toContain('Objective');
-      const notesTab = page.locator('.chrome__tabs .tab', { hasText: 'Implementation Notes' });
+      const notesTab = page.getByRole('tab', { name: 'Implementation Notes' });
       expect(await notesTab.count()).toBe(0);
     } finally {
       await page.close();
@@ -204,17 +204,17 @@ test.describe('Task Detail Reader (Playwright)', () => {
     page.setDefaultTimeout(15_000);
     try {
       await page.goto(`${handle.url}/plans/901/tasks/4`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.reader');
+      await page.getByTestId('reader').waitFor();
 
       // The page heading shows the title once.
-      expect(await page.locator('h1.chrome__title').textContent()).toContain(
+      expect(await page.getByRole('heading', { level: 1 }).textContent()).toContain(
         'Configure the deployment pipeline'
       );
       // The prose renders in the body...
-      const body = (await page.locator('.reader').textContent()) ?? '';
+      const body = (await page.getByTestId('reader').textContent()) ?? '';
       expect(body).toContain('Some plain prose with no level-two headings');
       // ...but the title is NOT re-emitted as a second <h1> inside the body.
-      expect(await page.locator('.reader h1').count()).toBe(0);
+      expect(await page.getByTestId('reader').locator('h1').count()).toBe(0);
     } finally {
       await page.close();
     }
@@ -224,15 +224,13 @@ test.describe('Task Detail Reader (Playwright)', () => {
     page.setDefaultTimeout(15_000);
     try {
       await page.goto(`${handle.url}/plans/901/tasks/3`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.reader');
+      await page.getByTestId('reader').waitFor();
 
-      const body = (await page.locator('.reader').textContent()) ?? '';
+      const body = (await page.getByTestId('reader').textContent()) ?? '';
       expect(body).toContain('This task has no description.');
       // No section heading and no notes tab for an empty task.
-      expect(await page.locator('.reader__h2').count()).toBe(0);
-      expect(
-        await page.locator('.chrome__tabs .tab', { hasText: 'Implementation Notes' }).count()
-      ).toBe(0);
+      expect(await page.getByTestId('reader-heading').count()).toBe(0);
+      expect(await page.getByRole('tab', { name: 'Implementation Notes' }).count()).toBe(0);
     } finally {
       await page.close();
     }

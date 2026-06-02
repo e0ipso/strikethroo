@@ -10,6 +10,7 @@
 
 import { Fragment, type CSSProperties, type ReactNode } from 'react';
 
+import { cn } from '../vendor/utils/cn';
 import { useNavigate } from '../router';
 
 /** A tab is either a bare label or a `[label, count]` pair. */
@@ -53,53 +54,79 @@ export function Chrome({
     // Without a tab strip the chrome content would sit flush on the bottom
     // border (the design's `.chrome` has zero bottom padding because tabs
     // normally provide that gap). Restore symmetric spacing when tabless.
-    <div className="chrome" style={tabs ? undefined : { paddingBottom: 18 }}>
-      <div className="chrome__top">
+    <div
+      className="border-b border-border px-7 pt-5"
+      style={tabs ? undefined : { paddingBottom: 18 }}
+    >
+      <div className="flex items-end justify-between gap-5">
         <div>
           {crumbs && (
-            <div className="chrome__crumb">
+            <nav
+              aria-label="Breadcrumb"
+              data-testid="breadcrumbs"
+              className="mb-1 font-mono text-xs text-ink-3"
+            >
               {crumbs.map((c, i) => {
                 const isLast = i === crumbs.length - 1;
                 const label = typeof c === 'string' ? c : c.label;
                 const href = typeof c === 'string' ? undefined : c.href;
                 return (
                   <Fragment key={i}>
-                    {i > 0 && <span className="sep">/</span>}
+                    {i > 0 && <span className="mx-1.5 text-ink-4">/</span>}
                     {href != null && !isLast ? (
                       <span
-                        className="seg"
+                        className="text-ink-3"
                         style={{ cursor: 'pointer' }}
                         onClick={() => navigate(href)}
                       >
                         {label}
                       </span>
                     ) : (
-                      <span className={`seg${isLast ? ' seg--cur' : ''}`}>{label}</span>
+                      <span className={cn(isLast ? 'font-medium text-ink-2' : 'text-ink-3')}>
+                        {label}
+                      </span>
                     )}
                   </Fragment>
                 );
               })}
-            </div>
+            </nav>
           )}
-          <h1 className="chrome__title" style={titleStyle}>
+          <h1
+            className="m-0 font-display text-4xl font-bold leading-tight text-ink [font-variation-settings:'opsz'_36]"
+            style={titleStyle}
+          >
             {title}
           </h1>
         </div>
-        {right != null && <div className="chrome__actions">{right}</div>}
+        {right != null && (
+          <div data-testid="chrome-actions" className="flex items-center gap-2">
+            {right}
+          </div>
+        )}
       </div>
       {tabs && (
-        <div className="chrome__tabs">
+        <div role="tablist" className="-mb-px mt-3.5 flex gap-0.5">
           {tabs.map((t, i) => {
             const [label, count] = Array.isArray(t) ? t : [t, null];
+            const tabActive = i === activeTab;
             return (
               <div
                 key={i}
-                className={`tab${i === activeTab ? ' tab--active' : ''}`}
+                role="tab"
+                aria-selected={tabActive}
+                className={cn(
+                  'relative cursor-pointer px-3.5 pt-2 pb-3 text-base font-medium',
+                  tabActive
+                    ? "font-semibold text-ink after:absolute after:-bottom-px after:left-1.5 after:right-1.5 after:h-0.5 after:rounded-sm after:bg-ink after:content-['']"
+                    : 'text-ink-3 hover:text-ink-2'
+                )}
                 onClick={onTabSelect ? () => onTabSelect(i) : undefined}
                 style={onTabSelect ? { cursor: 'default' } : undefined}
               >
                 {label}
-                {count != null && <span className="tab__count">{count}</span>}
+                {count != null && (
+                  <span className="ml-1.5 font-mono text-xs font-medium text-ink-4">{count}</span>
+                )}
               </div>
             );
           })}

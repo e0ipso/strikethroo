@@ -98,8 +98,8 @@ test.describe('Archive action (Playwright, fixture)', () => {
     // actionable Archive control while the active plan's does not — exactly one
     // Archive button is present.
     await page.getByText('Cards', { exact: true }).click();
-    await page.waitForSelector('.cards .card');
-    expect(await page.locator('.cards .card').count()).toBe(2);
+    await page.getByTestId('plan-card').first().waitFor();
+    expect(await page.getByTestId('plan-card').count()).toBe(2);
     expect(await page.getByRole('button', { name: 'Archive', exact: true }).count()).toBe(1);
 
     // Open the confirmation dialog and confirm.
@@ -107,9 +107,11 @@ test.describe('Archive action (Playwright, fixture)', () => {
     await page.getByRole('button', { name: 'Archive plan' }).click();
 
     // SSE revalidation drops the archived plan from the grid with no reload.
-    await page.waitForFunction(() => document.querySelectorAll('.cards .card').length === 1, null, {
-      timeout: 5_000,
-    });
+    await page.waitForFunction(
+      () => document.querySelectorAll('[data-testid="plan-card"]').length === 1,
+      null,
+      { timeout: 5_000 }
+    );
     expect(await page.getByRole('button', { name: 'Archive', exact: true }).count()).toBe(0);
 
     // The API confirms the move actually happened on disk.

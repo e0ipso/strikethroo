@@ -99,27 +99,27 @@ test.describe('app shell (Playwright)', () => {
     try {
       // Plans (root).
       await page.goto(full.url, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.sb');
-      expect(await page.locator('.chrome__title').first().textContent()).toBe('Plans');
-      expect(await page.locator('.sb__item--active').textContent()).toContain('Plans');
+      await page.getByRole('complementary').waitFor();
+      expect(await page.getByRole('heading', { level: 1 }).first().textContent()).toBe('Plans');
+      expect(await page.locator('[aria-current="page"]').textContent()).toContain('Plans');
       // Footer shows the hosting project's directory name (the folder that
       // contains the workspace), with the absolute path as its tooltip.
-      await expect(page.locator('.sb__project')).toHaveText('serve-workspace');
-      expect(await page.locator('.sb__project').getAttribute('title')).toBe(FIXTURE_ROOT);
+      await expect(page.getByTestId('project-name')).toHaveText('serve-workspace');
+      expect(await page.getByTestId('project-name').getAttribute('title')).toBe(FIXTURE_ROOT);
 
       // Navigate to Archive via the sidebar; active item + URL update. Scope
       // to the sidebar nav: the Plans List status bar also contains the word
       // "Archive" (the move-to-Archive guidance), so a bare getByText is
       // ambiguous.
-      await page.locator('.sb__item').getByText('Archive', { exact: true }).click();
+      await page.getByRole('navigation').getByText('Archive', { exact: true }).click();
       await page.waitForFunction(() => location.pathname === '/archive');
-      expect(await page.locator('.chrome__title').first().textContent()).toBe('Archive');
-      expect(await page.locator('.sb__item--active').textContent()).toContain('Archive');
+      expect(await page.getByRole('heading', { level: 1 }).first().textContent()).toBe('Archive');
+      expect(await page.locator('[aria-current="page"]').textContent()).toContain('Archive');
 
       // Customize.
-      await page.locator('.sb__item').getByText('Customize', { exact: true }).click();
+      await page.getByRole('navigation').getByText('Customize', { exact: true }).click();
       await page.waitForFunction(() => location.pathname === '/customize');
-      expect(await page.locator('.sb__item--active').textContent()).toContain('Customize');
+      expect(await page.locator('[aria-current="page"]').textContent()).toContain('Customize');
     } finally {
       await page.close();
     }
@@ -131,22 +131,22 @@ test.describe('app shell (Playwright)', () => {
     page.setDefaultTimeout(15_000);
     try {
       await page.goto(`${full.url}/plans/38`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.chrome__tabs');
-      expect(await page.locator('.chrome__tabs .tab').count()).toBeGreaterThan(0);
+      await page.getByRole('tablist').waitFor();
+      expect(await page.getByRole('tab').count()).toBeGreaterThan(0);
       // Plans nav highlights for planDetail.
-      expect(await page.locator('.sb__item--active').textContent()).toContain('Plans');
+      expect(await page.locator('[aria-current="page"]').textContent()).toContain('Plans');
 
       // A hard refresh restores the same deep-linked route (SPA fallback).
       await page.reload({ waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.chrome__tabs');
+      await page.getByRole('tablist').waitFor();
       expect(page.url()).toContain('/plans/38');
 
       // Back/forward through the History API.
-      await page.locator('.sb__item').getByText('Customize', { exact: true }).click();
+      await page.getByRole('navigation').getByText('Customize', { exact: true }).click();
       await page.waitForFunction(() => location.pathname === '/customize');
       await page.goBack();
       await page.waitForFunction(() => location.pathname === '/plans/38');
-      await page.waitForSelector('.chrome__tabs');
+      await page.getByRole('tablist').waitFor();
       await page.goForward();
       await page.waitForFunction(() => location.pathname === '/customize');
     } finally {
@@ -160,8 +160,8 @@ test.describe('app shell (Playwright)', () => {
       await page.goto(full.url, { waitUntil: 'domcontentloaded' });
       // The Plans route resolves to the real Board view (now the default, Plan
       // 95): the board columns render and the data state shows no error surface.
-      await page.waitForSelector('.board .col');
-      expect(await page.locator('.board .col').count()).toBeGreaterThan(0);
+      await page.getByTestId('board-column').first().waitFor();
+      expect(await page.getByTestId('board-column').count()).toBeGreaterThan(0);
       expect(await page.locator('[role="alert"]').count()).toBe(0);
     } finally {
       await page.close();
@@ -175,7 +175,7 @@ test.describe('app shell (Playwright)', () => {
     try {
       await page.goto(staticOnly.url, { waitUntil: 'domcontentloaded' });
       // The shell still renders (sidebar present)...
-      await page.waitForSelector('.sb');
+      await page.getByRole('complementary').waitFor();
       // ...and the data slot resolves to the designed error surface.
       await page.waitForSelector('[role="alert"]');
       expect(await page.locator('[role="alert"]').textContent()).toContain(
@@ -190,17 +190,19 @@ test.describe('app shell (Playwright)', () => {
     page.setDefaultTimeout(15_000);
     try {
       await page.goto(`${full.url}/?gallery=1`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('[data-testid="gallery"]');
+      const gallery = page.getByTestId('gallery');
+      await gallery.waitFor();
       // 5 StatusPill kinds, 3 Tickboxes, 4+1 Buttons, chips, icons.
-      expect(await page.locator('.pill').count()).toBe(5);
-      expect(await page.locator('.tickbox').count()).toBe(3);
-      expect(await page.locator('.btn').count()).toBeGreaterThanOrEqual(5);
-      expect(await page.locator('.chip').count()).toBeGreaterThanOrEqual(3);
-      expect(await page.locator('.chip--branch').count()).toBe(1);
+      expect(await gallery.getByTestId('status-pill').count()).toBe(5);
+      expect(await gallery.getByTestId('tickbox').count()).toBe(3);
+      expect(await gallery.getByTestId('button').count()).toBeGreaterThanOrEqual(5);
+      expect(await gallery.getByTestId('chip').count()).toBeGreaterThanOrEqual(3);
+      expect(await gallery.locator('[data-testid="chip"][data-variant="branch"]').count()).toBe(1);
       // Open the modal and confirm the generic dialog (no command copy).
       await page.getByText('Open modal', { exact: true }).click();
-      await page.waitForSelector('.modal');
-      const modalText = await page.locator('.modal').textContent();
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor();
+      const modalText = await dialog.textContent();
       expect(modalText).toContain('Modal title');
       expect(modalText).not.toContain('task-create-plan');
     } finally {

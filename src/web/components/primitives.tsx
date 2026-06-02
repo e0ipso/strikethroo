@@ -2,12 +2,18 @@
  * Shared presentational primitives ported from the hi-fi design's app-kit.jsx.
  *
  * Every primitive is presentation-only: it takes typed props and emits markup
- * with the canonical class names defined in the vendored style layer
- * (src/web/vendor/styles/app-shell.css). No data fetching, no router imports,
- * no `window` globals (the reference JSX attached to `window`; these export
- * normally). Screens reuse these for one consistent vocabulary.
+ * styled with Tailwind v4 utilities composed through `cn()` (Plan 102 — the
+ * vendored semantic primitive classes `pill`/`tickbox`/`btn`/`chip`/`modal*`
+ * are no longer emitted). No data fetching, no router imports, no `window`
+ * globals (the reference JSX attached to `window`; these export normally).
+ * Screens reuse these for one consistent vocabulary.
  *
- * Source of truth: scratch/ui/designs/app-kit.jsx (lines 1–161).
+ * Dark mode: the `@theme` color tokens (`--color-ink`, `--color-cream`,
+ * `--color-doing*`, `--color-done*`, `--color-border-*`, …) are all re-defined
+ * under `.dark` in the retained `vendor/styles/tokens.css`, so the token-backed
+ * utilities (`text-ink`, `bg-cream`, `bg-doing-bg`, `ring-border-soft`) flip
+ * automatically; only the genuine component-shape differences carry explicit
+ * `dark:` variants.
  */
 
 import { type CSSProperties, type ReactNode } from 'react';
@@ -146,7 +152,10 @@ export interface IconProps {
 /** A stroke-based, currentColor SVG icon from the fixed named set. */
 export function Icon({ name, size = 16, style }: IconProps) {
   return (
-    <span className="icon" style={{ width: size, height: size, ...style }}>
+    <span
+      className="inline-block align-middle [&>svg]:block"
+      style={{ width: size, height: size, ...style }}
+    >
       <svg
         width={size}
         height={size}
@@ -169,12 +178,32 @@ export function Icon({ name, size = 16, style }: IconProps) {
 
 export type StatusKind = 'todo' | 'doing' | 'done' | 'drafted' | 'ready';
 
-const STATUS_MAP: Record<StatusKind, { cls: string; text: string }> = {
-  todo: { cls: 'pill--todo', text: 'todo' },
-  doing: { cls: 'pill--doing', text: 'doing' },
-  done: { cls: 'pill--done', text: 'done' },
-  drafted: { cls: 'pill--drafted', text: 'drafted' },
-  ready: { cls: 'pill--ready', text: 'tasks ready' },
+/** Shared pill geometry/type (app-shell.css `.pill`). */
+const PILL_BASE =
+  'inline-flex items-center gap-1.5 rounded-full py-0.5 pl-2 pr-2.5 font-sans text-xs font-semibold tracking-wide lowercase whitespace-nowrap leading-snug';
+
+/** The colour treatment per status — bg/text + (for the outline kinds) a 1px ring. */
+const STATUS_PILL_UTILITIES: Record<StatusKind, string> = {
+  todo: 'text-ink-3 bg-transparent ring-1 ring-inset ring-border-strong',
+  doing: 'text-doing-ink bg-doing-bg',
+  done: 'text-done-ink bg-done-bg',
+  drafted: 'text-ink-2 bg-transparent ring-1 ring-inset ring-ink-3',
+  ready: 'text-dalia-deep bg-dalia-bg',
+};
+
+/** The dot fill per status (only doing/done/ready render a dot). */
+const STATUS_DOT_UTILITIES: Partial<Record<StatusKind, string>> = {
+  doing: 'bg-doing',
+  done: 'bg-done',
+  ready: 'bg-dalia-dark',
+};
+
+const STATUS_TEXT: Record<StatusKind, string> = {
+  todo: 'todo',
+  doing: 'doing',
+  done: 'done',
+  drafted: 'drafted',
+  ready: 'tasks ready',
 };
 
 export interface StatusPillProps {
@@ -184,11 +213,14 @@ export interface StatusPillProps {
 
 /** A status pill; renders a dot for every kind except `drafted` and `todo`. */
 export function StatusPill({ kind, label }: StatusPillProps) {
-  const m = STATUS_MAP[kind] ?? STATUS_MAP.todo;
+  const utilities = STATUS_PILL_UTILITIES[kind] ?? STATUS_PILL_UTILITIES.todo;
+  const text = STATUS_TEXT[kind] ?? STATUS_TEXT.todo;
   return (
-    <span className={cn('pill', m.cls)}>
-      {kind !== 'drafted' && kind !== 'todo' && <span className="pill__dot" />}
-      {label ?? m.text}
+    <span data-testid="status-pill" data-kind={kind} className={cn(PILL_BASE, utilities)}>
+      {kind !== 'drafted' && kind !== 'todo' && (
+        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', STATUS_DOT_UTILITIES[kind])} />
+      )}
+      {label ?? text}
     </span>
   );
 }
@@ -203,11 +235,32 @@ export interface TickboxProps {
   state?: TickboxState;
 }
 
-/** A task-state indicator box; `done` renders the check glyph. */
+/**
+ * Shared tickbox geometry (app-shell.css `.tickbox`). The default surface is
+ * `bg-cream` in light, `bg-cream-mid` in dark (a genuine `.dark` fixup); the
+ * `done`/`doing` states override the background with their status colour.
+ */
+const TICKBOX_BASE =
+  'inline-flex items-center justify-center h-4 w-4 shrink-0 rounded bg-cream dark:bg-cream-mid text-xs leading-none';
+
+/**
+ * A task-state indicator box; `done` renders the check glyph. This is the
+ * genuinely interactive / stateful indicator — read-only & blueprint task rows
+ * deliberately do NOT render a Tickbox; they show a strikethrough instead
+ * (recorded project practice), so this primitive keeps its checkbox affordance.
+ */
 export function Tickbox({ state = 'todo' }: TickboxProps) {
   if (state === 'done') {
     return (
-      <span className="tickbox tickbox--done">
+      <span
+        data-testid="tickbox"
+        className={cn(
+          TICKBOX_BASE,
+          // Done: filled in the done colour; the glyph stays light on the medium
+          // light-mode fill and flips to a near-black ink on the lighter dark-mode fill.
+          'bg-done text-cream dark:text-deep'
+        )}
+      >
         <svg
           width="10"
           height="10"
@@ -223,8 +276,23 @@ export function Tickbox({ state = 'todo' }: TickboxProps) {
       </span>
     );
   }
-  if (state === 'doing') return <span className="tickbox tickbox--doing" />;
-  return <span className="tickbox" />;
+  if (state === 'doing') {
+    return (
+      <span
+        data-testid="tickbox"
+        className={cn(TICKBOX_BASE, 'bg-doing-bg ring-1 ring-inset ring-doing')}
+      >
+        {/* the .tickbox--doing::after dot, rendered as a real element */}
+        <span className="h-2 w-2 rounded-full bg-doing" />
+      </span>
+    );
+  }
+  return (
+    <span
+      data-testid="tickbox"
+      className={cn(TICKBOX_BASE, 'text-transparent ring-1 ring-inset ring-ink-3')}
+    />
+  );
 }
 
 /* =========================================================================
@@ -232,6 +300,21 @@ export function Tickbox({ state = 'todo' }: TickboxProps) {
  * ======================================================================= */
 
 export type ButtonKind = 'primary' | 'dalia' | 'outline' | 'ghost';
+
+/** Shared button geometry/type (app-shell.css `.btn`). */
+const BUTTON_BASE =
+  'inline-flex items-center gap-2 rounded-md px-3 py-2 font-sans text-base font-medium whitespace-nowrap cursor-pointer border-0 transition-[transform,box-shadow] duration-150 ease-out';
+
+/** The per-kind surface (background/text + shadow). */
+const BUTTON_KIND_UTILITIES: Record<ButtonKind, string> = {
+  primary: 'bg-ink text-cream shadow-sm',
+  dalia: 'bg-dalia-dark text-cream shadow-sm',
+  outline: 'bg-cream text-ink ring-1 ring-inset ring-border-strong',
+  ghost: 'bg-transparent text-ink-2 hover:bg-black/5 hover:text-ink dark:hover:bg-white/5',
+};
+
+/** The `sm` size override (tighter padding + smaller type). */
+const BUTTON_SM_UTILITIES = 'px-2.5 py-1.5 text-sm';
 
 export interface ButtonProps {
   children: ReactNode;
@@ -244,7 +327,11 @@ export interface ButtonProps {
 /** A button with kind/size variants and an optional leading icon. */
 export function Button({ children, kind = 'outline', size, icon, onClick }: ButtonProps) {
   return (
-    <button className={cn('btn', `btn--${kind}`, size === 'sm' && 'btn--sm')} onClick={onClick}>
+    <button
+      data-testid="button"
+      className={cn(BUTTON_BASE, BUTTON_KIND_UTILITIES[kind], size === 'sm' && BUTTON_SM_UTILITIES)}
+      onClick={onClick}
+    >
       {icon && <Icon name={icon} size={size === 'sm' ? 13 : 14} style={{ marginLeft: -2 }} />}
       {children}
     </button>
@@ -255,23 +342,45 @@ export function Button({ children, kind = 'outline', size, icon, onClick }: Butt
  * Chip / BranchChip — app-kit.jsx:77–83
  * ======================================================================= */
 
+/** Shared monospace code-chip surface (app-shell.css `.chip`). */
+const CHIP_BASE =
+  'inline-flex items-center rounded px-1.5 py-px font-mono text-sm bg-cream-mid text-ink ring-1 ring-inset ring-border-soft';
+
+/**
+ * Known `kind` → extra utilities. The vendored CSS only ever defined a
+ * `branch` variant (rendered by `BranchChip`); other kinds had no matching
+ * rule and rendered as the base chip, so they map to no extra utilities.
+ */
+const CHIP_KIND_UTILITIES: Record<string, string> = {};
+
 export interface ChipProps {
   children: ReactNode;
   kind?: string;
 }
 
-/** A monospace code chip with an optional `chip--{kind}` variant. */
+/** A monospace code chip with an optional `kind` variant. */
 export function Chip({ children, kind }: ChipProps) {
-  return <span className={cn('chip', kind && `chip--${kind}`)}>{children}</span>;
+  return (
+    <span data-testid="chip" className={cn(CHIP_BASE, kind && CHIP_KIND_UTILITIES[kind])}>
+      {children}
+    </span>
+  );
 }
 
 export interface BranchChipProps {
   children: ReactNode;
 }
 
-/** The branch-prefixed chip variant. */
+/** The branch-prefixed chip variant (the `⎇` glyph leads in the accent colour). */
 export function BranchChip({ children }: BranchChipProps) {
-  return <span className="chip chip--branch">{children}</span>;
+  return (
+    <span data-testid="chip" data-variant="branch" className={CHIP_BASE}>
+      <span aria-hidden className="mr-1.5 text-xs text-dalia-dark">
+        ⎇
+      </span>
+      {children}
+    </span>
+  );
 }
 
 /* =========================================================================
@@ -290,18 +399,43 @@ export interface ModalProps {
  * A generic modal: veil + dialog with eyebrow, title, body, close, and
  * optional actions. Clicking the veil closes; clicking the dialog does not.
  * Carries NO command-hint copy — per-screen tickets supply that.
+ *
+ * Rendered IN-TREE (NOT via a portal) so the `.dark` class on `<html>`
+ * cascades to it and the token-backed utilities flip with the theme. The
+ * fixed-tint veil intentionally has no `dark:` variant (it matches the
+ * original `.modal-veil`, which had no dark override); the dialog surface
+ * (`bg-cream`, `--shadow-modal`) flips automatically with the theme tokens.
  */
 export function Modal({ eyebrow, title, children, onClose, actions }: ModalProps) {
   return (
-    <div className="modal-veil" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal__close" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-8 bg-black/40 backdrop-blur-xs"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="relative w-full max-w-xl rounded-card bg-cream px-7 pt-7 pb-6 shadow-modal"
+        onClick={e => e.stopPropagation()}
+      >
+        <div
+          className="absolute top-3.5 right-3.5 flex h-7 w-7 items-center justify-center rounded-md text-ink-3 cursor-pointer hover:bg-cream-mid hover:text-ink"
+          onClick={onClose}
+        >
           <Icon name="close" size={16} />
         </div>
-        {eyebrow != null && <div className="modal__eyebrow">{eyebrow}</div>}
-        <h2 className="modal__title">{title}</h2>
-        <div className="modal__body">{children}</div>
-        {actions && <div className="modal__actions">{actions}</div>}
+        {eyebrow != null && (
+          <div className="font-sans text-xs font-semibold uppercase tracking-widest text-dalia-dark">
+            {eyebrow}
+          </div>
+        )}
+        <h2 className="mt-1 mb-3 font-display text-4xl font-bold leading-tight tracking-tight text-ink [font-variation-settings:'opsz'_36]">
+          {title}
+        </h2>
+        <div className="text-base leading-relaxed text-ink-2 [&_strong]:font-semibold [&_strong]:text-ink">
+          {children}
+        </div>
+        {actions && <div className="mt-6 flex justify-end gap-2">{actions}</div>}
       </div>
     </div>
   );

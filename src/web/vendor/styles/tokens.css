@@ -1,73 +1,119 @@
 /* =====================================================================
-   Tokens — Tailwind v4 @theme block.
-   Foundations from colors_and_type.css, expressed as Tailwind theme vars
-   so utilities (bg-cream, text-ink, font-display, …) resolve correctly.
+   Tokens — Tailwind v4 @theme (Plan 102: utility-first, theme-driven).
+   =====================================================================
+   Every brand, status, border, shadow and radius value the SPA needs is a
+   first-class @theme token here, so components use clean utilities
+   (`bg-cream`, `text-ink`, `bg-doing`, `border-border-soft`, `shadow-frame`,
+   `rounded-card`, `font-display`) instead of arbitrary `[…]` values.
+
+   Dark mode is a TOKEN SWAP: the `.dark` block below redefines the same
+   `--color-*` (+ shadow) tokens, so every token-backed utility re-themes
+   automatically and components need almost no `dark:` variants. `.dark` is
+   toggled on <html> by ThemeProvider (and the pre-paint guard in index.html).
+   Must use plain `@theme` (not `@theme inline`) so the utilities reference the
+   variables at runtime and the `.dark` overrides take effect.
    ===================================================================== */
 
 @theme {
   /* ---------- COLOR: warm neutrals (OKLCH, hue 55–75) ---------- */
-  --color-cream:     oklch(0.965 0.01 75);
+  --color-cream: oklch(0.965 0.01 75);
   --color-cream-mid: oklch(0.94 0.015 70);
-  --color-ink:       oklch(0.18 0.02 55);
-  --color-ink-2:     oklch(0.38 0.02 55);
-  --color-ink-3:     oklch(0.55 0.015 55);
+  --color-cream-deep: oklch(0.91 0.018 65);
+  --color-ink: oklch(0.18 0.02 55);
+  --color-ink-2: oklch(0.38 0.02 55);
+  --color-ink-3: oklch(0.55 0.015 55);
+  --color-ink-4: oklch(0.72 0.012 55);
 
   /* ---------- COLOR: brand accent (hue 335 — dalia pink) ---------- */
-  --color-dalia:      hsl(335 55% 65%);
+  --color-dalia: hsl(335 55% 65%);
   --color-dalia-dark: hsl(335 55% 48%);
-  --color-dalia-bg:   hsl(335 55% 92%);
-  --color-dalia-ink:  hsl(335 55% 22%);
+  --color-dalia-deep: hsl(335 55% 28%);
+  --color-dalia-bg: hsl(335 55% 92%);
+  --color-dalia-ink: hsl(335 55% 22%);
 
-  /* ---------- COLOR: deep contrast (cool, used sparingly) ---------- */
-  --color-deep:   oklch(0.14 0.02 300);
+  /* ---------- COLOR: deep contrast (cool) ---------- */
+  --color-deep: oklch(0.14 0.02 300);
   --color-deep-2: oklch(0.55 0.02 300);
   --color-deep-3: oklch(0.75 0.01 300);
 
+  /* ---------- COLOR: status — doing (amber) / done (green) ---------- */
+  --color-doing: oklch(0.62 0.13 75);
+  --color-doing-bg: oklch(0.95 0.045 80);
+  --color-doing-ink: oklch(0.32 0.1 75);
+  --color-done: oklch(0.55 0.1 145);
+  --color-done-bg: oklch(0.94 0.035 145);
+  --color-done-ink: oklch(0.3 0.08 145);
+
+  /* ---------- COLOR: danger (inline errors) ---------- */
+  --color-danger: oklch(0.55 0.18 25);
+
+  /* ---------- COLOR: borders (back the border, ring and divide utilities) ---------- */
+  --color-border: oklch(0 0 0 / 0.08);
+  --color-border-soft: oklch(0 0 0 / 0.05);
+  --color-border-strong: oklch(0 0 0 / 0.15);
+
   /* ---------- TYPOGRAPHY ---------- */
   --font-display: 'Fraunces', Georgia, serif;
-  --font-sans:    'Outfit', system-ui, sans-serif;
-  --font-mono:    'SF Mono', 'Cascadia Code', 'Fira Code', ui-monospace, monospace;
+  --font-sans: 'Outfit', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', ui-monospace, monospace;
 
   /* ---------- MOTION ---------- */
-  --ease-out:  cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* ---------- LAYOUT ---------- */
+  /* ---------- RADIUS (signature card) ---------- */
+  --radius-card: 0.75rem;
+
+  /* ---------- LAYOUT (container widths → max-w-* utilities) ---------- */
   --container-narrow: 40rem;
-  --container-main:   66rem;
+  --container-main: 66rem;
+
+  /* ---------- SHADOWS (signature layered recipes → shadow-* utilities) ---------- */
+  --shadow-frame: 0 1px 3px oklch(0 0 0 / 0.04), 0 8px 30px oklch(0 0 0 / 0.08), 0 0 0 1px oklch(0 0 0 / 0.04);
+  --shadow-frame-hover: 0 2px 6px oklch(0 0 0 / 0.03), 0 20px 50px oklch(0 0 0 / 0.13), 0 0 0 1px oklch(0 0 0 / 0.04);
+  --shadow-modal: 0 1px 2px oklch(0 0 0 / 0.04), 0 30px 80px oklch(0 0 0 / 0.18), 0 0 0 1px oklch(0 0 0 / 0.06);
 }
 
-/* Non-Tailwind globals — semantic aliases + shadow recipes.
-   Kept as plain custom properties because they are composed values,
-   not single utility entries. */
-:root {
-  --gutter:       clamp(1.5rem, 5vw, 4rem);
-  --max-w:        66rem;
-  --max-w-narrow: 40rem;
+/* =====================================================================
+   Dark theme — redefine the @theme tokens under `.dark`. Token-backed
+   utilities (bg-cream, text-ink, bg-doing, border-border-soft, shadow-frame…)
+   re-theme automatically; components carry `dark:` only for genuine shape
+   differences. Must follow @theme so it wins on source order.
+   ===================================================================== */
+.dark {
+  --color-cream: oklch(0.155 0.018 295);
+  --color-cream-mid: oklch(0.205 0.02 295);
+  --color-cream-deep: oklch(0.245 0.022 295);
+  --color-ink: oklch(0.945 0.012 75);
+  --color-ink-2: oklch(0.78 0.012 75);
+  --color-ink-3: oklch(0.62 0.012 75);
+  --color-ink-4: oklch(0.46 0.012 75);
 
-  --bg:           var(--color-cream);
-  --bg-muted:     var(--color-cream-mid);
-  --fg:           var(--color-ink);
-  --fg-muted:     var(--color-ink-2);
-  --fg-subtle:    var(--color-ink-3);
-  --accent:       var(--color-dalia);
-  --accent-strong:var(--color-dalia-dark);
-  --link:         var(--color-dalia-dark);
+  --color-dalia: hsl(335 65% 72%);
+  --color-dalia-dark: hsl(335 60% 76%);
+  --color-dalia-deep: hsl(335 70% 85%);
+  --color-dalia-bg: hsl(335 30% 22%);
+  --color-dalia-ink: hsl(335 70% 88%);
 
-  --border-soft:   oklch(0 0 0 / 0.05);
-  --border:        oklch(0 0 0 / 0.08);
-  --border-strong: oklch(0 0 0 / 0.15);
+  --color-deep: oklch(0.08 0.02 300);
+  --color-deep-2: oklch(0.55 0.02 300);
+  --color-deep-3: oklch(0.78 0.01 75);
 
-  /* Layered shadow recipe — ALWAYS three stops, never a single drop. */
-  --shadow-frame:
-    0 1px 3px  oklch(0 0 0 / 0.04),
-    0 8px 30px oklch(0 0 0 / 0.08),
-    0 0 0 1px oklch(0 0 0 / 0.04);
-  --shadow-frame-hover:
-    0 2px 6px   oklch(0 0 0 / 0.03),
-    0 20px 50px oklch(0 0 0 / 0.13),
-    0 0 0 1px  oklch(0 0 0 / 0.04);
+  --color-doing: oklch(0.78 0.13 75);
+  --color-doing-bg: oklch(0.3 0.06 75);
+  --color-doing-ink: oklch(0.9 0.1 80);
+  --color-done: oklch(0.72 0.12 145);
+  --color-done-bg: oklch(0.26 0.05 145);
+  --color-done-ink: oklch(0.92 0.08 145);
 
-  /* Hairlines on dark backgrounds. */
-  --border-on-deep: oklch(1 0 0 / 0.08);
+  --color-danger: oklch(0.7 0.17 25);
+
+  --color-border: oklch(1 0 0 / 0.1);
+  --color-border-soft: oklch(1 0 0 / 0.06);
+  --color-border-strong: oklch(1 0 0 / 0.2);
+
+  --shadow-frame: 0 1px 2px oklch(0 0 0 / 0.4), 0 12px 32px oklch(0 0 0 / 0.5), 0 0 0 1px oklch(1 0 0 / 0.06);
+  --shadow-modal: 0 1px 2px oklch(0 0 0 / 0.4), 0 30px 80px oklch(0 0 0 / 0.65), 0 0 0 1px oklch(1 0 0 / 0.08);
+
+  color-scheme: dark;
 }

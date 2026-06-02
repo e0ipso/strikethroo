@@ -47,16 +47,12 @@ function PlansChrome({
       right={
         <>
           {counts && (
-            <div
-              className="mono"
-              data-testid="plan-counts"
-              style={{ display: 'flex', gap: 12, alignItems: 'center', fontSize: 12 }}
-            >
+            <div className="flex items-center gap-3 font-mono text-xs" data-testid="plan-counts">
               <span data-testid="count-all">All {counts.all}</span>
-              <span style={{ color: 'var(--ink-3)' }} data-testid="count-active">
+              <span className="text-ink-3" data-testid="count-active">
                 Active {counts.active}
               </span>
-              <span style={{ color: 'var(--ink-3)' }} data-testid="count-drafts">
+              <span className="text-ink-3" data-testid="count-drafts">
                 Drafts {counts.drafts}
               </span>
             </div>

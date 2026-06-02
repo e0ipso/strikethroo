@@ -1,29 +1,24 @@
 /**
  * Shared loading / error surfaces for data-layer-backed route slots.
  *
- * These are visible, designed surfaces (using the vendored shell classes) so
- * an unreachable API renders an explicit error state rather than a crash or a
+ * These are visible, designed surfaces (Tailwind utilities; Plan 102) so an
+ * unreachable API renders an explicit error state rather than a crash or a
  * blank screen. They carry no domain data — the actual screen content is owned
- * by later screen tickets.
+ * by later screen tickets. The token-backed colours (`text-ink-*`) flip with
+ * the `.dark` theme automatically.
  */
 
 import type { ReactNode } from 'react';
+import { cn } from '../vendor/utils/cn';
 import { StatusPill } from './primitives';
 
-const surfaceStyle = {
-  padding: '28px',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '12px',
-  color: 'var(--ink-3)',
-  fontFamily: 'var(--font-body)',
-  fontSize: '14px',
-} as const;
+/** Shared surface layout/type for every state slot. */
+const SURFACE = 'flex items-center gap-3 p-7 font-sans text-sm';
 
 /** A visible loading surface. */
 export function LoadingSurface({ label = 'Loading…' }: { label?: string }) {
   return (
-    <div style={surfaceStyle} role="status" aria-live="polite">
+    <div className={cn(SURFACE, 'text-ink-3')} role="status" aria-live="polite">
       <StatusPill kind="doing" label="loading" />
       <span>{label}</span>
     </div>
@@ -33,14 +28,12 @@ export function LoadingSurface({ label = 'Loading…' }: { label?: string }) {
 /** A visible error surface — never a blank or a thrown error. */
 export function ErrorSurface({ error }: { error: Error }) {
   return (
-    <div style={surfaceStyle} role="alert">
+    <div className={cn(SURFACE, 'text-ink-3')} role="alert">
       <StatusPill kind="todo" label="unavailable" />
       <span>
         Could not reach the workspace API. Is the server running?
         <br />
-        <span style={{ color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', fontSize: '12px' }}>
-          {error.message}
-        </span>
+        <span className="font-mono text-xs text-ink-4">{error.message}</span>
       </span>
     </div>
   );
@@ -48,5 +41,5 @@ export function ErrorSurface({ error }: { error: Error }) {
 
 /** A neutral placeholder shown on the `data` state until a screen ticket lands. */
 export function PlaceholderSurface({ children }: { children: ReactNode }) {
-  return <div style={{ ...surfaceStyle, color: 'var(--ink-2)' }}>{children}</div>;
+  return <div className={cn(SURFACE, 'text-ink-2')}>{children}</div>;
 }

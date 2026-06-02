@@ -1,8 +1,10 @@
 /**
  * Plan Detail — Reader body (the `/plans/:id` Plan tab content).
  *
- * Renders the design's `.detail` two-column layout (execution-blueprint rail +
- * sanitized markdown prose) for an already-loaded `PlanDetail`. It carries NO
+ * Renders the design's two-column layout (sanitized markdown prose +
+ * execution-blueprint rail on the right) for an already-loaded `PlanDetail`,
+ * using a Tailwind flex row that stacks to one column below the `lg`
+ * breakpoint. It carries NO
  * Chrome and NO data fetch: the surrounding `PlanDetailRoute` owns the shared
  * `Chrome` (crumbs / tab strip / StatusPill / actions), the `usePlanDetail`
  * fetch, and the loading/error surfaces, then mounts this body when the Plan tab
@@ -21,7 +23,7 @@ import { ReaderProse } from './ReaderProse';
 /** Basename of an absolute or relative path. */
 const basename = (filePath: string): string => filePath.split(/[\\/]/).pop() ?? filePath;
 
-/** The Reader body: the `.detail` rail/prose grid bound to `detail`. */
+/** The Reader body: the prose column + blueprint rail bound to `detail`. */
 export function PlanDetailReader({ detail }: { detail: PlanDetail }) {
   const filename = basename(detail.file);
   // The Notes / Execution Blueprint tail moves to the Results tab; the Plan tab
@@ -29,16 +31,23 @@ export function PlanDetailReader({ detail }: { detail: PlanDetail }) {
   const { planSections } = splitResultsSections(detail.sections);
 
   return (
-    <div className="detail">
-      <ReaderProse
-        filename={filename}
-        id={detail.id}
-        created={detail.created}
-        phaseCount={detail.phaseCount}
-        taskCount={detail.tasks.length}
-        sections={planSections}
-      />
-      <BlueprintRail planId={String(detail.id)} phases={detail.phases} tasks={detail.tasks} />
+    // Wide prose is the primary column; the blueprint rail sits on the right and
+    // stacks below the prose under the `lg` breakpoint. The rail's own left
+    // border is the column divider, so the row carries no gap.
+    <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <div className="min-w-0 flex-1">
+        <ReaderProse
+          filename={filename}
+          id={detail.id}
+          created={detail.created}
+          phaseCount={detail.phaseCount}
+          taskCount={detail.tasks.length}
+          sections={planSections}
+        />
+      </div>
+      <div className="lg:w-96 lg:shrink-0">
+        <BlueprintRail planId={String(detail.id)} phases={detail.phases} tasks={detail.tasks} />
+      </div>
     </div>
   );
 }

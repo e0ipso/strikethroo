@@ -1,5 +1,10 @@
 /* =====================================================================
-   Base layer — body, type scale, links, code, selection.
+   Base layer — minimal global reset and base type.
+   box-sizing reset, body background/type via @theme tokens, heading +
+   paragraph element defaults, link defaults, inline code, selection, and a
+   reduced-motion guard. Component-specific classes (the former `.t-*`
+   editorial type scale and the `.label` eyebrow) were removed here as part of
+   the Tailwind utility migration — components express those as utilities now.
    ===================================================================== */
 
 @layer base {
@@ -18,17 +23,7 @@
     text-rendering: optimizeLegibility;
   }
 
-  /* Hero title — Fraunces 900, optical size scales to display */
-  .t-hero {
-    font-family: var(--font-display);
-    font-size: clamp(4.025rem, 10vw, 8.625rem);
-    font-weight: 900;
-    line-height: 0.9;
-    letter-spacing: -0.04em;
-    font-variation-settings: "opsz" 144;
-  }
-
-  h1, .t-h1 {
+  h1 {
     font-family: var(--font-display);
     font-size: clamp(2.3rem, 4.5vw, 3.7375rem);
     font-weight: 800;
@@ -38,7 +33,7 @@
     margin: 0;
   }
 
-  h2, .t-h2 {
+  h2 {
     font-family: var(--font-display);
     font-size: clamp(1.725rem, 3vw, 2.5875rem);
     font-weight: 700;
@@ -48,43 +43,13 @@
     margin: 0;
   }
 
-  h3, .t-h3 {
+  h3 {
     font-family: var(--font-display);
     font-size: clamp(1.4375rem, 2vw, 1.8687rem);
     font-weight: 700;
     line-height: 1.2;
     color: var(--color-ink);
     margin: 0;
-  }
-
-  .t-coda {
-    font-family: var(--font-display);
-    font-size: clamp(2.875rem, 5vw, 4.025rem);
-    font-weight: 800;
-    line-height: 1.05;
-    letter-spacing: -0.02em;
-  }
-
-  .t-statement {
-    font-family: var(--font-display);
-    font-size: clamp(1.5812rem, 2.8vw, 2.3rem);
-    font-weight: 500;
-    line-height: 1.45;
-  }
-
-  .t-num {
-    font-family: var(--font-display);
-    font-size: clamp(4.6rem, 8vw, 6.9rem);
-    font-weight: 200;
-    line-height: 1;
-  }
-
-  .t-lead {
-    font-family: var(--font-sans);
-    font-size: clamp(1.15rem, 1.3vw, 1.2937rem);
-    font-weight: 400;
-    line-height: 1.7;
-    color: var(--color-ink-2);
   }
 
   p {
@@ -94,16 +59,6 @@
     margin: 0;
   }
   p strong { color: var(--color-ink); font-weight: 600; }
-
-  /* Eyebrow label */
-  .label {
-    font-family: var(--font-sans);
-    font-size: 0.9344rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--color-dalia-dark);
-  }
 
   a {
     color: var(--color-dalia-dark);

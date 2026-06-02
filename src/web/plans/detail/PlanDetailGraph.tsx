@@ -5,8 +5,9 @@
  * embedding-context strip, and a legend, ported from the design's
  * `PlanDetailGraph` / `MermaidBlock` (`scratch/ui/designs/screens-detail.jsx`).
  * Mounted by `PlanDetailRoute`, which owns the shared `Chrome`; this component
- * renders only the strip + canvas/source + legend, reusing the vendored
- * `.graph2*` and `.mermaid-*` classes (Plan 88, Task 001).
+ * renders only the strip + canvas/source + legend with Tailwind utilities. The
+ * rendered SVG sits in a `.mermaid-host` container whose SVG-internal labels are
+ * styled by the scoped `mermaid.css` block (Plan 102).
  *
  * Rendering goes EXCLUSIVELY through the shared `renderMermaid` boundary
  * (`src/web/render/mermaid.ts`), which loads mermaid via a lazy dynamic
@@ -26,14 +27,74 @@
  *     error.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { PlanDetail, MermaidBlock as MermaidModel } from '../../data/api';
 import { renderMermaid } from '../../render/mermaid';
 import { useTheme } from '../../theme/ThemeProvider';
+import { Chip } from '../../components/primitives';
+import { cn } from '../../vendor/utils/cn';
 import { MermaidError } from './MermaidError';
 
 /** Basename of an absolute or relative path. */
 const basename = (filePath: string): string => filePath.split(/[\\/]/).pop() ?? filePath;
+
+/** Shared eyebrow label (the design's `.label` from base.css). */
+const LABEL = 'font-sans text-base font-semibold uppercase tracking-widest text-dalia-dark';
+
+/** The graph container — fills the body behind the canvas. */
+const GRAPH_CONTAINER = 'flex min-h-0 flex-1 flex-col overflow-hidden bg-cream px-7 pb-3.5 pt-5';
+
+/** The bordered canvas the rendered SVG centers in. */
+const GRAPH_CANVAS =
+  'flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-card border border-border-soft bg-cream px-6 py-5';
+
+/** The embedding strip above the canvas: "Embedded in <file>" + optional toggle. */
+function GraphStrip({
+  filename,
+  architectural,
+  children,
+}: {
+  filename: string;
+  architectural?: boolean;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-border-soft bg-cream px-7 py-3.5">
+      <div className="flex items-center gap-2.5">
+        <span className={LABEL}>Embedded in</span>
+        <Chip>{filename}</Chip>
+        {architectural && (
+          <span className="text-sm italic text-ink-3">## Architectural Approach</span>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** One Rendered/Source segmented toggle button. */
+function GraphToggleBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        'rounded px-3 py-1 text-sm font-medium text-ink-3',
+        active &&
+          'bg-cream font-semibold text-ink shadow-sm ring-1 ring-border-soft dark:bg-cream-mid'
+      )}
+      onClick={onClick}
+    >
+      {children}
+    </div>
+  );
+}
 
 /**
  * Picks the diagram to display: the Architectural Approach block when present,
@@ -71,24 +132,33 @@ function MermaidCanvas({ source }: { source: string }) {
   }, [source, resolved]);
 
   if (error) return <MermaidError message={error} />;
-  if (svg == null) return <div className="mermaid-loading">rendering mermaid…</div>;
-  return <div className="mermaid-host" dangerouslySetInnerHTML={{ __html: svg }} />;
+  if (svg == null)
+    return <div className="p-7 font-sans text-sm text-ink-3">rendering mermaid…</div>;
+  return (
+    <div
+      className="mermaid-host flex h-full w-full items-center justify-center [&_svg]:h-auto [&_svg]:max-h-full [&_svg]:max-w-full"
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
+  );
 }
 
 /** The diagram legend describing the node kinds in the architectural diagrams. */
 function GraphLegend() {
   return (
-    <div className="graph2__legend">
-      <span className="graph2__legend-item">
-        <span className="graph2__legend-swatch graph2__legend-swatch--bug" />
+    <div
+      data-testid="graph-legend"
+      className="mt-3 flex items-center gap-4 border-t border-border-soft pt-2.5 font-sans text-sm text-ink-3"
+    >
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-3.5 w-3.5 rounded-sm border border-dashed border-ink-3 bg-cream-mid dark:bg-transparent" />
         input from source doc
       </span>
-      <span className="graph2__legend-item">
-        <span className="graph2__legend-swatch graph2__legend-swatch--task" />
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-3.5 w-3.5 rounded-sm bg-done-bg ring-1 ring-inset ring-done" />
         generated task
       </span>
-      <span className="graph2__legend-spacer" />
-      <span className="graph2__legend-foot">node kinds as authored in the plan diagram</span>
+      <span className="flex-1" />
+      <span className="text-xs text-ink-3">node kinds as authored in the plan diagram</span>
     </div>
   );
 }
@@ -104,15 +174,12 @@ export function PlanDetailGraph({ detail }: { detail: PlanDetail }) {
   if (!diagram) {
     return (
       <>
-        <div className="graph2__strip">
-          <div className="graph2__strip-left">
-            <span className="label">Embedded in</span>
-            <span className="chip">{filename}</span>
-          </div>
-        </div>
-        <div className="graph2">
-          <div className="graph2__canvas">
-            <div className="mermaid-loading">no diagram · this plan embeds no mermaid block</div>
+        <GraphStrip filename={filename} />
+        <div className={GRAPH_CONTAINER} data-testid="graph">
+          <div className={GRAPH_CANVAS} data-testid="graph-canvas">
+            <div className="p-7 font-sans text-sm text-ink-3">
+              no diagram · this plan embeds no mermaid block
+            </div>
           </div>
         </div>
       </>
@@ -123,37 +190,32 @@ export function PlanDetailGraph({ detail }: { detail: PlanDetail }) {
 
   return (
     <>
-      <div className="graph2__strip">
-        <div className="graph2__strip-left">
-          <span className="label">Embedded in</span>
-          <span className="chip">{filename}</span>
-          {diagram.isArchitecturalApproach && (
-            <span className="graph2__strip-meta">## Architectural Approach</span>
-          )}
-        </div>
-        <div className="graph2__toggle">
-          <div
-            className={`graph2__toggle-btn${view === 'rendered' ? ' graph2__toggle-btn--active' : ''}`}
-            onClick={() => setView('rendered')}
-          >
+      <GraphStrip filename={filename} architectural={diagram.isArchitecturalApproach}>
+        <div
+          data-testid="graph-toggle"
+          className="inline-flex rounded-md bg-cream-mid p-0.5 ring-1 ring-inset ring-border-soft dark:bg-black/25"
+        >
+          <GraphToggleBtn active={view === 'rendered'} onClick={() => setView('rendered')}>
             Rendered
-          </div>
-          <div
-            className={`graph2__toggle-btn${view === 'source' ? ' graph2__toggle-btn--active' : ''}`}
-            onClick={() => setView('source')}
-          >
+          </GraphToggleBtn>
+          <GraphToggleBtn active={view === 'source'} onClick={() => setView('source')}>
             Source
-          </div>
+          </GraphToggleBtn>
         </div>
-      </div>
+      </GraphStrip>
 
-      <div className="graph2">
+      <div className={GRAPH_CONTAINER} data-testid="graph">
         {view === 'rendered' ? (
-          <div className="graph2__canvas">
+          <div className={GRAPH_CANVAS} data-testid="graph-canvas">
             <MermaidCanvas source={source} />
           </div>
         ) : (
-          <pre className="graph2__source">{source}</pre>
+          <pre
+            data-testid="graph-source"
+            className="m-0 flex-1 overflow-auto whitespace-pre rounded-card bg-deep px-5 py-5 font-mono text-sm leading-relaxed text-cream"
+          >
+            {source}
+          </pre>
         )}
         <GraphLegend />
       </div>

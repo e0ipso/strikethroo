@@ -28,22 +28,9 @@ const BTN_KINDS: ButtonKind[] = ['primary', 'dalia', 'outline', 'ghost'];
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <section style={{ marginBottom: 28 }}>
-      <h3
-        style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 12,
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-          color: 'var(--ink-3)',
-          marginBottom: 10,
-        }}
-      >
-        {label}
-      </h3>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        {children}
-      </div>
+    <section className="mb-7">
+      <h3 className="mb-2.5 font-mono text-xs uppercase tracking-wider text-ink-3">{label}</h3>
+      <div className="flex flex-wrap items-center gap-3">{children}</div>
     </section>
   );
 }
@@ -53,11 +40,10 @@ export function Gallery() {
   const [modalOpen, setModalOpen] = useState(false);
   return (
     <div
-      className="app"
-      style={{ display: 'block', padding: 32, minHeight: '100vh', overflow: 'auto' }}
+      className="block min-h-screen overflow-auto bg-cream p-8 font-sans text-ink"
       data-testid="gallery"
     >
-      <h1 className="chrome__title" style={{ marginBottom: 24 }}>
+      <h1 className="mb-6 font-display text-4xl font-bold leading-tight tracking-tight text-ink [font-variation-settings:'opsz'_36]">
         Primitive gallery
       </h1>
 

@@ -23,6 +23,7 @@ import { Chrome } from '../components/Chrome';
 import { Button, StatusPill } from '../components/primitives';
 import { ErrorSurface, LoadingSurface } from '../components/StateSurface';
 import { useConfig, saveConfigFile, type ConfigFile } from '../data/api';
+import { cn } from '../vendor/utils/cn';
 import { MarkdownEditor } from './MarkdownEditor';
 import { useTheme } from '../theme/ThemeProvider';
 
@@ -31,15 +32,8 @@ type ConfigKind = 'hooks' | 'templates';
 
 const isConfigKind = (k: string): k is ConfigKind => k === 'hooks' || k === 'templates';
 
-const surfaceStyle = {
-  padding: '28px',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '12px',
-  color: 'var(--ink-3)',
-  fontFamily: 'var(--font-body)',
-  fontSize: '14px',
-} as const;
+/** Shared state-surface layout/type (mirrors `StateSurface`'s `SURFACE`). */
+const SURFACE = 'flex items-center gap-3 p-7 font-sans text-sm text-ink-3';
 
 /**
  * The not-found surface, shown when the route's `kind` is not a known config
@@ -53,11 +47,11 @@ function ConfigNotFound({ kind, id }: { kind: string; id: string }) {
         title="File not found"
         crumbs={['workspace', 'config', { label: 'all', href: '/customize' }, kind, id]}
       />
-      <div style={surfaceStyle} role="alert">
+      <div className={SURFACE} role="alert">
         <StatusPill kind="todo" label="not found" />
         <span>
-          No <strong style={{ color: 'var(--ink-2)' }}>{kind}</strong> file{' '}
-          <strong style={{ color: 'var(--ink-2)' }}>{id}</strong> exists in this workspace.
+          No <strong className="text-ink-2">{kind}</strong> file{' '}
+          <strong className="text-ink-2">{id}</strong> exists in this workspace.
         </span>
       </div>
     </>
@@ -121,13 +115,12 @@ function LoadedEditor({ kind, file }: { kind: ConfigKind; file: ConfigFile }) {
         right={
           <>
             <span
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontSize: 13,
-                color: save.phase === 'error' ? 'var(--dalia-deep, var(--ink-2))' : 'var(--ink-3)',
+              className={cn(
+                'font-sans text-sm',
                 // Bold the message when there are unsaved changes so it stands out.
-                fontWeight: save.phase === 'idle' && dirty ? 700 : 400,
-              }}
+                save.phase === 'idle' && dirty ? 'font-bold' : 'font-normal',
+                save.phase === 'error' ? 'text-dalia-deep' : 'text-ink-3'
+              )}
             >
               {save.phase === 'saving' && 'saving…'}
               {save.phase === 'saved' && 'saved'}
@@ -146,20 +139,9 @@ function LoadedEditor({ kind, file }: { kind: ConfigKind; file: ConfigFile }) {
         }
       />
       {file.description && (
-        <p
-          style={{
-            margin: 0,
-            padding: '12px 28px',
-            color: 'var(--ink-3)',
-            fontFamily: 'var(--font-body)',
-            fontSize: 14,
-            lineHeight: 1.5,
-          }}
-        >
-          {file.description}
-        </p>
+        <p className="m-0 px-7 py-3 font-sans text-sm text-ink-3">{file.description}</p>
       )}
-      <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+      <div className="flex-1 min-h-0 overflow-auto">
         <MarkdownEditor
           value={value}
           onChange={onChange}

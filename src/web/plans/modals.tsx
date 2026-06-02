@@ -19,10 +19,39 @@
  */
 
 import { useRef, useState, type ReactNode } from 'react';
-import { Button, Icon, Modal } from '../components/primitives';
+import { Button, Chip, Icon, Modal } from '../components/primitives';
 import { planMdPath } from './derive';
+import { cn } from '../vendor/utils/cn';
 import { copyToClipboard } from '../vendor/utils/clipboard';
 import { useCapabilities, launchSelfReview, archivePlan } from '../data/api';
+
+/* ---------------------------------------------------------------------------
+ * Modal-body utility vocabulary (Plan 102). These are the command-hint block
+ * and label/hint treatments the Modal primitive does not own — ported from
+ * the vendored `.modal__cmd*` / `.label--dalia` / `.modal__hint` rules. The
+ * command block is an always-dark terminal surface (`bg-deep`); its body text
+ * re-lights to `--ink` in dark (the `.dark .modal__cmd` fixup).
+ * ------------------------------------------------------------------------- */
+
+/** Eyebrow label above a command block (`.label.label--dalia`). */
+const MODAL_LABEL = 'font-sans text-base font-semibold uppercase tracking-widest text-dalia-dark';
+
+/** The terminal command block container (`.modal__cmd`). */
+const MODAL_CMD =
+  'relative mt-2 flex items-center gap-2.5 rounded-lg bg-deep px-4 py-3.5 font-mono text-base text-cream dark:text-ink';
+
+/** The prompt glyph + the highlighted command word (`.modal__cmd-prompt/-cmd`). */
+const MODAL_CMD_PROMPT = 'select-none text-dalia';
+const MODAL_CMD_CMD = 'font-medium text-dalia';
+
+/** The trailing hint paragraph (`.modal__hint`). */
+const MODAL_HINT = 'mt-4 text-base leading-normal text-ink-3';
+
+/** The danger-coloured inline error paragraph. */
+const MODAL_ERROR = cn(MODAL_HINT, 'text-danger');
+
+/** A dalia link rendered inside modal prose. */
+const MODAL_LINK = 'text-dalia-dark';
 
 /* ---------------------------------------------------------------------------
  * Command / path copy — centralized so the displayed text equals the copied
@@ -48,7 +77,13 @@ const SELF_REVIEW_URL = 'https://github.com/e0ipso/self-review';
  * "Copied!" confirmation after a successful write.
  * ------------------------------------------------------------------------- */
 
-/** Inline copy button for a `.modal__cmd` block; confirms the copy briefly. */
+/** The in-terminal copy affordance utilities (`.modal__cmd-copy`). */
+const MODAL_CMD_COPY =
+  'ml-auto inline-flex items-center gap-1.5 rounded border-0 bg-white/5 px-2 py-1 font-[inherit] text-sm text-deep-3 cursor-pointer transition-[background,color,transform] duration-100 hover:bg-white/15 hover:text-cream focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dalia active:scale-95 active:bg-white/20';
+/** The transient post-copy confirmation state (`.modal__cmd-copy--copied`). */
+const MODAL_CMD_COPY_COPIED = 'text-dalia bg-white/10 hover:text-dalia hover:bg-white/10';
+
+/** Inline copy button for a command block; confirms the copy briefly. */
 function CmdCopyButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
@@ -65,7 +100,7 @@ function CmdCopyButton({ value }: { value: string }) {
   return (
     <button
       type="button"
-      className={`modal__cmd-copy${copied ? ' modal__cmd-copy--copied' : ''}`}
+      className={cn(MODAL_CMD_COPY, copied && MODAL_CMD_COPY_COPIED)}
       onClick={onClick}
       aria-label={copied ? 'Copied to clipboard' : 'Copy command to clipboard'}
     >
@@ -134,29 +169,25 @@ export function CreatePlanModal({ onClose }: { onClose: () => void }) {
         </>
       }
     >
-      <p style={{ margin: 0 }}>
+      <p className="m-0">
         Plans aren&apos;t created from this app — they&apos;re produced by the{' '}
-        <span className="chip">st-create-plan</span> skill running inside your AI assistant.
-        Describe the work order and the skill writes a <span className="chip">plan.md</span> to your
-        workspace.
+        <Chip>st-create-plan</Chip> skill running inside your AI assistant. Describe the work order
+        and the skill writes a <Chip>plan.md</Chip> to your workspace.
       </p>
 
-      <div className="label label--dalia" style={{ marginTop: 18, marginBottom: 6 }}>
-        Example — in your assistant
-      </div>
-      <div className="modal__cmd">
-        <span className="modal__cmd-prompt">›</span>
+      <div className={cn(MODAL_LABEL, 'mt-5 mb-1.5')}>Example — in your assistant</div>
+      <div className={MODAL_CMD}>
+        <span className={MODAL_CMD_PROMPT}>›</span>
         <span>
-          <span className="modal__cmd-cmd">st-create-plan</span> Add a Stripe customer-portal
-          webhook with idempotent handling
+          <span className={MODAL_CMD_CMD}>st-create-plan</span> Add a Stripe customer-portal webhook
+          with idempotent handling
         </span>
         <CmdCopyButton value={CREATE_COMMAND} />
       </div>
 
-      <p className="modal__hint">
-        The plan lands at{' '}
-        <span className="chip">.ai/strikethroo/plans/NN--slug/plan-NN--slug.md</span> and appears
-        here. Review and edit it before running <span className="chip">st-generate-tasks</span>.
+      <p className={MODAL_HINT}>
+        The plan lands at <Chip>.ai/strikethroo/plans/NN--slug/plan-NN--slug.md</Chip> and appears
+        here. Review and edit it before running <Chip>st-generate-tasks</Chip>.
       </p>
     </Modal>
   );
@@ -232,49 +263,34 @@ function ReviewPlanLauncher({
         ) : undefined
       }
     >
-      <p style={{ margin: 0 }}>
+      <p className="m-0">
         Open the plan in{' '}
-        <a
-          href={SELF_REVIEW_URL}
-          target="_blank"
-          rel="noreferrer"
-          style={{ color: 'var(--dalia-dark)' }}
-        >
+        <a href={SELF_REVIEW_URL} target="_blank" rel="noreferrer" className={MODAL_LINK}>
           self-review
         </a>{' '}
         — a local desktop reviewer. Read the rendered markdown, leave inline comments on specific
         sections, and it writes structured XML you can hand back to your assistant.
       </p>
 
-      <div className="label label--dalia" style={{ marginTop: 18, marginBottom: 6 }}>
-        Run in your terminal
-      </div>
-      <div className="modal__cmd">
-        <span className="modal__cmd-prompt">$</span>
-        <span
-          style={{
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            minWidth: 0,
-            flex: 1,
-          }}
-        >
-          <span className="modal__cmd-cmd">self-review</span> {planPath}
+      <div className={cn(MODAL_LABEL, 'mt-5 mb-1.5')}>Run in your terminal</div>
+      <div className={MODAL_CMD}>
+        <span className={MODAL_CMD_PROMPT}>$</span>
+        <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
+          <span className={MODAL_CMD_CMD}>self-review</span> {planPath}
         </span>
         <CmdCopyButton value={command} />
       </div>
 
       {error != null && (
-        <p className="modal__hint" role="alert" style={{ color: 'var(--danger, #c0392b)' }}>
+        <p className={MODAL_ERROR} role="alert">
           {error}
         </p>
       )}
 
-      <p className="modal__hint">
-        When the review window closes, feed the resulting <span className="chip">review.xml</span>{' '}
-        back to your assistant (e.g. via <span className="chip">st-refine-plan</span>) and then run{' '}
-        <span className="chip">st-generate-tasks</span>.
+      <p className={MODAL_HINT}>
+        When the review window closes, feed the resulting <Chip>review.xml</Chip> back to your
+        assistant (e.g. via <Chip>st-refine-plan</Chip>) and then run <Chip>st-generate-tasks</Chip>
+        .
       </p>
     </Modal>
   );
@@ -293,7 +309,11 @@ function ReviewPlanUnavailable({ onClose }: { onClose: () => void }) {
             Close
           </Button>
           <a
-            className="btn btn--dalia btn--sm"
+            className={cn(
+              // dalia + sm button surface, rendered on an <a> (mirrors Button)
+              'inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 font-sans text-sm font-medium whitespace-nowrap border-0 cursor-pointer transition-[transform,box-shadow] duration-150 ease-out',
+              'bg-dalia-dark text-cream shadow-sm'
+            )}
             href={SELF_REVIEW_URL}
             target="_blank"
             rel="noreferrer"
@@ -304,27 +324,20 @@ function ReviewPlanUnavailable({ onClose }: { onClose: () => void }) {
         </>
       }
     >
-      <p style={{ margin: 0 }}>
-        <a
-          href={SELF_REVIEW_URL}
-          target="_blank"
-          rel="noreferrer"
-          style={{ color: 'var(--dalia-dark)' }}
-        >
+      <p className="m-0">
+        <a href={SELF_REVIEW_URL} target="_blank" rel="noreferrer" className={MODAL_LINK}>
           self-review
         </a>{' '}
         is a local desktop reviewer for your plans. It renders the plan markdown, lets you leave
-        inline comments on specific sections, and writes structured{' '}
-        <span className="chip">review.xml</span> you can hand straight back to your assistant — a
-        tighter feedback loop than reviewing in a terminal or editor.
+        inline comments on specific sections, and writes structured <Chip>review.xml</Chip> you can
+        hand straight back to your assistant — a tighter feedback loop than reviewing in a terminal
+        or editor.
       </p>
 
-      <p className="modal__hint">
-        It isn&apos;t on your <span className="chip">PATH</span> yet. Install it, then re-open this
-        dialog to launch a review directly from here. Once you have a{' '}
-        <span className="chip">review.xml</span>, feed it back via{' '}
-        <span className="chip">st-refine-plan</span> and run{' '}
-        <span className="chip">st-generate-tasks</span>.
+      <p className={MODAL_HINT}>
+        It isn&apos;t on your <Chip>PATH</Chip> yet. Install it, then re-open this dialog to launch
+        a review directly from here. Once you have a <Chip>review.xml</Chip>, feed it back via{' '}
+        <Chip>st-refine-plan</Chip> and run <Chip>st-generate-tasks</Chip>.
       </p>
     </Modal>
   );
@@ -388,20 +401,19 @@ export function ArchivePlanModal({
         </>
       }
     >
-      <p style={{ margin: 0 }}>
-        Move plan <span className="chip">{id}</span> <strong>{title}</strong> to the archive? Its
-        directory moves from <span className="chip">plans/</span> to{' '}
-        <span className="chip">archive/</span> — no files are deleted or edited, only the location
-        changes.
+      <p className="m-0">
+        Move plan <Chip>{id}</Chip> <strong>{title}</strong> to the archive? Its directory moves
+        from <Chip>plans/</Chip> to <Chip>archive/</Chip> — no files are deleted or edited, only the
+        location changes.
       </p>
 
       {error != null && (
-        <p className="modal__hint" role="alert" style={{ color: 'var(--danger, #c0392b)' }}>
+        <p className={MODAL_ERROR} role="alert">
           {error}
         </p>
       )}
 
-      <p className="modal__hint">
+      <p className={MODAL_HINT}>
         Only plans where every task is complete can be archived. This is the one change this viewer
         makes to your workspace; the plan stays available under the Archive tab.
       </p>

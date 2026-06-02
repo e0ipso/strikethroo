@@ -149,8 +149,8 @@ test.describe('Plans section (Playwright)', () => {
 
       // Board view is the default. The Done column is hidden by default, so the
       // Board starts with three columns.
-      await page.waitForSelector('.board .col');
-      expect(await page.locator('.board .col').count()).toBe(3);
+      await page.getByTestId('board-column').first().waitFor();
+      expect(await page.getByTestId('board-column').count()).toBe(3);
 
       // Counters equal the values derived from /api/plans (not hardcoded).
       expect(await page.locator('[data-testid="count-all"]').textContent()).toBe(
@@ -166,8 +166,8 @@ test.describe('Plans section (Playwright)', () => {
       // Switch to Cards in place. The Cards grid renders every plan (done
       // included), so its card count is the full set.
       await page.getByText('Cards', { exact: true }).click();
-      await page.waitForSelector('.cards .card');
-      expect(await page.locator('.cards .card').count()).toBe(counts.all);
+      await page.getByTestId('plan-card').first().waitFor();
+      expect(await page.getByTestId('plan-card').count()).toBe(counts.all);
     } finally {
       await page.close();
     }
@@ -178,17 +178,21 @@ test.describe('Plans section (Playwright)', () => {
     try {
       await page.goto(handle.url, { waitUntil: 'domcontentloaded' });
       await page.getByText('Board', { exact: true }).click();
-      await page.waitForSelector('.board .col');
+      await page.getByTestId('board-column').first().waitFor();
       // Done is hidden by default, so the Board starts with three columns.
-      expect(await page.locator('.board .col').count()).toBe(3);
+      expect(await page.getByTestId('board-column').count()).toBe(3);
 
       await page.getByText(/Show done/).click();
-      await page.waitForFunction(() => document.querySelectorAll('.board .col').length === 4);
-      expect(await page.locator('.board .col').count()).toBe(4);
+      await page.waitForFunction(
+        () => document.querySelectorAll('[data-testid="board-column"]').length === 4
+      );
+      expect(await page.getByTestId('board-column').count()).toBe(4);
 
       await page.getByText(/Hide done/).click();
-      await page.waitForFunction(() => document.querySelectorAll('.board .col').length === 3);
-      expect(await page.locator('.board .col').count()).toBe(3);
+      await page.waitForFunction(
+        () => document.querySelectorAll('[data-testid="board-column"]').length === 3
+      );
+      expect(await page.getByTestId('board-column').count()).toBe(3);
     } finally {
       await page.close();
     }
@@ -201,16 +205,17 @@ test.describe('Plans section (Playwright)', () => {
     try {
       await page.goto(handle.url, { waitUntil: 'domcontentloaded' });
       await page.getByText('Create plan', { exact: true }).click();
-      await page.waitForSelector('.modal');
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor();
 
-      const text = (await page.locator('.modal').textContent()) ?? '';
+      const text = (await dialog.textContent()) ?? '';
       expect(text).toContain('st-create-plan');
       expect(text).toContain('st-generate-tasks');
       expect(text).toContain('.ai/strikethroo/');
       expect(text).not.toContain('task-create-plan');
       expect(text).not.toContain('task-manager');
 
-      await page.locator('.modal__cmd-copy').first().click();
+      await dialog.getByRole('button', { name: 'Copy command to clipboard' }).first().click();
       const clip = await page.evaluate(() => navigator.clipboard.readText());
       expect(clip).toBe(
         'st-create-plan Add a Stripe customer-portal webhook with idempotent handling'
@@ -227,9 +232,10 @@ test.describe('Plans section (Playwright)', () => {
       // Switch to the Cards view, whose cards are clickable; read the id off the
       // card we click rather than assuming an order.
       await page.getByText('Cards', { exact: true }).click();
-      await page.waitForSelector('.cards .card');
-      const firstCard = page.locator('.cards .card').first();
-      const rowId = (await firstCard.locator('.card__id').textContent())?.replace(/\D/g, '');
+      await page.getByTestId('plan-card').first().waitFor();
+      const firstCard = page.getByTestId('plan-card').first();
+      // The card eyebrow reads `plan · <id>`; take the id digits from it.
+      const rowId = (await firstCard.getByText(/^plan · /).textContent())?.replace(/\D/g, '');
       expect(rowId).toMatch(/^\d+$/);
       await firstCard.click();
       await page.waitForFunction(() => /^\/plans\/\d+$/.test(location.pathname));

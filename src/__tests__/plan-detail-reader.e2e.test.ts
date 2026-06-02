@@ -123,26 +123,26 @@ test.describe('Plan Detail Reader (Playwright)', () => {
     try {
       await page.goto(`${liveHandle.url}/plans/${livePlan.id}`, { waitUntil: 'domcontentloaded' });
 
-      // The .detail grid with both columns is present.
-      await page.waitForSelector('.detail .reader');
-      await page.waitForSelector('.detail .rail');
+      // The two-column reader (prose + blueprint rail) is present.
+      await page.getByTestId('reader').waitFor();
+      await page.getByTestId('blueprint-rail').waitFor();
 
       // Plan tab is active in the Chrome tab bar.
-      const activeTab = await page.locator('.chrome__tabs .tab--active').textContent();
+      const activeTab = await page.getByRole('tab', { selected: true }).textContent();
       expect(activeTab).toContain('Plan');
 
       // Breadcrumb ends in plan.md; a Copy path action is present.
-      const crumbs = (await page.locator('.chrome__crumb').textContent()) ?? '';
+      const crumbs = (await page.getByTestId('breadcrumbs').textContent()) ?? '';
       expect(crumbs).toContain('plan.md');
       expect(await page.getByRole('button', { name: 'Copy path' }).count()).toBe(1);
 
-      // The rail derives entirely from the API: one .rail__phase per derived
-      // phase, and one .rail__task per task, both equal to the API payload.
-      expect(await page.locator('.rail__phase').count()).toBe(liveDetail.phases.length);
-      expect(await page.locator('.rail__task').count()).toBe(liveDetail.tasks.length);
+      // The rail derives entirely from the API: one rail-phase per derived
+      // phase, and one rail-task per task, both equal to the API payload.
+      expect(await page.getByTestId('rail-phase').count()).toBe(liveDetail.phases.length);
+      expect(await page.getByTestId('rail-task').count()).toBe(liveDetail.tasks.length);
 
       // Reader header binds to the live id (not hardcoded plan 38 content).
-      const meta = (await page.locator('.reader__meta').textContent()) ?? '';
+      const meta = (await page.getByTestId('reader-meta').textContent()) ?? '';
       expect(meta).toContain(String(liveDetail.id));
       expect(meta).toContain(`${liveDetail.tasks.length} tasks`);
     } finally {
@@ -156,17 +156,17 @@ test.describe('Plan Detail Reader (Playwright)', () => {
       const detail = (await (await fetch(`${liveHandle.url}/api/plans/38`)).json()) as PlanDetail;
 
       await page.goto(`${liveHandle.url}/plans/38`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.detail .reader');
+      await page.getByTestId('reader').waitFor();
 
       // Rail matches plan 38's actual derived phases/tasks (live, not the
       // design's fictional 1-phase/3-task sample).
-      expect(await page.locator('.rail__phase').count()).toBe(detail.phases.length);
-      expect(await page.locator('.rail__task').count()).toBe(detail.tasks.length);
+      expect(await page.getByTestId('rail-phase').count()).toBe(detail.phases.length);
+      expect(await page.getByTestId('rail-task').count()).toBe(detail.tasks.length);
 
-      // Success Criteria render as struck-capable checklist rows via Tickbox.
+      // Success Criteria render as struck-capable checklist rows.
       const hasCriteria = detail.sections.some(s => /success\s+criteria/i.test(s.heading));
       if (hasCriteria) {
-        expect(await page.locator('.crit .crit__row').count()).toBeGreaterThan(0);
+        expect(await page.getByTestId('crit-row').count()).toBeGreaterThan(0);
       }
     } finally {
       await page.close();
@@ -185,7 +185,7 @@ test.describe('Plan Detail Reader (Playwright)', () => {
     });
     try {
       await page.goto(`${handle.url}/plans/701`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.detail .reader');
+      await page.getByTestId('reader').waitFor();
 
       // The injected script never ran.
       const pwned = await page.evaluate(() => (window as unknown as { __pwned?: boolean }).__pwned);
@@ -193,9 +193,9 @@ test.describe('Plan Detail Reader (Playwright)', () => {
 
       // No <script> survived inside the reader, and no onerror handler attribute
       // remains on any rendered node.
-      expect(await page.locator('.reader script').count()).toBe(0);
+      expect(await page.getByTestId('reader').locator('script').count()).toBe(0);
       const onerrorCount = await page.evaluate(
-        () => document.querySelectorAll('.reader [onerror]').length
+        () => document.querySelectorAll('[data-testid="reader"] [onerror]').length
       );
       expect(onerrorCount).toBe(0);
     } finally {
@@ -205,7 +205,9 @@ test.describe('Plan Detail Reader (Playwright)', () => {
     }
   });
 
-  test('shows an inline mermaid fence as source, not a rendered SVG', async ({ page }) => {
+  test('renders an inline mermaid fence as a diagram while keeping its source available', async ({
+    page,
+  }) => {
     page.setDefaultTimeout(15_000);
     const root = makeFixtureWorkspace(702, 'mermaid-fixture', HOSTILE_BODY);
     const handle = await startServer({
@@ -217,13 +219,18 @@ test.describe('Plan Detail Reader (Playwright)', () => {
     });
     try {
       await page.goto(`${handle.url}/plans/702`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.reader__mermaid');
+      await page.getByTestId('reader-mermaid').waitFor();
 
-      // The fence is shown as source text...
-      const src = (await page.locator('.reader__mermaid-src').textContent()) ?? '';
+      // The fence's raw source stays available in the affordance's <details>.
+      const src = (await page.getByTestId('reader-mermaid-src').textContent()) ?? '';
       expect(src).toContain('flowchart LR');
-      // ...and is NOT rendered to an SVG inside the affordance.
-      expect(await page.locator('.reader__mermaid svg').count()).toBe(0);
+
+      // The Plan reader renders the fence inline via the shared lazy mermaid
+      // boundary (an actual SVG in the `.mermaid-host`), not as inert source.
+      await page.waitForSelector('[data-testid="reader-mermaid"] .mermaid-host svg', {
+        timeout: 15_000,
+      });
+      expect(await page.getByTestId('reader-mermaid').locator('svg').count()).toBeGreaterThan(0);
     } finally {
       await page.close();
       await new Promise<void>(r => handle.server.close(() => r()));
@@ -245,25 +252,25 @@ test.describe('Plan Detail Reader (Playwright)', () => {
     });
     try {
       await page.goto(`${handle.url}/plans/703`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.detail .reader');
+      await page.getByTestId('reader').waitFor();
 
       // Plan tab: shows the narrative section but NOT Notes / Execution Blueprint.
-      const planProse = (await page.locator('.reader').textContent()) ?? '';
+      const planProse = (await page.getByTestId('reader').textContent()) ?? '';
       expect(planProse).toContain('Executive Summary');
       expect(planProse).not.toContain('Execution Blueprint');
       expect(planProse).not.toContain('noteworthy event');
       expect(planProse).not.toContain('Phase 1: Foundations');
 
       // The Results tab is present; selecting it swaps the body to the tail.
-      await page.locator('.chrome__tabs .tab', { hasText: 'Results' }).click();
-      await page.waitForSelector('.reader');
-      const resultsProse = (await page.locator('.reader').textContent()) ?? '';
+      await page.getByRole('tab', { name: 'Results' }).click();
+      await page.getByTestId('reader').waitFor();
+      const resultsProse = (await page.getByTestId('reader').textContent()) ?? '';
       expect(resultsProse).toContain('Notes');
       expect(resultsProse).toContain('noteworthy event');
       expect(resultsProse).toContain('Execution Blueprint');
       expect(resultsProse).toContain('Phase 1: Foundations');
-      // The Results tab is full-width prose with no rail.
-      expect(await page.locator('.detail').count()).toBe(0);
+      // The Results tab is full-width prose with no blueprint rail.
+      expect(await page.getByTestId('blueprint-rail').count()).toBe(0);
     } finally {
       await page.close();
       await new Promise<void>(r => handle.server.close(() => r()));

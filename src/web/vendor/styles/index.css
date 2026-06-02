@@ -1,55 +1,19 @@
 /* =====================================================================
-   @dalia/ui — Bold Editorial component library
+   Strikethroo viewer — style foundation (Plan 102: utility-first Tailwind).
    =====================================================================
-   Order matters:
-     1. Fonts + tokens (Tailwind @theme)
-     2. Base reset/type
-     3. Editorial components (Bold Editorial patterns)
-     4. Interactive components (overlays, etc — Base UI-styled)
-     5. Prose (long-form article styles)
+   Component and screen styling lives in Tailwind utility classes inside
+   the TSX files. Only the retained foundation remains here:
+     1. Self-hosted fonts (@font-face)
+     2. Tailwind + the Typography plugin + the `.dark` custom variant
+     3. Design tokens (@theme + the :root/.dark token bridge)
+     4. Minimal base reset
+     5. Scoped mermaid SVG-internal rules (utilities cannot reach them)
    ===================================================================== */
 
 @import './fonts.css';
 @import 'tailwindcss';
+@plugin "@tailwindcss/typography";
+@custom-variant dark (&:where(.dark, .dark *));
 @import './tokens.css';
 @import './base.css';
-@import './editorial.css';
-@import './interactive.css';
-@import './prose.css';
-
-/* App-shell classes vendored from scratch/ui/designs/app.css (Plan 85).
-   Imported last so its :root token bridge resolves against the @theme
-   tokens declared above. */
-@import './app-shell.css';
-
-/* Plans-screen layout classes vendored from scratch/ui/designs/app.css
-   (Plan 86). Imported after app-shell.css so the design token aliases the
-   bridge declares (--ink, --cream, --done, …) resolve. */
-@import './plans.css';
-
-/* Plan Detail (Reader) layout classes vendored from scratch/ui/designs/app.css
-   (Plan 87). Imported after plans.css so the same design token aliases
-   resolve. */
-@import './detail.css';
-
-/* Plan Detail (Board + Graph) layout classes vendored from
-   scratch/ui/designs/app.css (Plan 88). Imported after detail.css so the same
-   design token aliases (--ink, --cream, --border-soft, --ink-2/3/4, …)
-   resolve. */
-@import './board-graph.css';
-
-/* Archive-screen classes vendored from scratch/ui/designs/app.css (Plan 90).
-   Imported after plans.css (which carries the shared .tbl / .scroll / .statusbar
-   families the Archive screen reuses) so the design token aliases resolve. */
-@import './archive.css';
-
-/* Customize-screen classes vendored from scratch/ui/designs/app.css (Plan 91).
-   Imported after the other screen layers so the shared primitives and design
-   token aliases (--ink, --cream, --cream-mid, --border-soft, --dalia*, …)
-   resolve. */
-@import './customize.css';
-
-/* Customize card-grid classes (Plan 100, Task 04). Imported after
-   customize.css so the design token aliases resolve; the responsive
-   3 → 2 → 1 card grid shared by the Hooks and Templates tabs. */
-@import './customize-grid.css';
+@import './mermaid.css';

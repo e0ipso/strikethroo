@@ -3,9 +3,10 @@
  * the Plan Detail Reader.
  *
  * Ported from the design's `screens-detail.jsx` (`PlanDetailReader`, the
- * `.reader` block) and styled with the vendored `.reader*` / `.clar*` / `.crit*`
- * classes (src/web/vendor/styles/detail.css). It binds ENTIRELY to the plan
- * payload from `GET /api/plans/:id` — there is no hardcoded plan-38 content.
+ * `.reader` block) and styled with Tailwind utilities (Plan 102): the reader
+ * shell/meta constants live alongside the markdown `PROSE_CONTAINER`, and the
+ * Success-Criteria `.crit` rows are utility-classed directly in `Section`. It
+ * binds ENTIRELY to the plan payload from `GET /api/plans/:id`.
  *
  * All free-form section bodies are turned into HTML through the SPA's single
  * markdown/sanitization boundary (`renderMarkdown`, src/web/render/markdown.ts);
@@ -21,8 +22,8 @@
  *    code-split behind that dynamic `import()`, so it is fetched only when a Plan
  *    tab containing a diagram is first opened — not on every plan load.
  *
- * The `.reader__summary` execution-summary callout renders only when structured
- * execution-summary metadata is supplied; the live model exposes none today, so
+ * The execution-summary callout renders only when structured execution-summary
+ * metadata is supplied; the live model exposes none today, so
  * it is omitted (graceful degradation, never a fabricated count). An Execution
  * Summary section, if present in the body, still renders as ordinary prose.
  */
@@ -32,7 +33,47 @@ import type { MarkdownSection } from '../../data/api';
 import { renderMarkdown } from '../../render/markdown';
 import { renderMermaid } from '../../render/mermaid';
 import { useTheme } from '../../theme/ThemeProvider';
+import { cn } from '../../vendor/utils/cn';
 import { MermaidError } from './MermaidError';
+
+/**
+ * The prose container classes for rendered markdown — Tailwind Typography plus
+ * the two markdown-injected rules `renderMarkdown` emits that Typography cannot
+ * reach. `prose dark:prose-invert` carries the editorial heading/paragraph scale
+ * (theme-aware via the `.dark` class on <html>); `max-w-none` lets the column
+ * width be governed by the reader grid rather than Typography's `65ch` cap.
+ *
+ * `renderMarkdown` injects `li.md-task` / `li.md-task--done` onto GFM task-list
+ * items (a checklist without a checkbox — a read-only input would falsely imply
+ * a toggle). Because that markup lives INSIDE the `dangerouslySetInnerHTML`
+ * subtree, Tailwind's class scanner never sees it, so the treatment is attached
+ * here as arbitrary-variant utilities on the container: an open task is a
+ * marker-less row with a leading en-dash, a done task is struck through and
+ * muted. This reproduces prose.css's `.prose li.md-task*` rules so they survive
+ * that file's deletion (Plan 102, task 7).
+ */
+const PROSE_CONTAINER = cn(
+  'prose dark:prose-invert max-w-none',
+  // Editorial scale tweaks: dalia links + display headings, faithful-not-exact.
+  'prose-headings:font-display prose-a:text-dalia-dark prose-a:font-medium prose-code:font-mono',
+  // The two markdown-injected task-list rules (prose.css lines ~74–80).
+  "[&_li.md-task]:list-none [&_li.md-task]:ml-[-1.25rem] [&_li.md-task]:before:content-['–'] [&_li.md-task]:before:mr-2 [&_li.md-task]:before:text-ink-3",
+  '[&_li.md-task--done]:line-through [&_li.md-task--done]:text-ink-3'
+);
+
+/**
+ * The reader column shell. The Plan tab's Reader, the Results tab, and the Task
+ * Detail body all share this padded outer wrapper; `READER_INNER` centers the
+ * content stack at a legible prose width (reproducing detail.css's `.reader` +
+ * `.reader > *` centering once that file is deleted in task 7). Exported so the
+ * sibling reader-style screens compose the same vocabulary.
+ */
+export const READER = 'flex-1 overflow-hidden px-6 py-7 lg:px-10';
+export const READER_INNER = 'mx-auto max-w-6xl';
+
+/** The reader meta line: filename · id · date · phase/task counts. */
+export const READER_META =
+  'mb-6 flex flex-wrap items-baseline gap-x-3.5 gap-y-1 font-mono text-sm text-ink-3 [&>*]:whitespace-nowrap';
 
 export interface ReaderProseProps {
   /** Plan file basename, e.g. `plan-38--fix-jekyll-link-baseurl.md`. */
@@ -62,7 +103,9 @@ const MERMAID_FENCE_RE = /```mermaid[ \t]*\r?\n([\s\S]*?)\r?\n```/g;
 
 /** A safe-HTML block rendered through the single sanitized markdown path. */
 function Markdown({ source }: { source: string }) {
-  return <div className="prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(source) }} />;
+  return (
+    <div className={PROSE_CONTAINER} dangerouslySetInnerHTML={{ __html: renderMarkdown(source) }} />
+  );
 }
 
 /**
@@ -132,21 +175,34 @@ function MermaidDiagram({ src }: { src: string }) {
   }, [src, resolved]);
 
   return (
-    <div className="reader__mermaid">
-      <div className="reader__mermaid-head">
+    <div
+      data-testid="reader-mermaid"
+      className="my-3.5 overflow-hidden rounded-card border border-border bg-cream-mid"
+    >
+      <div className="flex items-center justify-between gap-2.5 border-b border-border-soft px-3 py-2 font-mono text-xs uppercase tracking-wide text-ink-3">
         <span>mermaid</span>
-        <span className="reader__mermaid-hint">Graph tab</span>
+        <span className="normal-case tracking-normal italic">Graph tab</span>
       </div>
       {error ? (
         <MermaidError message={error} />
       ) : svg == null ? (
-        <div className="mermaid-loading">rendering mermaid…</div>
+        <div className="px-3.5 py-4 font-sans text-sm text-ink-3">rendering mermaid…</div>
       ) : (
-        <div className="mermaid-host" dangerouslySetInnerHTML={{ __html: svg }} />
+        <div
+          className="mermaid-host flex h-auto w-full items-center justify-center px-3.5 py-4 [&_svg]:h-auto [&_svg]:max-h-full [&_svg]:max-w-full"
+          dangerouslySetInnerHTML={{ __html: svg }}
+        />
       )}
-      <details className="reader__mermaid-details">
-        <summary>source</summary>
-        <pre className="reader__mermaid-src">{src}</pre>
+      <details className="border-t border-border-soft">
+        <summary className="cursor-pointer px-3 py-2 font-mono text-xs uppercase tracking-wide text-ink-3">
+          source
+        </summary>
+        <pre
+          data-testid="reader-mermaid-src"
+          className="m-0 overflow-x-auto whitespace-pre px-3.5 py-3 font-mono text-sm leading-normal text-ink-2"
+        >
+          {src}
+        </pre>
       </details>
     </div>
   );
@@ -157,8 +213,13 @@ export function Section({ section }: { section: MarkdownSection }) {
   // A section with no heading (e.g. the Implementation Notes tab, where the tab
   // label replaces the `## Implementation Notes` heading) renders body-only.
   const heading = section.heading.trim() ? (
-    <h3 className="reader__h2">
-      <span className="hash">##</span>
+    <h3
+      data-testid="reader-heading"
+      className="mb-3 mt-8 font-display text-3xl font-bold leading-tight text-ink"
+    >
+      <span data-testid="reader-hash" className="mr-1.5 font-mono text-xl font-medium text-dalia">
+        ##
+      </span>
       {section.heading}
     </h3>
   ) : null;
@@ -170,13 +231,20 @@ export function Section({ section }: { section: MarkdownSection }) {
       return (
         <>
           {heading}
-          <div className="crit">
+          <div className="mt-2 flex flex-col gap-1">
             {criteria.map((text, i) => (
-              <div key={i} className="crit__row">
-                <span className="crit__marker" aria-hidden="true">
+              <div
+                key={i}
+                data-testid="crit-row"
+                className="flex items-center gap-2 py-1 text-base text-ink-3"
+              >
+                <span
+                  className="w-4 shrink-0 text-center leading-snug text-ink-3"
+                  aria-hidden="true"
+                >
                   –
                 </span>
-                <span className="crit__text">{text}</span>
+                <span className="leading-snug">{text}</span>
               </div>
             ))}
           </div>
@@ -213,38 +281,40 @@ export function ReaderProse({
   executionSummary,
 }: ReaderProseProps) {
   return (
-    <div className="reader">
-      <div className="reader__meta">
-        <span className="reader__filename">{filename}</span>
-        <span>·</span>
-        <span>
-          id · <strong style={{ color: 'var(--ink-2)' }}>{id}</strong>
-        </span>
-        {created && (
-          <>
-            <span>·</span>
-            <span>created · {created}</span>
-          </>
-        )}
-        <span>·</span>
-        <span>
-          {phaseCount} phases · {taskCount} tasks
-        </span>
-      </div>
-
-      {executionSummary && (
-        <div className="reader__summary">
-          <div className="reader__summary-eyebrow">
-            ✓ Execution summary
-            {executionSummary.completedAt ? ` · completed ${executionSummary.completedAt}` : ''}
-          </div>
-          <div className="reader__summary-text">{executionSummary.text}</div>
+    <div className={READER} data-testid="reader">
+      <div className={READER_INNER}>
+        <div className={READER_META} data-testid="reader-meta">
+          <span className="font-mono text-sm text-ink-2">{filename}</span>
+          <span>·</span>
+          <span>
+            id · <strong className="text-ink-2">{id}</strong>
+          </span>
+          {created && (
+            <>
+              <span>·</span>
+              <span>created · {created}</span>
+            </>
+          )}
+          <span>·</span>
+          <span>
+            {phaseCount} phases · {taskCount} tasks
+          </span>
         </div>
-      )}
 
-      {sections.map((section, i) => (
-        <Section key={i} section={section} />
-      ))}
+        {executionSummary && (
+          <div className="my-3.5 rounded-card border-l-4 border-l-dalia-dark bg-dalia-bg px-4 py-3.5">
+            <div className="mb-1 font-mono text-xs font-bold uppercase tracking-widest text-dalia-deep">
+              ✓ Execution summary
+              {executionSummary.completedAt ? ` · completed ${executionSummary.completedAt}` : ''}
+            </div>
+            <div className="text-base leading-relaxed text-ink">{executionSummary.text}</div>
+          </div>
+        )}
+
+        {sections.map((section, i) => (
+          <Section key={i} section={section} />
+        ))}
+      </div>
     </div>
   );
 }

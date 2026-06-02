@@ -65,9 +65,9 @@ test.describe('Plan Detail Execute tab (Playwright)', () => {
   /** Opens plan 38 and clicks the Tasks tab to reach the Execute blueprint. */
   const openExecute = async (page: Page): Promise<void> => {
     await page.goto(`${liveHandle.url}/plans/38`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.chrome__tabs');
-    await page.locator('.chrome__tabs .tab', { hasText: 'Tasks' }).click();
-    await page.waitForSelector('.snap__seg');
+    await page.getByRole('tablist').waitFor();
+    await page.getByRole('tab', { name: 'Tasks' }).click();
+    await page.getByTestId('exec-toggle').waitFor();
   };
 
   test('Swimlanes (default): summary tally, first-class phases, and the sequential grid', async ({
@@ -78,28 +78,28 @@ test.describe('Plan Detail Execute tab (Playwright)', () => {
     try {
       await openExecute(page);
 
-      // The toggle defaults to Swimlanes — the .exec subtree is shown, not .outline.
-      await page.waitForSelector('.exec');
-      expect(await page.locator('.outline').count()).toBe(0);
+      // The toggle defaults to Swimlanes — the swimlanes subtree is shown, not outline.
+      await page.getByTestId('swimlanes').waitFor();
+      expect(await page.getByTestId('outline').count()).toBe(0);
 
       const done = plan38.tasks.filter(t => toState(t.status) === 'done').length;
       const doing = plan38.tasks.filter(t => toState(t.status) === 'doing').length;
       const todo = plan38.tasks.filter(t => toState(t.status) === 'todo').length;
 
       // Summary header: "<phases> · <tasks>" and the live done/doing/todo tally.
-      const sumTitle = (await page.locator('.exec__sum-title').textContent()) ?? '';
+      const sumTitle = (await page.getByTestId('exec-sum-title').textContent()) ?? '';
       expect(sumTitle).toContain(`${plan38.phases.length} phase`);
       expect(sumTitle).toContain(`${plan38.tasks.length} task`);
-      const sumMeta = (await page.locator('.exec__sum-meta').textContent()) ?? '';
+      const sumMeta = (await page.getByTestId('exec-sum-meta').textContent()) ?? '';
       expect(sumMeta).toContain(`${done} done`);
       expect(sumMeta).toContain(`${doing} doing`);
       expect(sumMeta).toContain(`${todo} todo`);
 
       // One first-class phase container per model phase.
-      expect(await page.locator('.phase').count()).toBe(plan38.phases.length);
+      expect(await page.getByTestId('phase').count()).toBe(plan38.phases.length);
 
       // Plan 38's phases are sequential: each task grid uses a single column.
-      const grids = page.locator('.phase__tasks');
+      const grids = page.getByTestId('phase-tasks');
       for (let i = 0; i < (await grids.count()); i++) {
         const cols = await grids
           .nth(i)
@@ -109,8 +109,8 @@ test.describe('Plan Detail Execute tab (Playwright)', () => {
       }
 
       // Every task card is rendered as done for this all-completed plan.
-      expect(await page.locator('.lane-task').count()).toBe(plan38.tasks.length);
-      expect(await page.locator('.lane-task--done').count()).toBe(done);
+      expect(await page.getByTestId('lane-task').count()).toBe(plan38.tasks.length);
+      expect(await page.locator('[data-testid="lane-task"][data-state="done"]').count()).toBe(done);
     } finally {
       await page.close();
     }
@@ -124,30 +124,33 @@ test.describe('Plan Detail Execute tab (Playwright)', () => {
       await openExecute(page);
 
       // Toggle to Outline (second segment) without leaving the Tasks tab.
-      await page.locator('.snap__seg .snap__btn', { hasText: 'Outline' }).click();
-      await page.waitForSelector('.outline');
-      expect(await page.locator('.exec').count()).toBe(0);
+      await page.getByText('Outline', { exact: true }).click();
+      await page.getByTestId('outline').waitFor();
+      expect(await page.getByTestId('swimlanes').count()).toBe(0);
       // Still on the Tasks tab (the chrome tab strip is unchanged).
-      expect(await page.locator('.chrome__tabs').count()).toBe(1);
+      expect(await page.getByRole('tablist').count()).toBe(1);
 
       const doneCount = plan38.tasks.filter(t => toState(t.status) === 'done').length;
 
       // One phase head + the right number of task rows.
-      expect(await page.locator('.outline__phase-head').count()).toBe(plan38.phases.length);
-      expect(await page.locator('.outline__row').count()).toBe(plan38.tasks.length);
+      expect(await page.getByTestId('outline-phase-head').count()).toBe(plan38.phases.length);
+      expect(await page.getByTestId('outline-row').count()).toBe(plan38.tasks.length);
 
-      // Done tasks are surfaced via the strikethrough row modifier (the leading
+      // Done tasks are surfaced via the strikethrough done state (the leading
       // Tickbox glyph was removed in Plan 95) — no tickboxes are rendered.
-      expect(await page.locator('.outline__row--done').count()).toBe(doneCount);
-      expect(await page.locator('.outline .tickbox').count()).toBe(0);
+      const doneRows = page.locator('[data-testid="outline-row"][data-state="done"]');
+      expect(await doneRows.count()).toBe(doneCount);
+      expect(await page.getByTestId('outline').getByTestId('tickbox').count()).toBe(0);
 
       // The Outline still renders a StatusPill per row; done rows carry a
-      // `pill--done` pill inside a `.outline__row--done` row.
-      expect(await page.locator('.outline__row--done .pill--done').count()).toBe(doneCount);
+      // done-kind pill reading "done".
+      expect(await doneRows.locator('[data-testid="status-pill"][data-kind="done"]').count()).toBe(
+        doneCount
+      );
 
       // Plan 38 has an Execution Summary section, so the callout is present.
-      expect(await page.locator('.reader__summary').count()).toBe(1);
-      const callout = (await page.locator('.reader__summary').textContent()) ?? '';
+      expect(await page.getByTestId('exec-summary').count()).toBe(1);
+      const callout = (await page.getByTestId('exec-summary').textContent()) ?? '';
       expect(callout.toLowerCase()).toContain('execution summary');
     } finally {
       await page.close();

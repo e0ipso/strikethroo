@@ -9,39 +9,72 @@
  * no writes; loading and error states are owned upstream by the route, so this
  * container only renders once data is present.
  *
- * The toggle reuses the vendored `.snap`/`.snap__seg`/`.snap__btn` segmented
- * control already used by the Plan Detail Board, keeping the in-screen
- * view-switching interaction consistent across the app.
+ * The toggle reproduces the design's segmented control with Tailwind utilities
+ * (Plan 102), keeping the in-screen view-switching interaction consistent across
+ * the app.
  */
 
 import { useState } from 'react';
 import type { PlanDetail } from '../../data/api';
+import { cn } from '../../vendor/utils/cn';
 import { ExecSwimlanesView } from './ExecSwimlanesView';
 import { ExecOutlineView } from './ExecOutlineView';
 
 /** The two interchangeable Execution-blueprint views; Swimlanes is the default. */
 type ExecMode = 'swimlanes' | 'outline';
 
+/** One segmented-control button: a primary label over a muted meta line. */
+function ExecToggleBtn({
+  active,
+  onClick,
+  label,
+  meta,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  meta: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'flex-1 cursor-default rounded-md px-3 py-1.5 text-center text-sm font-medium text-ink-3',
+        active &&
+          'bg-cream font-semibold text-ink shadow-sm ring-1 ring-border-soft dark:bg-cream-deep'
+      )}
+      onClick={onClick}
+    >
+      <div>{label}</div>
+      <div
+        className={cn('mt-px font-mono text-xs font-medium', active ? 'text-ink-3' : 'text-ink-4')}
+      >
+        {meta}
+      </div>
+    </div>
+  );
+}
+
 /** The in-screen segmented toggle between Swimlanes and Outline. */
 function ExecToggle({ mode, onSelect }: { mode: ExecMode; onSelect: (mode: ExecMode) => void }) {
   return (
-    <div className="snap">
-      <span className="snap__label">View</span>
-      <div className="snap__seg">
-        <div
-          className={`snap__btn${mode === 'swimlanes' ? ' snap__btn--active' : ''}`}
+    <div
+      data-testid="exec-toggle"
+      className="flex items-center gap-3 border-b border-border-soft bg-cream px-7 py-3"
+    >
+      <span className="font-mono text-xs font-semibold uppercase text-ink-3">View</span>
+      <div className="flex max-w-2xl flex-1 rounded-lg bg-cream-mid p-0.5 ring-1 ring-inset ring-border-soft">
+        <ExecToggleBtn
+          active={mode === 'swimlanes'}
           onClick={() => onSelect('swimlanes')}
-        >
-          <div>Swimlanes</div>
-          <div className="snap__btn-meta">phases as lanes</div>
-        </div>
-        <div
-          className={`snap__btn${mode === 'outline' ? ' snap__btn--active' : ''}`}
+          label="Swimlanes"
+          meta="phases as lanes"
+        />
+        <ExecToggleBtn
+          active={mode === 'outline'}
           onClick={() => onSelect('outline')}
-        >
-          <div>Outline</div>
-          <div className="snap__btn-meta">compact rows</div>
-        </div>
+          label="Outline"
+          meta="compact rows"
+        />
       </div>
     </div>
   );

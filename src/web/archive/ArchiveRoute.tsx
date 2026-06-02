@@ -25,7 +25,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { Chrome } from '../components/Chrome';
-import { Button, Icon } from '../components/primitives';
+import { Button, Chip, Icon } from '../components/primitives';
 import { ErrorSurface, LoadingSurface } from '../components/StateSurface';
 import { useNavigate } from '../router';
 import { sortRows, useTableSort, type SortState } from '../data/sort';
@@ -88,8 +88,7 @@ function ArchiveControls({
         Sort: {SORT_LABELS[sortState.key]} {sortState.dir === 'desc' ? '↓' : '↑'}
       </Button>
       <label
-        className="btn btn--outline btn--sm"
-        style={{ cursor: 'pointer', gap: 6 }}
+        className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md bg-cream px-2.5 py-1 font-sans text-sm font-medium text-ink ring-1 ring-border-strong"
         title="Filter archived plans by created date"
       >
         <Icon name="filter" size={13} style={{ marginLeft: -2 }} />
@@ -98,27 +97,15 @@ function ArchiveControls({
           value={from}
           onChange={e => onFrom(e.target.value)}
           aria-label="Created from"
-          style={{
-            cursor: 'pointer',
-            border: 'none',
-            background: 'transparent',
-            font: 'inherit',
-            color: 'inherit',
-          }}
+          className="cursor-pointer border-none bg-transparent font-sans text-inherit"
         />
-        <span style={{ color: 'var(--ink-3)' }}>→</span>
+        <span className="text-ink-3">→</span>
         <input
           type="date"
           value={to}
           onChange={e => onTo(e.target.value)}
           aria-label="Created to"
-          style={{
-            cursor: 'pointer',
-            border: 'none',
-            background: 'transparent',
-            font: 'inherit',
-            color: 'inherit',
-          }}
+          className="cursor-pointer border-none bg-transparent font-sans text-inherit"
         />
       </label>
     </>
@@ -144,11 +131,11 @@ function ArchiveHead({
 }) {
   const stats = archiveStats(rows);
   return (
-    <div className="archive__head">
-      <div className="archive__search">
-        <Icon name="search" size={15} style={{ color: 'var(--ink-3)' }} />
+    <div className="flex items-center justify-between gap-7 border-b border-border bg-cream px-7 py-4">
+      <div className="relative flex max-w-xl flex-1 items-center gap-2.5 rounded-lg bg-cream-mid px-3.5 py-2.5 font-sans ring-1 ring-border-soft focus-within:bg-cream focus-within:ring-2 focus-within:ring-ink">
+        <Icon name="search" size={15} style={{ color: 'var(--color-ink-3)' }} />
         <input
-          className="archive__search-input"
+          className="min-w-0 flex-1 border-none bg-transparent font-sans text-base text-ink outline-none placeholder:text-ink-3"
           type="text"
           placeholder="Search archived plans — slug, summary, date…"
           value={query}
@@ -156,25 +143,36 @@ function ArchiveHead({
           aria-label="Search archived plans"
         />
         {query && (
-          <span className="archive__search-clear" onClick={() => onQuery('')}>
+          <span
+            className="inline-flex cursor-pointer items-center gap-1 rounded px-2 py-0.5 font-sans text-sm text-ink-3 hover:bg-cream-mid hover:text-ink"
+            onClick={() => onQuery('')}
+          >
             <Icon name="close" size={13} /> clear
           </span>
         )}
-        <span className="archive__search-kbd mono">⌘K</span>
+        <span className="rounded bg-cream px-1.5 py-0.5 font-mono text-xs text-ink-3 ring-1 ring-border">
+          ⌘K
+        </span>
       </div>
 
-      <div className="archive__stats">
-        <div className="archive__stat">
-          <div className="archive__stat-num">{stats.totalPlans}</div>
-          <div className="archive__stat-label">archived plans</div>
+      <div className="flex gap-7 border-l border-border pl-7">
+        <div className="text-right font-sans">
+          <div className="font-display text-4xl font-bold leading-none text-ink">
+            {stats.totalPlans}
+          </div>
+          <div className="mt-1 font-mono text-xs uppercase text-ink-3">archived plans</div>
         </div>
-        <div className="archive__stat">
-          <div className="archive__stat-num">{stats.totalTasks}</div>
-          <div className="archive__stat-label">tasks completed</div>
+        <div className="text-right font-sans">
+          <div className="font-display text-4xl font-bold leading-none text-ink">
+            {stats.totalTasks}
+          </div>
+          <div className="mt-1 font-mono text-xs uppercase text-ink-3">tasks completed</div>
         </div>
-        <div className="archive__stat">
-          <div className="archive__stat-num">{stats.totalPhases}</div>
-          <div className="archive__stat-label">phases run</div>
+        <div className="text-right font-sans">
+          <div className="font-display text-4xl font-bold leading-none text-ink">
+            {stats.totalPhases}
+          </div>
+          <div className="mt-1 font-mono text-xs uppercase text-ink-3">phases run</div>
         </div>
       </div>
     </div>
@@ -187,25 +185,30 @@ function ArchiveRow({ row, query }: { row: ArchivePlanView; query: string }) {
   const phases = row.phaseCount ?? 0;
   return (
     <div
-      className="tbl tbl--row"
+      data-testid="archive-row"
+      className="grid cursor-pointer items-center gap-4 border-b border-border-soft px-7 py-3 hover:bg-cream-mid"
       style={{ gridTemplateColumns: COL_TPL }}
       onClick={() => navigate(`/plans/${row.id}`)}
     >
-      <span className="tbl__id">{row.id}</span>
-      <div className="tbl__title">
-        <div className="tbl__title-slug">{highlight(row.title, query)}</div>
-        <div className="tbl__title-summary">{highlight(row.summary, query)}</div>
+      <span className="font-mono text-base font-semibold text-ink-2">{row.id}</span>
+      <div className="min-w-0">
+        <div className="overflow-hidden text-ellipsis whitespace-nowrap font-mono text-base font-medium text-ink">
+          {highlight(row.title, query)}
+        </div>
+        <div className="mt-px overflow-hidden text-ellipsis whitespace-nowrap text-base text-ink-2">
+          {highlight(row.summary, query)}
+        </div>
       </div>
-      <span className="mono" style={{ fontSize: 12, color: 'var(--ink-2)' }}>
-        <strong style={{ color: 'var(--done)' }}>{row.done}</strong>/{row.total}
+      <span className="font-mono text-xs text-ink-2">
+        <strong className="text-done">{row.done}</strong>/{row.total}
       </span>
-      <span className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+      <span className="font-mono text-xs text-ink-3">
         {phases} phase{phases === 1 ? '' : 's'}
       </span>
-      <span className="mono" style={{ color: 'var(--ink-2)', fontSize: 12 }}>
+      <span className="font-mono text-xs text-ink-2">
         {row.created ? highlight(row.created, query) : '—'}
       </span>
-      <div style={{ textAlign: 'right' }}>
+      <div className="text-right">
         <span
           onClick={e => {
             e.stopPropagation();
@@ -233,8 +236,11 @@ function ArchiveMonthGroups({
 }) {
   const groups = groupByMonth(rows);
   return (
-    <div className="scroll">
-      <div className="tbl tbl--head" style={{ gridTemplateColumns: COL_TPL }}>
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <div
+        className="grid items-center gap-4 border-b border-border bg-cream px-7 py-2.5 font-sans text-xs font-semibold uppercase text-ink-3"
+        style={{ gridTemplateColumns: COL_TPL }}
+      >
         <span>id</span>
         <span>plan</span>
         <span>tasks</span>
@@ -243,41 +249,28 @@ function ArchiveMonthGroups({
         <span />
       </div>
       {total === 0 ? (
-        <div className="archive__empty">
-          <div className="archive__empty-title">No archived plans yet</div>
-          <div className="archive__empty-hint">
+        <div className="flex flex-col items-center gap-1.5 px-7 py-12 text-center">
+          <div className="font-display text-2xl font-semibold text-ink">No archived plans yet</div>
+          <div className="text-base text-ink-3">
             Completed plans move to <strong>{ARCHIVE_PATH}</strong> automatically when every task is
             done.
           </div>
         </div>
       ) : rows.length === 0 ? (
-        <div className="archive__empty">
-          <div className="archive__empty-title">
-            No archived plans match <span className="chip">{query}</span>
+        <div className="flex flex-col items-center gap-1.5 px-7 py-12 text-center">
+          <div className="font-display text-2xl font-semibold text-ink">
+            No archived plans match <Chip>{query}</Chip>
           </div>
-          <div className="archive__empty-hint">
+          <div className="text-base text-ink-3">
             Try a shorter query, or search by slug or month.
           </div>
         </div>
       ) : (
         groups.map(group => (
           <div key={group.month}>
-            <div
-              className="mono"
-              style={{
-                padding: '10px 14px 6px',
-                fontSize: 12,
-                fontWeight: 600,
-                color: 'var(--ink-2)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em',
-              }}
-            >
+            <div className="px-3 pt-2.5 pb-1.5 font-mono text-xs font-semibold uppercase text-ink-2">
               {group.label}
-              <span style={{ color: 'var(--ink-3)', fontWeight: 400 }}>
-                {' '}
-                · {group.plans.length}
-              </span>
+              <span className="font-normal text-ink-3"> · {group.plans.length}</span>
             </div>
             {group.plans.map(row => (
               <ArchiveRow key={row.id} row={row} query={query} />
@@ -319,24 +312,24 @@ function ArchiveScreen({ plans }: { plans: ArchivePlanView[] }) {
       />
       <ArchiveHead query={query} onQuery={setQuery} rows={rows} />
       {isFiltered && (
-        <div className="archive__resultbar">
+        <div className="flex items-center justify-between border-b border-dalia/20 bg-dalia-bg px-7 py-2.5 font-sans text-base text-dalia-deep">
           <span>
-            <strong style={{ color: 'var(--ink)' }}>{rows.length}</strong>{' '}
+            <strong className="text-ink">{rows.length}</strong>{' '}
             {rows.length === 1 ? 'result' : 'results'}
             {query && (
               <>
                 {' '}
-                for <span className="chip">{query}</span>
+                for <Chip>{query}</Chip>
               </>
             )}
           </span>
-          <span className="archive__resultbar-hint">
+          <span className="font-mono text-xs opacity-70">
             searching across slug · summary · created date
           </span>
         </div>
       )}
       <ArchiveMonthGroups rows={rows} total={plans.length} query={query} />
-      <div className="statusbar">
+      <div className="flex items-center justify-between border-t border-border bg-cream-mid px-7 py-2 font-mono text-xs text-ink-3">
         <span>
           workspace · <strong>{ARCHIVE_PATH}</strong>
         </span>

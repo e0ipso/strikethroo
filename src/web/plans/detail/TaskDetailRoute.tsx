@@ -27,7 +27,7 @@ import { usePlanDetail, type PlanDetail, type Task } from '../../data/api';
 import { useNavigate } from '../../router';
 import { stripIdPrefix, splitTaskSections, unwrapRootDetails } from '../derive';
 import { toTickboxState } from '../taskStatus';
-import { Section } from './ReaderProse';
+import { READER, READER_INNER, READER_META, Section } from './ReaderProse';
 
 /**
  * The not-found surface, shown when the route's `taskId` is non-numeric or no
@@ -41,21 +41,10 @@ function TaskNotFound({ id, slug, taskId }: { id: string; slug: string; taskId: 
         title="Task not found"
         crumbs={['Plans', { label: slug, href: `/plans/${id}` }, 'tasks', taskId]}
       />
-      <div
-        style={{
-          padding: '28px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          color: 'var(--ink-3)',
-          fontFamily: 'var(--font-body)',
-          fontSize: '14px',
-        }}
-        role="alert"
-      >
+      <div className="flex items-center gap-3 p-7 font-sans text-sm text-ink-3" role="alert">
         <StatusPill kind="todo" label="not found" />
         <span>
-          No task <strong style={{ color: 'var(--ink-2)' }}>{taskId}</strong> exists in this plan.
+          No task <strong className="text-ink-2">{taskId}</strong> exists in this plan.
         </span>
       </div>
     </>
@@ -75,7 +64,7 @@ function Dependencies({ id, task, byId }: { id: string; task: Task; byId: Map<nu
   const navigate = useNavigate();
   const deps = task.dependencies ?? [];
   if (deps.length === 0) {
-    return <span style={{ color: 'var(--ink-3)' }}>none</span>;
+    return <span className="text-ink-3">none</span>;
   }
   return (
     <>
@@ -85,7 +74,7 @@ function Dependencies({ id, task, byId }: { id: string; task: Task; byId: Map<nu
           return (
             <Chip key={depId}>
               <span
-                style={{ cursor: 'pointer' }}
+                className="cursor-pointer"
                 onClick={() => navigate(`/plans/${id}/tasks/${depId}`)}
               >
                 #{depId}
@@ -115,14 +104,14 @@ function TaskMeta({ id, task, byId }: { id: string; task: Task; byId: Map<number
   const items: ReactNode[] = [];
   if (task.group) {
     items.push(
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <span className="inline-flex items-center gap-1.5">
         group <Chip>{task.group}</Chip>
       </span>
     );
   }
   if (skills.length > 0) {
     items.push(
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <span className="inline-flex items-center gap-1.5">
         skills
         {skills.map(skill => (
           <Chip key={skill}>{skill}</Chip>
@@ -131,13 +120,13 @@ function TaskMeta({ id, task, byId }: { id: string; task: Task; byId: Map<number
     );
   }
   items.push(
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+    <span className="inline-flex items-center gap-1.5">
       deps <Dependencies id={id} task={task} byId={byId} />
     </span>
   );
 
   return (
-    <div className="reader__meta" style={{ alignItems: 'center' }}>
+    <div className="mb-6 flex flex-wrap items-center gap-x-3.5 gap-y-1 font-mono text-sm text-ink-3 [&>*]:whitespace-nowrap">
       {items.map((item, i) => (
         <Fragment key={i}>
           {i > 0 && <span>·</span>}
@@ -194,7 +183,7 @@ function LoadedRoute({ id, taskId, detail }: { id: string; taskId: string; detai
   // convention), replacing a status pill in the metadata header.
   const isDone = toTickboxState(task.status) === 'done';
   const titleNode = isDone ? (
-    <span style={{ color: 'var(--ink-3)', textDecoration: 'line-through' }}>{task.name}</span>
+    <span className="text-ink-3 line-through">{task.name}</span>
   ) : (
     task.name
   );
@@ -208,13 +197,15 @@ function LoadedRoute({ id, taskId, detail }: { id: string; taskId: string; detai
         activeTab={activeTab}
         onTabSelect={setActiveTab}
       />
-      <div className="reader">
-        <TaskMeta id={id} task={task} byId={byId} />
-        {isEmpty ? (
-          <p className="reader__meta">This task has no description.</p>
-        ) : (
-          renderSections.map((section, i) => <Section key={i} section={section} />)
-        )}
+      <div className={READER} data-testid="reader">
+        <div className={READER_INNER}>
+          <TaskMeta id={id} task={task} byId={byId} />
+          {isEmpty ? (
+            <p className={READER_META}>This task has no description.</p>
+          ) : (
+            renderSections.map((section, i) => <Section key={i} section={section} />)
+          )}
+        </div>
       </div>
     </>
   );

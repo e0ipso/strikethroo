@@ -93,9 +93,9 @@ test.describe('Plan Detail Graph (Playwright)', () => {
   /** Opens plan 38 and clicks the Graph tab. */
   const openGraph = async (page: Page): Promise<void> => {
     await page.goto(`${liveHandle.url}/plans/38`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.chrome__tabs');
-    await page.locator('.chrome__tabs .tab', { hasText: 'Graph' }).click();
-    await page.waitForSelector('.graph2');
+    await page.getByRole('tablist').waitFor();
+    await page.getByRole('tab', { name: 'Graph' }).click();
+    await page.getByTestId('graph').waitFor();
   };
 
   test('Graph: renders the model diagram and the Source toggle shows the extracted block', async ({
@@ -110,19 +110,21 @@ test.describe('Plan Detail Graph (Playwright)', () => {
       await openGraph(page);
 
       // Rendered view: the shared lazy renderer produces an SVG in the host.
-      await page.waitForSelector('.graph2__canvas .mermaid-host svg', { timeout: 20_000 });
+      await page.waitForSelector('[data-testid="graph-canvas"] .mermaid-host svg', {
+        timeout: 20_000,
+      });
       expect(await page.locator('.mermaid-host svg').count()).toBe(1);
 
       // Toggle to Source: the raw mermaid text equals the model's block (trimmed).
-      await page.locator('.graph2__toggle-btn', { hasText: 'Source' }).click();
-      await page.waitForSelector('.graph2__source');
-      const src = (await page.locator('.graph2__source').textContent()) ?? '';
+      await page.getByText('Source', { exact: true }).click();
+      await page.getByTestId('graph-source').waitFor();
+      const src = (await page.getByTestId('graph-source').textContent()) ?? '';
       expect(src.trim()).toBe(expected.source.trim());
       // No SVG in the source view.
-      expect(await page.locator('.graph2__source svg').count()).toBe(0);
+      expect(await page.getByTestId('graph-source').locator('svg').count()).toBe(0);
 
       // The legend is present.
-      expect(await page.locator('.graph2__legend').count()).toBe(1);
+      expect(await page.getByTestId('graph-legend').count()).toBe(1);
     } finally {
       await page.close();
     }
@@ -158,16 +160,16 @@ test.describe('Plan Detail Graph (Playwright)', () => {
     });
     try {
       await page.goto(`${handle.url}/plans/881`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.chrome__tabs');
-      await page.locator('.chrome__tabs .tab', { hasText: 'Graph' }).click();
-      await page.waitForSelector('.graph2');
+      await page.getByRole('tablist').waitFor();
+      await page.getByRole('tab', { name: 'Graph' }).click();
+      await page.getByTestId('graph').waitFor();
 
       // Explicit no-diagram empty state, no error treatment, route intact.
-      const canvasText = (await page.locator('.graph2__canvas').textContent()) ?? '';
+      const canvasText = (await page.getByTestId('graph-canvas').textContent()) ?? '';
       expect(canvasText.toLowerCase()).toContain('no diagram');
-      expect(await page.locator('.mermaid-err').count()).toBe(0);
+      expect(await page.getByTestId('mermaid-error').count()).toBe(0);
       // The toggle is absent when there is no diagram to toggle.
-      expect(await page.locator('.graph2__toggle').count()).toBe(0);
+      expect(await page.getByTestId('graph-toggle').count()).toBe(0);
     } finally {
       await page.close();
       await new Promise<void>(r => handle.server.close(() => r()));
@@ -189,18 +191,18 @@ test.describe('Plan Detail Graph (Playwright)', () => {
     });
     try {
       await page.goto(`${handle.url}/plans/882`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.chrome__tabs');
-      await page.locator('.chrome__tabs .tab', { hasText: 'Graph' }).click();
-      await page.waitForSelector('.graph2');
+      await page.getByRole('tablist').waitFor();
+      await page.getByRole('tab', { name: 'Graph' }).click();
+      await page.getByTestId('graph').waitFor();
 
-      // The inline .mermaid-err state appears; the route (Chrome + graph2) survives.
-      await page.waitForSelector('.mermaid-err', { timeout: 20_000 });
-      expect(await page.locator('.chrome__tabs').count()).toBe(1);
-      expect(await page.locator('.graph2').count()).toBe(1);
+      // The inline mermaid-error state appears; the route (Chrome + graph) survives.
+      await page.waitForSelector('[data-testid="mermaid-error"]', { timeout: 20_000 });
+      expect(await page.getByRole('tablist').count()).toBe(1);
+      expect(await page.getByTestId('graph').count()).toBe(1);
 
       // Source toggle still works on a malformed diagram (shows the raw text).
-      await page.locator('.graph2__toggle-btn', { hasText: 'Source' }).click();
-      const src = (await page.locator('.graph2__source').textContent()) ?? '';
+      await page.getByText('Source', { exact: true }).click();
+      const src = (await page.getByTestId('graph-source').textContent()) ?? '';
       expect(src).toContain('not valid mermaid');
     } finally {
       await page.close();

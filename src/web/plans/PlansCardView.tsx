@@ -11,6 +11,7 @@
 
 import { Button, StatusPill } from '../components/primitives';
 import { useNavigate } from '../router';
+import { cn } from '../vendor/utils/cn';
 import { progressDots, planMdPath, type PlanView } from './derive';
 
 export interface PlansCardViewProps {
@@ -26,76 +27,70 @@ export function PlansCardView({ plans, openReview, openArchive }: PlansCardViewP
   const navigate = useNavigate();
 
   return (
-    <div className="cards">
+    <div className="grid flex-1 grid-cols-1 content-start gap-6 overflow-y-auto px-7 py-6 sm:grid-cols-2 lg:grid-cols-3">
       {plans.map(card => {
         const dots = progressDots(card.done, card.total, card.state);
         return (
           <div
             key={card.id}
-            className={`card${card.state === 'drafted' ? ' card--drafted' : ''}`}
+            data-testid="plan-card"
+            className={cn(
+              'relative flex cursor-pointer flex-col rounded-card p-5',
+              card.state === 'drafted'
+                ? 'border border-dashed border-ink-3 bg-transparent'
+                : 'border border-border-soft bg-cream shadow-sm'
+            )}
             onClick={() => navigate(`/plans/${card.id}`)}
           >
-            <div className="card__head">
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div className="card__id">plan · {card.id}</div>
-                <div className="card__slug">{card.title}</div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="font-mono text-xs font-semibold uppercase text-ink-3">
+                  plan · {card.id}
+                </div>
+                <div className="mt-px overflow-hidden text-ellipsis whitespace-nowrap font-mono text-base font-semibold text-ink">
+                  {card.title}
+                </div>
               </div>
               <StatusPill kind={card.state} />
             </div>
-            <div className="card__title" style={{ fontSize: 17, margin: '8px 0 4px' }}>
+            <div className="mt-2 mb-1 font-display text-lg font-semibold text-ink">
               {card.summary}
             </div>
 
             {card.total != null ? (
               <>
-                <div className="card__progress">
+                <div className="mt-3 flex flex-wrap items-center gap-1">
                   {dots.map((dot, i) => (
                     <span
                       key={i}
-                      className={`card__progress-dot${
+                      className={cn(
+                        'h-3 w-3 rounded-sm ring-1',
                         dot === 'done'
-                          ? ' card__progress-dot--done'
+                          ? 'bg-done ring-done'
                           : dot === 'doing'
-                            ? ' card__progress-dot--doing'
-                            : ''
-                      }`}
+                            ? 'bg-doing ring-doing'
+                            : 'bg-transparent ring-border-strong'
+                      )}
                     />
                   ))}
                 </div>
-                <div
-                  style={{
-                    marginTop: 6,
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 11,
-                    color: 'var(--ink-3)',
-                  }}
-                >
+                <div className="mt-1.5 font-mono text-xs text-ink-3">
                   {card.done}/{card.total} tasks done
                   {card.phases != null && ` · ${card.phases} phase${card.phases > 1 ? 's' : ''}`}
                 </div>
               </>
             ) : (
-              <div
-                style={{
-                  marginTop: 12,
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 11.5,
-                  color: 'var(--ink-3)',
-                  fontStyle: 'italic',
-                }}
-              >
-                no tasks generated yet
-              </div>
+              <div className="mt-3 font-mono text-xs italic text-ink-3">no tasks generated yet</div>
             )}
 
-            <div className="card__foot">
+            <div className="mt-3 flex items-center justify-between gap-2 border-t border-border-soft pt-3 font-mono text-xs text-ink-3">
               <span>
                 {card.completedAt ? `done ${card.completedAt}` : `created ${card.created}`}
               </span>
             </div>
 
             {card.state === 'drafted' && (
-              <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
+              <div className="mt-2.5 flex justify-end">
                 <span
                   onClick={e => {
                     e.stopPropagation();
@@ -110,7 +105,7 @@ export function PlansCardView({ plans, openReview, openArchive }: PlansCardViewP
             )}
 
             {card.state === 'done' && (
-              <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
+              <div className="mt-2.5 flex justify-end">
                 <span
                   onClick={e => {
                     e.stopPropagation();

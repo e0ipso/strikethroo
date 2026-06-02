@@ -2,13 +2,15 @@
  * Plan Detail route container (`/plans/:id`).
  *
  * Owns the single data fetch (`usePlanDetail`), the shared `Chrome` (breadcrumb
- * trail, the Plan / Tasks / Graph / Execute tab strip, the plan `StatusPill`,
+ * trail, the Plan / Results / Graph / Tasks tab strip, the plan `StatusPill`,
  * and the `Copy path` action), and the active-tab state. The tab strip is
  * interactive: selecting a tab swaps the body between the Reader (Plan), the
- * Board (Tasks), the Graph, and the Execute blueprint. The route has no tab in
- * its URL — tab selection is local UI state, mirroring the design where each
- * Plan Detail screen shares one Chrome and differs only in body. The Execute
- * tab renders the Execution blueprint (Swimlanes / Outline) via `ExecuteTab`.
+ * Results markdown, the Graph, and the Execution blueprint (Tasks). The route
+ * has no tab in its URL — tab selection is local UI state, mirroring the design
+ * where each Plan Detail screen shares one Chrome and differs only in body. The
+ * Tasks tab renders the Execution blueprint (Swimlanes / Outline) via
+ * `ExecuteTab`. The tab strip itself is rendered (with Tailwind utilities) by
+ * the shared `Chrome`; this container only supplies the tab data + state.
  *
  * Loading and error states are surfaced by the shared StateSurface components
  * (never a blank screen / thrown error). Plan 38 is only an acceptance fixture,

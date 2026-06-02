@@ -160,13 +160,13 @@ test.describe('Live updates: SSE client (Playwright)', () => {
       // Open the Tasks tab (Execute blueprint, Swimlanes by default) so task
       // cards by status are visible.
       await page.goto(`${handle.url}/plans/${plan.id}`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.chrome__tabs');
-      await page.locator('.chrome__tabs .tab', { hasText: 'Tasks' }).click();
-      await page.waitForSelector('.exec');
+      await page.getByRole('tablist').waitFor();
+      await page.getByRole('tab', { name: 'Tasks' }).click();
+      await page.getByTestId('swimlanes').waitFor();
       // Let the shared stream open before mutating the workspace.
       await settleStream(page);
 
-      const doneTasks = page.locator('.lane-task--done');
+      const doneTasks = page.locator('[data-testid="lane-task"][data-state="done"]');
       const before = await doneTasks.count();
 
       // before/after screenshots around the live edit.
@@ -177,7 +177,8 @@ test.describe('Live updates: SSE client (Playwright)', () => {
       setTaskStatus(plan.taskFiles[0]!, 'completed');
 
       await page.waitForFunction(
-        prev => document.querySelectorAll('.lane-task--done').length > prev,
+        prev =>
+          document.querySelectorAll('[data-testid="lane-task"][data-state="done"]').length > prev,
         before,
         { timeout: 3_000 }
       );
@@ -202,7 +203,7 @@ test.describe('Live updates: SSE client (Playwright)', () => {
     const rendered = 'Zzliveprobe';
     try {
       await page.goto(handle.url, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.sb');
+      await page.getByRole('complementary').waitFor();
       // A short settle lets the shared EventSource open before we assert live
       // additions/removals.
       await page.waitForTimeout(800);
@@ -249,7 +250,7 @@ test.describe('Live updates: SSE client (Playwright)', () => {
     const localPort = local.port;
     try {
       await page.goto(`${local.url}/plans/${plan.id}`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.chrome__tabs');
+      await page.getByRole('tablist').waitFor();
       await settleStream(page);
 
       // Kill the serve process. The browser holds the SSE connection open, so
@@ -319,7 +320,7 @@ test.describe('Live updates: SSE client (Playwright)', () => {
       // Detail page: mounts the plan resource so a burst exercises the
       // coalescing seam.
       await page.goto(`${handle.url}/plans/${plan.id}`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.chrome__tabs');
+      await page.getByRole('tablist').waitFor();
       await settleStream(page);
 
       const start = await revalidationCount(page);

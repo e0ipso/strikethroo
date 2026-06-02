@@ -53,10 +53,10 @@ export function filterPlans<T extends ArchivePlanView>(plans: T[], query: string
 }
 
 /**
- * Wraps each case-insensitive match of `query` in `text` with a
- * `<mark className="mark">`, leaving the rest as fragments. Returns React nodes
- * (never `dangerouslySetInnerHTML`). An empty query returns the text unchanged;
- * a nullish `text` renders nothing (no throw).
+ * Wraps each case-insensitive match of `query` in `text` with a utility-styled
+ * `<mark>` highlight, leaving the rest as fragments. Returns React nodes (never
+ * `dangerouslySetInnerHTML`). An empty query returns the text unchanged; a
+ * nullish `text` renders nothing (no throw).
  */
 export function highlight(text: string | null | undefined, query: string): ReactNode {
   if (text == null) return null;
@@ -67,7 +67,7 @@ export function highlight(text: string | null | undefined, query: string): React
   const matcher = new RegExp(`^${escaped}$`, 'i');
   return parts.map((part, i) =>
     matcher.test(part) ? (
-      <mark key={i} className="mark">
+      <mark key={i} className="rounded-sm bg-amber-200/70 px-0.5 text-inherit">
         {part}
       </mark>
     ) : (

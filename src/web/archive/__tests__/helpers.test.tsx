@@ -83,11 +83,13 @@ describe('filterPlans', () => {
 });
 
 describe('highlight', () => {
-  it('wraps matches in <mark className="mark"> and leaves the rest as fragments', () => {
+  it('wraps matches in <mark> elements and leaves the rest as fragments', () => {
     const out = nodes(highlight('cache invalidation cache', 'cache'));
     const marks = out.filter((n): n is ReactElement => isValidElement(n) && n.type === 'mark');
     expect(marks).toHaveLength(2);
-    marks.forEach(m => expect((m.props as { className?: string }).className).toBe('mark'));
+    // Each match is wrapped in a <mark> carrying the matched text. Assert on the
+    // element + content (stable behaviour), not the Tailwind utility classes.
+    marks.forEach(m => expect((m.props as { children?: unknown }).children).toBe('cache'));
     // No node uses dangerouslySetInnerHTML.
     out.forEach(n => {
       if (isValidElement(n)) {

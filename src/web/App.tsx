@@ -106,9 +106,9 @@ function Shell() {
   }
 
   return (
-    <div className={`app${railCollapsed ? ' app--rail-collapsed' : ''}`}>
+    <div className="relative isolate flex min-h-screen w-full bg-cream font-sans text-base text-ink">
       <SidebarWithCounts collapsed={railCollapsed} onCollapsedChange={onCollapsedChange} />
-      <div className="main">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {chrome}
         {content}
       </div>

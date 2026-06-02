@@ -17,7 +17,7 @@
 
 import type { PlanDetail } from '../../data/api';
 import { splitResultsSections } from '../derive';
-import { Section } from './ReaderProse';
+import { READER, READER_INNER, READER_META, Section } from './ReaderProse';
 
 /** The Results body: the plan's execution-time tail markdown as full-width prose. */
 export function PlanDetailResults({ detail }: { detail: PlanDetail }) {
@@ -25,17 +25,21 @@ export function PlanDetailResults({ detail }: { detail: PlanDetail }) {
 
   if (resultsSections.length === 0) {
     return (
-      <div className="reader">
-        <p className="reader__meta">This plan has no Notes or Execution Blueprint section.</p>
+      <div className={READER} data-testid="reader">
+        <div className={READER_INNER}>
+          <p className={READER_META}>This plan has no Notes or Execution Blueprint section.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="reader">
-      {resultsSections.map((section, i) => (
-        <Section key={i} section={section} />
-      ))}
+    <div className={READER} data-testid="reader">
+      <div className={READER_INNER}>
+        {resultsSections.map((section, i) => (
+          <Section key={i} section={section} />
+        ))}
+      </div>
     </div>
   );
 }

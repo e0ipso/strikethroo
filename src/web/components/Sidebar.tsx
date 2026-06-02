@@ -36,7 +36,7 @@ const NAV_ITEMS: NavItem[] = [
 function BrandMark({ size = 28 }: { size?: number }) {
   return (
     <span
-      className="sb__mark"
+      className="inline-block text-ink [&_img]:block [&_svg]:block"
       style={{ width: size, height: size }}
       role="img"
       aria-label="strikethroo"
@@ -81,55 +81,106 @@ export function Sidebar({ counts = {}, collapsed = false, onCollapsedChange }: S
 
   const collapseToggle = (
     <Toggle
-      className="sb__collapse"
+      className="inline-flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent p-0 text-ink-3 hover:bg-black/5 hover:text-ink dark:hover:bg-white/10"
       pressed={collapsed}
       onPressedChange={next => onCollapsedChange?.(next)}
       aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
     >
-      <Icon name="chevron" size={16} />
+      {/* Chevron points "left" (toward the edge) when expanded — i.e. "collapse";
+         outward when collapsed. Rotation rides the Icon's style so it does not
+         depend on the `.icon` class surviving the primitives migration. */}
+      <Icon
+        name="chevron"
+        size={16}
+        style={{ transform: collapsed ? 'rotate(-90deg)' : 'rotate(90deg)' }}
+      />
     </Toggle>
   );
 
   return (
-    <aside className={cn('sb', collapsed && 'sb--collapsed')}>
-      <div className="sb__brand">
+    // Pinned to the viewport (sticky + h-screen + self-start) so the footer and
+    // ThemeToggle stay visible regardless of how tall the main content grows —
+    // a recorded project practice. `self-start` opts out of the grid stretch so
+    // `h-screen` (not the row height) governs where the footer sits.
+    <aside
+      className={cn(
+        'sticky top-0 flex h-screen shrink-0 flex-col self-start overflow-y-auto border-r border-border bg-cream-mid pt-5 pb-4',
+        collapsed ? 'w-16 items-center px-2.5' : 'w-64 px-3.5'
+      )}
+    >
+      <div
+        className={cn(
+          'flex items-baseline gap-2 pb-5 font-sans text-2xl font-normal text-ink',
+          collapsed ? 'justify-center' : 'px-1.5'
+        )}
+      >
         {collapsed ? (
           <BrandMark />
         ) : (
           <>
-            <span className="tl-mark">strikethroo</span>
-            <span className="sb__brand-sub">v{__APP_VERSION__}</span>
+            <span className="relative inline-block font-sans font-normal leading-none after:pointer-events-none after:absolute after:inset-x-0 after:top-1/2 after:h-px after:-translate-y-1/2 after:bg-current after:content-['']">
+              strikethroo
+            </span>
+            <span className="ml-1 font-mono text-xs font-medium uppercase text-ink-3">
+              v{__APP_VERSION__}
+            </span>
           </>
         )}
       </div>
-      <div className="sb__group">Workspace</div>
-      <nav className="sb__nav">
+      {!collapsed && (
+        <div className="px-2.5 pt-3 pb-1.5 font-sans text-xs font-semibold uppercase tracking-wide text-ink-3">
+          Workspace
+        </div>
+      )}
+      <nav className={cn('flex flex-col gap-px', collapsed && 'items-center')}>
         {NAV_ITEMS.map(it => {
           const count = counts[it.label];
+          const isActive = it.label === active;
           return (
             <div
               key={it.label}
-              className={`sb__item${it.label === active ? ' sb__item--active' : ''}`}
+              aria-current={isActive ? 'page' : undefined}
+              className={cn(
+                'relative flex cursor-pointer items-center rounded-md text-base font-medium hover:bg-black/5 hover:text-ink dark:hover:bg-white/10',
+                collapsed ? 'w-9 justify-center p-2' : 'gap-2.5 px-2.5 py-2',
+                isActive
+                  ? cn(
+                      "bg-cream text-ink shadow-sm ring-1 ring-border-soft before:absolute before:top-2 before:bottom-2 before:w-0.5 before:rounded-sm before:bg-dalia before:content-['']",
+                      collapsed ? 'before:-left-2.5' : 'before:-left-3.5'
+                    )
+                  : 'text-ink-2'
+              )}
               onClick={() => navigate(it.path)}
               title={collapsed ? it.label : undefined}
             >
               <Icon name={it.icon} size={15} />
-              <span>{it.label}</span>
-              {count != null && <span className="sb__count">{count}</span>}
+              {!collapsed && <span>{it.label}</span>}
+              {!collapsed && count != null && (
+                <span className="ml-auto font-mono text-xs text-ink-3">{count}</span>
+              )}
             </div>
           );
         })}
       </nav>
-      <div className="sb__foot">
+      <div
+        className={cn(
+          'mt-auto font-mono text-xs leading-normal text-ink-3',
+          collapsed ? 'flex justify-center' : 'border-t border-border-soft px-2.5 pt-3'
+        )}
+      >
         {collapsed ? (
           collapseToggle
         ) : (
           <>
-            <strong className="sb__project" title={project?.path ?? undefined}>
+            <strong
+              data-testid="project-name"
+              className="mb-2.5 block cursor-default overflow-hidden text-ellipsis whitespace-nowrap font-semibold text-ink-2"
+              title={project?.path ?? undefined}
+            >
               {project?.name ?? '.ai/strikethroo/'}
             </strong>
-            <div className="sb__foot-row">
+            <div className="flex items-center justify-between gap-2">
               <ThemeToggle />
               {collapseToggle}
             </div>

@@ -265,18 +265,18 @@ const video = async (
 /** Opens the Plan Detail Graph tab and waits for the rendered mermaid SVG. */
 const openGraph = async (page: Page, baseUrl: string, planId: number): Promise<void> => {
   await page.goto(`${baseUrl}/plans/${planId}`, { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('.chrome__tabs');
-  await page.locator('.chrome__tabs .tab', { hasText: 'Graph' }).click();
-  await page.waitForSelector('.graph2');
-  await page.waitForSelector('.graph2__canvas .mermaid-host svg', { timeout: 20_000 });
+  await page.waitForSelector('[role="tablist"]');
+  await page.getByRole('tab', { name: 'Graph' }).click();
+  await page.waitForSelector('[data-testid="graph"]');
+  await page.waitForSelector('.mermaid-host svg', { timeout: 20_000 });
 };
 
 /** Opens the Plan Detail Tasks tab (Execute blueprint, Swimlanes by default). */
 const openTasks = async (page: Page, baseUrl: string, planId: number): Promise<void> => {
   await page.goto(`${baseUrl}/plans/${planId}`, { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('.chrome__tabs');
-  await page.locator('.chrome__tabs .tab', { hasText: 'Tasks' }).click();
-  await page.waitForSelector('.snap__seg');
+  await page.waitForSelector('[role="tablist"]');
+  await page.getByRole('tab', { name: 'Tasks' }).click();
+  await page.waitForSelector('[data-testid="exec-toggle"]');
 };
 
 /** Runs every still-screenshot capture in the inventory. */
@@ -292,12 +292,12 @@ const captureStills = async (
   try {
     // --- Plans: Board (default) and Cards ---
     await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.sb'); // persistent shell mounted
-    await page.waitForSelector('.board .col');
+    await page.waitForSelector('aside'); // persistent shell mounted
+    await page.waitForSelector('[data-testid="board-column"]');
     await shot(page, 'plans-board');
 
     await page.getByText('Cards', { exact: true }).click();
-    await page.waitForSelector('.cards .card');
+    await page.waitForSelector('[data-testid="plan-card"]');
     await shot(page, 'plans-cards');
 
     if (picked) {
@@ -305,8 +305,8 @@ const captureStills = async (
 
       // --- Plan Detail: Plan tab (Reader + blueprint rail) ---
       await page.goto(`${baseUrl}/plans/${detail.id}`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.chrome__tabs');
-      await page.waitForSelector('.reader');
+      await page.waitForSelector('[role="tablist"]');
+      await page.waitForSelector('[data-testid="reader"]');
       await shot(page, 'plan-detail-plan');
 
       // --- Plan Detail: Graph tab — uses the simpler, distinct graph plan ---
@@ -315,21 +315,21 @@ const captureStills = async (
 
       // --- Plan Detail: Tasks tab — Swimlanes (default) ---
       await openTasks(page, baseUrl, detail.id);
-      await page.waitForSelector('.exec');
+      await page.waitForSelector('[data-testid="swimlanes"]');
       await shot(page, 'plan-detail-tasks-swimlanes');
 
       // --- Task Detail: main body ---
       await page.goto(`${baseUrl}/plans/${detail.id}/tasks/${task.id}`, {
         waitUntil: 'domcontentloaded',
       });
-      await page.waitForSelector('.reader');
+      await page.waitForSelector('[data-testid="reader"]');
       await shot(page, 'task-detail');
 
       // --- Task Detail: Implementation Notes tab, when present ---
-      const notesTab = page.locator('.chrome__tabs .tab', { hasText: 'Implementation Notes' });
+      const notesTab = page.getByRole('tab', { name: 'Implementation Notes' });
       if ((await notesTab.count()) > 0) {
         await notesTab.click();
-        await page.waitForSelector('.reader');
+        await page.waitForSelector('[data-testid="reader"]');
         await shot(page, 'task-detail-implementation-notes');
       } else {
         log('skip task-detail-implementation-notes.png (selected task has no notes section)');
@@ -340,21 +340,21 @@ const captureStills = async (
 
     // --- Archive: the full ("All") table ---
     await page.goto(`${baseUrl}/archive`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.archive__head');
+    await page.getByRole('heading', { name: 'Archive' }).waitFor();
     if (archived) {
-      // Archived rows render as `.tbl--row` entries under inline month-group
-      // headings (there is no dedicated group container class).
-      await page.waitForSelector('.tbl--row');
+      // Archived rows render as `[data-testid="archive-row"]` entries under
+      // inline month-group headings (there is no dedicated group container).
+      await page.waitForSelector('[data-testid="archive-row"]');
     }
     await shot(page, 'archive-all');
 
     // --- Customize: hooks grid, templates grid, and the editor detail ---
     await page.goto(`${baseUrl}/customize`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.cz__grid .cz__card');
+    await page.waitForSelector('[data-testid="config-card"]');
     await shot(page, 'customize-hooks');
 
-    await page.locator('.chrome__tabs .tab').nth(1).click();
-    await page.waitForSelector('.cz__grid .cz__card');
+    await page.getByRole('tab', { name: 'Templates' }).click();
+    await page.waitForSelector('[data-testid="config-card"]');
     await shot(page, 'customize-templates');
 
     if (config) {
@@ -387,31 +387,29 @@ const captureVideos = async (
     await video(browser, baseUrl, 'nav-plans-to-task-detail', async page => {
       page.setDefaultTimeout(20_000);
       await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.board .col');
+      await page.waitForSelector('[data-testid="board-column"]');
       await beat(page); // video pacing: hold on the Plans board
-      // Click the primary plan's board card (`.bcard`, navigates to detail).
+      // Click the primary plan's board card (navigates to detail).
       const planCard = page
-        .locator('.board .bcard')
-        .filter({ has: page.locator('.bcard__id', { hasText: `#${detail.id}` }) })
+        .locator('[data-testid="board-card"]', { hasText: `#${detail.id}` })
         .first();
       await planCard.hover(); // move the visible cursor to the card before clicking
       await planCard.click();
-      await page.waitForSelector('.reader');
+      await page.waitForSelector('[data-testid="reader"]');
       await beat(page); // video pacing: hold on the Plan Detail Reader
       // Open the Tasks tab so the swimlane task rows are visible and clickable.
-      const tasksTab = page.locator('.chrome__tabs .tab', { hasText: 'Tasks' });
+      const tasksTab = page.getByRole('tab', { name: 'Tasks' });
       await tasksTab.hover();
       await tasksTab.click();
-      await page.waitForSelector('.exec');
+      await page.waitForSelector('[data-testid="swimlanes"]');
       await beat(page); // video pacing: hold on the execution blueprint
       // Click a clickable task card to navigate to its Task Detail page.
       const taskCard = page
-        .locator('.lane-task--clickable')
-        .filter({ has: page.locator('.lane-task__id', { hasText: `task · ${pad2(task.id)}` }) })
+        .locator('[data-testid="lane-task"]', { hasText: `task · ${pad2(task.id)}` })
         .first();
       await taskCard.hover(); // move the visible cursor to the task before clicking
       await taskCard.click();
-      await page.waitForSelector('.reader');
+      await page.waitForSelector('[data-testid="reader"]');
       await beat(page, 1200); // video pacing: final hold on Task Detail
     });
 
@@ -419,23 +417,23 @@ const captureVideos = async (
     await video(browser, baseUrl, 'plan-detail-tab-switch', async page => {
       page.setDefaultTimeout(20_000);
       await page.goto(`${baseUrl}/plans/${detail.id}`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.chrome__tabs');
-      await page.waitForSelector('.reader');
+      await page.waitForSelector('[role="tablist"]');
+      await page.waitForSelector('[data-testid="reader"]');
       await beat(page); // video pacing: hold on the Plan tab
-      const graphTab = page.locator('.chrome__tabs .tab', { hasText: 'Graph' });
+      const graphTab = page.getByRole('tab', { name: 'Graph' });
       await graphTab.hover(); // move the visible cursor to the target before clicking
       await graphTab.click();
-      await page.waitForSelector('.graph2__canvas .mermaid-host svg', { timeout: 20_000 });
+      await page.waitForSelector('.mermaid-host svg', { timeout: 20_000 });
       await beat(page); // video pacing: hold on the Graph tab
-      const tasksTab = page.locator('.chrome__tabs .tab', { hasText: 'Tasks' });
+      const tasksTab = page.getByRole('tab', { name: 'Tasks' });
       await tasksTab.hover();
       await tasksTab.click();
-      await page.waitForSelector('.exec');
+      await page.waitForSelector('[data-testid="swimlanes"]');
       await beat(page); // video pacing: hold on the Tasks tab
-      const planTab = page.locator('.chrome__tabs .tab', { hasText: 'Plan' }).first();
+      const planTab = page.getByRole('tab', { name: 'Plan' }).first();
       await planTab.hover();
       await planTab.click();
-      await page.waitForSelector('.reader');
+      await page.waitForSelector('[data-testid="reader"]');
       await beat(page, 1200); // video pacing: final hold back on the Plan tab
     });
   } else {
@@ -446,17 +444,17 @@ const captureVideos = async (
   await video(browser, baseUrl, 'plans-board-cards-switch', async page => {
     page.setDefaultTimeout(20_000);
     await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.board .col');
+    await page.waitForSelector('[data-testid="board-column"]');
     await beat(page); // video pacing: hold on the Board view
     const cardsTab = page.getByText('Cards', { exact: true });
     await cardsTab.hover(); // move the visible cursor to the target before clicking
     await cardsTab.click();
-    await page.waitForSelector('.cards .card');
+    await page.waitForSelector('[data-testid="plan-card"]');
     await beat(page); // video pacing: hold on the Cards view
     const boardTab = page.getByText('Board', { exact: true });
     await boardTab.hover();
     await boardTab.click();
-    await page.waitForSelector('.board .col');
+    await page.waitForSelector('[data-testid="board-column"]');
     await beat(page, 1200); // video pacing: final hold back on the Board view
   });
 

@@ -85,13 +85,13 @@ test.describe('Customize section (Playwright, fixture)', () => {
     await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
 
     // Hooks tab (default) renders the shared card grid.
-    await page.waitForSelector('.cz__grid .cz__card');
-    const hookCards = await page.locator('.cz__grid .cz__card').count();
+    await page.getByTestId('config-card').first().waitFor();
+    const hookCards = await page.getByTestId('config-card').count();
     expect(hookCards).toBeGreaterThan(0);
 
     // The grid lays cards out in more than one column (responsive multi-column).
     const columns = await page.evaluate(() => {
-      const grid = document.querySelector('.cz__grid') as HTMLElement | null;
+      const grid = document.querySelector('[data-testid="config-grid"]') as HTMLElement | null;
       if (!grid) return 0;
       const cols = getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/);
       return cols.length;
@@ -99,39 +99,41 @@ test.describe('Customize section (Playwright, fixture)', () => {
     expect(columns).toBeGreaterThan(1);
 
     // Switch to the Templates tab — same shared grid, still populated.
-    await page.locator('.chrome__tabs .tab').nth(1).click();
-    await page.waitForSelector('.cz__grid .cz__card');
-    expect(await page.locator('.cz__grid .cz__card').count()).toBeGreaterThan(0);
+    await page.getByRole('tab').nth(1).click();
+    await page.getByTestId('config-card').first().waitFor();
+    expect(await page.getByTestId('config-card').count()).toBeGreaterThan(0);
   });
 
   test('a card shows the eyebrow path, title, and description', async ({ page }) => {
     page.setDefaultTimeout(15_000);
     await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.cz__grid .cz__card');
+    await page.getByTestId('config-card').first().waitFor();
 
     // The PRE_PLAN hook has a registry description, so its card carries all
     // three pieces. Locate it by title.
     const card = page
-      .locator('.cz__card')
-      .filter({ has: page.locator('.cz__card-title', { hasText: /^PRE_PLAN$/ }) })
+      .getByTestId('config-card')
+      .filter({ has: page.getByTestId('config-card-title').filter({ hasText: /^PRE_PLAN$/ }) })
       .first();
     await expect(card).toHaveCount(1);
 
-    expect(await card.locator('.cz__card-eyebrow').textContent()).toBe(
+    expect(await card.getByTestId('config-card-eyebrow').textContent()).toBe(
       '.ai/strikethroo/config/hooks/PRE_PLAN.md'
     );
-    expect(await card.locator('.cz__card-title').textContent()).toBe('PRE_PLAN');
-    expect((await card.locator('.cz__card-desc').textContent())?.length ?? 0).toBeGreaterThan(0);
+    expect(await card.getByTestId('config-card-title').textContent()).toBe('PRE_PLAN');
+    expect((await card.getByTestId('config-card-desc').textContent())?.length ?? 0).toBeGreaterThan(
+      0
+    );
   });
 
   test('clicking a card opens the editor detail route', async ({ page }) => {
     page.setDefaultTimeout(15_000);
     await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.cz__grid .cz__card');
+    await page.getByTestId('config-card').first().waitFor();
 
     await page
-      .locator('.cz__card')
-      .filter({ has: page.locator('.cz__card-title', { hasText: /^PRE_PLAN$/ }) })
+      .getByTestId('config-card')
+      .filter({ has: page.getByTestId('config-card-title').filter({ hasText: /^PRE_PLAN$/ }) })
       .first()
       .click();
 
@@ -160,7 +162,7 @@ test.describe('Customize section (Playwright, fixture)', () => {
     // Save and await the success indicator. The redesigned detail header renders
     // the save-status text ("saving…" → "saved") in the Chrome actions area.
     await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(page.locator('.chrome__actions')).toContainText('saved', { timeout: 5_000 });
+    await expect(page.getByTestId('chrome-actions')).toContainText('saved', { timeout: 5_000 });
 
     // The marker landed on disk in the isolated fixture.
     const onDisk = fs.readFileSync(path.join(root, 'config', 'hooks', 'PRE_PLAN.md'), 'utf8');

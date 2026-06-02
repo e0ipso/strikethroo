@@ -28,6 +28,7 @@ import { getWorkspaceModel, getPlanDetail, getConfig } from './workspace-model';
 import { EventsHub } from './events';
 import { isSelfReviewAvailable, launchSelfReview } from './self-review';
 import { archivePlan } from './archive';
+import { writeConfigFile } from './config-write';
 
 /** Options for {@link startServer}. */
 export interface ServeOptions {
@@ -207,8 +208,12 @@ const handleApi = (res: http.ServerResponse, root: string, pathname: string): bo
   }
 };
 
-/** Max accepted request-body size (bytes). The self-review body is tiny JSON. */
-const MAX_BODY_BYTES = 64 * 1024;
+/**
+ * Max accepted request-body size (bytes). The self-review body is tiny JSON,
+ * but the config-write route carries whole markdown files, which can exceed
+ * 64 KiB once edited — so the cap is 1 MiB.
+ */
+const MAX_BODY_BYTES = 1024 * 1024;
 
 /** Reads and JSON-parses a request body, rejecting oversized or malformed input. */
 const readJsonBody = (req: http.IncomingMessage): Promise<unknown> =>
@@ -256,6 +261,68 @@ const handleSelfReview = (
     })
     .catch((err: Error) => {
       sendJson(res, 400, { ok: false, error: err.message });
+    });
+  return true;
+};
+
+/** Parses `/api/config/:kind/:id` -> `{ kind, id }`, or `null` if malformed. */
+const parseConfigTarget = (pathname: string): { kind: string; id: string } | null => {
+  const match = /^\/api\/config\/([^/]+)\/([^/]+)\/?$/.exec(pathname);
+  if (!match || match[1] === undefined || match[2] === undefined) return null;
+  try {
+    return { kind: decodeURIComponent(match[1]), id: decodeURIComponent(match[2]) };
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Handles `PUT /api/config/:kind/:id`: reads `{ content }` from the JSON body,
+ * delegates to the {@link writeConfigFile} guard, and maps its discriminated
+ * result to status codes. On success returns the refreshed config slice so the
+ * client can update without a second fetch. Returns `true` once it owns the
+ * response.
+ */
+const handleConfigWrite = (
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  root: string,
+  pathname: string
+): boolean => {
+  const target = parseConfigTarget(pathname);
+  if (!target) {
+    sendJson(res, 400, { error: 'Invalid config path.' });
+    return true;
+  }
+
+  readJsonBody(req)
+    .then(body => {
+      const content = (body as { content?: unknown }).content;
+      if (typeof content !== 'string') {
+        sendJson(res, 400, { error: 'Request body must include string "content".' });
+        return;
+      }
+      return writeConfigFile(root, target.kind, target.id, content).then(result => {
+        if (result.ok) {
+          sendJson(res, 200, getConfig(root));
+          return;
+        }
+        switch (result.reason) {
+          case 'invalid-kind':
+          case 'invalid-id':
+            sendJson(res, 400, { error: result.message });
+            return;
+          case 'not-found':
+            sendJson(res, 404, { error: result.message });
+            return;
+          default:
+            // fs-error: a safe, fixed message — never leak internals.
+            sendJson(res, 500, { error: 'Failed to write config file.' });
+        }
+      });
+    })
+    .catch((err: Error) => {
+      sendJson(res, 400, { error: err.message });
     });
   return true;
 };
@@ -361,6 +428,10 @@ export const startServer = (opts: ServeOptions): Promise<ServeHandle> => {
       // The one write-ish endpoint: launch the external self-review binary.
       if (req.method === 'POST' && /^\/api\/self-review\/?$/.test(pathname)) {
         if (handleSelfReview(req, res, opts.root)) return;
+      }
+      // The second sanctioned workspace mutation: overwrite a config file.
+      if (req.method === 'PUT' && /^\/api\/config\/[^/]+\/[^/]+\/?$/.test(pathname)) {
+        if (handleConfigWrite(req, res, opts.root, pathname)) return;
       }
       // Built-in SSE change stream.
       if (events.apiHandler(req, res, { pathname })) return;

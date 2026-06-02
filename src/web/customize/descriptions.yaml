@@ -1,0 +1,26 @@
+# Human-editable description registry for Strikethroo config files.
+#
+# Keys are config file ids: the basename WITHOUT the `.md` extension, matching
+# the `id` the serve workspace model assigns each hook/template (see
+# src/serve/workspace-model.ts). Values are 1-2 sentence descriptions of what
+# each file is for, sourced from AGENTS.md and the file contents themselves.
+#
+# Unknown ids resolve to `undefined` via descriptionFor() — there is no need to
+# enumerate files that have no description here.
+
+# --- Lifecycle hooks ---
+PRE_PLAN: "Scope-control and simplicity guidance the assistant applies before drafting a plan, enforcing YAGNI and minimal viable implementation."
+POST_PLAN: "Post-plan checks ensuring the plan includes a Self Validation section and answers whether documentation or AGENTS.md needs updating."
+PRE_PHASE: "Pre-phase setup that creates the plan's feature branch and validates that every task's dependencies are completed before the phase runs."
+POST_PHASE: "Post-phase gate confirming linting passes and a conventional commit was made, then updating task and phase statuses in the plan."
+PRE_TASK_ASSIGNMENT: "Guidance for matching each task's required skills against available sub-agents and engaging relevant harness skills before assignment."
+PRE_TASK_EXECUTION: "Hook run immediately before a task is executed; customize it with checks or setup the assistant should perform per task."
+POST_TASK_GENERATION_ALL: "After all tasks are generated, reviews task complexity (splitting, sharpening, or merging) and appends the dependency diagram and execution phases to the plan."
+POST_EXECUTION: "Validation gates run before a blueprint is marked complete — linting, tests, task-status checks, documentation accuracy, and the plan's Self Validation steps — plus tech-debt cleanup."
+POST_ERROR_DETECTION: "Error-handling hook that marks a task's frontmatter status as failed when its execution fails."
+
+# --- Templates ---
+PLAN_TEMPLATE: "The structure every generated plan document conforms to, including frontmatter and the core sections such as Executive Summary, Context, and Success Criteria."
+TASK_TEMPLATE: "The structure every generated task file conforms to, including frontmatter (id, group, dependencies, status, skills) and sections like Objective and Acceptance Criteria."
+BLUEPRINT_TEMPLATE: "The shape of the execution blueprint appended to a plan, organizing tasks into dependency-ordered phases of parallel work."
+EXECUTION_SUMMARY_TEMPLATE: "The structure of the execution summary appended to a plan after a successful run, recording status, results, noteworthy events, and follow-ups."

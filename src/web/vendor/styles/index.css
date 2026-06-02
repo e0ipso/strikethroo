@@ -48,3 +48,8 @@
    token aliases (--ink, --cream, --cream-mid, --border-soft, --dalia*, …)
    resolve. */
 @import './customize.css';
+
+/* Customize card-grid classes (Plan 100, Task 04). Imported after
+   customize.css so the design token aliases resolve; the responsive
+   3 → 2 → 1 card grid shared by the Hooks and Templates tabs. */
+@import './customize-grid.css';

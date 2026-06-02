@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import yaml from '@modyfi/vite-plugin-yaml';
 import { createRequire } from 'node:module';
 
 // Single source of truth for the SPA's displayed version: the package version,
@@ -17,7 +18,7 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(version),
   },
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), yaml()],
   // Dev server only (`npm run dev:web`); ignored by `vite build`. The SPA
   // fetches relative `/api/*` (plans, config) and the `/api/events` SSE
   // stream, which the `serve` backend provides, not Vite. Proxy them to the

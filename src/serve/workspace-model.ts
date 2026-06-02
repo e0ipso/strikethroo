@@ -71,6 +71,8 @@ export interface ConfigFile {
   id: string;
   /** Absolute path to the file. */
   file: string;
+  /** Path relative to the workspace root, e.g. `config/hooks/POST_PLAN.md`. */
+  relPath: string;
   /** File content. */
   content: string;
 }
@@ -152,8 +154,12 @@ const toSummary = (detail: PlanDetail): PlanSummary => ({
   archived: detail.archived,
 });
 
-/** Enumerates `*.md` files in a config subdirectory. Missing dir -> []. */
-const enumerateConfigDir = (dir: string): ConfigFile[] => {
+/**
+ * Enumerates `*.md` files in a config subdirectory. Missing dir -> [].
+ * `root` is the workspace root used to derive each file's workspace-relative
+ * path (e.g. `config/hooks/POST_PLAN.md`).
+ */
+const enumerateConfigDir = (root: string, dir: string): ConfigFile[] => {
   let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -175,6 +181,7 @@ const enumerateConfigDir = (dir: string): ConfigFile[] => {
       return {
         id: e.name.replace(/\.md$/, ''),
         file,
+        relPath: path.relative(root, file),
         content: fileContent,
       };
     });
@@ -184,8 +191,8 @@ const enumerateConfigDir = (dir: string): ConfigFile[] => {
 export const getConfig = (root?: string): WorkspaceConfig => {
   const resolved = resolveRoot(root);
   return {
-    hooks: enumerateConfigDir(path.join(resolved, 'config', 'hooks')),
-    templates: enumerateConfigDir(path.join(resolved, 'config', 'templates')),
+    hooks: enumerateConfigDir(resolved, path.join(resolved, 'config', 'hooks')),
+    templates: enumerateConfigDir(resolved, path.join(resolved, 'config', 'templates')),
   };
 };
 

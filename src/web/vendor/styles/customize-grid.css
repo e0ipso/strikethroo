@@ -1,0 +1,87 @@
+/* =====================================================================
+   Customize card-grid classes (Plan 100, Task 04).
+
+   A single responsive card grid shared by both the Hooks and Templates
+   tabs, replacing the divergent hook-group / template-card designs. Each
+   card is a click target navigating to the read-only detail route
+   (/customize/<kind>/<id>); cards render an eyebrow (the workspace-relative
+   path), a title (the file id), and an optional description.
+
+   Imported after customize.css so the design token aliases (--ink, --cream,
+   --cream-mid, --border-soft, --dalia, --font-display, --font-mono, …)
+   resolve. Plain CSS Grid: 3 → 2 → 1 columns by viewport via media queries.
+   ===================================================================== */
+
+.cz__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  padding: 24px 32px 28px;
+  overflow: auto;
+  flex: 1;
+  align-content: start;
+}
+@media (max-width: 1100px) {
+  .cz__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 720px) {
+  .cz__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cz__card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  background: var(--cream);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 18px 20px 18px;
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.03);
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease,
+    background 0.12s ease;
+}
+.cz__card:hover {
+  background: var(--cream-mid);
+  border-color: var(--ink-4);
+  box-shadow: 0 2px 8px oklch(0 0 0 / 0.06);
+}
+.cz__card:focus-visible {
+  outline: 2px solid var(--dalia);
+  outline-offset: 2px;
+}
+
+.cz__card-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-3);
+  letter-spacing: 0.01em;
+  word-break: break-all;
+}
+.cz__card-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  font-variation-settings: 'opsz' 24;
+}
+.cz__card-desc {
+  font-size: 15px;
+  color: var(--ink-2);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ---- dark fixups for the customize card grid ---- */
+.dark .cz__card:hover {
+  background: oklch(1 0 0 / 0.03);
+}

@@ -22,12 +22,18 @@ import {
 } from 'react';
 
 /** Logical app sections the router can resolve. */
-export type RouteSection = 'plans' | 'planDetail' | 'archive' | 'customize' | 'taskDetail';
+export type RouteSection =
+  | 'plans'
+  | 'planDetail'
+  | 'archive'
+  | 'customize'
+  | 'customizeDetail'
+  | 'taskDetail';
 
 /** A resolved route: the active section plus any parsed path params. */
 export interface Route {
   section: RouteSection;
-  params: { id?: string; taskId?: string };
+  params: { id?: string; taskId?: string; kind?: string };
 }
 
 /**
@@ -46,6 +52,13 @@ export function parsePath(pathname: string): Route {
   }
   if (pathname === '/archive' || pathname === '/archive/') {
     return { section: 'archive', params: {} };
+  }
+  const customizeDetail = /^\/customize\/([^/]+)\/([^/]+)\/?$/.exec(pathname);
+  if (customizeDetail && customizeDetail[1] && customizeDetail[2]) {
+    return {
+      section: 'customizeDetail',
+      params: { kind: customizeDetail[1], id: customizeDetail[2] },
+    };
   }
   if (pathname === '/customize' || pathname === '/customize/') {
     return { section: 'customize', params: {} };

@@ -25,6 +25,7 @@ import { PlanDetailRoute } from './plans/detail/PlanDetailRoute';
 import { TaskDetailRoute } from './plans/detail/TaskDetailRoute';
 import { ArchiveRoute } from './archive/ArchiveRoute';
 import { CustomizeRoute } from './customize/CustomizeRoute';
+import { CustomizeDetailRoute } from './customize/CustomizeDetailRoute';
 
 /**
  * The persistent Sidebar with live destination counts. Reads the plan list to
@@ -93,6 +94,15 @@ function Shell() {
       chrome = null;
       content = <CustomizeRoute />;
       break;
+    case 'customizeDetail': {
+      const kind = route.params.kind ?? '';
+      const id = route.params.id ?? '';
+      // The detail route renders its own Chrome (crumbs / path header / Save
+      // action), so no separate top bar is composed here.
+      chrome = null;
+      content = <CustomizeDetailRoute kind={kind} id={id} />;
+      break;
+    }
   }
 
   return (

@@ -10,6 +10,7 @@ export default defineConfig({
     include: [
       'src/__tests__/utils.test.ts',
       'src/__tests__/cli.integration.test.ts',
+      'src/__tests__/config-write.test.ts',
       'src/__tests__/conflict-detection.integration.test.ts',
       'src/__tests__/self-review.test.ts',
       'src/__tests__/serve-archive.integration.test.ts',

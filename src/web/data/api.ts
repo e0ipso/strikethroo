@@ -18,6 +18,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRevalidationToken } from './revalidation';
+import { descriptionFor } from '../customize/descriptions';
 
 /* ---------------------------------------------------------------------------
  * Response types — mirror the documented serve API contract
@@ -97,33 +98,19 @@ export interface PlanDetail extends PlanSummary {
 /**
  * A customizable config file (hook or template).
  *
- * `id`, `file`, and `content` are guaranteed by the server model
- * (src/serve/workspace-model.ts). Every other field is OPTIONAL metadata the
- * model MAY surface in the future; the client treats them strictly as
- * pass-through — present when the API sends them, `undefined` (never defaulted
- * to a fabricated value) when it does not. The Customize views read these
- * defensively and degrade gracefully when a field is absent.
+ * `id`, `file`, `relPath`, and `content` are guaranteed by the server model
+ * (src/serve/workspace-model.ts). `description` is merged client-side once in
+ * {@link useConfig} from the build-time registry (Task 1, keyed by `id`); no
+ * component re-implements that lookup.
  */
 export interface ConfigFile {
   id: string;
   file: string;
+  /** Workspace-relative path of the file (e.g. `config/hooks/PRE_PLAN.md`). */
+  relPath: string;
   content: string;
-  /* --- optional hook metadata (absent on the current model) --- */
-  /** Hook category used to group the Hooks view; ungrouped when absent. */
-  kind?: 'intelligence' | 'control';
-  /** When in the workflow the hook fires. */
-  when?: string;
-  /** What the hook does. */
-  purpose?: string;
-  /** True when the workspace copy diverges from the shipped default. */
-  customized?: boolean;
-  /** True when the hook ships intentionally empty. */
-  empty?: boolean;
-  /* --- optional template metadata (absent on the current model) --- */
-  /** Frontmatter field names declared by the template. */
-  frontmatter?: string[];
-  /** Ordered `##` section names of the template. */
-  sections?: string[];
+  /** Human-authored description merged in {@link useConfig} via the registry. */
+  description?: string;
 }
 
 /** The customizable config slice (`GET /api/config`). */
@@ -212,9 +199,47 @@ export function usePlanDetail(id: string): Resource<PlanDetail> {
   return useResource<PlanDetail>(`/api/plans/${encodeURIComponent(id)}`);
 }
 
+/**
+ * Merges the build-time description registry (Task 1) onto each hook and
+ * template by `id`. This is the single place descriptions are looked up; no
+ * component calls {@link descriptionFor} itself.
+ */
+function withDescriptions(cfg: Config): Config {
+  return {
+    hooks: cfg.hooks.map(h => ({ ...h, description: descriptionFor(h.id) })),
+    templates: cfg.templates.map(t => ({ ...t, description: descriptionFor(t.id) })),
+  };
+}
+
 /** Fetches the customizable config slice (hooks + templates). */
 export function useConfig(): Resource<Config> {
-  return useResource<Config>('/api/config');
+  const resource = useResource<Config>('/api/config');
+  if (resource.status === 'data') {
+    return { status: 'data', data: withDescriptions(resource.data) };
+  }
+  return resource;
+}
+
+/**
+ * Overwrites an existing hook or template file via `PUT /api/config/:kind/:id`
+ * with a JSON `{ content }` body — the SPA's single config write path. Resolves
+ * on a 2xx response; throws an Error carrying the server's `error` message (or a
+ * status-derived fallback) on any non-OK response or network failure.
+ */
+export async function saveConfigFile(
+  kind: 'hooks' | 'templates',
+  id: string,
+  content: string
+): Promise<void> {
+  const res = await fetch(`/api/config/${kind}/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content }),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? `Save failed with status ${res.status}`);
+  }
 }
 
 /** Fetches the server-side capability flags (e.g. self-review availability). */

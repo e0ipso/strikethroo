@@ -4,15 +4,15 @@
  * A faithful, read-only port of the design's `ExecSwimlanesView`
  * (`scratch/ui/designs/screens-exec.jsx`) onto Tailwind utilities (Plan 102) and
  * the shared primitives. It renders ONLY the exec subtree (summary header +
- * first-class phase containers); the surrounding shell, Chrome, and the
- * view-mode toggle belong to the Execute-tab container. Lane-task cards are
- * de-checkboxed and clickable to Task Detail when the task has an id.
+ * first-class phase containers); the surrounding shell and Chrome belong to the
+ * Tasks-tab container. Swimlanes is the sole Tasks view (Plan 103). Lane-task
+ * cards are de-checkboxed and clickable to Task Detail when the task has an id.
  *
  * Each phase is a first-class container: parallel phases lay their task cards
  * out side by side (`gridTemplateColumns: repeat(n, 1fr)`), sequential phases
  * stack them in a single column. All derived values come from the Task 01
- * helpers (`phaseStateOf`, `tally`) so the Swimlanes and Outline views never
- * drift. The component performs no fetch and no mutation.
+ * helpers (`phaseStateOf`, `tally`). The component performs no fetch and no
+ * mutation.
  *
  * Model adaptation: the live `/api/plans/:id` payload exposes `phase.index`
  * (1-based), an optional `phase.name`, `phase.taskIds`, and `phase.parallel`;

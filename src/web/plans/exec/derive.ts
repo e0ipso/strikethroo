@@ -1,11 +1,10 @@
 /**
  * Pure derivation layer for the Execution blueprint feature (Plan 89, Task 01).
  *
- * Both Execution-blueprint views (Swimlanes and Outline) depend on a tiny set of
- * derived values computed from the already-fetched `/api/plans/:id` payload: a
- * `phaseStateOf` helper (a phase's state from its tasks' states) and a
- * done/doing/todo `tally`. They are kept free of React so they are trivially
- * unit-testable and shared by both views without drift.
+ * The Swimlanes Execution-blueprint view depends on a tiny set of derived values
+ * computed from the already-fetched `/api/plans/:id` payload: a `phaseStateOf`
+ * helper (a phase's state from its tasks' states) and a done/doing/todo `tally`.
+ * They are kept free of React so they are trivially unit-testable.
  *
  * Status honesty: the workspace model carries the RAW task status string
  * (`completed`, `pending`, `in-progress`, custom values). The single canonical
@@ -18,7 +17,7 @@
  * against the live model shape (phases carry `taskIds`, not embedded tasks).
  */
 
-import type { Phase, PlanDetail, Task } from '../../data/api';
+import type { Phase, Task } from '../../data/api';
 import { toTickboxState } from '../taskStatus';
 
 /**
@@ -70,38 +69,4 @@ export function tally(tasks: readonly Task[]): Tally {
 /** Builds a `taskId → Task` lookup for `phaseStateOf`. */
 export function tasksById(tasks: readonly Task[]): Map<number, Task> {
   return new Map(tasks.map(t => [t.id, t]));
-}
-
-/**
- * The optional Execution Summary callout shown by the Outline view. The model
- * does not expose a structured summary, but it does parse the plan markdown into
- * named `##` sections; when an "Execution Summary" section is present we surface
- * it as an eyebrow + body. Returns `undefined` when no such section exists, so
- * the callout is omitted gracefully (Success Criterion #4).
- */
-export interface ExecSummary {
-  eyebrow: string;
-  text: string;
-}
-
-/** Heading text that identifies the Execution Summary section, case-insensitive. */
-const SUMMARY_HEADING = 'execution summary';
-
-/**
- * Extracts the optional Execution Summary from the detail's parsed sections.
- * The eyebrow carries the plan's completion state; the text is the section's
- * first non-empty, non-heading line (the summary's lead). Omitted entirely when
- * the plan has no Execution Summary section or it has no renderable body.
- */
-export function execSummaryOf(detail: PlanDetail): ExecSummary | undefined {
-  const section = detail.sections.find(s => s.heading.trim().toLowerCase() === SUMMARY_HEADING);
-  if (!section) return undefined;
-
-  const lead = section.content
-    .split('\n')
-    .map(line => line.replace(/^\s*(?:[-+*]|\d+\.|>)\s+/, '').trim())
-    .find(line => line.length > 0);
-  if (!lead) return undefined;
-
-  return { eyebrow: 'Execution summary', text: lead };
 }

@@ -58,7 +58,7 @@ const writeFixturePlan = (root: string, count: number): PlanFiles => {
   const tasksDir = path.join(dir, 'tasks');
   fs.mkdirSync(tasksDir, { recursive: true });
   // One `Task NN` bullet per task so the blueprint parser maps every task into
-  // the single phase (the Tasks tab's Swimlanes/Outline views render tasks via
+  // the single phase (the Tasks tab's Swimlanes view renders tasks via
   // `phase.taskIds`; a `- Tasks 01, 02, 03` line would not match the parser).
   const phaseTasks = Array.from(
     { length: count },

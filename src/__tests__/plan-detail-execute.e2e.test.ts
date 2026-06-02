@@ -1,15 +1,15 @@
 /**
- * End-to-end verification for the Plan 89 Plan Detail Execute tab (Swimlanes /
- * Outline Execution-blueprint views).
+ * End-to-end verification for the Plan Detail Tasks tab (the Swimlanes
+ * Execution-blueprint view).
  *
  * Drives the built SPA (dist-web) in a real Chromium browser against the live
  * workspace, following the plan's Self Validation. Per the project test
  * philosophy ("a few tests, mostly integration"), this is the critical-path run
- * covering the feature's wiring and the two views' rendered output — the summary
- * tally, first-class phase containers, the parallel-vs-sequential grid, the
- * in-screen view toggle, and the optional Execution Summary callout — rather than
- * per-component unit suites (the pure derivation helpers are unit-tested
- * separately).
+ * covering the feature's wiring and the Swimlanes view's rendered output — the
+ * summary tally, first-class phase containers, and the parallel-vs-sequential
+ * grid — rather than per-component unit suites (the pure derivation helpers are
+ * unit-tested separately). The view selector and the Outline view were removed
+ * in Plan 103, so Swimlanes is the sole Tasks view.
  *
  * Expectations are derived from the LIVE served model, never the design's
  * hardcoded plan-38 sample: the real workspace's plan 38 is an archived `done`
@@ -41,7 +41,7 @@ const toState = (status: string | undefined): 'todo' | 'doing' | 'done' => {
   return 'doing';
 };
 
-test.describe('Plan Detail Execute tab (Playwright)', () => {
+test.describe('Plan Detail Tasks tab (Playwright)', () => {
   test.skip(!assetsBuilt, 'dist-web not built');
 
   let liveHandle: ServeHandle;
@@ -62,15 +62,15 @@ test.describe('Plan Detail Execute tab (Playwright)', () => {
     await new Promise<void>(r => liveHandle.server.close(() => r()));
   });
 
-  /** Opens plan 38 and clicks the Tasks tab to reach the Execute blueprint. */
+  /** Opens plan 38 and clicks the Tasks tab to reach the Swimlanes blueprint. */
   const openExecute = async (page: Page): Promise<void> => {
     await page.goto(`${liveHandle.url}/plans/38`, { waitUntil: 'domcontentloaded' });
     await page.getByRole('tablist').waitFor();
     await page.getByRole('tab', { name: 'Tasks' }).click();
-    await page.getByTestId('exec-toggle').waitFor();
+    await page.getByTestId('swimlanes').waitFor();
   };
 
-  test('Swimlanes (default): summary tally, first-class phases, and the sequential grid', async ({
+  test('Swimlanes: summary tally, first-class phases, and the sequential grid', async ({
     page,
   }) => {
     page.setDefaultTimeout(15_000);
@@ -78,7 +78,7 @@ test.describe('Plan Detail Execute tab (Playwright)', () => {
     try {
       await openExecute(page);
 
-      // The toggle defaults to Swimlanes — the swimlanes subtree is shown, not outline.
+      // Swimlanes is the sole Tasks view — its subtree is shown, no Outline.
       await page.getByTestId('swimlanes').waitFor();
       expect(await page.getByTestId('outline').count()).toBe(0);
 
@@ -111,47 +111,6 @@ test.describe('Plan Detail Execute tab (Playwright)', () => {
       // Every task card is rendered as done for this all-completed plan.
       expect(await page.getByTestId('lane-task').count()).toBe(plan38.tasks.length);
       expect(await page.locator('[data-testid="lane-task"][data-state="done"]').count()).toBe(done);
-    } finally {
-      await page.close();
-    }
-  });
-
-  test('Outline: per-phase rows, done rows shown via strikethrough + StatusPill, and the Execution Summary callout', async ({
-    page,
-  }) => {
-    page.setDefaultTimeout(15_000);
-    try {
-      await openExecute(page);
-
-      // Toggle to Outline (second segment) without leaving the Tasks tab.
-      await page.getByText('Outline', { exact: true }).click();
-      await page.getByTestId('outline').waitFor();
-      expect(await page.getByTestId('swimlanes').count()).toBe(0);
-      // Still on the Tasks tab (the chrome tab strip is unchanged).
-      expect(await page.getByRole('tablist').count()).toBe(1);
-
-      const doneCount = plan38.tasks.filter(t => toState(t.status) === 'done').length;
-
-      // One phase head + the right number of task rows.
-      expect(await page.getByTestId('outline-phase-head').count()).toBe(plan38.phases.length);
-      expect(await page.getByTestId('outline-row').count()).toBe(plan38.tasks.length);
-
-      // Done tasks are surfaced via the strikethrough done state (the leading
-      // Tickbox glyph was removed in Plan 95) — no tickboxes are rendered.
-      const doneRows = page.locator('[data-testid="outline-row"][data-state="done"]');
-      expect(await doneRows.count()).toBe(doneCount);
-      expect(await page.getByTestId('outline').getByTestId('tickbox').count()).toBe(0);
-
-      // The Outline still renders a StatusPill per row; done rows carry a
-      // done-kind pill reading "done".
-      expect(await doneRows.locator('[data-testid="status-pill"][data-kind="done"]').count()).toBe(
-        doneCount
-      );
-
-      // Plan 38 has an Execution Summary section, so the callout is present.
-      expect(await page.getByTestId('exec-summary').count()).toBe(1);
-      const callout = (await page.getByTestId('exec-summary').textContent()) ?? '';
-      expect(callout.toLowerCase()).toContain('execution summary');
     } finally {
       await page.close();
     }

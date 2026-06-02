@@ -10,8 +10,8 @@
  * including the raw-status normalization through `toTickboxState`.
  */
 
-import { phaseStateOf, tally, tasksById, execSummaryOf } from '../derive';
-import type { Phase, PlanDetail, Task } from '../../../data/api';
+import { phaseStateOf, tally, tasksById } from '../derive';
+import type { Phase, Task } from '../../../data/api';
 
 /** Builds a minimal task with a raw status string. */
 const task = (id: number, status: string): Task => ({ id, name: `Task ${id}`, status });
@@ -22,25 +22,6 @@ const phase = (index: number, taskIds: number[], parallel = true): Phase => ({
   taskIds,
   parallel,
 });
-
-/** Wraps tasks/phases/sections in a minimal PlanDetail for the helpers. */
-const detailOf = (tasks: Task[], phases: Phase[] = [], sections: PlanDetail['sections'] = []) =>
-  ({
-    id: 1,
-    name: '01--fixture',
-    state: 'doing',
-    done: 0,
-    total: tasks.length,
-    phaseCount: phases.length,
-    archived: false,
-    file: '/tmp/plan.md',
-    dir: '/tmp',
-    rawBody: '',
-    sections,
-    mermaid: [],
-    tasks,
-    phases,
-  }) as PlanDetail;
 
 describe('tally', () => {
   it('counts done/doing/todo from raw statuses and reports the total', () => {
@@ -91,24 +72,5 @@ describe('phaseStateOf', () => {
   it('is todo for a phase whose task references resolve to nothing', () => {
     const orphan = phase(1, [99]);
     expect(phaseStateOf(orphan, tasksById([task(1, 'completed')]))).toBe('todo');
-  });
-});
-
-describe('execSummaryOf', () => {
-  it('surfaces the parsed Execution Summary section when present', () => {
-    const detail = detailOf(
-      [],
-      [],
-      [{ heading: 'Execution Summary', content: '\n- **Status**: Completed Successfully\n' }]
-    );
-    expect(execSummaryOf(detail)).toEqual({
-      eyebrow: 'Execution summary',
-      text: '**Status**: Completed Successfully',
-    });
-  });
-
-  it('returns undefined when the plan has no Execution Summary section', () => {
-    const detail = detailOf([], [], [{ heading: 'Context', content: 'background' }]);
-    expect(execSummaryOf(detail)).toBeUndefined();
   });
 });

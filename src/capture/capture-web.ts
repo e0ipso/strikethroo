@@ -276,7 +276,7 @@ const openTasks = async (page: Page, baseUrl: string, planId: number): Promise<v
   await page.goto(`${baseUrl}/plans/${planId}`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('[role="tablist"]');
   await page.getByRole('tab', { name: 'Tasks' }).click();
-  await page.waitForSelector('[data-testid="exec-toggle"]');
+  await page.waitForSelector('[data-testid="swimlanes"]');
 };
 
 /** Runs every still-screenshot capture in the inventory. */

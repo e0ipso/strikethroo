@@ -1,178 +1,192 @@
 /**
- * End-to-end self-validation for the Plan 91 Customize screen (Task 005).
+ * End-to-end validation for the redesigned Customize section (Plan 100).
  *
- * Drives the built SPA (dist-web) in a real Chromium browser against the live
- * `.ai/strikethroo/` workspace and its `/api/config` endpoint, executing the
- * plan's Self Validation procedure: the Hooks and Templates tabs are populated
- * ENTIRELY from `/api/config` (asserted against the live payload, never the
- * design's static arrays), the Chrome badges show the live counts, selecting a
- * hook/template reveals read-only markdown content with no functioning
- * Save/Edit/Revert control, and the rendered DOM uses `.ai/strikethroo/config/`
- * with no stale `task-manager` literal.
+ * Drives the built SPA (dist-web) in a real Chromium browser against a
+ * DISPOSABLE workspace fixture — never the repo's own `.ai/strikethroo/` —
+ * because the Save round-trip overwrites a config file on disk and the suite
+ * must stay repeatable. The fixture copies the shared `serve-workspace`
+ * config tree (its real hook/template files) into a fresh temp directory, so
+ * the listing reflects live `/api/config` data and the write lands only there.
  *
- * Per the project test philosophy this covers the custom wiring worth covering
- * (live-data binding, derived counts, read-only enforcement, stale-name guard),
- * not the React/Playwright/serve framework internals. If the build output or a
- * Chromium binary is unavailable the suite skips rather than failing.
+ * It covers the critical user workflow worth covering per the project test
+ * philosophy — browse the card grid for BOTH tabs, open a card's editor detail
+ * route, edit + save with persistence verified on disk and across reload, and
+ * the designed not-found surface — not CodeMirror or Playwright internals.
+ *
+ * If the build output or a Chromium binary is unavailable the suite skips
+ * rather than failing, so it never blocks browser-less environments.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import { test, expect } from '@playwright/test';
 import { startServer, ServeHandle } from '../serve/server';
 
-const FIXTURE_ROOT = path.resolve(
+const ASSETS_DIR = path.resolve(process.cwd(), 'dist-web');
+const assetsBuilt = fs.existsSync(path.join(ASSETS_DIR, 'index.html'));
+
+const SHARED_CONFIG = path.resolve(
   process.cwd(),
   'src',
   '__tests__',
   'fixtures',
-  'serve-workspace'
+  'serve-workspace',
+  'config'
 );
-const ASSETS_DIR = path.resolve(process.cwd(), 'dist-web');
-const INDEX_HTML = path.join(ASSETS_DIR, 'index.html');
 
-const assetsBuilt = fs.existsSync(INDEX_HTML);
+/**
+ * A fresh, writable workspace whose `config/` tree is copied from the shared
+ * read-only fixture. Returns the absolute `.ai/strikethroo` root. The Save test
+ * mutates files here only; the temp tree is removed in teardown.
+ */
+const buildFixture = (): string => {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'customize-e2e-'));
+  const root = path.join(tmpRoot, '.ai', 'strikethroo');
+  fs.mkdirSync(path.join(root, 'plans'), { recursive: true });
+  fs.mkdirSync(path.join(root, 'archive'), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, '.init-metadata.json'),
+    JSON.stringify({ version: '0.0.0', workspaceSchemaVersion: 1 }),
+    'utf8'
+  );
+  fs.cpSync(SHARED_CONFIG, path.join(root, 'config'), { recursive: true });
+  return root;
+};
 
-interface ConfigItem {
-  id: string;
-  file: string;
-  content: string;
-}
-
-test.describe('Customize screen (Playwright)', () => {
+test.describe('Customize section (Playwright, fixture)', () => {
   test.skip(!assetsBuilt, 'dist-web not built');
 
   let handle: ServeHandle;
-  let liveHooks: ConfigItem[];
-  let liveTemplates: ConfigItem[];
+  let root: string;
 
-  test.beforeAll(async () => {
+  test.beforeEach(async () => {
+    root = buildFixture();
     handle = await startServer({
-      root: FIXTURE_ROOT,
+      root,
       port: 0,
       open: false,
       assetsDir: ASSETS_DIR,
-      debounceMs: 150,
+      debounceMs: 100,
     });
-    const res = await fetch(`${handle.url}/api/config`);
-    const cfg = (await res.json()) as { hooks: ConfigItem[]; templates: ConfigItem[] };
-    liveHooks = cfg.hooks;
-    liveTemplates = cfg.templates;
   });
 
-  test.afterAll(async () => {
-    await new Promise<void>(r => handle.server.close(() => r()));
+  test.afterEach(async () => {
+    // The page may still hold its SSE connection open; force-terminate live
+    // connections before close() so teardown is deterministic.
+    const done = new Promise<void>(r => handle.server.close(() => r()));
+    handle.server.closeAllConnections();
+    await done;
+    fs.rmSync(path.resolve(root, '..', '..'), { recursive: true, force: true });
   });
 
-  test('captures a non-empty live config payload (id/file/content)', () => {
-    expect(liveHooks.length).toBeGreaterThan(0);
-    expect(liveTemplates.length).toBeGreaterThan(0);
-    for (const item of [...liveHooks, ...liveTemplates]) {
-      expect(typeof item.id).toBe('string');
-      expect(typeof item.file).toBe('string');
-      expect(typeof item.content).toBe('string');
-    }
-  });
-
-  test('renders the Hooks tab from live /api/config — counts and identifiers match', async ({
-    page,
-  }) => {
+  test('both tabs render a multi-column card grid', async ({ page }) => {
     page.setDefaultTimeout(15_000);
-    try {
-      await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.cz__path-strip');
+    await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
 
-      // Title + live count badges (derived from the fetched collections).
-      expect(await page.locator('.chrome__title').first().textContent()).toBe('Customize');
-      const badges = await page.locator('.chrome__tabs .tab__count').allTextContents();
-      expect(badges).toEqual([String(liveHooks.length), String(liveTemplates.length)]);
+    // Hooks tab (default) renders the shared card grid.
+    await page.waitForSelector('.cz__grid .cz__card');
+    const hookCards = await page.locator('.cz__grid .cz__card').count();
+    expect(hookCards).toBeGreaterThan(0);
 
-      // Path strip uses current strikethroo naming.
-      expect(await page.locator('.cz__path-strip .chip').first().textContent()).toBe(
-        '.ai/strikethroo/config/hooks/'
-      );
+    // The grid lays cards out in more than one column (responsive multi-column).
+    const columns = await page.evaluate(() => {
+      const grid = document.querySelector('.cz__grid') as HTMLElement | null;
+      if (!grid) return 0;
+      const cols = getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/);
+      return cols.length;
+    });
+    expect(columns).toBeGreaterThan(1);
 
-      // Rendered hook identifiers equal the live API set (order-independent).
-      const renderedIds = await page.locator('.cz__hook-id').allTextContents();
-      expect(renderedIds.length).toBe(liveHooks.length);
-      expect(new Set(renderedIds)).toEqual(new Set(liveHooks.map(h => h.id)));
-    } finally {
-      await page.close();
-    }
+    // Switch to the Templates tab — same shared grid, still populated.
+    await page.locator('.chrome__tabs .tab').nth(1).click();
+    await page.waitForSelector('.cz__grid .cz__card');
+    expect(await page.locator('.cz__grid .cz__card').count()).toBeGreaterThan(0);
   });
 
-  test('renders the Templates tab from live /api/config — identifiers match', async ({ page }) => {
+  test('a card shows the eyebrow path, title, and description', async ({ page }) => {
     page.setDefaultTimeout(15_000);
-    try {
-      await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.cz__path-strip');
+    await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.cz__grid .cz__card');
 
-      await page.locator('.chrome__tabs .tab').nth(1).click();
-      await page.waitForSelector('.cz__tpl');
+    // The PRE_PLAN hook has a registry description, so its card carries all
+    // three pieces. Locate it by title.
+    const card = page
+      .locator('.cz__card')
+      .filter({ has: page.locator('.cz__card-title', { hasText: /^PRE_PLAN$/ }) })
+      .first();
+    await expect(card).toHaveCount(1);
 
-      expect(await page.locator('.cz__path-strip .chip').first().textContent()).toBe(
-        '.ai/strikethroo/config/templates/'
-      );
-
-      const renderedIds = await page.locator('.cz__tpl-id').allTextContents();
-      expect(renderedIds.length).toBe(liveTemplates.length);
-      expect(new Set(renderedIds)).toEqual(new Set(liveTemplates.map(t => t.id)));
-    } finally {
-      await page.close();
-    }
+    expect(await card.locator('.cz__card-eyebrow').textContent()).toBe(
+      '.ai/strikethroo/config/hooks/PRE_PLAN.md'
+    );
+    expect(await card.locator('.cz__card-title').textContent()).toBe('PRE_PLAN');
+    expect((await card.locator('.cz__card-desc').textContent())?.length ?? 0).toBeGreaterThan(0);
   });
 
-  test('reveals read-only hook and template content with no Save/Edit/Revert control', async ({
-    page,
-  }) => {
+  test('clicking a card opens the editor detail route', async ({ page }) => {
     page.setDefaultTimeout(15_000);
-    try {
-      await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.cz__hook');
+    await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.cz__grid .cz__card');
 
-      // Reveal a hook's content; it renders through the sanitized markdown path.
-      await page
-        .locator('.cz__hook')
-        .first()
-        .getByText(/View content/)
-        .click();
-      await page.waitForSelector('.cz__hook .prose');
-      expect(
-        (await page.locator('.cz__hook .prose').first().textContent())?.length
-      ).toBeGreaterThan(0);
+    await page
+      .locator('.cz__card')
+      .filter({ has: page.locator('.cz__card-title', { hasText: /^PRE_PLAN$/ }) })
+      .first()
+      .click();
 
-      // Reveal a template's content.
-      await page.locator('.chrome__tabs .tab').nth(1).click();
-      await page.waitForSelector('.cz__tpl');
-      await page
-        .locator('.cz__tpl')
-        .first()
-        .getByText(/View content/)
-        .click();
-      await page.waitForSelector('.cz__tpl .prose');
+    await page.waitForFunction(() => location.pathname.startsWith('/customize/'));
+    expect(page.url()).toContain('/customize/hooks/PRE_PLAN');
 
-      // No functioning editor controls anywhere in the section.
-      const body = await page.locator('.main').innerText();
-      expect(body).not.toMatch(/\bSave\b/);
-      expect(body).not.toMatch(/Revert to default/);
-      // No editable surfaces.
-      expect(await page.locator('textarea').count()).toBe(0);
-      expect(await page.locator('.cz__editor-body, .cz__line').count()).toBe(0);
-    } finally {
-      await page.close();
-    }
+    // The lazy CodeMirror editor chunk mounts.
+    await page.waitForSelector('.cm-editor');
+    expect(await page.locator('.cm-editor').count()).toBe(1);
   });
 
-  test('uses .ai/strikethroo/config/ and never the stale task-manager literal', async ({ page }) => {
+  test('editing and saving persists to disk and survives a reload', async ({ page }) => {
     page.setDefaultTimeout(15_000);
-    try {
-      await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.cz__path-strip');
-      const html = await page.content();
-      expect(html).toContain('.ai/strikethroo/config/');
-      expect(html).not.toContain('task-manager');
-    } finally {
-      await page.close();
-    }
+    const detailUrl = `${handle.url}/customize/hooks/PRE_PLAN`;
+    await page.goto(detailUrl, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.cm-editor');
+
+    const marker = `\n<!-- e2e-marker-${Date.now()} -->\n`;
+
+    // Append a unique marker by typing at the end of the document.
+    const editor = page.locator('.cm-editor .cm-content');
+    await editor.click();
+    await page.keyboard.press('Control+End');
+    await page.keyboard.type(marker);
+
+    // Save and await the success indicator.
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.locator('.cz__path-meta')).toHaveText(/saved/, { timeout: 5_000 });
+
+    // The marker landed on disk in the isolated fixture.
+    const onDisk = fs.readFileSync(
+      path.join(root, 'config', 'hooks', 'PRE_PLAN.md'),
+      'utf8'
+    );
+    expect(onDisk).toContain('e2e-marker-');
+
+    // And it survives a fresh load of the detail route (re-fetched content).
+    // CodeMirror virtualizes off-screen lines, so move the cursor to the end so
+    // the appended marker line is rendered before reading the document text.
+    await page.goto(detailUrl, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.cm-editor');
+    await page.locator('.cm-editor .cm-content').click();
+    await page.keyboard.press('Control+End');
+    await expect(page.locator('.cm-editor .cm-content')).toContainText('e2e-marker-');
+  });
+
+  test('an unknown config id renders the designed not-found surface', async ({ page }) => {
+    page.setDefaultTimeout(15_000);
+    await page.goto(`${handle.url}/customize/hooks/NOPE_DOES_NOT_EXIST`, {
+      waitUntil: 'domcontentloaded',
+    });
+
+    await page.waitForSelector('[role="alert"]');
+    const alert = await page.locator('[role="alert"]').innerText();
+    expect(alert).toContain('NOPE_DOES_NOT_EXIST');
+    expect(await page.locator('.cm-editor').count()).toBe(0);
   });
 });

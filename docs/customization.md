@@ -19,6 +19,10 @@ Hooks are Markdown files in `.ai/strikethroo/config/hooks/`. The LLM reads them 
 
 **Not for:** Linting, test execution, coverage thresholds, security scans. Those belong in CI/CD pipelines or git commit hooks. Asking an LLM to "run npm test and ensure coverage > 80%" wastes its reasoning ability -- a shell script does that more reliably.
 
+Not sure which hooks the workspace ships with? Run `npx strikethroo serve` and open the **Customize** view -- it lists every hook with a description, no file digging required.
+
+[![Customize, Hooks tab]({{ '/assets/customize-hooks.png' | relative_url }})]({{ '/assets/customize-hooks.png' | relative_url }})
+
 ### LLM Intelligence Hooks
 
 These hooks leverage the LLM's reasoning ability -- pattern recognition, judgment calls, and contextual analysis that a deterministic script cannot replicate.
@@ -83,7 +87,9 @@ Add project-specific pre-flight checks -- for example, verifying required servic
 
 ## Templates
 
-Templates are editable Markdown files in `.ai/strikethroo/config/templates/`. They define the structure the LLM follows when generating plans, tasks, and execution artifacts.
+Templates are editable Markdown files in `.ai/strikethroo/config/templates/`. They define the structure the LLM follows when generating plans, tasks, and execution artifacts. The **Customize** view has a matching Templates tab:
+
+[![Customize, Templates tab]({{ '/assets/customize-templates.png' | relative_url }})]({{ '/assets/customize-templates.png' | relative_url }})
 
 ### PLAN_TEMPLATE.md
 
@@ -132,3 +138,11 @@ choosing an approach.
 ```
 
 This works because the LLM reads these constraints and applies them contextually during planning. Compare with a poor hook example: "run `npm run lint` and check that coverage exceeds 80%" -- that is a deterministic check better handled by CI or a git pre-commit hook.
+
+You don't have to leave the browser to write a hook like this. The **Customize** view opens any hook or template in an in-place editor -- one of only two writes the web app ever makes to disk:
+
+[![Editing a hook in the Customize editor]({{ '/assets/customize-detail-editor.png' | relative_url }})]({{ '/assets/customize-detail-editor.png' | relative_url }})
+
+Make your edit, save, and the change lands live:
+
+<video class="wide-video" controls preload="metadata" src="{{ '/assets/customize-editor-save.webm' | relative_url }}"></video>

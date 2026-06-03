@@ -53,6 +53,10 @@ Open the plan file and verify:
 
 Edit the file directly -- it is yours, not the AI's. Optionally, ask a second assistant to refine the plan (`st-refine-plan` skill) for a two-agent feedback loop.
 
+Prefer reading it rendered? `npx strikethroo serve` shows the plan document with its task blueprint pinned alongside:
+
+[![Plan Detail, Plan tab]({{ '/assets/plan-detail-plan.png' | relative_url }})]({{ '/assets/plan-detail-plan.png' | relative_url }})
+
 ### 3. Generate Tasks
 
 > /st-generate-tasks 1
@@ -60,6 +64,10 @@ Edit the file directly -- it is yours, not the AI's. Optionally, ask a second as
 The `st-generate-tasks` skill breaks the plan into atomic tasks (1-2 skills each), maps dependencies, and produces an execution blueprint organized into phases of parallel work. The [`POST_TASK_GENERATION_ALL`](customization.html#post_task_generation_all) hook runs once all task files exist.
 
 **Output**: `.ai/strikethroo/plans/01--user-authentication/tasks/*.md`
+
+The blueprint's phases -- groups of tasks that run in parallel -- render as swimlanes in the web app:
+
+[![Plan Detail, Tasks swimlanes]({{ '/assets/plan-detail-tasks-swimlanes.png' | relative_url }})]({{ '/assets/plan-detail-tasks-swimlanes.png' | relative_url }})
 
 ### 4. Validate the Tasks
 
@@ -70,6 +78,10 @@ The task documents don't need a line-by-line review -- just a quick validation p
 
 If something looks wrong, fix the task file directly; otherwise move straight to execution. Save the careful reading for the plan (step 2) and the result (step 6).
 
+A wrong ordering is easiest to spot on the dependency graph -- a live mermaid render of the same task files:
+
+[![Plan Detail, Graph tab]({{ '/assets/plan-detail-graph.png' | relative_url }})]({{ '/assets/plan-detail-graph.png' | relative_url }})
+
 ### 5. Execute the Blueprint
 
 > /st-execute-blueprint 1
@@ -78,7 +90,9 @@ The `st-execute-blueprint` skill runs tasks grouped into phases. Within each pha
 
 If you skipped step 3, the skill auto-generates tasks and the blueprint before starting.
 
-The `st-execute-blueprint` skill drives progress end to end: it updates task statuses as phases complete, and you can inspect plan and task files directly under `.ai/strikethroo/plans/` at any point. Prefer a visual view? Run `npx strikethroo serve` to watch progress in [Visualizations](visualizations.html), the web app that renders plans, tasks, and the dependency graph live from those same files.
+The `st-execute-blueprint` skill drives progress end to end: it updates task statuses as phases complete, and you can inspect plan and task files directly under `.ai/strikethroo/plans/` at any point. Prefer a visual view? Run `npx strikethroo serve` to watch progress in [Visualizations](visualizations.html), the web app that renders plans, tasks, and the dependency graph live from those same files. From the board you can drill straight down into any task:
+
+<video class="wide-video" controls preload="metadata" src="{{ '/assets/nav-plans-to-task-detail.webm' | relative_url }}"></video>
 
 ### 6. Review the Results
 
@@ -90,6 +104,10 @@ Execution finishing is not the finish line -- the working code is. Read what the
 - Watch for tasks that completed on paper but missed the intent
 
 If something is off, adjust the relevant task or plan files and re-run execution -- the blueprint resumes the affected work. Once the result matches the plan, the plan is done: `st-execute-blueprint` archives it to `.ai/strikethroo/archive/`.
+
+Each task's implementation notes capture what actually happened during execution -- a quick read on the work and any noteworthy events:
+
+[![Task Detail, Implementation Notes]({{ '/assets/task-detail-implementation-notes.png' | relative_url }})]({{ '/assets/task-detail-implementation-notes.png' | relative_url }})
 
 ## File Structure
 

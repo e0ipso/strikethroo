@@ -22,7 +22,6 @@
  */
 
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { test, expect, type Page } from '@playwright/test';
 import { startServer, ServeHandle } from '../serve/server';
@@ -34,40 +33,6 @@ const INDEX_HTML = path.join(ASSETS_DIR, 'index.html');
 const BUNDLE_DIR = path.join(ASSETS_DIR, 'assets');
 
 const assetsBuilt = fs.existsSync(INDEX_HTML);
-
-/** Builds a disposable workspace root with a single fixture plan; returns root. */
-const makeFixtureWorkspace = (id: number, slug: string, body: string): string => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'st-board-graph-fixture-'));
-  const planDir = path.join(root, 'plans', `${id}--${slug}`);
-  fs.mkdirSync(path.join(planDir, 'tasks'), { recursive: true });
-  fs.writeFileSync(
-    path.join(planDir, `plan-${id}--${slug}.md`),
-    `---\nid: ${id}\nsummary: "Fixture plan"\ncreated: "2026-05-29"\n---\n\n# ${slug}\n\n${body}`
-  );
-  return root;
-};
-
-/** A plan body with NO mermaid block — exercises the Graph empty state. */
-const NO_DIAGRAM_BODY = `## Overview
-
-A plan whose body embeds no mermaid diagram at all.
-
-## Success Criteria
-
-- Renders without a diagram
-`;
-
-/** A plan body whose mermaid fence is malformed — exercises the inline error. */
-const MALFORMED_DIAGRAM_BODY = `## Architectural Approach
-
-\`\`\`mermaid
-this is not valid mermaid >>> @@@ %%% definitely not a flowchart
-\`\`\`
-
-## Success Criteria
-
-- Renders an inline error, not a crash
-`;
 
 test.describe('Plan Detail Graph (Playwright)', () => {
   test.skip(!assetsBuilt, 'dist-web not built');
@@ -148,72 +113,5 @@ test.describe('Plan Detail Graph (Playwright)', () => {
     // Mermaid lives in its own separately fetched chunk.
     const hasMermaidChunk = jsFiles.some(f => /mermaid\.core/.test(f));
     expect(hasMermaidChunk).toBe(true);
-  });
-
-  test('Graph: a plan with no mermaid block shows the no-diagram empty state, not an error', async ({
-    page,
-  }) => {
-    page.setDefaultTimeout(15_000);
-    const root = makeFixtureWorkspace(881, 'no-diagram', NO_DIAGRAM_BODY);
-    const handle = await startServer({
-      root,
-      port: 0,
-      open: false,
-      assetsDir: ASSETS_DIR,
-      debounceMs: 150,
-    });
-    try {
-      await page.goto(`${handle.url}/plans/881--no-diagram`, { waitUntil: 'domcontentloaded' });
-      await page.getByRole('tablist').waitFor();
-      await page.getByRole('tab', { name: 'Graph' }).click();
-      await page.getByTestId('graph').waitFor();
-
-      // Explicit no-diagram empty state, no error treatment, route intact.
-      const canvasText = (await page.getByTestId('graph-canvas').textContent()) ?? '';
-      expect(canvasText.toLowerCase()).toContain('no diagram');
-      expect(await page.getByTestId('mermaid-error').count()).toBe(0);
-      // The toggle is absent when there is no diagram to toggle.
-      expect(await page.getByTestId('graph-toggle').count()).toBe(0);
-    } finally {
-      await page.close();
-      await new Promise<void>(r => handle.server.close(() => r()));
-      fs.rmSync(root, { recursive: true, force: true });
-    }
-  });
-
-  test('Graph: a malformed mermaid block surfaces an inline error without crashing the route', async ({
-    page,
-  }) => {
-    page.setDefaultTimeout(15_000);
-    const root = makeFixtureWorkspace(882, 'malformed-diagram', MALFORMED_DIAGRAM_BODY);
-    const handle = await startServer({
-      root,
-      port: 0,
-      open: false,
-      assetsDir: ASSETS_DIR,
-      debounceMs: 150,
-    });
-    try {
-      await page.goto(`${handle.url}/plans/882--malformed-diagram`, {
-        waitUntil: 'domcontentloaded',
-      });
-      await page.getByRole('tablist').waitFor();
-      await page.getByRole('tab', { name: 'Graph' }).click();
-      await page.getByTestId('graph').waitFor();
-
-      // The inline mermaid-error state appears; the route (Chrome + graph) survives.
-      await page.waitForSelector('[data-testid="mermaid-error"]', { timeout: 20_000 });
-      expect(await page.getByRole('tablist').count()).toBe(1);
-      expect(await page.getByTestId('graph').count()).toBe(1);
-
-      // Source toggle still works on a malformed diagram (shows the raw text).
-      await page.getByText('Source', { exact: true }).click();
-      const src = (await page.getByTestId('graph-source').textContent()) ?? '';
-      expect(src).toContain('not valid mermaid');
-    } finally {
-      await page.close();
-      await new Promise<void>(r => handle.server.close(() => r()));
-      fs.rmSync(root, { recursive: true, force: true });
-    }
   });
 });

@@ -6,8 +6,9 @@ baseurl: "/strikethroo"
 # Just the Docs theme configuration
 remote_theme: just-the-docs/just-the-docs
 
-# Theme settings
-color_scheme: light
+# Theme settings — Strikethroo brand schemes (see docs/_sass/color_schemes/).
+# Default load is the light scheme; the sidebar toggle swaps to strikethroo-dark.
+color_scheme: strikethroo
 search_enabled: true
 heading_anchors: true
 

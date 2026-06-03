@@ -1,0 +1,31 @@
+// =====================================================================
+// Strikethroo — LIGHT brand color scheme.
+// Maps the SPA design tokens (src/web/vendor/styles/tokens.css): warm
+// cream/ink neutrals + the dalia pink accent. Values are hex/hsl (NOT oklch)
+// because Just the Docs applies Sass color functions to some of these.
+// =====================================================================
+
+$color-scheme: light;
+
+// Surfaces — warm cream neutrals
+$body-background-color: #f8f4ec; // cream
+$sidebar-color: #f2ece1; // cream-mid (subtle separation)
+$feedback-color: #ece5d8; // cream-deep
+
+// Text — warm ink neutrals
+$body-text-color: #2c2318; // comfortable warm near-black
+$body-heading-color: #19110a; // ink (matches the favicon glyph)
+$nav-child-link-color: #463c30; // ink-2
+$search-result-preview-color: #6f6557; // ink-3
+$code-linenumber-color: #b3a999; // ink-4
+
+// Accent — dalia pink (darkened for AA contrast on cream)
+$link-color: hsl(335, 58%, 43%);
+$btn-primary-color: hsl(335, 55%, 58%);
+
+// Controls / structure
+$base-button-color: #efe8db;
+$code-background-color: #f1eadd;
+$table-background-color: #fbf8f1;
+$search-background-color: #fbf8f1;
+$border-color: #e4ddcd;

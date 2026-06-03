@@ -1,0 +1,128 @@
+// =====================================================================
+// Strikethroo docs — visual polish layered on Just the Docs.
+// Imported LAST in the theme's chain, so these rules win over the defaults.
+// Colors reference the active scheme's Sass variables, so this single file
+// themes correctly in both the light and dark builds.
+// =====================================================================
+
+// ---- Display serif for headings (body stays Outfit, set in custom/setup) ----
+h1, h2, h3, h4, h5, h6,
+.text-alpha, .text-beta, .text-gamma, .text-delta, .text-epsilon {
+  font-family: "Fraunces", Georgia, "Times New Roman", serif;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+h1, .text-alpha {
+  letter-spacing: -0.025em;
+}
+
+// ---- Brand wordmark: struck-through "strikethroo" in the sidebar ----
+// The site title is the lowercase brand mark in Outfit with a throughline,
+// mirroring the SPA wordmark. The em-based bar offsets are an intentional
+// exception to the no-arbitrary-values rule — they track the Outfit x-height
+// at leading-none rather than the em box, so a percentage/px bar would drift.
+.site-title.site-title {
+  font-family: "Outfit", system-ui, sans-serif;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  text-transform: lowercase;
+  color: $body-heading-color;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: none; // JTD makes .site-title flex-grow:1; hug the text so the strike spans the word, not the column
+  line-height: 1;
+  padding: 0.85rem 1rem;
+}
+
+.site-title::after {
+  content: "";
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  // 0.631em is the SPA's x-height midline offset (calibrated for Outfit at
+  // leading-none); add padding-top because the bar is positioned from the
+  // padded box edge, not the glyph box, unlike the SPA's zero-padding span.
+  top: calc(0.85rem + 0.631em);
+  height: 0.07em;
+  transform: translateY(-50%);
+  background: currentColor;
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+// ---- Sidebar / nav ----
+.side-bar {
+  border-right: 1px solid $border-color;
+}
+
+.nav-list .nav-list-item .nav-list-link:hover {
+  color: $link-color;
+}
+.nav-list .nav-list-item .nav-list-link.active {
+  color: $link-color;
+  font-weight: 600;
+}
+
+// ---- Links ----
+a {
+  text-underline-offset: 0.15em;
+}
+
+// ---- Soft, SPA-like rounding on surfaces ----
+div.highlighter-rouge,
+figure.highlight,
+pre.highlight,
+table {
+  border-radius: 0.5rem;
+}
+table {
+  overflow: hidden;
+}
+code {
+  border-radius: 0.25rem;
+}
+.btn,
+.search-input {
+  border-radius: 0.5rem;
+}
+
+// ---- Content heading rhythm ----
+.main-content {
+  h2 {
+    padding-bottom: 0.2em;
+    border-bottom: 1px solid $border-color;
+  }
+}
+
+// ---- Theme toggle (markup in nav_footer_custom.html) ----
+.strike-theme {
+  margin-top: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid $border-color;
+}
+.strike-theme__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.7rem;
+  font-family: "Outfit", system-ui, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: $body-text-color;
+  background-color: $base-button-color;
+  border: 1px solid $border-color;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.strike-theme__btn:hover {
+  color: $link-color;
+  border-color: $link-color;
+}
+.strike-theme__icon {
+  display: inline-flex;
+  line-height: 0;
+  font-size: 1rem;
+}

@@ -1,0 +1,16 @@
+// =====================================================================
+// Strikethroo docs — shared variable setup.
+// Imported by Just the Docs BEFORE the color schemes and BEFORE the rule
+// modules, so font/size overrides here are picked up by the emitted CSS.
+// Mirrors the SPA brand fonts (src/web/vendor/styles/fonts.css).
+// =====================================================================
+
+$body-font-family: "Outfit", system-ui, -apple-system, "Segoe UI", roboto,
+  "Helvetica Neue", arial, sans-serif;
+$mono-font-family: ui-monospace, "SF Mono", "SFMono-Regular", "Cascadia Code",
+  "Fira Code", menlo, consolas, monospace;
+
+$root-font-size: 16px;
+$body-line-height: 1.55;
+$content-line-height: 1.65;
+$body-heading-line-height: 1.2;

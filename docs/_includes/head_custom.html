@@ -1,0 +1,106 @@
+<!-- Self-hosted brand fonts (reused from the SPA: src/web/vendor/styles). -->
+<style>
+  @font-face {
+    font-family: 'Fraunces';
+    font-style: normal;
+    font-weight: 100 900;
+    font-stretch: 25% 151%;
+    font-display: swap;
+    src: url('{{ "/assets/fonts/Fraunces-VariableFont_SOFT_WONK_opsz_wght.ttf" | relative_url }}') format('truetype-variations');
+  }
+  @font-face {
+    font-family: 'Fraunces';
+    font-style: italic;
+    font-weight: 100 900;
+    font-stretch: 25% 151%;
+    font-display: swap;
+    src: url('{{ "/assets/fonts/Fraunces-Italic-VariableFont_SOFT_WONK_opsz_wght.ttf" | relative_url }}') format('truetype-variations');
+  }
+  @font-face {
+    font-family: 'Outfit';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url('{{ "/assets/fonts/Outfit-VariableFont_wght.ttf" | relative_url }}') format('truetype-variations');
+  }
+</style>
+
+<link rel="icon" type="image/svg+xml" href="{{ '/assets/favicon.svg' | relative_url }}">
+
+<!-- Color-theme controller. Lives here (rendered once in <head>) rather than in
+     nav_footer_custom.html, which Just the Docs renders twice (desktop + mobile
+     nav) — so a script there would double-bind. The light scheme is the already
+     loaded default.css, so light/system never triggers a stylesheet swap.
+     NOTE: the theme's HTML layout collapses newlines, so the inline script below
+     must use /* */ block comments only — a // comment would swallow the rest. -->
+<script>
+  (function () {
+    var KEY = 'strikethroo-docs-theme';
+    var LIGHT = '{{ "/assets/css/just-the-docs-default.css" | relative_url }}';
+    var DARK = '{{ "/assets/css/just-the-docs-strikethroo-dark.css" | relative_url }}';
+
+    function prefersDark() {
+      return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+    function isDark(pref) {
+      return pref === 'dark' || (pref === 'system' && prefersDark());
+    }
+    function read() {
+      try { return localStorage.getItem(KEY) || 'system'; } catch (e) { return 'system'; }
+    }
+    function mainLink() {
+      return document.querySelector('link[rel="stylesheet"][href*="just-the-docs"]');
+    }
+
+    /* Pre-paint guard: swap to dark before first paint so dark visitors never
+       see a flash of light. Runs immediately (the stylesheet link precedes us). */
+    if (isDark(read())) {
+      var l = mainLink();
+      if (l) l.setAttribute('href', DARK);
+    }
+
+    var ICON = {
+      system: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3.5" width="19" height="13" rx="2"/><path d="M8 20.5h8M12 16.5v4"/></svg>',
+      light: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5 5l1.4 1.4M17.6 17.6 19 19M19 5l-1.4 1.4M6.4 17.6 5 19"/></svg>',
+      dark: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4 6.2 6.2 0 0 0 20 14.5z"/></svg>'
+    };
+    var LABEL = { system: 'System', light: 'Light', dark: 'Dark' };
+    var ORDER = ['system', 'light', 'dark'];
+    var current = read();
+
+    function apply(pref) {
+      current = pref;
+      var link = mainLink();
+      if (link) link.setAttribute('href', isDark(pref) ? DARK : LIGHT);
+      document.querySelectorAll('.strike-theme__btn').forEach(function (btn) {
+        var icon = btn.querySelector('.strike-theme__icon');
+        var label = btn.querySelector('.strike-theme__label');
+        if (icon) icon.innerHTML = ICON[pref];
+        if (label) label.textContent = LABEL[pref];
+      });
+    }
+
+    function init() {
+      apply(current);
+      document.querySelectorAll('.strike-theme__btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var next = ORDER[(ORDER.indexOf(current) + 1) % ORDER.length];
+          try { localStorage.setItem(KEY, next); } catch (e) {}
+          apply(next);
+        });
+      });
+      if (window.matchMedia) {
+        var mq = window.matchMedia('(prefers-color-scheme: dark)');
+        var onChange = function () { if (current === 'system') apply('system'); };
+        if (mq.addEventListener) mq.addEventListener('change', onChange);
+        else if (mq.addListener) mq.addListener(onChange);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  })();
+</script>

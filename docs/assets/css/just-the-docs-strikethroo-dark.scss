@@ -1,0 +1,5 @@
+---
+# Dark-scheme stylesheet entrypoint, swapped in by the theme toggle and the
+# pre-paint guard (head_custom.html) via just-the-docs-strikethroo-dark.css.
+---
+{% include css/just-the-docs.scss.liquid color_scheme="strikethroo-dark" %}

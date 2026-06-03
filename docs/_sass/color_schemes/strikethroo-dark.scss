@@ -1,0 +1,34 @@
+// =====================================================================
+// Strikethroo — DARK brand color scheme.
+// Mirrors the SPA `.dark` token swap (src/web/vendor/styles/tokens.css):
+// deep cool surfaces, warm-light ink, brighter dalia. Pulls in the dark
+// syntax-highlight palette (the always-imported `light` scheme ships the
+// light one, so this overrides it), exactly as the stock dark scheme does.
+// =====================================================================
+
+@import "./vendor/accessible-pygments/github-dark";
+
+$color-scheme: dark;
+
+// Surfaces — deep cool neutrals
+$body-background-color: #16141e;
+$sidebar-color: #1e1b27;
+$feedback-color: #221f2c;
+
+// Text — warm-light ink
+$body-text-color: #e8e1d4;
+$body-heading-color: #f6f1e8;
+$nav-child-link-color: #c9bfb0;
+$search-result-preview-color: #b3a99a;
+$code-linenumber-color: #8a8194;
+
+// Accent — brighter dalia for dark surfaces
+$link-color: hsl(335, 70%, 74%);
+$btn-primary-color: hsl(335, 58%, 62%);
+
+// Controls / structure
+$base-button-color: #2a2734;
+$code-background-color: #1b1825;
+$table-background-color: #1e1b27;
+$search-background-color: #1e1b27;
+$border-color: #322e3b;

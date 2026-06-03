@@ -22,7 +22,7 @@ npx strikethroo init --harnesses claude
 npx skills add e0ipso/strikethroo
 ```
 
-Requires Node.js 14+ and an assistant that supports the Agent Skills format.
+Requires Node.js and an assistant that supports the Agent Skills format.
 
 ## In your coding assistant
 

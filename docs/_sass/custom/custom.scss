@@ -44,10 +44,10 @@ h1, .text-alpha {
   // Bar center = padding-top (the glyph box starts at the padded edge) + the
   // measured offset of the Outfit lowercase midline within the line box. The
   // SPA's 0.631em does NOT carry over: in this JTD layout the text sits lower
-  // in the line box, so the o's ink center lands at ~0.81em below the content
+  // in the line box, so the o's ink center lands at ~0.79em below the content
   // top (pixel-measured against the rendered site). That value bisects the o's.
-  top: calc(0.85rem + 0.81em);
-  height: 0.058em;
+  top: calc(0.85rem + 0.79em);
+  height: 0.09em;
   transform: translateY(-50%);
   background: currentColor;
   border-radius: 1px;

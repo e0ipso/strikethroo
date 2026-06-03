@@ -2,9 +2,7 @@
 schema_version: 1
 id: >-
   map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed
-title: >-
-  CLI exposes only init and serve commands; all visualization/management
-  commands removed
+title: CLI exposes only init and serve commands
 kind: map
 tags:
   - cli
@@ -13,9 +11,9 @@ derived_from: []
 relates_to: []
 confidence: high
 summary: >-
-  status and plan commands were removed in plan 81. Running strikethroo --help
-  lists only init and serve.
+  Running strikethroo --help lists only init and serve; there are no
+  visualization/management (status, plan) commands.
 ---
-Plan 81 (`remove-cli-visualization-commands`) deleted `src/status.ts`, `src/plan.ts`, and `src/plan-utils.ts`, stripped the `status` and `plan` command trees from `src/cli.ts`.
+`src/cli.ts` registers only two commands: `init` and `serve`. Running `strikethroo --help` lists exactly those; invoking `status` or `plan show 1` hits the unknown-command handler and exits 1.
 
-The rationale: these commands duplicated functionality the Agent Skills layer already owns. Running `strikethroo --help` lists only `init` and `serve`. Invoking `status` or `plan show 1` hits the unknown-command handler and exits 1.
+There is no CLI visualization/management surface — plan inspection and management are owned by the Agent Skills layer, not the CLI.

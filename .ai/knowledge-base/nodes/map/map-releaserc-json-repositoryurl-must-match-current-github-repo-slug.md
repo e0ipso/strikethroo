@@ -11,7 +11,7 @@ derived_from: []
 relates_to: []
 confidence: medium
 summary: >-
-  The repositoryUrl used by @semantic-release/github lives in .releaserc.json.
-  Must be updated after a repo rename.
+  .releaserc.json's repositoryUrl feeds @semantic-release/github; it must match
+  the current GitHub repo slug or releases fail.
 ---
-`.releaserc.json` contains the `repositoryUrl` field consumed by `@semantic-release/github`. After the repo rename from `ai-task-manager` to `strikethroo`, this field was updated to `https://github.com/e0ipso/strikethroo.git`. A stale value causes the release job to fail with a GraphQL variable error.
+`.releaserc.json` contains the `repositoryUrl` field (`https://github.com/e0ipso/strikethroo.git`) consumed by `@semantic-release/github`. It must match the current GitHub repo slug; a stale value causes the release job to fail with a GraphQL variable error (`Variable $owner of type String! was provided invalid value`).

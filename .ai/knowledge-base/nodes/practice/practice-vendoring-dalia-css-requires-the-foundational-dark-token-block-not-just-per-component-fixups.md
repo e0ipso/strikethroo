@@ -3,8 +3,8 @@ schema_version: 1
 id: >-
   practice-vendoring-dalia-css-requires-the-foundational-dark-token-block-not-just-per-component-fixups
 title: >-
-  Vendoring Dalia CSS requires the foundational .dark token block, not just
-  per-component fixups
+  Dark mode requires both the foundational .dark token block and per-component
+  fixups, both in tokens.css
 kind: practice
 tags:
   - web
@@ -12,18 +12,22 @@ tags:
   - dalia
   - dark-mode
   - vendoring
+  - tokens
 derived_from: []
 relates_to:
   - >-
     map-dalia-ui-design-system-vendored-into-src-web-vendor-not-a-package-dependency
 confidence: high
 summary: >-
-  Only per-component .dark fixups were vendored initially; the foundational
-  .dark token-redefinition block was missing, leaving dark mode non-functional.
+  Both the @theme token block and the .dark palette-swap must live in
+  tokens.css. Deleting CSS files without relocating these blocks silently breaks
+  dark mode.
 ---
-When vendoring Dalia design system CSS into `src/web/vendor/styles/`, two layers are required for dark mode to work:
+Dark mode in the SPA requires two layers that must coexist in `src/web/vendor/styles/tokens.css`:
 
-1. **Foundational block** — a top-level `.dark { }` rule that redefines `--color-*` (Tailwind `@theme`) token values and sets `color-scheme: dark`. Without this, `body` background and all derived `--color-*` aliases stay at light values even when `.dark` is applied to `document.documentElement`.
-2. **Per-component fixups** — the `@layer` `.dark .foo { }` rules overriding specific component states.
+1. **Foundational `@theme` block** — defines all `--color-*` Tailwind token values. Without this, token-backed utilities resolve to nothing.
+2. **`.dark { --color-*: … }` swap block** — redefines the palette for dark mode. Without this, applying `.dark` to `document.documentElement` has no effect; all token-backed utilities stay at light values.
 
-In the initial vendoring, only the per-component fixups were carried; the foundational block was omitted (acknowledged in the original CSS comment: "DARK-MODE COMPONENT FIXUPS … no theme-switcher UI built here"). Applying `.dark` appeared to do nothing because the primary token layer was never overridden. The fix is in `app-shell.css` (commit `2cbb8fb8`).
+In the initial vendoring, only per-component `.dark .foo { }` fixups were carried; the foundational `.dark` swap block was missing, so dark mode appeared to do nothing. Both layers are now in `tokens.css` (moved from the deleted `app-shell.css` during the Tailwind migration).
+
+If you delete or rename any CSS file under `src/web/vendor/styles/`, grep it for `:root {` and `.dark {` token-definition blocks before removing. Relocate any found definitions to `tokens.css`. Losing the foundational `.dark` swap block silently breaks dark mode even when the build passes.

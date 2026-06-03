@@ -14,4 +14,4 @@ summary: >-
   The /.ai/strikethroo path must stay in .gitignore to prevent accidentally
   committing dogfood workspace state.
 ---
-A `.gitignore` rewrite accidentally removed the `/.ai/task-manager` (now `/.ai/strikethroo`) entry, causing 528 dogfood workspace files to be staged. When editing `.gitignore`, always verify that the local dogfood workspace path (`.ai/strikethroo`) remains explicitly excluded to prevent accidental commit of workspace state.
+The local `.ai/strikethroo` dogfood workspace must stay excluded in `.gitignore`. When editing `.gitignore`, always verify that this path remains explicitly ignored — dropping it stages hundreds of dogfood workspace files and risks committing local workspace state.

@@ -2,7 +2,7 @@
 layout: default
 title: Migrating from 1.x
 nav_order: 7
-description: "Upgrade from Strikethroo 1.x to 2.x"
+description: "Upgrade from AI Task Manager to Strikethroo"
 ---
 
 # Migrating from 1.x to 2.x
@@ -55,11 +55,11 @@ npx skills add e0ipso/strikethroo
 
 ## What changed
 
-| 1.x | 2.x |
-|-----|-----|
+| AI Task Manager              | Strikethroo                     |
+|------------------------------|---------------------------------|
 | Slash commands (per-harness) | Agent Skills (harness-agnostic) |
-| `.cjs` scripts in config | Bundled into skills |
-| `claude-exec` CLI subcommand | Removed |
+| `.cjs` scripts in config     | Bundled into skills             |
+| `claude-exec` CLI subcommand | Removed                         |
 
 ## What didn't change
 

@@ -145,7 +145,7 @@ const selectPlan = async (baseUrl: string, summaries: PlanSummary[]): Promise<Pi
   // routes the detail captures drive, so archived plans are out of scope here.
   const details: PlanDetail[] = [];
   for (const s of summaries.filter(s => !s.archived)) {
-    const res = await fetch(`${baseUrl}/api/plans/${s.id}`);
+    const res = await fetch(`${baseUrl}/api/plans/${encodeURIComponent(s.name)}`);
     if (!res.ok) continue;
     details.push((await res.json()) as PlanDetail);
   }
@@ -263,8 +263,10 @@ const video = async (
 };
 
 /** Opens the Plan Detail Graph tab and waits for the rendered mermaid SVG. */
-const openGraph = async (page: Page, baseUrl: string, planId: number): Promise<void> => {
-  await page.goto(`${baseUrl}/plans/${planId}`, { waitUntil: 'domcontentloaded' });
+const openGraph = async (page: Page, baseUrl: string, planKey: string): Promise<void> => {
+  await page.goto(`${baseUrl}/plans/${encodeURIComponent(planKey)}`, {
+    waitUntil: 'domcontentloaded',
+  });
   await page.waitForSelector('[role="tablist"]');
   await page.getByRole('tab', { name: 'Graph' }).click();
   await page.waitForSelector('[data-testid="graph"]');
@@ -272,8 +274,10 @@ const openGraph = async (page: Page, baseUrl: string, planId: number): Promise<v
 };
 
 /** Opens the Plan Detail Tasks tab (Execute blueprint, Swimlanes by default). */
-const openTasks = async (page: Page, baseUrl: string, planId: number): Promise<void> => {
-  await page.goto(`${baseUrl}/plans/${planId}`, { waitUntil: 'domcontentloaded' });
+const openTasks = async (page: Page, baseUrl: string, planKey: string): Promise<void> => {
+  await page.goto(`${baseUrl}/plans/${encodeURIComponent(planKey)}`, {
+    waitUntil: 'domcontentloaded',
+  });
   await page.waitForSelector('[role="tablist"]');
   await page.getByRole('tab', { name: 'Tasks' }).click();
   await page.waitForSelector('[data-testid="swimlanes"]');
@@ -304,22 +308,24 @@ const captureStills = async (
       const { detail, task, graphDetail } = picked;
 
       // --- Plan Detail: Plan tab (Reader + blueprint rail) ---
-      await page.goto(`${baseUrl}/plans/${detail.id}`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`${baseUrl}/plans/${encodeURIComponent(detail.name)}`, {
+        waitUntil: 'domcontentloaded',
+      });
       await page.waitForSelector('[role="tablist"]');
       await page.waitForSelector('[data-testid="reader"]');
       await shot(page, 'plan-detail-plan');
 
       // --- Plan Detail: Graph tab — uses the simpler, distinct graph plan ---
-      await openGraph(page, baseUrl, graphDetail.id);
+      await openGraph(page, baseUrl, graphDetail.name);
       await shot(page, 'plan-detail-graph');
 
       // --- Plan Detail: Tasks tab — Swimlanes (default) ---
-      await openTasks(page, baseUrl, detail.id);
+      await openTasks(page, baseUrl, detail.name);
       await page.waitForSelector('[data-testid="swimlanes"]');
       await shot(page, 'plan-detail-tasks-swimlanes');
 
       // --- Task Detail: main body ---
-      await page.goto(`${baseUrl}/plans/${detail.id}/tasks/${task.id}`, {
+      await page.goto(`${baseUrl}/plans/${encodeURIComponent(detail.name)}/tasks/${task.id}`, {
         waitUntil: 'domcontentloaded',
       });
       await page.waitForSelector('[data-testid="reader"]');
@@ -416,7 +422,9 @@ const captureVideos = async (
     // Switching Plan Detail tabs (Plan <-> Graph <-> Tasks).
     await video(browser, baseUrl, 'plan-detail-tab-switch', async page => {
       page.setDefaultTimeout(20_000);
-      await page.goto(`${baseUrl}/plans/${detail.id}`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`${baseUrl}/plans/${encodeURIComponent(detail.name)}`, {
+        waitUntil: 'domcontentloaded',
+      });
       await page.waitForSelector('[role="tablist"]');
       await page.waitForSelector('[data-testid="reader"]');
       await beat(page); // video pacing: hold on the Plan tab

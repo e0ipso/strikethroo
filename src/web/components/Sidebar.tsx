@@ -119,7 +119,14 @@ export function Sidebar({ counts = {}, collapsed = false, onCollapsedChange }: S
           <BrandMark />
         ) : (
           <>
-            <span className="relative inline-block font-sans font-normal leading-none after:pointer-events-none after:absolute after:inset-x-0 after:top-1/2 after:h-px after:-translate-y-1/2 after:bg-current after:content-['']">
+            {/* THROUGHLINE WORDMARK — deliberate exception to the utility-first
+               Tailwind convention. The strikethrough must pierce the lowercase
+               x-height midline (~0.631em down with leading-none), NOT the em-box
+               center (top-1/2), or it floats above the `o`s. The em-based line
+               position/thickness/tracking are the exact values from the original
+               `.tl-mark` rule; keep them as arbitrary values — do not "simplify"
+               back to top-1/2 / h-px. */}
+            <span className="relative inline-block font-sans font-normal leading-none tracking-[-0.015em] after:pointer-events-none after:absolute after:inset-x-0 after:top-[0.631em] after:h-[0.058em] after:-translate-y-1/2 after:bg-current after:content-['']">
               strikethroo
             </span>
             <span className="ml-1 font-mono text-xs font-medium uppercase text-ink-3">

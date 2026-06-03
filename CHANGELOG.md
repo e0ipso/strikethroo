@@ -1,3 +1,15 @@
+## 3.4.0 (2026-06-03)
+
+* docs: update doc site styles ([c730e14](https://github.com/e0ipso/strikethroo/commit/c730e14))
+* docs: update screenshots and recordings ([666c916](https://github.com/e0ipso/strikethroo/commit/666c916))
+* fix: make the wordmark correct again ([0765a08](https://github.com/e0ipso/strikethroo/commit/0765a08))
+* fix(capture): use composite plan key in URLs ([11e6416](https://github.com/e0ipso/strikethroo/commit/11e6416))
+* Merge remote-tracking branch 'origin/main' ([c108d95](https://github.com/e0ipso/strikethroo/commit/c108d95))
+* chore: remove dist assets from the repo ([cf1fe79](https://github.com/e0ipso/strikethroo/commit/cf1fe79))
+* chore: update the knowledge base ([e37cb13](https://github.com/e0ipso/strikethroo/commit/e37cb13))
+* feat(web): route plans by composite directory name ([2a93b92](https://github.com/e0ipso/strikethroo/commit/2a93b92))
+* refactor(web): drop Tasks tab view selector ([a4fe50b](https://github.com/e0ipso/strikethroo/commit/a4fe50b))
+
 ## <small>3.3.1 (2026-06-02)</small>
 
 * Merge remote-tracking branch 'origin/main' ([b809af1](https://github.com/e0ipso/strikethroo/commit/b809af1))

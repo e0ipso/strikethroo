@@ -1,0 +1,8 @@
+source "https://rubygems.org"
+
+# Matches GitHub Pages' build (the docs site deploys via the
+# actions/jekyll-build-pages action and the just-the-docs remote theme).
+gem "github-pages", group: :jekyll_plugins
+
+# Required to run `jekyll serve` locally on Ruby 3+ (no longer bundled).
+gem "webrick", "~> 1.8"

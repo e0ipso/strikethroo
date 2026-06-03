@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Workflow Guide
-nav_order: 3
+nav_order: 2
 description: "Step-by-step workflow with commands and visual guides"
 ---
 
@@ -17,19 +17,20 @@ flowchart LR
     B --> C{Review}
     C -->|Edit| B
     C -->|Approve| D[Tasks]
-    D --> E{Review}
-    E -->|Edit| D
-    E -->|Approve| F[Execute]
-    F --> G[Done]
+    D --> E{Verify}
+    E --> G[Execute]
+    G --> H{Review}
+    H -->|Edit| G
+    H -->|Approve| J[Done]
 
     style A fill:#ffebee
     style B fill:#e3f2fd
     style D fill:#f3e5f5
-    style F fill:#e8f5e8
-    style G fill:#c8e6c9
+    style G fill:#e8f5e8
+    style J fill:#c8e6c9
 ```
 
-Human review gates between steps are where you catch scope creep and wrong turns. Do not skip them.
+Human gates wrap each step: you **review** the plan, **verify** the blueprint, and **review** the executed result -- looping back to edit whenever something is off. The plan and the result get a careful read; the blueprint just gets a quick validation pass before execution. These gates are where you catch scope creep and wrong turns. Do not skip them.
 
 ## Step-by-Step
 
@@ -60,13 +61,14 @@ The `st-generate-tasks` skill breaks the plan into atomic tasks (1-2 skills each
 
 **Output**: `.ai/strikethroo/plans/01--user-authentication/tasks/*.md`
 
-### 4. Review Tasks
+### 4. Validate the Tasks
 
-Check each task file in the `tasks/` directory:
-- Remove anything outside the original scope
-- Split tasks that have 3+ skills (too complex)
-- Verify dependency order makes sense
-- Tighten vague acceptance criteria
+The blueprint does not need a line-by-line review -- just a quick validation pass before you let it run. Skim the `tasks/` directory and confirm:
+- Nothing obviously outside the original scope slipped in
+- No task is overloaded (3+ skills signals it should be split)
+- The dependency order is sane
+
+If something looks wrong, fix the task file directly; otherwise move straight to execution. Save the careful reading for the plan (step 2) and the result (step 6).
 
 ### 5. Execute the Blueprint
 
@@ -76,7 +78,16 @@ The `st-execute-blueprint` skill runs tasks grouped into phases. Within each pha
 
 If you skipped step 3, the skill auto-generates tasks and the blueprint before starting.
 
-The `st-execute-blueprint` skill drives progress end to end: it updates task statuses, archives the completed plan automatically, and you can inspect plan and task files directly under `.ai/strikethroo/plans/` (or `.ai/strikethroo/archive/` once complete) at any point. Prefer a visual view? Run `npx strikethroo serve` to watch progress in [The Web App](web-app.html), which renders plans, tasks, and the dependency graph live from those same files.
+The `st-execute-blueprint` skill drives progress end to end: it updates task statuses as phases complete, and you can inspect plan and task files directly under `.ai/strikethroo/plans/` at any point. Prefer a visual view? Run `npx strikethroo serve` to watch progress in [Visualizations](visualizations.html), the web app that renders plans, tasks, and the dependency graph live from those same files.
+
+### 6. Review the Results
+
+Execution finishing is not the finish line -- the working code is. Read what the blueprint produced:
+- Run the test suite and confirm the plan's success criteria are actually met
+- Read the diffs for correctness, not just for green checks
+- Watch for tasks that completed on paper but missed the intent
+
+If something is off, adjust the relevant task or plan files and re-run execution -- the blueprint resumes the affected work. Once the result matches the plan, the plan is done: `st-execute-blueprint` archives it to `.ai/strikethroo/archive/`.
 
 ## File Structure
 
@@ -125,6 +136,6 @@ Create two plans: a quick spike plan (low quality gates, research-focused tasks)
 
 ## Next Steps
 
-- **[The Web App](web-app.html)**: Visualize plans, tasks, and the dependency graph
+- **[Visualizations](visualizations.html)**: See plans, tasks, and the dependency graph
 - **[Customization Guide](customization.html)**: Tailor hooks, templates, and project context
 - **[Reference](reference.html)**: CLI commands, hook catalog, template variables

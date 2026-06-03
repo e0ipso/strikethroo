@@ -99,3 +99,11 @@ skills-lock.json
 # Playwright test artifacts
 test-results/
 playwright-report/
+
+# Jekyll docs site (local build artifacts)
+docs/_site/
+docs/.jekyll-cache/
+docs/.bundle/
+docs/vendor/
+_site/
+Gemfile.lock

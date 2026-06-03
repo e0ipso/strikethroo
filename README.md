@@ -1,100 +1,73 @@
-# 🤖 Strikethroo
+# Strikethroo
 
 [![npm version](https://img.shields.io/npm/v/strikethroo.svg)](https://www.npmjs.com/package/strikethroo)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
-**Strikethroo: extensible AI-powered plan and task management with customizable workflows and structured development processes.**
+Strikethroo transforms complex development requests into structured, validated implementations through plain text files and Agent Skills. No API keys. No additional tools. Works within your existing AI subscription and across any harness that supports the Agent Skills format.
 
-Transform complex AI prompts into organized, executable workflows through customizable hooks, templates, and progressive refinement. Works seamlessly within your existing AI subscriptions for Claude Code, Gemini CLI, and Open Code.
-
-## 🚀 Quick Start
-
-This project ships in two parts: the **skills** (installed by [vercel-labs/skills](https://github.com/vercel-labs/skills)) and the **workspace** (initialized by this CLI). Run both:
+## Quick Start
 
 ```bash
-# 1. Install the Strikethroo skills for your assistant
-npx skills add e0ipso/strikethroo
+# 1. Bootstrap the shared workspace
+npx strikethroo init --harnesses claude
 
-# 2. Initialize the .ai/strikethroo/ workspace
-npx strikethroo init --harnesses claude --destination-directory .
+# 2. Install the workflow skills
+npx skills add e0ipso/strikethroo
 ```
 
-The skills give your assistant the planning, decomposition, and execution workflow; the CLI bootstraps `.ai/strikethroo/` with hooks, templates, and the hash-tracked diff-on-conflict UX. Each step is independently re-runnable. See the [migration guide](https://mateuaguilo.com/strikethroo/migration.html) for upgrade flows from 1.x.
+Requires Node.js 14+ and an assistant that supports the Agent Skills format.
 
-The CLI's `init` emits the shared workspace plus harness-specific agents (e.g., `.claude/agents/` for Claude). Other harnesses rely entirely on the installed skills.
+## In your coding assistant
 
-## 🌐 Serve the Workspace
+```mermaid
+flowchart LR
+    A[Work Order] --> B[Plan]
+    B --> C{Review}
+    C -->|Edit| B
+    C -->|Approve| D[Tasks]
+    D --> E{Verify}
+    E --> G[Execute]
+    G --> H{Review}
+    H -->|Edit| G
+    H -->|Approve| J[Done]
+```
 
-The web app is Strikethroo's **visualization layer** — the way to *see* your plans, tasks, the dependency graph, and the strikethrough done-state instead of reading a tree of Markdown files by hand. It is the other half of the story: the assistant authors plan and task files inside your harness (Claude Code, Gemini CLI, opencode, the desktop app), and the web app is the read-only window onto those same files.
+Three steps, each delivered as an Agent Skill that loads when you describe what you need:
 
-![Strikethroo web app](docs/assets/readme-preview.png)
+| Step        | Skill                           | Output                                            |
+|-------------|---------------------------------|---------------------------------------------------|
+| **Plan**    | `/st-create-plan <your prompt>` | `.ai/strikethroo/plans/64--auth/plan-64--auth.md` |
+| **Tasks**   | `/st-generate-tasks 64`         | `.ai/strikethroo/plans/64--auth/tasks/*.md`       |
+| **Execute** | `/st-execute-blueprint 64`      | Working code, one commit per phase                |
 
-Run a local web app over an initialized `.ai/strikethroo/` workspace:
+Human review gates between steps catch scope creep before any code is written. Each step runs with clean context -- the planning agent sees only the work order, the task agent sees only the approved plan, and each execution sub-agent receives only its specific task.
 
-```bash
+See the [Workflow Guide](https://mateuaguilo.com/strikethroo/workflow.html) for the full step-by-step with advanced patterns. Once a plan exists, visualize its plans, tasks, and dependency graph in [Visualizations](https://mateuaguilo.com/strikethroo/visualizations.html).
+
+## One tool, every project
+
+Every codebase has its own conventions, and Strikethroo bends to them instead of imposing its own. **Hooks** -- plain Markdown files that fire at nine points across the workflow (before planning, after each phase, on errors, and more) -- let you inject your test commands, coding standards, and domain context so every plan, task, and execution run inherits them. Combined with editable templates and a project-context file, it is one workflow shaped to your project's idiosyncrasies -- no plugins, no code.
+
+See the [Customization Guide](https://mateuaguilo.com/strikethroo/customization.html) for hooks, templates, and examples.
+
+## Visualize the data
+Strikethroo comes with an optional **web application** to help you visualize your plans, tasks, and progress. No installation necessary, just execute the following command in a project using Strikethroo:
+
+```shell
 npx strikethroo serve
 ```
 
-See [The Web App](https://mateuaguilo.com/strikethroo/web-app.html) for a full tour of the Board, Plan Detail, dependency graph, archive, and customization screens.
+This will open a web page that will help you navigate your plans and their tasks, present or archived.
 
-`serve` boots a dependency-light Node server that hosts the prebuilt single-page app as static files, exposes a read-only JSON API over the workspace model, and streams a coalesced `changed` event over Server-Sent Events whenever the workspace mutates on disk. Run it from inside an initialized workspace; if none is found it prints guidance to run `init` and exits without binding.
+| Plans board                                                 | Plan detail page                                                                                                       | Archive                                                     |
+|-------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------|
+| [![img](docs/assets/plans-board.png)](docs/assets/plans-board.png) | [![img](docs/assets/plan-detail-graph.png)](docs/assets/plan-detail-graph.png) | [![img](docs/assets/archive-all.png)](docs/assets/archive-all.png) |
 
-The viewer is read-only **except for one permitted mutation: the archive action.** A plan whose tasks are all complete (derived state `done`) shows an **Archive** control; confirming it issues `POST /api/plans/:id/archive`, which moves that plan's directory from `plans/` to `archive/`. It is strictly a directory move — no files are deleted or edited, and only `done` plans are accepted. This is the manual escape hatch for plans that are done but not yet archived; it does **not** replace the automatic archival the `st-execute-blueprint` skill performs on successful completion.
+## Documentation
 
-Flags:
-
-- `--port <n>` — port to bind (default `4317`).
-- `--no-open` — do not open the browser on start.
-- `--workspace <path>` — override workspace root discovery.
-
-## ✨ Key Benefits
-
-- **🔧 Fully Customizable**: Tailor hooks, templates, and workflows to your project's specific needs
-- **🎯 Extensible Architecture**: Add custom validation gates, quality checks, and workflow patterns
-- **📋 Structured Workflows**: Three-phase progressive refinement with validation gates
-- **🔄 Plan Mode Integration**: Enhance existing AI assistant features with structured task management
-- **💰 Works Within Subscriptions**: No additional API keys or costs required
-
-## 📖 Documentation
-
-### 🌐 **[Complete Documentation →](https://mateuaguilo.com/strikethroo/)**
-
-Comprehensive guides covering:
-- Installation and configuration
-- Customization with hooks and templates
-- Workflow patterns and best practices
-- Architecture and design principles
-
-## 🔄 Workflow Preview
-
-Once the skills are installed, invoke the workflow by intent — the assistant auto-loads the matching skill. There are no slash commands to memorize.
-
-**Automated end-to-end run:**
-
-> "Run the full workflow to create a user authentication system."
-
-The `st-full-workflow` skill handles plan creation, task generation, and blueprint execution in a single pass.
-
-**Step-by-step (for manual review between phases):**
-
-1. **📝 Create a plan** → "Create a plan for a user authentication system" (`st-create-plan` skill)
-2. **🔍 Refine the plan** → "Refine plan 1" (`st-refine-plan` skill — useful when a second assistant should red-team the plan)
-3. **📋 Generate tasks** → "Generate tasks for plan 1" (`st-generate-tasks` skill)
-4. **🚀 Execute blueprint** → "Execute the blueprint for plan 1" (`st-execute-blueprint` skill)
-
-Progress is driven by the Agent Skills workflow: the `st-execute-blueprint` skill runs the phases, archives the plan automatically on completion, and you can inspect plan and task files directly under `.ai/strikethroo/plans/` (completed plans move to `.ai/strikethroo/archive/`).
-
-## 🤖 Supported Harnesses
-
-| Harness | Interface | Setup Time |
-|-----------|-----------|------------|
-| 🎭 **Claude** | [claude.ai/code](https://claude.ai/code) | < 30 seconds |
-| 🖱️ **Cursor** | Cursor IDE | < 30 seconds |
-| 💎 **Gemini** | Gemini CLI | < 30 seconds |
-| 📝 **Open Code** | Open source | < 30 seconds |
-| 🔮 **Codex** | Codex CLI | < 30 seconds |
-| 🐙 **GitHub Copilot** | VS Code / JetBrains IDEs | < 30 seconds |
-
-## 📄 License
-
-MIT License - Open source and free to use.
+- [Workflow Guide](https://mateuaguilo.com/strikethroo/workflow.html) -- Step-by-step workflow with visual guides
+- [Customization Guide](https://mateuaguilo.com/strikethroo/customization.html) -- Hooks, templates, and project context
+- [Reference](https://mateuaguilo.com/strikethroo/reference.html) -- Glossary and CLI reference
+- [FAQ](https://mateuaguilo.com/strikethroo/faq.html) -- Answers to common questions
+- [Visualizations](https://mateuaguilo.com/strikethroo/visualizations.html) -- See plans, tasks, and the dependency graph
+- [Migrating from 1.x](https://mateuaguilo.com/strikethroo/migration.html) -- Upgrade from slash commands to Agent Skills

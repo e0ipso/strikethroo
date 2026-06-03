@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Customization Guide
-nav_order: 4
+nav_order: 3
 description: "Hooks, templates, and workflow customization"
 ---
 

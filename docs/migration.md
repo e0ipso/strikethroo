@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Migrating from 1.x
-nav_order: 6
+nav_order: 7
 description: "Upgrade from Strikethroo 1.x to 2.x"
 ---
 

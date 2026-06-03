@@ -20,7 +20,9 @@ $body-text-color: #e8e1d4;
 $body-heading-color: #f6f1e8;
 $nav-child-link-color: #c9bfb0;
 $search-result-preview-color: #b3a99a;
-$code-linenumber-color: #8a8194;
+// Base foreground of pre.highlight (see the light scheme's note) — keep it the
+// warm-light body ink so untokenized code stays legible on the dark code bg.
+$code-linenumber-color: #e8e1d4;
 
 // Accent — brighter dalia for dark surfaces
 $link-color: hsl(335, 70%, 74%);

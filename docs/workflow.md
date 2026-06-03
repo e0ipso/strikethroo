@@ -38,9 +38,9 @@ Human gates wrap each step: you **review** the plan, **verify** the blueprint, a
 
 Ask your assistant in plain language. The `st-create-plan` skill loads automatically.
 
-> Use the Strikethroo workflow to plan user authentication with email/password and JWT tokens.
+> /st-create-plan create user authentication with email/password and JWT tokens.
 
-The skill asks clarifying questions, then writes a plan document with requirements, technical approach, risks, and success criteria.
+The skill asks clarifying questions, then writes a plan document with requirements, technical approach, risks, and success criteria. Two hooks bracket this step: [`PRE_PLAN`](customization.html#pre_plan) runs before planning begins, and [`POST_PLAN`](customization.html#post_plan) runs once the document is written.
 
 **Output**: `.ai/strikethroo/plans/01--user-authentication/plan-01--user-authentication.md`
 
@@ -55,15 +55,15 @@ Edit the file directly -- it is yours, not the AI's. Optionally, ask a second as
 
 ### 3. Generate Tasks
 
-> Decompose plan 1 into tasks.
+> /st-generate-tasks 1
 
-The `st-generate-tasks` skill breaks the plan into atomic tasks (1-2 skills each), maps dependencies, and produces an execution blueprint organized into phases of parallel work.
+The `st-generate-tasks` skill breaks the plan into atomic tasks (1-2 skills each), maps dependencies, and produces an execution blueprint organized into phases of parallel work. The [`POST_TASK_GENERATION_ALL`](customization.html#post_task_generation_all) hook runs once all task files exist.
 
 **Output**: `.ai/strikethroo/plans/01--user-authentication/tasks/*.md`
 
 ### 4. Validate the Tasks
 
-The blueprint does not need a line-by-line review -- just a quick validation pass before you let it run. Skim the `tasks/` directory and confirm:
+The task documents don't need a line-by-line review -- just a quick validation pass before you let it run. Skim the `tasks/` directory and confirm:
 - Nothing obviously outside the original scope slipped in
 - No task is overloaded (3+ skills signals it should be split)
 - The dependency order is sane
@@ -72,15 +72,17 @@ If something looks wrong, fix the task file directly; otherwise move straight to
 
 ### 5. Execute the Blueprint
 
-> Execute the blueprint for plan 1.
+> /st-execute-blueprint 1
 
-The `st-execute-blueprint` skill runs tasks grouped into phases. Within each phase, independent tasks run in parallel. The POST_PHASE hook validates quality after each phase. Commits are created automatically.
+The `st-execute-blueprint` skill runs tasks grouped into phases. Within each phase, independent tasks run in parallel. Hooks fire throughout: [`PRE_PHASE`](customization.html#pre_phase) runs before each phase starts, then for every task [`PRE_TASK_ASSIGNMENT`](customization.html#pre_task_assignment) and [`PRE_TASK_EXECUTION`](customization.html#pre_task_execution) run before it is dispatched. [`POST_ERROR_DETECTION`](customization.html#post_error_detection) runs if a task fails, and [`POST_PHASE`](customization.html#post_phase) runs after each phase completes.
 
 If you skipped step 3, the skill auto-generates tasks and the blueprint before starting.
 
 The `st-execute-blueprint` skill drives progress end to end: it updates task statuses as phases complete, and you can inspect plan and task files directly under `.ai/strikethroo/plans/` at any point. Prefer a visual view? Run `npx strikethroo serve` to watch progress in [Visualizations](visualizations.html), the web app that renders plans, tasks, and the dependency graph live from those same files.
 
 ### 6. Review the Results
+
+When the last phase finishes, the [`POST_EXECUTION`](customization.html#post_execution) hook runs before the summary is written and the plan is archived.
 
 Execution finishing is not the finish line -- the working code is. Read what the blueprint produced:
 - Run the test suite and confirm the plan's success criteria are actually met

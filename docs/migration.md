@@ -1,11 +1,11 @@
 ---
 layout: default
-title: Migrating from 1.x
+title: Migrating from AI Task Manager
 nav_order: 7
 description: "Upgrade from AI Task Manager to Strikethroo"
 ---
 
-# Migrating from 1.x to 2.x
+# Upgrade from AI Task Manager to Strikethroo
 
 2.x replaces slash commands with Agent Skills. Your plans and tasks are **fully compatible** -- no changes needed.
 
@@ -24,7 +24,7 @@ rm -rf ".claude/commands/tasks/" \
 
 ## 2. Delete obsolete config scripts
 
-In 1.x and 2.x the workspace lived under `.ai/task-manager/`, so the scripts to remove are there:
+In AI Task Manager the workspace lived under `.ai/task-manager/`, so the scripts to remove are there:
 
 ```bash
 rm -f .ai/task-manager/config/scripts/*.cjs

@@ -54,8 +54,7 @@ Every step runs with a fresh, focused context: the planner sees only your work o
 Runs inside the assistant you already use -- Claude Code, Codex, Cursor, OpenCode, or Copilot -- on the subscription you already pay for. Nothing to provision, host, or rotate.
 
 </td>
-<tr>
-<td width="50%" valign="top">
+<td>
 
 <img src="docs/assets/icons/puzzle.svg" width="28" height="28" alt="" />
 

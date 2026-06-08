@@ -30,7 +30,9 @@ flowchart LR
     style J fill:#c8e6c9
 ```
 
-Human gates wrap each step: you **review** the plan, **verify** the blueprint, and **review** the executed result -- looping back to edit whenever something is off. The plan and the result get a careful read; the blueprint just gets a quick validation pass before execution. These gates are where you catch scope creep and wrong turns. Do not skip them.
+Human gates wrap each step: you **review** the plan, **verify** the blueprint, and **review** the executed result -- looping back to edit whenever something is off. The plan and the result get a careful read; the blueprint just gets a quick validation pass before execution.
+
+{% include callout.html variant="warning" content="The review gates are where you catch scope creep and wrong turns. Do not skip them." %}
 
 ## Step-by-Step
 
@@ -88,7 +90,7 @@ A wrong ordering is easiest to spot on the dependency graph -- a live mermaid re
 
 The `st-execute-blueprint` skill runs tasks grouped into phases. Within each phase, independent tasks run in parallel. Hooks fire throughout: [`PRE_PHASE`](customization.html#pre_phase) runs before each phase starts, then for every task [`PRE_TASK_ASSIGNMENT`](customization.html#pre_task_assignment) and [`PRE_TASK_EXECUTION`](customization.html#pre_task_execution) run before it is dispatched. [`POST_ERROR_DETECTION`](customization.html#post_error_detection) runs if a task fails, and [`POST_PHASE`](customization.html#post_phase) runs after each phase completes.
 
-If you skipped step 3, the skill auto-generates tasks and the blueprint before starting.
+{% include callout.html variant="note" content="If you skipped step 3, `st-execute-blueprint` auto-generates the tasks and the blueprint before starting." %}
 
 The `st-execute-blueprint` skill drives progress end to end: it updates task statuses as phases complete, and you can inspect plan and task files directly under `.ai/strikethroo/plans/` at any point. Prefer a visual view? Run `npx strikethroo serve` to watch progress in [Visualizations](visualizations.html), the web app that renders plans, tasks, and the dependency graph live from those same files. From the board you can drill straight down into any task:
 
@@ -134,25 +136,33 @@ For clear requirements with minimal ambiguity, the `st-full-workflow` skill chai
 
 ## Advanced Patterns
 
-### Plan Mode Integration
-
-Use your assistant's native plan/brainstorm mode for initial ideation, then feed the refined output into `st-create-plan`. Plan mode explores broadly; Strikethroo executes precisely. Best for vague requirements where you want the AI to explore options before committing to a structured plan.
-
-### Iterative Refinement
-
-Edit plan and task files directly between steps. Re-run `st-create-plan` with tightened requirements, or manually adjust task files before execution. The `st-refine-plan` skill can also interrogate an existing plan for gaps. Best for evolving requirements and feedback-driven development.
-
-### Multi-Session Projects
-
-Plans and task statuses persist on disk under `.ai/strikethroo/plans/` (completed plans are archived automatically to `.ai/strikethroo/archive/` by `st-execute-blueprint`). Resume any time: inspect the plan and task files to see where things stand, then ask the assistant to continue executing the blueprint -- it picks up where it left off. Commit after each phase so context survives across sessions.
-
-### Parallel Development
-
-Task dependencies define the phase structure automatically. Independent tasks within the same phase execute in parallel. Teams can coordinate by sharing the `.ai/strikethroo/` directory via git -- backend and frontend developers work from the same plan, with dependency enforcement ensuring correct ordering.
-
-### Spike to Production
-
-Create two plans: a quick spike plan (low quality gates, research-focused tasks) to validate a technical approach, then a production plan that applies the spike findings with full testing and quality standards. The spike documents the decision rationale; the production plan executes it properly.
+<div class="st-cards" markdown="0">
+<div class="st-card">
+<span class="st-card__icon st-card__icon--route" aria-hidden="true"></span>
+<p class="st-card__title">Plan Mode Integration</p>
+<p>Use your assistant's native plan/brainstorm mode for initial ideation, then feed the refined output into <code>st-create-plan</code>. Plan mode explores broadly; Strikethroo executes precisely. Best for vague requirements you want explored before committing.</p>
+</div>
+<div class="st-card">
+<span class="st-card__icon st-card__icon--refresh-cw" aria-hidden="true"></span>
+<p class="st-card__title">Iterative Refinement</p>
+<p>Edit plan and task files directly between steps. Re-run <code>st-create-plan</code> with tightened requirements, or let <code>st-refine-plan</code> interrogate an existing plan for gaps. Best for evolving, feedback-driven work.</p>
+</div>
+<div class="st-card">
+<span class="st-card__icon st-card__icon--history" aria-hidden="true"></span>
+<p class="st-card__title">Multi-Session Projects</p>
+<p>Plans and statuses persist on disk; completed plans archive automatically. Resume any time &mdash; the blueprint picks up where it left off. Commit after each phase so context survives across sessions.</p>
+</div>
+<div class="st-card">
+<span class="st-card__icon st-card__icon--git-branch" aria-hidden="true"></span>
+<p class="st-card__title">Parallel Development</p>
+<p>Task dependencies define the phase structure automatically, so independent tasks run in parallel. Teams coordinate by sharing <code>.ai/strikethroo/</code> via git, with dependency enforcement keeping the ordering correct.</p>
+</div>
+<div class="st-card">
+<span class="st-card__icon st-card__icon--rocket" aria-hidden="true"></span>
+<p class="st-card__title">Spike to Production</p>
+<p>Create a quick spike plan (low gates, research-focused) to validate an approach, then a production plan that applies the findings with full testing and quality standards. The spike documents the rationale; production executes it properly.</p>
+</div>
+</div>
 
 ## Next Steps
 

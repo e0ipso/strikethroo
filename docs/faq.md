@@ -7,6 +7,34 @@ description: "Frequently asked questions about Strikethroo"
 
 # Frequently Asked Questions
 
+<div class="st-cards" markdown="0">
+<a class="st-card" href="#setup-and-installation">
+<span class="st-card__icon st-card__icon--package" aria-hidden="true"></span>
+<p class="st-card__title">Setup &amp; Installation</p>
+<p>Keys, costs, setup time, and existing projects.</p>
+</a>
+<a class="st-card" href="#workflow">
+<span class="st-card__icon st-card__icon--workflow" aria-hidden="true"></span>
+<p class="st-card__title">Workflow</p>
+<p>The three steps, automation, and plan mode.</p>
+</a>
+<a class="st-card" href="#customization">
+<span class="st-card__icon st-card__icon--sliders-horizontal" aria-hidden="true"></span>
+<p class="st-card__title">Customization</p>
+<p>Hooks, templates, and file formats.</p>
+</a>
+<a class="st-card" href="#architecture">
+<span class="st-card__icon st-card__icon--network" aria-hidden="true"></span>
+<p class="st-card__title">Architecture</p>
+<p>Context isolation, failures, and parallelism.</p>
+</a>
+<a class="st-card" href="#comparison-with-other-tools">
+<span class="st-card__icon st-card__icon--git-fork" aria-hidden="true"></span>
+<p class="st-card__title">Comparison</p>
+<p>How Strikethroo differs from other tools.</p>
+</a>
+</div>
+
 ## Setup and Installation
 
 **Does Strikethroo require API keys or additional costs?**

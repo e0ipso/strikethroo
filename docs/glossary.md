@@ -10,6 +10,8 @@ description: "Canonical definitions of Strikethroo terms"
 
 Canonical definitions of the terms used throughout Strikethroo.
 
+{% include callout.html variant="note" content="These terms appear throughout the [Workflow Guide](workflow.html) and [Customization Guide](customization.html). When in doubt about a word, this is the source of truth." %}
+
 | Term | Definition |
 |------|-----------|
 | **Work order** | The user's request describing what they want accomplished. Input to the system. |

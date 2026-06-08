@@ -7,7 +7,11 @@ description: "Upgrade from AI Task Manager to Strikethroo"
 
 # Upgrade from AI Task Manager to Strikethroo
 
-2.x replaces slash commands with Agent Skills. Your plans and tasks are **fully compatible** -- no changes needed.
+2.x replaces slash commands with Agent Skills.
+
+{% include callout.html variant="tip" content="Your plans and tasks are **fully compatible** &mdash; no changes needed. This migration only swaps the delivery mechanism (slash commands &rarr; skills); your `.ai/` content carries over untouched." %}
+
+{% include callout.html variant="warning" content="Steps 1&ndash;3 delete files and rename directories. Review each path against your project before running, and make sure your work is committed first." %}
 
 ## 1. Delete obsolete slash commands
 
@@ -63,7 +67,10 @@ npx skills add e0ipso/strikethroo
 
 ## What didn't change
 
+{% capture unchanged %}
 - `.ai/strikethroo/plans/` and `archive/` are unchanged
 - All plan and task markdown files work as-is
 - Hooks and templates in `.ai/strikethroo/config/` are preserved
 - `STRIKETHROO.md` project context is preserved
+{% endcapture %}
+{% include callout.html variant="tip" title="SAFE TO KEEP" content=unchanged %}

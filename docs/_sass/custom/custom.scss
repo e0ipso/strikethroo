@@ -67,6 +67,67 @@ h1, .text-alpha {
   font-weight: 600;
 }
 
+// ---- Lucide icons on the primary (top-level) nav items ----
+// Each icon is a CSS mask filled with the link's own color, so it follows the
+// theme and the hover/active accent for free. Files are committed Lucide SVGs in
+// assets/icons; url() is relative to the compiled stylesheet (assets/css/*), so
+// it resolves to assets/icons/* without hard-coding the site baseurl.
+//
+// Targeting is by the top-level item's POSITION, not its href: Just the Docs'
+// JS strips the href from the ACTIVE page's own link at runtime (it becomes
+// `<a class="nav-list-link active">` with no href), so an [href$=...] selector
+// would drop the icon on whichever page you are currently viewing. The
+// direct-child chain (.site-nav > .nav-list > .nav-list-item) keeps the nested
+// Reference children (Glossary, CLI Reference) icon-free. Keep the nth-child
+// order in sync with the pages' nav_order. NOTE: old Ruby Sass rejects CSS
+// custom properties holding a url(), so the mask is set with longhands per item
+// rather than a shared --var. A mask uses only the glyph's alpha, so the SVG's
+// own stroke color is irrelevant here.
+.site-nav > .nav-list > .nav-list-item > .nav-list-link::before {
+  content: "";
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 1em;
+  height: 1em;
+  margin-right: 0.55em;
+  vertical-align: -0.125em;
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+.site-nav > .nav-list > .nav-list-item:nth-child(1) > .nav-list-link::before {
+  -webkit-mask-image: url("../icons/house.svg");
+  mask-image: url("../icons/house.svg");
+}
+.site-nav > .nav-list > .nav-list-item:nth-child(2) > .nav-list-link::before {
+  -webkit-mask-image: url("../icons/workflow.svg");
+  mask-image: url("../icons/workflow.svg");
+}
+.site-nav > .nav-list > .nav-list-item:nth-child(3) > .nav-list-link::before {
+  -webkit-mask-image: url("../icons/sliders-horizontal.svg");
+  mask-image: url("../icons/sliders-horizontal.svg");
+}
+.site-nav > .nav-list > .nav-list-item:nth-child(4) > .nav-list-link::before {
+  -webkit-mask-image: url("../icons/book-open.svg");
+  mask-image: url("../icons/book-open.svg");
+}
+.site-nav > .nav-list > .nav-list-item:nth-child(5) > .nav-list-link::before {
+  -webkit-mask-image: url("../icons/circle-help.svg");
+  mask-image: url("../icons/circle-help.svg");
+}
+.site-nav > .nav-list > .nav-list-item:nth-child(6) > .nav-list-link::before {
+  -webkit-mask-image: url("../icons/network.svg");
+  mask-image: url("../icons/network.svg");
+}
+.site-nav > .nav-list > .nav-list-item:nth-child(7) > .nav-list-link::before {
+  -webkit-mask-image: url("../icons/circle-arrow-up.svg");
+  mask-image: url("../icons/circle-arrow-up.svg");
+}
+
 // ---- Links ----
 a {
   text-underline-offset: 0.15em;
@@ -243,4 +304,265 @@ code {
   display: inline-flex;
   line-height: 0;
   font-size: 1rem;
+}
+
+// ---- Feature card grids (homepage value props, doc links, step pairs) ----
+// A responsive grid of soft cards, each led by a Lucide glyph rendered as a
+// dalia-accent CSS mask. The mask uses only the glyph's alpha, so one committed
+// SVG per icon themes for both schemes — no per-color duplicate. Markup is plain
+// HTML in the Markdown source (kramdown passes raw HTML blocks through verbatim,
+// so the inner <h3>/<p> are NOT re-parsed and pick up no heading anchors):
+//   <div class="st-cards">
+//     <div class="st-card">
+//       <span class="st-card__icon st-card__icon--focus" aria-hidden="true"></span>
+//       <h3>Title</h3><p>Body</p>
+//     </div>
+//   </div>
+.st-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1.25rem;
+  margin: 1.5rem 0;
+}
+// Two-up pairs read better with a slightly larger floor so they sit side-by-side.
+.st-cards--2 {
+  grid-template-columns: repeat(auto-fit, minmax(17.5rem, 1fr));
+}
+.st-card {
+  margin: 0;
+  padding: 1.25rem 1.25rem 1.35rem;
+  background: $sidebar-color;
+  border: 1px solid $border-color;
+  border-radius: 0.75rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.st-card:hover {
+  border-color: $link-color;
+}
+// Cards that are whole-card links (the doc grid): strip link chrome, keep ink
+// body text, and let the title pick up the accent on hover.
+a.st-card,
+a.st-card:hover {
+  display: block;
+  color: $body-text-color;
+  text-decoration: none;
+  border-bottom: 1px solid $border-color;
+}
+a.st-card:hover {
+  border-color: $link-color;
+}
+a.st-card:hover .st-card__title {
+  color: $link-color;
+}
+.st-card > :first-child {
+  margin-top: 0;
+}
+.st-card > :last-child {
+  margin-bottom: 0;
+}
+.st-card p {
+  margin-bottom: 0;
+}
+.st-card p:not(:last-child) {
+  margin-bottom: 0.6rem;
+}
+// Card titles use <p class="st-card__title">, NOT an <h3>, on purpose: JTD's
+// heading_anchors post-filter injects an anchor link into every h1–h6 in the
+// content (and, for these id-less raw-HTML headings, points them all at the
+// section's fragment) — clutter and duplicate ids. A styled paragraph dodges all
+// of that while still reading as a heading (Fraunces display serif, like real
+// headings get from the global rule).
+.st-card__title {
+  margin: 0.6rem 0 0.4rem;
+  font-family: "Fraunces", Georgia, "Times New Roman", serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: $body-heading-color;
+}
+.st-card code {
+  font-size: 0.82em;
+}
+// Self-contained command snippet (manual <pre class="highlight"> in the card
+// markup): give it the code surface directly so it does not depend on Rouge's
+// wrapper markup, which only exists for fenced blocks.
+.st-card pre.highlight {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  font-size: 0.82em;
+  background: $code-background-color;
+  color: $body-text-color;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}
+.st-card pre.highlight code {
+  font-size: inherit;
+  background: none;
+  padding: 0;
+}
+.st-card div.highlighter-rouge {
+  margin-bottom: 0;
+}
+// Icon: a dalia-tinted Lucide mask. Color is the scheme accent, so it brightens
+// in dark exactly like the rest of the brand.
+.st-card__icon {
+  display: inline-block;
+  width: 1.75rem;
+  height: 1.75rem;
+  background-color: $link-color;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+.st-card__icon--house { -webkit-mask-image: url("../icons/house.svg"); mask-image: url("../icons/house.svg"); }
+.st-card__icon--workflow { -webkit-mask-image: url("../icons/workflow.svg"); mask-image: url("../icons/workflow.svg"); }
+.st-card__icon--sliders-horizontal { -webkit-mask-image: url("../icons/sliders-horizontal.svg"); mask-image: url("../icons/sliders-horizontal.svg"); }
+.st-card__icon--book-open { -webkit-mask-image: url("../icons/book-open.svg"); mask-image: url("../icons/book-open.svg"); }
+.st-card__icon--circle-help { -webkit-mask-image: url("../icons/circle-help.svg"); mask-image: url("../icons/circle-help.svg"); }
+.st-card__icon--network { -webkit-mask-image: url("../icons/network.svg"); mask-image: url("../icons/network.svg"); }
+.st-card__icon--circle-arrow-up { -webkit-mask-image: url("../icons/circle-arrow-up.svg"); mask-image: url("../icons/circle-arrow-up.svg"); }
+.st-card__icon--focus { -webkit-mask-image: url("../icons/focus.svg"); mask-image: url("../icons/focus.svg"); }
+.st-card__icon--scissors { -webkit-mask-image: url("../icons/scissors.svg"); mask-image: url("../icons/scissors.svg"); }
+.st-card__icon--key-round { -webkit-mask-image: url("../icons/key-round.svg"); mask-image: url("../icons/key-round.svg"); }
+.st-card__icon--blocks { -webkit-mask-image: url("../icons/blocks.svg"); mask-image: url("../icons/blocks.svg"); }
+.st-card__icon--package { -webkit-mask-image: url("../icons/package.svg"); mask-image: url("../icons/package.svg"); }
+.st-card__icon--puzzle { -webkit-mask-image: url("../icons/puzzle.svg"); mask-image: url("../icons/puzzle.svg"); }
+.st-card__icon--git-fork { -webkit-mask-image: url("../icons/git-fork.svg"); mask-image: url("../icons/git-fork.svg"); }
+.st-card__icon--list-checks { -webkit-mask-image: url("../icons/list-checks.svg"); mask-image: url("../icons/list-checks.svg"); }
+.st-card__icon--waypoints { -webkit-mask-image: url("../icons/waypoints.svg"); mask-image: url("../icons/waypoints.svg"); }
+.st-card__icon--shield-check { -webkit-mask-image: url("../icons/shield-check.svg"); mask-image: url("../icons/shield-check.svg"); }
+.st-card__icon--route { -webkit-mask-image: url("../icons/route.svg"); mask-image: url("../icons/route.svg"); }
+.st-card__icon--refresh-cw { -webkit-mask-image: url("../icons/refresh-cw.svg"); mask-image: url("../icons/refresh-cw.svg"); }
+.st-card__icon--history { -webkit-mask-image: url("../icons/history.svg"); mask-image: url("../icons/history.svg"); }
+.st-card__icon--git-branch { -webkit-mask-image: url("../icons/git-branch.svg"); mask-image: url("../icons/git-branch.svg"); }
+.st-card__icon--rocket { -webkit-mask-image: url("../icons/rocket.svg"); mask-image: url("../icons/rocket.svg"); }
+.st-card__icon--terminal { -webkit-mask-image: url("../icons/terminal.svg"); mask-image: url("../icons/terminal.svg"); }
+.st-card__icon--file-text { -webkit-mask-image: url("../icons/file-text.svg"); mask-image: url("../icons/file-text.svg"); }
+.st-card__icon--file-check { -webkit-mask-image: url("../icons/file-check.svg"); mask-image: url("../icons/file-check.svg"); }
+.st-card__icon--users { -webkit-mask-image: url("../icons/users.svg"); mask-image: url("../icons/users.svg"); }
+
+// ---- Callouts (ported from the dalia-ui <Callout> component) ----
+// Variants: tip / note / prereq / warning. Warm palette only — no traffic-light
+// red. Markup is emitted by _includes/callout.html. The `note` variant reuses
+// scheme surface/ink vars so it themes for free; the dalia-pink and amber tints
+// have no scheme var, so they branch on $color-scheme (custom.scss compiles once
+// per scheme, so each build picks up the right literals).
+// Defaults are the LIGHT values, declared at file scope so they exist globally.
+// The dark build overrides them with !global — Ruby Sass (this site's compiler)
+// scopes assignments made *inside* a control directive locally otherwise, so a
+// plain @if/@else block would leave these undefined at the rules below.
+$callout-accent-bg: hsl(335, 55%, 92%);
+$callout-accent-ink: hsl(335, 55%, 22%);
+$callout-accent-border: hsl(335, 55%, 65%);
+$callout-warning-bg: hsl(40, 70%, 94%);
+$callout-warning-ink: hsl(28, 50%, 22%);
+$callout-warning-icon: hsl(32, 70%, 45%);
+$callout-warning-border: hsl(32, 70%, 50%);
+@if $color-scheme == dark {
+  $callout-accent-bg: hsl(335, 32%, 18%) !global;
+  $callout-accent-ink: hsl(335, 45%, 88%) !global;
+  $callout-accent-border: hsl(335, 55%, 60%) !global;
+  $callout-warning-bg: hsl(38, 38%, 16%) !global;
+  $callout-warning-ink: hsl(40, 55%, 85%) !global;
+  $callout-warning-icon: hsl(38, 80%, 66%) !global;
+  $callout-warning-border: hsl(38, 68%, 55%) !global;
+}
+
+.callout {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  align-items: start;
+  margin: 1.25rem 0;
+  padding: 1.125rem 1.25rem;
+  border-radius: 0.75rem;
+}
+.callout__icon {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+}
+.callout__icon svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+.callout__body {
+  min-width: 0;
+}
+.callout__title {
+  margin: 0 0 0.375rem;
+  font-family: "Outfit", system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.callout__content {
+  margin: 0;
+}
+.callout__content > :first-child {
+  margin-top: 0;
+}
+.callout__content > :last-child {
+  margin-bottom: 0;
+}
+
+// tip — solid dalia tint, no left rule
+.callout--tip {
+  background: $callout-accent-bg;
+  color: $callout-accent-ink;
+}
+.callout--tip .callout__icon,
+.callout--tip .callout__title {
+  color: $link-color;
+}
+
+// note — neutral cream-mid surface with an ink left rule (themes via scheme vars)
+.callout--note {
+  background: $sidebar-color;
+  color: $body-text-color;
+  box-shadow: inset 3px 0 0 $search-result-preview-color;
+}
+.callout--note .callout__icon {
+  color: $nav-child-link-color;
+}
+.callout--note .callout__title {
+  color: $body-heading-color;
+}
+
+// prereq — dalia tint with a dalia left rule
+.callout--prereq {
+  background: $callout-accent-bg;
+  color: $callout-accent-ink;
+  box-shadow: inset 3px 0 0 $callout-accent-border;
+}
+.callout--prereq .callout__icon,
+.callout--prereq .callout__title {
+  color: $link-color;
+}
+
+// warning — warm amber with an amber left rule (NOT traffic-light red)
+.callout--warning {
+  background: $callout-warning-bg;
+  color: $callout-warning-ink;
+  box-shadow: inset 3px 0 0 $callout-warning-border;
+}
+.callout--warning .callout__icon {
+  color: $callout-warning-icon;
+}
+.callout--warning .callout__title {
+  color: $callout-warning-ink;
+}
+
+// Links inside callouts: keep them legible against the tinted surfaces.
+.callout a {
+  color: inherit;
+  text-decoration: underline;
 }

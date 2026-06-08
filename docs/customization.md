@@ -13,11 +13,23 @@ Hooks inject LLM intelligence and deterministic tool execution at key points of 
 
 Hooks are Markdown files in `.ai/strikethroo/config/hooks/`. The LLM reads them at specific workflow points and follows the instructions they contain. They serve two purposes:
 
-1. **LLM Intelligence Injection** -- Bring the LLM's reasoning, judgment, and contextual understanding to bear at the right moment. Examples: YAGNI enforcement, complexity analysis, error diagnosis, agent selection.
+<div class="st-cards st-cards--2" markdown="0">
+<div class="st-card">
+<span class="st-card__icon st-card__icon--focus" aria-hidden="true"></span>
+<p class="st-card__title">LLM Intelligence Injection</p>
+<p>Bring the LLM's reasoning, judgment, and contextual understanding to bear at the right moment. Examples: YAGNI enforcement, complexity analysis, error diagnosis, agent selection.</p>
+</div>
+<div class="st-card">
+<span class="st-card__icon st-card__icon--terminal" aria-hidden="true"></span>
+<p class="st-card__title">Deterministic Tool Execution</p>
+<p>Have the LLM execute specific commands or enforce concrete behaviors on your behalf. Examples: git branch creation, conventional commit formatting, status tracking updates.</p>
+</div>
+</div>
 
-2. **Deterministic Tool Execution** -- Have the LLM execute specific commands or enforce concrete behaviors on your behalf. Examples: git branch creation, conventional commit formatting, status tracking updates.
-
-**Not for:** Linting, test execution, coverage thresholds, security scans. Those belong in CI/CD pipelines or git commit hooks. Asking an LLM to "run npm test and ensure coverage > 80%" wastes its reasoning ability -- a shell script does that more reliably.
+{% capture not_for %}
+**Not for:** linting, test execution, coverage thresholds, security scans. Those belong in CI/CD pipelines or git commit hooks. Asking an LLM to "run npm test and ensure coverage > 80%" wastes its reasoning ability &mdash; a shell script does that more reliably.
+{% endcapture %}
+{% include callout.html variant="warning" title="NOT A HOOK'S JOB" content=not_for %}
 
 Not sure which hooks the workspace ships with? Run `npx strikethroo serve` and open the **Customize** view -- it lists every hook with a description, no file digging required.
 
@@ -91,21 +103,28 @@ Templates are editable Markdown files in `.ai/strikethroo/config/templates/`. Th
 
 [![Customize, Templates tab]({{ '/assets/customize-templates.png' | relative_url }})]({{ '/assets/customize-templates.png' | relative_url }})
 
-### PLAN_TEMPLATE.md
-
-Structure for project plans. Frontmatter fields: `id`, `summary`, `created`. Sections include Original Work Order, Plan Clarifications, Executive Summary, Context and Background, Technical Implementation Approach, Risk Considerations, Success Criteria, and Resource Requirements. Add domain-specific sections (security architecture, compliance requirements) as needed.
-
-### TASK_TEMPLATE.md
-
-Structure for individual tasks. Frontmatter fields: `id`, `group`, `dependencies`, `status`, `created`, `skills`. Sections include Objective, Skills Required, Acceptance Criteria, Technical Requirements, Input Dependencies, Output Artifacts, and Implementation Notes. Add project-specific checklists (API security, accessibility) to the acceptance criteria.
-
-### BLUEPRINT_TEMPLATE.md
-
-Structure for the phase-based execution blueprint. Defines quality gate references, phase groupings with parallel task assignments, post-phase actions, and execution summary metrics (phase count, task count, parallelism, critical path).
-
-### EXECUTION_SUMMARY_TEMPLATE.md
-
-Structure for post-completion documentation. Captures completion status, date, results summary, noteworthy events, and follow-up recommendations.
+<div class="st-cards" markdown="0">
+<div class="st-card">
+<span class="st-card__icon st-card__icon--file-text" aria-hidden="true"></span>
+<p class="st-card__title">PLAN_TEMPLATE.md</p>
+<p>Structure for project plans. Frontmatter: <code>id</code>, <code>summary</code>, <code>created</code>. Sections cover Original Work Order, Clarifications, Executive Summary, Context, Technical Approach, Risks, Success Criteria, and Resources. Add domain-specific sections (security architecture, compliance) as needed.</p>
+</div>
+<div class="st-card">
+<span class="st-card__icon st-card__icon--list-checks" aria-hidden="true"></span>
+<p class="st-card__title">TASK_TEMPLATE.md</p>
+<p>Structure for individual tasks. Frontmatter: <code>id</code>, <code>group</code>, <code>dependencies</code>, <code>status</code>, <code>created</code>, <code>skills</code>. Sections cover Objective, Skills Required, Acceptance Criteria, Technical Requirements, Dependencies, Output Artifacts, and Implementation Notes. Add project checklists to the acceptance criteria.</p>
+</div>
+<div class="st-card">
+<span class="st-card__icon st-card__icon--waypoints" aria-hidden="true"></span>
+<p class="st-card__title">BLUEPRINT_TEMPLATE.md</p>
+<p>Structure for the phase-based execution blueprint. Defines quality-gate references, phase groupings with parallel task assignments, post-phase actions, and execution summary metrics (phase count, task count, parallelism, critical path).</p>
+</div>
+<div class="st-card">
+<span class="st-card__icon st-card__icon--file-check" aria-hidden="true"></span>
+<p class="st-card__title">EXECUTION_SUMMARY_TEMPLATE.md</p>
+<p>Structure for post-completion documentation. Captures completion status, date, results summary, noteworthy events, and follow-up recommendations.</p>
+</div>
+</div>
 
 ## Customization Example
 
@@ -137,7 +156,12 @@ the conflict in the Plan Clarifications section rather than silently
 choosing an approach.
 ```
 
-This works because the LLM reads these constraints and applies them contextually during planning. Compare with a poor hook example: "run `npm run lint` and check that coverage exceeds 80%" -- that is a deterministic check better handled by CI or a git pre-commit hook.
+This works because the LLM reads these constraints and applies them contextually during planning.
+
+{% capture good_hook %}
+A good hook needs judgment ("does this approach violate our constraints?"). A poor hook is a deterministic check ("run `npm run lint` and fail under 80% coverage") &mdash; that belongs in CI or a git pre-commit hook, not here.
+{% endcapture %}
+{% include callout.html variant="tip" content=good_hook %}
 
 You don't have to leave the browser to write a hook like this. The **Customize** view opens any hook or template in an in-place editor -- one of only two writes the web app ever makes to disk:
 

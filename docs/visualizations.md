@@ -13,7 +13,9 @@ Strikethroo stores everything as Markdown. To *see* where your work stands, run 
 npx strikethroo serve
 ```
 
-It opens your browser and live-updates over SSE as the files change -- no build, no database, no manual reload.
+It opens your browser and live-updates over SSE as the files change.
+
+{% include callout.html variant="tip" content="No build step, no database, no manual reload. `serve` reads your `.ai/strikethroo/` workspace directly and streams changes as they happen on disk." %}
 
 ## Plans
 

@@ -1,0 +1,47 @@
+{%- comment -%}
+strikethroo docs callout — ported from the dalia-ui <Callout> component.
+Variants: tip | note | prereq | warning. Faithful to dalia's warm palette,
+left-border insets, uppercase titles, and lucide icons. Styling lives in
+_sass/custom/custom.scss (themes for both the light and dark schemes).
+
+Single line:
+  {% include callout.html variant="tip" content="Prefer the in-session skills." %}
+
+Rich / multi-paragraph body — capture it first so quotes and markdown survive:
+  {% capture body %}
+  Multiple **paragraphs**, lists, and `code` all work here.
+  {% endcapture %}
+  {% include callout.html variant="warning" content=body %}
+
+Params:
+  variant     tip | note | prereq | warning      (default: note)
+  content     markdown string for the body        (required)
+  title       overrides the default label
+  hide_title  set truthy to omit the label entirely
+{%- endcomment -%}
+{%- assign variant = include.variant | default: "note" -%}
+{%- case variant -%}
+  {%- when "tip" -%}{%- assign deftitle = "TIP" -%}
+  {%- when "prereq" -%}{%- assign deftitle = "BEFORE YOU BEGIN" -%}
+  {%- when "warning" -%}{%- assign deftitle = "CAUTION" -%}
+  {%- else -%}{%- assign variant = "note" -%}{%- assign deftitle = "NOTE" -%}
+{%- endcase -%}
+{%- assign title = include.title | default: deftitle -%}
+<div class="callout callout--{{ variant }}">
+  <div class="callout__icon" aria-hidden="true">
+    {%- case variant -%}
+    {%- when "tip" -%}
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+    {%- when "prereq" -%}
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>
+    {%- when "warning" -%}
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+    {%- else -%}
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    {%- endcase -%}
+  </div>
+  <div class="callout__body">
+    {%- unless include.hide_title -%}<p class="callout__title">{{ title }}</p>{%- endunless -%}
+    <div class="callout__content">{{ include.content | markdownify }}</div>
+  </div>
+</div>

@@ -33,15 +33,6 @@ Every step runs with a fresh, focused context: the planner sees only your work o
 
 <img src="docs/assets/icons/scissors.svg" width="28" height="28" alt="" />
 
-### YAGNI scope control
-
-Anti-pattern enumeration, an "is this explicitly mentioned?" gate, and a 20--30% task-reduction target keep plans lean. Every task traces back to an explicit requirement.
-
-</td>
-<td width="50%" valign="top">
-
-<img src="docs/assets/icons/key-round.svg" width="28" height="28" alt="" />
-
 ### No API keys
 
 Runs inside the assistant you already use -- Claude Code, Codex, Cursor, OpenCode, or Copilot -- on the subscription you already pay for. Nothing to provision, host, or rotate.

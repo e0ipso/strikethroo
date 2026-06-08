@@ -23,11 +23,6 @@ Strikethroo is spec-driven development that fits each codebase like a glove. Pla
 <p>Every step runs with a fresh, focused context. The planner sees only your work order, the task generator only the approved plan, and each execution sub-agent only its single task. No context bleed, no drift.</p>
 </div>
 <div class="st-card">
-<span class="st-card__icon st-card__icon--scissors" aria-hidden="true"></span>
-<p class="st-card__title">YAGNI scope control</p>
-<p>Anti-pattern enumeration, an "is this explicitly mentioned?" gate, and a 20&ndash;30% task-reduction target keep plans lean. Every task traces back to an explicit requirement.</p>
-</div>
-<div class="st-card">
 <span class="st-card__icon st-card__icon--key-round" aria-hidden="true"></span>
 <p class="st-card__title">No API keys</p>
 <p>Runs entirely inside the assistant you already use &mdash; Claude Code, Codex, Cursor, OpenCode, or Copilot &mdash; on the subscription you already pay for. Nothing to provision, host, or rotate.</p>

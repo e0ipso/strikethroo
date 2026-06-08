@@ -9,6 +9,8 @@ description: "Hooks, templates, and workflow customization"
 
 Hooks inject LLM intelligence and deterministic tool execution at key points of the [workflow](workflow.html). Templates define the structure of plans, tasks, and execution artifacts. Together they let you adapt Strikethroo to your project without modifying any code.
 
+![Strikethroo's customizable spec-driven workflow, showing where the hooks fire: PRE_PLAN, POST_PLAN, POST_TASK_GENERATION_ALL, PRE_TASK_ASSIGNMENT, and POST_EXECUTION]({{ '/assets/strikethroo-customization.png' | relative_url }})
+
 ## Hooks
 
 Hooks are Markdown files in `.ai/strikethroo/config/hooks/`. The LLM reads them at specific workflow points and follows the instructions they contain. They serve two purposes:

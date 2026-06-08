@@ -2,8 +2,6 @@
   <img src="docs/assets/strikethroo-hero.png" alt="Strikethroo: complex programming requests become atomic, validated tasks through staged, spec-driven refinement" width="100%">
 </p>
 
-<h1 align="center">Strikethroo</h1>
-
 <p align="center">
   <strong>Spec-driven development that fits each codebase like a glove.</strong><br>
   Plain-Markdown hooks teach the agent your conventions, so every plan, task, and run inherits them. No API keys, no extra tools to run.
@@ -56,7 +54,6 @@ Every step runs with a fresh, focused context: the planner sees only your work o
 Runs inside the assistant you already use -- Claude Code, Codex, Cursor, OpenCode, or Copilot -- on the subscription you already pay for. Nothing to provision, host, or rotate.
 
 </td>
-</tr>
 <tr>
 <td width="50%" valign="top">
 

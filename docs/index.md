@@ -5,6 +5,10 @@ nav_order: 1
 description: "Structured AI task management with plain text files and Agent Skills"
 ---
 
+<p align="center">
+  <img src="{{ '/assets/strikethroo-hero.png' | relative_url }}" alt="Strikethroo: complex programming requests become atomic, validated tasks through staged, spec-driven refinement" width="100%">
+</p>
+
 # Strikethroo
 
 Strikethroo is spec-driven development that fits each codebase like a glove. Plain-Markdown hooks teach the agent your conventions -- test commands, coding standards, domain rules -- so every plan, task, and run inherits them. No API keys, no extra tools: it works inside the AI subscription you already pay for, on any harness that supports the Agent Skills format.

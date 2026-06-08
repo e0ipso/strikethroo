@@ -1,9 +1,27 @@
-# Strikethroo
+<p align="center">
+  <img src="docs/assets/strikethroo-hero.png" alt="Strikethroo: complex programming requests become atomic, validated tasks through staged, spec-driven refinement" width="100%">
+</p>
 
-[![npm version](https://img.shields.io/npm/v/strikethroo.svg)](https://www.npmjs.com/package/strikethroo)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+<h1 align="center">Strikethroo</h1>
 
-Strikethroo is spec-driven development that fits each codebase like a glove. Plain-Markdown hooks teach the agent your conventions -- test commands, coding standards, domain rules -- so every plan, task, and run inherits them. No API keys, no extra tools: it works inside the AI subscription you already pay for, on any harness that supports the Agent Skills format.
+<p align="center">
+  <strong>Spec-driven development that fits each codebase like a glove.</strong><br>
+  Plain-Markdown hooks teach the agent your conventions, so every plan, task, and run inherits them. No API keys, no extra tools to run.
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/strikethroo"><img src="https://img.shields.io/npm/v/strikethroo?style=flat-square&label=npm&color=BE376F&labelColor=2b2230" alt="npm version"></a>
+  <a href="https://github.com/e0ipso/strikethroo/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/e0ipso/strikethroo/test.yml?style=flat-square&label=tests&color=BE376F&labelColor=2b2230" alt="tests"></a>
+  <a href="package.json"><img src="https://img.shields.io/node/v/strikethroo?style=flat-square&color=BE376F&labelColor=2b2230" alt="node version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-BE376F?style=flat-square&labelColor=2b2230" alt="MIT license"></a>
+</p>
+
+<p align="center">
+  <a href="https://mateuaguilo.com/strikethroo/workflow.html">Workflow</a> &nbsp;·&nbsp;
+  <a href="https://mateuaguilo.com/strikethroo/customization.html">Customization</a> &nbsp;·&nbsp;
+  <a href="https://mateuaguilo.com/strikethroo/visualizations.html">Visualizations</a> &nbsp;·&nbsp;
+  <a href="https://mateuaguilo.com/strikethroo/faq.html">FAQ</a>
+</p>
 
 ## Why Strikethroo?
 

@@ -5,26 +5,6 @@
 
 Strikethroo is spec-driven development that fits each codebase like a glove. Plain-Markdown hooks teach the agent your conventions -- test commands, coding standards, domain rules -- so every plan, task, and run inherits them. No API keys, no extra tools: it works inside the AI subscription you already pay for, on any harness that supports the Agent Skills format.
 
-## Adapts to every codebase
-
-Every codebase has its own conventions, and Strikethroo bends to them instead of imposing its own. Three plain-Markdown surfaces -- no plugins, no code:
-
-[![Strikethroo's customizable spec-driven workflow, showing where the hooks fire: PRE_PLAN, POST_PLAN, POST_TASK_GENERATION_ALL, PRE_TASK_ASSIGNMENT, and POST_EXECUTION](docs/assets/strikethroo-customization.png)](docs/assets/strikethroo-customization.png)
-
-### <img src="docs/assets/icons/waypoints.svg" width="28" height="28" alt="" /> Hooks
-
-Fire at nine points across the workflow (before planning, after each phase, on errors, and more). Drop in your test commands, coding standards, and domain rules; every plan, task, and execution run inherits them.
-
-### <img src="docs/assets/icons/file-text.svg" width="28" height="28" alt="" /> Templates
-
-Define the shape of plans and tasks -- add your own sections and checklists.
-
-### <img src="docs/assets/icons/book-open.svg" width="28" height="28" alt="" /> Project context
-
-One file of domain knowledge every step reads.
-
-Hooks, templates, and a project-context file are all plain Markdown -- nothing to compile, no plugin API to learn. See the [Customization Guide](https://mateuaguilo.com/strikethroo/customization.html) for examples.
-
 ## Why Strikethroo?
 
 <table>
@@ -81,6 +61,26 @@ The workflow ships as Agent Skills: one `SKILL.md` works on any harness supporti
 <td width="50%" valign="top"></td>
 </tr>
 </table>
+
+## Adapts to every codebase
+
+Every codebase has its own conventions, and Strikethroo bends to them instead of imposing its own. Three plain-Markdown surfaces -- no plugins, no code:
+
+[![Strikethroo's customizable spec-driven workflow, showing where the hooks fire: PRE_PLAN, POST_PLAN, POST_TASK_GENERATION_ALL, PRE_TASK_ASSIGNMENT, and POST_EXECUTION](docs/assets/strikethroo-customization.png)](docs/assets/strikethroo-customization.png)
+
+### <img src="docs/assets/icons/waypoints.svg" width="28" height="28" alt="" /> Hooks
+
+Fire at nine points across the workflow (before planning, after each phase, on errors, and more). Drop in your test commands, coding standards, and domain rules; every plan, task, and execution run inherits them.
+
+### <img src="docs/assets/icons/file-text.svg" width="28" height="28" alt="" /> Templates
+
+Define the shape of plans and tasks -- add your own sections and checklists.
+
+### <img src="docs/assets/icons/book-open.svg" width="28" height="28" alt="" /> Project context
+
+One file of domain knowledge every step reads.
+
+Hooks, templates, and a project-context file are all plain Markdown -- nothing to compile, no plugin API to learn. See the [Customization Guide](https://mateuaguilo.com/strikethroo/customization.html) for examples.
 
 ## Quick Start
 

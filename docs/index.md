@@ -13,6 +13,8 @@ Strikethroo is spec-driven development that fits each codebase like a glove. Pla
 
 Every codebase has its own conventions, and Strikethroo bends to them instead of imposing its own. Three plain-Markdown surfaces -- no plugins, no code:
 
+![Strikethroo's customizable spec-driven workflow, showing where the hooks fire: PRE_PLAN, POST_PLAN, POST_TASK_GENERATION_ALL, PRE_TASK_ASSIGNMENT, and POST_EXECUTION]({{ '/assets/strikethroo-customization.png' | relative_url }})
+
 - **Hooks** fire at nine points across the workflow (before planning, after each phase, on errors, and more). Drop in your test commands, coding standards, and domain rules; every plan, task, and execution run inherits them.
 - **Templates** define the shape of plans and tasks -- add your own sections and checklists.
 - **Project context** is one file of domain knowledge every step reads.

@@ -1,0 +1,45 @@
+# .kkignore — per-repo scope for the AI kenkeep doc scan.
+#
+# Syntax:   gitignore-style. Patterns match repo-root-relative paths
+#           with forward slashes. A leading `!` re-includes a path.
+#           A trailing `/` matches directories. `**` matches any
+#           number of path segments.
+#
+# Always-on: STATIC_SKIPS (see src/lib/bootstrap.ts) plus `.git/` and
+#           `node_modules/` are skipped regardless of what you put in
+#           this file. Editing `.kkignore` cannot opt them back in;
+#           use an explicit `--include` on the CLI for that.
+#
+# Worked example (note the parent-directory caveat):
+#
+#   # Deny a whole tree, then re-include one file inside it.
+#   # IMPORTANT: gitignore will NOT un-ignore a file under an ignored
+#   # directory unless every ancestor is also un-ignored first.
+#   docs/internal/
+#   !docs/internal/
+#   !docs/internal/AGENTS.md
+#
+#   # Glob deny:
+#   **/*.generated.md
+
+# --- Common noise (uncomment what applies to your repo) ---
+# build/
+# dist/
+# coverage/
+# **/*.generated.md
+
+# --- Harness instruction directories (auto-generated from registered adapters) ---
+# These describe how the AI should act (skills, commands, hooks,
+# plugins) rather than what the project is. Remove a line to
+# include that surface in the kenkeep scan.
+.agents/skills/
+.claude/commands/
+.claude/hooks/
+.claude/skills/
+.codex/hooks/
+.copilot/hooks/
+.cursor/hooks/
+.cursor/skills/
+.github/skills/
+.opencode/plugins/
+.opencode/skills/

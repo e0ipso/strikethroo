@@ -1,0 +1,84 @@
+---
+schema_version: 2
+nodes_hash: 'sha256:be65b654b25caae26d399922a18103827ac212b11d5e90e8e8841cc28a6b471c'
+node_count: 7
+summary: >-
+  Git workflow constraints — commit-message hooks, the pre-commit test gate,
+  attribution rules, and gitignored workspace state
+---
+# kenkeep Index: git
+
+↑ Parent: [kenkeep](../index.md)
+
+> kenkeep navigation: the injected body above is the root index node, the top-level catalog of branches and root-level leaves. Do not expect the whole knowledge base here; descend on demand. Read the root index node, pick one or more branches whose intent and tags match your task (several branches can be relevant), and read those branch `index.md` nodes. Descend further only where the task needs it, opening only the leaves you have confirmed are relevant. Follow each leaf's `relates_to` and `depends_on` cross edges to reach related leaves in other branches. You decide how deep to go per branch.
+
+## Subfolders
+_None._
+
+## Conventions (how we build)
+- Open [**Pre-commit test hook prevents per-phase commits during multi-phase plan execution**](git/practice-pre-commit-test-hook-prevents-per-phase-commits-during-multi-phase-plan-execution.md) to learn about: The pre-commit hook runs npm test; mid-execution the source is in a broken state, so per-phase commits fail until all phases complete. #pre-commit #testing #phase #commits
+- Open [**Keep .ai/strikethroo (dogfood workspace) explicitly ignored in .gitignore**](git/practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore.md) to learn about: The /.ai/strikethroo path must stay in .gitignore to prevent accidentally committing dogfood workspace state. #git #gitignore #workspace
+- Open [**Do not use --no-verify to skip git commit hooks**](git/practice-do-not-use-no-verify-to-skip-git-commit-hooks.md) to learn about: Bypassing commit hooks with --no-verify hides real breakage and triggers an approval prompt that halts autonomous runs. #git #commits #pre-commit #hooks
+- Open [**Project commit hook rejects AI co-authorship attribution trailers**](git/practice-project-commit-hook-rejects-ai-co-authorship-attribution-trailers.md) to learn about: A commit hook rejects Co-Authored-By AI attribution lines; omit them when committing in this repository. #git #commit #hooks #attribution
+- Open [**Commit subject ≤50 chars; body wrapped at 72 chars (hook enforced)**](git/practice-commit-subject-50-chars-body-wrapped-at-72-chars-hook-enforced.md) to learn about: A commit-message hook enforces 50-char subject lines and 72-char body wrapping; violations abort the commit. #git #commit #hooks #formatting
+- Open [**Isolate concurrent-agent changes before committing by excluding entangled files from staging**](git/practice-isolate-concurrent-agent-changes-before-committing-by-excluding-entangled-files.md) to learn about: When two agents work on the same tree simultaneously, stage only your files; verify routing direction against HEAD; expect pre-commit failures from the other agent's in-progress WIP. #git #concurrent-agents #staging #pre-commit
+- Open [**lint-staged scopes lint/format but pre-commit still runs the full test suite**](git/practice-lint-staged-scopes-lint-format-but-pre-commit-still-runs-the-full-test-suite.md) to learn about: lint-staged runs eslint+prettier on staged src files; the pre-commit hook still runs the full npm test suite after lint-staged completes. #linting #tooling #eslint #prettier #pre-commit
+
+## Components (what exists)
+_None yet._
+
+## By topic
+
+### #git
+- Open [**Project commit hook rejects AI co-authorship attribution trailers**](git/practice-project-commit-hook-rejects-ai-co-authorship-attribution-trailers.md) — A commit hook rejects Co-Authored-By AI attribution lines; omit them when committing in this repository.
+- Open [**Commit subject ≤50 chars; body wrapped at 72 chars (hook enforced)**](git/practice-commit-subject-50-chars-body-wrapped-at-72-chars-hook-enforced.md) — A commit-message hook enforces 50-char subject lines and 72-char body wrapping; violations abort the commit.
+- Open [**Do not use --no-verify to skip git commit hooks**](git/practice-do-not-use-no-verify-to-skip-git-commit-hooks.md) — Bypassing commit hooks with --no-verify hides real breakage and triggers an approval prompt that halts autonomous runs.
+### #pre-commit
+- Open [**Do not use --no-verify to skip git commit hooks**](git/practice-do-not-use-no-verify-to-skip-git-commit-hooks.md) — Bypassing commit hooks with --no-verify hides real breakage and triggers an approval prompt that halts autonomous runs.
+- Open [**Pre-commit test hook prevents per-phase commits during multi-phase plan execution**](git/practice-pre-commit-test-hook-prevents-per-phase-commits-during-multi-phase-plan-execution.md) — The pre-commit hook runs npm test; mid-execution the source is in a broken state, so per-phase commits fail until all phases complete.
+- Open [**Isolate concurrent-agent changes before committing by excluding entangled files from staging**](git/practice-isolate-concurrent-agent-changes-before-committing-by-excluding-entangled-files.md) — When two agents work on the same tree simultaneously, stage only your files; verify routing direction against HEAD; expect pre-commit failures from the other agent's in-progress WIP.
+### #hooks
+- Open [**Project commit hook rejects AI co-authorship attribution trailers**](git/practice-project-commit-hook-rejects-ai-co-authorship-attribution-trailers.md) — A commit hook rejects Co-Authored-By AI attribution lines; omit them when committing in this repository.
+- Open [**Commit subject ≤50 chars; body wrapped at 72 chars (hook enforced)**](git/practice-commit-subject-50-chars-body-wrapped-at-72-chars-hook-enforced.md) — A commit-message hook enforces 50-char subject lines and 72-char body wrapping; violations abort the commit.
+- Open [**Do not use --no-verify to skip git commit hooks**](git/practice-do-not-use-no-verify-to-skip-git-commit-hooks.md) — Bypassing commit hooks with --no-verify hides real breakage and triggers an approval prompt that halts autonomous runs.
+### #commit
+- Open [**Project commit hook rejects AI co-authorship attribution trailers**](git/practice-project-commit-hook-rejects-ai-co-authorship-attribution-trailers.md) — A commit hook rejects Co-Authored-By AI attribution lines; omit them when committing in this repository.
+- Open [**Commit subject ≤50 chars; body wrapped at 72 chars (hook enforced)**](git/practice-commit-subject-50-chars-body-wrapped-at-72-chars-hook-enforced.md) — A commit-message hook enforces 50-char subject lines and 72-char body wrapping; violations abort the commit.
+### #commits
+- Open [**Pre-commit test hook prevents per-phase commits during multi-phase plan execution**](git/practice-pre-commit-test-hook-prevents-per-phase-commits-during-multi-phase-plan-execution.md) — The pre-commit hook runs npm test; mid-execution the source is in a broken state, so per-phase commits fail until all phases complete.
+- Open [**Do not use --no-verify to skip git commit hooks**](git/practice-do-not-use-no-verify-to-skip-git-commit-hooks.md) — Bypassing commit hooks with --no-verify hides real breakage and triggers an approval prompt that halts autonomous runs.
+### #attribution
+- Open [**Project commit hook rejects AI co-authorship attribution trailers**](git/practice-project-commit-hook-rejects-ai-co-authorship-attribution-trailers.md) — A commit hook rejects Co-Authored-By AI attribution lines; omit them when committing in this repository.
+### #concurrent-agents
+- Open [**Isolate concurrent-agent changes before committing by excluding entangled files from staging**](git/practice-isolate-concurrent-agent-changes-before-committing-by-excluding-entangled-files.md) — When two agents work on the same tree simultaneously, stage only your files; verify routing direction against HEAD; expect pre-commit failures from the other agent's in-progress WIP.
+### #eslint
+- Open [**lint-staged scopes lint/format but pre-commit still runs the full test suite**](git/practice-lint-staged-scopes-lint-format-but-pre-commit-still-runs-the-full-test-suite.md) — lint-staged runs eslint+prettier on staged src files; the pre-commit hook still runs the full npm test suite after lint-staged completes.
+- Open [**ESLint config: eslint.config.mjs (flat config, ESLint 9)**](tooling/map-eslint-config-eslint-config-mjs-flat-config-eslint-9.md) — The active ESLint config is eslint.config.mjs (flat config, ESLint 9). A legacy .eslintrc.js at the repo root is dead cruft ignored by ESLint 9.
+- Open [**ESLint test block must include browser globals for page.evaluate callbacks**](testing/practice-eslint-test-block-must-include-browser-globals-for-page-evaluate-callbacks.md) — Playwright e2e tests use page.evaluate with browser globals (location, URL, document); the ESLint test block must include browserGlobals to avoid no-undef errors.
+### #formatting
+- Open [**Commit subject ≤50 chars; body wrapped at 72 chars (hook enforced)**](git/practice-commit-subject-50-chars-body-wrapped-at-72-chars-hook-enforced.md) — A commit-message hook enforces 50-char subject lines and 72-char body wrapping; violations abort the commit.
+### #gitignore
+- Open [**Keep .ai/strikethroo (dogfood workspace) explicitly ignored in .gitignore**](git/practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore.md) — The /.ai/strikethroo path must stay in .gitignore to prevent accidentally committing dogfood workspace state.
+- Open [**Do not commit .agents/skills/ or skills-lock.json — they are local installation artifacts**](release/practice-do-not-commit-agents-skills-or-skills-lock-json-they-are-local-installation-artifacts.md) — \`.agents/skills/\` and \`skills-lock.json\` are produced by running \`npx skills add\` locally and must be gitignored, not committed.
+- Open [**Integration and e2e tests must use the committed fixture workspace, not the live .ai/strikethroo/**](testing/practice-integration-and-e2e-tests-must-use-the-committed-fixture-workspace-not-the-live.md) — Tests reading .ai/strikethroo/ directly only pass locally; CI has no workspace on clean checkout. All tests must use src/__tests__/fixtures/serve-workspace/.
+### #linting
+- Open [**ESLint test block must include browser globals for page.evaluate callbacks**](testing/practice-eslint-test-block-must-include-browser-globals-for-page-evaluate-callbacks.md) — Playwright e2e tests use page.evaluate with browser globals (location, URL, document); the ESLint test block must include browserGlobals to avoid no-undef errors.
+- Open [**lint-staged scopes lint/format but pre-commit still runs the full test suite**](git/practice-lint-staged-scopes-lint-format-but-pre-commit-still-runs-the-full-test-suite.md) — lint-staged runs eslint+prettier on staged src files; the pre-commit hook still runs the full npm test suite after lint-staged completes.
+### #phase
+- Open [**Pre-commit test hook prevents per-phase commits during multi-phase plan execution**](git/practice-pre-commit-test-hook-prevents-per-phase-commits-during-multi-phase-plan-execution.md) — The pre-commit hook runs npm test; mid-execution the source is in a broken state, so per-phase commits fail until all phases complete.
+### #prettier
+- Open [**lint-staged scopes lint/format but pre-commit still runs the full test suite**](git/practice-lint-staged-scopes-lint-format-but-pre-commit-still-runs-the-full-test-suite.md) — lint-staged runs eslint+prettier on staged src files; the pre-commit hook still runs the full npm test suite after lint-staged completes.
+- Open [**src/web/vendor/ and dist-web/ are excluded from Prettier formatting**](tooling/practice-src-web-vendor-and-dist-web-are-excluded-from-prettier-formatting.md) — Vendored CSS under src/web/vendor/ must not be reformatted. Both src/web/vendor/ and dist-web/ are excluded via .prettierignore.
+### #staging
+- Open [**Isolate concurrent-agent changes before committing by excluding entangled files from staging**](git/practice-isolate-concurrent-agent-changes-before-committing-by-excluding-entangled-files.md) — When two agents work on the same tree simultaneously, stage only your files; verify routing direction against HEAD; expect pre-commit failures from the other agent's in-progress WIP.
+### #testing
+- Open [**window.__stRevalidationCount — Playwright observability hook for SSE-driven revalidation**](testing/map-window-strevalidationcount-playwright-observability-hook-for-sse-driven-revalidation.md) — Deliberately-shipped window counter that Playwright e2e tests read to verify live-data revalidation fired after an SSE change event.
+- Open [**Playwright e2e suites flake under full-suite parallelism due to CPU contention**](testing/practice-playwright-e2e-suites-flake-under-full-suite-parallelism-due-to-cpu-contention.md) — Under default workers, parallel Playwright/Chromium processes starve each other; random tests timeout. Run --workers=2 to prove genuine green.
+- Open [**src/__tests__/fixtures/serve-workspace/ — committed fixture workspace for tests**](testing/map-src-tests-fixtures-serve-workspace-committed-fixture-workspace-for-tests.md) — Committed fixture workspace at src/__tests__/fixtures/serve-workspace/ is the hermetic replacement for the gitignored live .ai/strikethroo/ in all integration and e2e suites.
+### #tooling
+- Open [**ESLint config: eslint.config.mjs (flat config, ESLint 9)**](tooling/map-eslint-config-eslint-config-mjs-flat-config-eslint-9.md) — The active ESLint config is eslint.config.mjs (flat config, ESLint 9). A legacy .eslintrc.js at the repo root is dead cruft ignored by ESLint 9.
+- Open [**lint-staged scopes lint/format but pre-commit still runs the full test suite**](git/practice-lint-staged-scopes-lint-format-but-pre-commit-still-runs-the-full-test-suite.md) — lint-staged runs eslint+prettier on staged src files; the pre-commit hook still runs the full npm test suite after lint-staged completes.
+- Open [**Hot-reload dev loop requires three concurrent processes**](dev/practice-hot-reload-dev-loop-requires-three-concurrent-processes.md) — Backend: ts-node via node --watch. Frontend: Vite at localhost:5173 with /api/* proxied to localhost:4317. No dist/ involvement.
+### #workspace
+- Open [**Keep .ai/strikethroo (dogfood workspace) explicitly ignored in .gitignore**](git/practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore.md) — The /.ai/strikethroo path must stay in .gitignore to prevent accidentally committing dogfood workspace state.
+- Open [**Capture fixture workspace: plans 102–104 as active demo plans for screen capture**](capture/map-capture-fixture-workspace-plans-102-104-as-active-demo-plans-for-screen-capture.md) — src/capture/fixtures/capture-workspace/ uses plans 102–104 as active plans; plan 103 drives the primary stills (2 done tasks), plan 102 drives the Graph screenshot.

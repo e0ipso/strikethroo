@@ -1,0 +1,37 @@
+# kenkeep project settings.
+#
+# Per-call model selection (optional). proposalModel, curatorModel, and
+# bootstrapModel each take one entry keyed by the `harness` discriminator;
+# only the variant whose `harness` matches the active adapter is consumed,
+# the others are ignored. Per-harness shapes:
+#
+#   claude:   { harness: claude, name: haiku|sonnet|opus,
+#               effort: low|medium|high|xhigh|max }
+#   codex:    { harness: codex, model: <id>, reasoningEffort: <str>? }
+#   opencode: { harness: opencode, model: <id>, agent: <str>? }
+#   cursor:   { harness: cursor, model: <id> }
+#   copilot:  { harness: copilot, model: <id> }
+#
+# Uncomment one and fill in the fields for your harness from the shapes above:
+#
+# proposalModel:
+#   harness: <harness>
+#   ...
+#
+# curatorModel:
+#   harness: <harness>
+#   ...
+#
+# bootstrapModel:
+#   harness: <harness>
+#   ...
+#
+# cliDefaultHarness: <harness>   # fallback adapter for plain-shell CLI runs
+#                                # (e.g. `npx kenkeep curate`). Skills and
+#                                # hooks ignore this; they resolve via env
+#                                # detection or the explicit `--harness <id>`
+#                                # flag.
+schema_version: 1
+curationThreshold: 20
+logsRetentionDays: 30
+lintEveryNSessions: 50

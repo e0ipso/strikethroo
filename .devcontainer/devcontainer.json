@@ -1,5 +1,12 @@
 {
-  "name": "OpenCode Sandbox",
+  "name": "Strikethroo",
+  "forwardPorts": [34489],
+  "portsAttributes": {
+    "34489": {
+      "label": "t3",
+      "onAutoForward": "silent"
+    }
+  },
   "build": {
     "dockerfile": "Dockerfile",
     "args": {
@@ -58,12 +65,19 @@
     "source=opencode-data-${devcontainerId},target=/home/node/.local/share/opencode,type=volume",
     "source=${localEnv:HOME}/.local/share/opencode/auth.json,target=/home/node/.local/share/opencode/auth.json,readonly,type=bind,consistency=cached",
 
-    "source=${localEnv:HOME}/.claude/CLAUDE.md,target=/home/node/.claude/CLAUDE.md,type=bind,consistency=cached",
-    "source=${localEnv:HOME}/.claude.json,target=/home/node/.claude.json,type=bind,consistency=cached",
-    "source=${localEnv:HOME}/.claude/settings.json,target=/home/node/.claude/settings.json,type=bind,consistency=cached",
-    "source=${localEnv:HOME}/.claude/skills,target=/home/node/.claude/skills,type=bind,consistency=cached",
-    "source=${localEnv:HOME}/.claude/hooks,target=/home/node/.claude/hooks,type=bind,consistency=cached",
-    "source=${localEnv:HOME}/.claude/commands,target=/home/node/.claude/commands,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.claude/CLAUDE.md,target=/home/node/.claude/CLAUDE.md,readonly,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.claude.json,target=/home/node/.claude.json,type=bind,readonly,consistency=cached",
+    "source=${localEnv:HOME}/.claude/settings.json,target=/home/node/.claude/settings.json,readonly,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.claude/skills,target=/home/node/.claude/skills,readonly,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.claude/hooks,target=/home/node/.claude/hooks,readonly,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.claude/commands,target=/home/node/.claude/commands,readonly,type=bind,consistency=cached",
+
+    "source=${localEnv:HOME}/.codex/prompts,target=/home/node/.codex/prompts,readonly,type=bind,consistency=cached",
+
+    "source=${localEnv:HOME}/.copilot/config.json,target=/home/node/.copilot/config.json,readonly,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.copilot/hooks,target=/home/node/.copilot/hooks,readonly,type=bind,consistency=cached",
+
+    "source=${localEnv:HOME}/.cursor/cli-config.json,target=/home/node/.cursor/cli-config.json,readonly,type=bind,consistency=cached",
 
     "source=${localEnv:HOME}/.config/gh/hosts.yml,target=/home/node/.config/gh/hosts.yml,type=bind,consistency=cached",
     "source=${localEnv:HOME}/.gitconfig,target=/home/node/.gitconfig,type=bind,consistency=cached"
@@ -77,6 +91,8 @@
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
   "postCreateCommand": "true",
-  "postStartCommand": "opencode upgrade; claude upgrade",
+  "postStartCommand": {
+    "upgrades": "opencode upgrade; claude upgrade; copilot update; agent update; codex update"
+  },
   "waitFor": "postStartCommand"
 }

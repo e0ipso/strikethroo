@@ -23,6 +23,8 @@ export default defineConfig({
       'src/web/__tests__/router.test.ts',
       'src/web/archive/__tests__/helpers.test.tsx',
       'src/web/components/__tests__/railCollapse.test.ts',
+      'src/web/plans/__tests__/derive.test.ts',
+      'src/web/plans/__tests__/taskNav.test.ts',
       'src/web/plans/exec/__tests__/derive.test.ts',
       'src/web/theme/__tests__/theme.test.ts',
     ],

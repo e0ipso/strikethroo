@@ -1,3 +1,26 @@
+## <small>3.4.1 (2026-06-17)</small>
+
+* fix: cache self-review availability ([c7c65f5](https://github.com/e0ipso/strikethroo/commit/c7c65f5))
+* chore: improve devcontainer ([04f85c9](https://github.com/e0ipso/strikethroo/commit/04f85c9))
+* chore: upgrade to Kenkeep (#25) ([6e39138](https://github.com/e0ipso/strikethroo/commit/6e39138)), closes [#25](https://github.com/e0ipso/strikethroo/issues/25)
+* docs: add screenshots to documentation ([74d4954](https://github.com/e0ipso/strikethroo/commit/74d4954))
+* docs: align logo ([da73fe4](https://github.com/e0ipso/strikethroo/commit/da73fe4))
+* docs: fix version typo ([5f9892f](https://github.com/e0ipso/strikethroo/commit/5f9892f))
+* docs: improve documentation site ([2431326](https://github.com/e0ipso/strikethroo/commit/2431326))
+* docs: improve documentation site ([d374d74](https://github.com/e0ipso/strikethroo/commit/d374d74))
+* docs: improve documentation site ([07a5d53](https://github.com/e0ipso/strikethroo/commit/07a5d53))
+* docs: note when lifecycle hooks run in the workflow guide ([a548121](https://github.com/e0ipso/strikethroo/commit/a548121))
+* docs: update docs visuals ([13a4b1b](https://github.com/e0ipso/strikethroo/commit/13a4b1b))
+* docs: update docs visuals ([e77516f](https://github.com/e0ipso/strikethroo/commit/e77516f))
+* docs: update docs visuals ([f97d5cf](https://github.com/e0ipso/strikethroo/commit/f97d5cf))
+* docs: update docs visuals ([224021a](https://github.com/e0ipso/strikethroo/commit/224021a))
+* docs: update docs visuals ([1eb94ec](https://github.com/e0ipso/strikethroo/commit/1eb94ec))
+* docs: update docs visuals ([b94528d](https://github.com/e0ipso/strikethroo/commit/b94528d))
+* docs: update docs visuals ([86c5d56](https://github.com/e0ipso/strikethroo/commit/86c5d56))
+* docs: update docs visuals ([dadb183](https://github.com/e0ipso/strikethroo/commit/dadb183))
+* docs: update docs visuals ([ba99d4c](https://github.com/e0ipso/strikethroo/commit/ba99d4c))
+* ci: fix gha issues ([0c09844](https://github.com/e0ipso/strikethroo/commit/0c09844))
+
 ## 3.4.0 (2026-06-03)
 
 * docs: update doc site styles ([c730e14](https://github.com/e0ipso/strikethroo/commit/c730e14))

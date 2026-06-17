@@ -26,24 +26,25 @@ export const SELF_REVIEW_BINARY = 'self-review';
 /** Where to obtain self-review; surfaced by the SPA when it is not installed. */
 export const SELF_REVIEW_URL = 'https://github.com/e0ipso/self-review';
 
-/**
- * Returns `true` when the `self-review` binary is found on the process `PATH`.
- *
- * A presence check, matching the literal "binary is in path" contract: each
- * `PATH` entry is probed for a regular file named `self-review` (plus the
- * `PATHEXT` variants on Windows). It deliberately does not execute the binary,
- * so it cannot hang and has no side effects.
- */
-export const isSelfReviewAvailable = (
-  env: Record<string, string | undefined> = process.env
+/** Cache key derived from the environment inputs that affect the PATH scan. */
+const availabilityCacheKey = (env: Record<string, string | undefined>): string => {
+  const pathVar = env.PATH ?? env.Path ?? '';
+  const pathext = process.platform === 'win32' ? (env.PATHEXT ?? '') : '';
+  return `${process.platform}:${pathVar}:${pathext}`;
+};
+
+/** In-memory cache so repeated `/api/capabilities` calls avoid re-scanning PATH. */
+const availabilityCache = new Map<string, boolean>();
+
+const computeSelfReviewAvailable = (
+  env: Record<string, string | undefined>,
+  platform: typeof process.platform
 ): boolean => {
   const pathVar = env.PATH ?? env.Path ?? '';
   if (!pathVar) return false;
 
   const exts =
-    process.platform === 'win32'
-      ? (env.PATHEXT ?? '.EXE;.CMD;.BAT;.COM').split(';').filter(Boolean)
-      : [''];
+    platform === 'win32' ? (env.PATHEXT ?? '.EXE;.CMD;.BAT;.COM').split(';').filter(Boolean) : [''];
 
   for (const dir of pathVar.split(path.delimiter).filter(Boolean)) {
     for (const ext of exts) {
@@ -56,6 +57,27 @@ export const isSelfReviewAvailable = (
     }
   }
   return false;
+};
+
+/**
+ * Returns `true` when the `self-review` binary is found on the process `PATH`.
+ *
+ * A presence check, matching the literal "binary is in path" contract: each
+ * `PATH` entry is probed for a regular file named `self-review` (plus the
+ * `PATHEXT` variants on Windows). It deliberately does not execute the binary,
+ * so it cannot hang and has no side effects. The result is cached in-memory
+ * keyed by the relevant environment inputs.
+ */
+export const isSelfReviewAvailable = (
+  env: Record<string, string | undefined> = process.env
+): boolean => {
+  const key = availabilityCacheKey(env);
+  const cached = availabilityCache.get(key);
+  if (cached !== undefined) return cached;
+
+  const result = computeSelfReviewAvailable(env, process.platform);
+  availabilityCache.set(key, result);
+  return result;
 };
 
 /** Outcome of resolving and launching a self-review request. */

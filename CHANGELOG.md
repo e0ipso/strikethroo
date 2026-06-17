@@ -1,3 +1,7 @@
+## <small>3.4.2 (2026-06-17)</small>
+
+* fix: use composite plan name for task links (#33) ([fb71586](https://github.com/e0ipso/strikethroo/commit/fb71586)), closes [#33](https://github.com/e0ipso/strikethroo/issues/33)
+
 ## <small>3.4.1 (2026-06-17)</small>
 
 * fix: cache self-review availability ([c7c65f5](https://github.com/e0ipso/strikethroo/commit/c7c65f5))

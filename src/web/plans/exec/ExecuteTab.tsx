@@ -14,5 +14,5 @@ import { ExecSwimlanesView } from './ExecSwimlanesView';
 
 /** The Tasks tab body: the Swimlanes Execution-blueprint view. */
 export function ExecuteTab({ detail }: { detail: PlanDetail }) {
-  return <ExecSwimlanesView planId={String(detail.id)} detail={detail} />;
+  return <ExecSwimlanesView planId={detail.name} detail={detail} />;
 }

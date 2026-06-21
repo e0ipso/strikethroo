@@ -32,11 +32,12 @@ agent-skill frameworks — `obra/superpowers`, `addyosmani/agent-skills`, and Am
 techniques into refinements for Strikethroo's six workflow skills. The three
 projects converge on a small set of prompt-engineering disciplines that
 Strikethroo currently under-uses: explicit anti-rationalization tables,
-evidence-based verification gates, trigger-only skill descriptions, and a
-codified house style for writing the prompts themselves. Each is a textual
-refinement layered onto Strikethroo's existing `src/skill-prompts/` assembly
-system — none change the workspace shape, the schema contract, the staged
-plan→tasks→blueprint pipeline, or the YAGNI/test philosophy.
+evidence-based verification gates, trigger-only skill descriptions, a codified
+house style for writing the prompts themselves, and a test-driven
+RED-GREEN-REFACTOR execution discipline shipped as an **overridable default
+hook**. Each is a textual refinement layered onto Strikethroo's existing
+`src/skill-prompts/` and `config/hooks/` assets — none change the workspace
+shape, the schema contract, or the staged plan→tasks→blueprint pipeline.
 
 The approach was chosen because the work order asks explicitly for *inspiration*
 applied *without significantly altering Strikethroo's principles*. Every
@@ -63,6 +64,7 @@ these disciplines.
 | `st-create-plan` clarification loop asks "targeted questions" with no cadence rule. | Clarification refined to ask **one question at a time, multiple-choice-first**, with an explicit pre-emit approval gate. | superpowers' `brainstorming` shows one-at-a-time multiple-choice raises answer quality and prevents bundled, half-answered prompts. |
 | `SKILL.md` `description` fields are long and partly *summarize the workflow*. | Descriptions rewritten to be trigger-only ("Use when…"), keyword-rich, workflow-free, within a token budget. | superpowers' Skill Discovery Optimization: descriptions that summarize workflow create a shortcut so the agent never reads the full skill, hurting load accuracy. |
 | The house style for *writing* Strikethroo prompts lives implicitly in `src/skill-prompts/README.md` (assembly mechanics only). | A prompt-authoring guide codifying form-over-narrative, "no nuance clauses", anti-rationalization tables, and SDO. | superpowers' `writing-skills` and agent-skills' "process not prose" institutionalize prompt quality so refinements don't regress over time. |
+| `PRE_TASK_EXECUTION.md` is an empty stub; task execution carries no test-first discipline. | The default `PRE_TASK_EXECUTION` hook ships a RED-GREEN-REFACTOR cycle that any project can override by editing its copied hook. | superpowers / agent-skills test-driven development, adopted as an *overridable default* so it does not hard-code over Strikethroo's "few tests, mostly integration" philosophy. |
 
 ### Background
 
@@ -119,9 +121,10 @@ flowchart LR
         CG[One-at-a-time\nclarification gate]
         SDO[Trigger-only\ndescriptions]
         AUTH[Prompt-authoring\nhouse style]
+        TDD[TDD\nred-green-refactor]
     end
-    SP --> AR & VG & CG & SDO & AUTH
-    AS --> AR & VG & AUTH
+    SP --> AR & VG & CG & SDO & AUTH & TDD
+    AS --> AR & VG & AUTH & TDD
     AMP --> VG & CG
     AR --> S2[st-generate-tasks]
     AR --> S3[st-execute-blueprint]
@@ -131,6 +134,7 @@ flowchart LR
     CG --> S4[st-refine-plan]
     SDO --> ALL[all six SKILL.md]
     AUTH --> README[src/skill-prompts authoring guide]
+    TDD --> HOOK[PRE_TASK_EXECUTION hook\noverridable default]
 ```
 
 ### Component A — Anti-Rationalization & Red-Flags Layer
@@ -229,19 +233,57 @@ imperative-phrasing guidance (Amp). This is documentation for maintainers — it
 changes no shipped skill behavior but guards the other components against
 regression.
 
+### Component F — TDD Red-Green-Refactor as an Overridable Default Hook
+
+**Objective**: Adopt the superpowers / agent-skills test-driven
+RED-GREEN-REFACTOR discipline during task execution, but ship it as the default
+`PRE_TASK_EXECUTION` hook so any project can override or remove the preference.
+This is what makes adopting TDD compatible with the work-order constraint: it
+becomes a **project-level default**, not a hard-coded skill rule, so it never
+overrides Strikethroo's "few tests, mostly integration" philosophy against a
+project's wishes.
+
+Populate the currently-empty default hook
+`templates/strikethroo/config/hooks/PRE_TASK_EXECUTION.md` with the cycle —
+**RED**: write a failing test for the next increment and observe it fail;
+**GREEN**: write the minimal code to make it pass; **REFACTOR**: clean up with
+the test green. No skill-prompt change is needed to activate it: the existing
+`sections/phase-execution-loop.md` already instructs both the orchestrator and
+every dispatched subagent to read and execute `PRE_TASK_EXECUTION.md` before any
+implementation work, so the hook body flows automatically into execution.
+
+**Override mechanism (no new machinery).** The hook is copied to
+`.ai/strikethroo/config/hooks/PRE_TASK_EXECUTION.md` at `init` time; a project
+overrides the preference simply by editing its copy, and `init`'s SHA-256
+hash-tracking in `.init-metadata.json` detects and protects that user
+modification on subsequent runs (only `--force` overwrites). A project that
+prefers the integration-heavy default replaces or empties the hook body.
+
+**Reconciliation with the test philosophy.** The default hook text must defer to
+`sections/test-philosophy.md`: apply the RED-GREEN-REFACTOR cycle to the
+meaningful tests that philosophy already calls for (custom logic, critical
+paths, edge cases) — not to gold-plate trivial or framework code. This keeps the
+two coherent: *what* to test stays governed by the test philosophy at
+task-generation time; *how* to build it (test-first) becomes the overridable
+execution default.
+
 ## Risk Considerations and Mitigation Strategies
 
 <details>
 <summary>Principle-Drift Risks</summary>
 
-- **Over-adoption that alters Strikethroo's identity** (e.g. importing strict
-  TDD RED-GREEN-REFACTOR as a mandatory execution gate, the full six-phase
-  DEFINE→…→SHIP lifecycle, or git-worktree workflow): These conflict with
-  Strikethroo's "few tests, mostly integration" philosophy and its deliberately
-  narrow plan→tasks→blueprint scope.
-    - **Mitigation**: Scope is fixed to prompt-text enforcement of *existing*
-      principles. The Notes section enumerates explicitly-rejected techniques;
-      task generation must reject any task tracing to them.
+- **Over-adoption that alters Strikethroo's identity** (e.g. the full six-phase
+  DEFINE→…→SHIP lifecycle or git-worktree workflow): These conflict with
+  Strikethroo's deliberately narrow plan→tasks→blueprint scope.
+    - **Mitigation**: Scope is fixed to prompt-text/hook enforcement of
+      *existing* principles. The Notes section enumerates explicitly-rejected
+      techniques; task generation must reject any task tracing to them.
+- **TDD imposed as a non-negotiable gate** would override the "few tests, mostly
+  integration" philosophy for projects that don't want it.
+    - **Mitigation**: Component F ships TDD only as the *default*
+      `PRE_TASK_EXECUTION` hook body, overridable per project via init's
+      hash-tracked hook copy; the hook defers to `test-philosophy.md` for which
+      tests are worth writing.
 </details>
 
 <details>
@@ -285,7 +327,11 @@ regression.
    carry no workflow summary, and remain within the SDO token budget.
 5. A prompt-authoring house-style guide exists under `src/skill-prompts/` and is
    linked from `AGENTS.md`.
-6. `npm run build` succeeds (prompts reassemble with no unresolved directives)
+6. The default `templates/strikethroo/config/hooks/PRE_TASK_EXECUTION.md` hook
+   contains a RED-GREEN-REFACTOR cycle that defers to the test philosophy, and a
+   fresh `init` copies it into a project's `config/hooks/` where it can be
+   overridden (verified by re-`init` preserving an edited copy).
+7. `npm run build` succeeds (prompts reassemble with no unresolved directives)
    and `workspaceSchemaVersion` is unchanged (still `1`).
 
 ## Self Validation
@@ -308,8 +354,14 @@ After all tasks are complete, an executing agent must verify by:
    `build-skills.cjs` still passes during the build.
 5. Run `npm run test:unit` and confirm it passes (no behavior-level regressions
    from prompt edits).
-6. Diff `git status`/`git diff --stat` to confirm only `src/skill-prompts/**`,
-   the regenerated `templates/harness/skills/*/SKILL.md`, and docs
+6. Run `node dist/cli.js init --harnesses claude --destination-directory /tmp/st-tdd-check`
+   and confirm the generated
+   `/tmp/st-tdd-check/.ai/strikethroo/config/hooks/PRE_TASK_EXECUTION.md`
+   contains the RED-GREEN-REFACTOR cycle; then edit that copy, re-run `init`
+   without `--force`, and confirm the edit is preserved (override works).
+7. Diff `git status`/`git diff --stat` to confirm only `src/skill-prompts/**`,
+   the regenerated `templates/harness/skills/*/SKILL.md`,
+   `templates/strikethroo/config/hooks/PRE_TASK_EXECUTION.md`, and docs
    (`AGENTS.md`/README) changed — no `src/skill-scripts/**`, `src/serve/**`, or
    `src/web/**` files were touched.
 
@@ -320,7 +372,8 @@ After all tasks are complete, an executing agent must verify by:
 - `AGENTS.md` — add a short pointer under "Prompt source of truth" to the new
   authoring guide, and note the shared `anti-rationalization.md`,
   `verification-gate.md`, and `clarification-gate.md` sections alongside the
-  existing `sections/` description.
+  existing `sections/` description. Also note, near the hooks list, that
+  `PRE_TASK_EXECUTION` now ships a default (overridable) TDD discipline.
 
 ## Resource Requirements
 
@@ -349,12 +402,18 @@ unaffected; existing installed workspaces keep working without re-`init`.
 
 ## Notes
 
+**Adopted with a compatibility guard**:
+
+- TDD RED-GREEN-REFACTOR (superpowers / agent-skills) is adopted (Component F)
+  but **only as the default, project-overridable `PRE_TASK_EXECUTION` hook** —
+  never as a hard-coded, non-negotiable skill gate. This honours the work-order
+  constraint by leaving Strikethroo's "write a few tests, mostly integration"
+  philosophy in control for any project that wants it: the hook is theirs to
+  edit, and it defers to `test-philosophy.md` for what is worth testing.
+
 **Deliberately rejected to preserve Strikethroo's principles** (work-order
 constraint: "we don't want to significantly alter the strikethroo principles"):
 
-- Strict TDD RED-GREEN-REFACTOR as a *mandatory execution* gate (superpowers /
-  agent-skills) — conflicts with Strikethroo's "write a few tests, mostly
-  integration" philosophy.
 - The full six-phase DEFINE→PLAN→BUILD→VERIFY→REVIEW→SHIP lifecycle and
   slash-command-per-phase model (agent-skills) — Strikethroo intentionally
   scopes to plan→tasks→blueprint.

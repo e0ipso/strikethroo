@@ -1,6 +1,6 @@
 ---
 name: st-refine-plan
-description: Use when the user asks to review, refine, improve, interrogate, pressure-test, or update an existing Strikethroo plan by plan ID in this repository — triggers include refine plan, improve plan, review plan, red-team the plan, update plan. Do not use to create a new plan, to generate tasks, or for generic brainstorming outside Strikethroo.
+description: Refine an existing Strikethroo plan in this repository. Use when the user asks to review, improve, interrogate, or update a specific plan ID — discovers the local .ai/strikethroo root, resolves the plan, runs the project's plan hooks, pressure-tests the document for gaps and contradictions, gathers clarifications interactively or autonomously, and updates the plan in-place while preserving its identity and structure. Do not use for creating new plans or for generic brainstorming outside Strikethroo.
 ---
 
 # st-refine-plan
@@ -55,7 +55,6 @@ Read these files, in order:
   before proceeding.
 - `<root>/config/templates/PLAN_TEMPLATE.md` — the structural baseline the
   refined plan must continue to conform to.
-- `<root>/config/shared/clarification-gate.md` — apply in the Clarification Loop.
 
 ### 4. Baseline Review
 
@@ -108,19 +107,16 @@ appropriately.
 Think harder before interrupting the user — only trigger this loop when you
 can cite concrete uncertainties.
 
-Follow the clarification cadence in `<root>/config/shared/clarification-gate.md`.
-
 1. Review the gaps documented in the Baseline Review.
 2. If no gaps remain, stop here and proceed to Stage 6.
-3. Group the open questions by theme, but ask them one at a time per the
-   cadence above rather than dumping them as a single batch.
+3. Build a clarification packet grouped by theme.
 4. Prefill each question with the most plausible answer so the user can
    confirm or deny quickly.
 5. Always include an "Other / open-ended" option to capture nuances you did
    not anticipate.
-6. **STOP AND ASK**: Put each question to the user and halt execution to await
-   their input. Do not simulate the user's response. Do not proceed to Stage 6
-   until you have received explicit answers and confirmed the resolved scope.
+6. **STOP AND ASK**: Present the clarification packet to the user. You must
+   halt execution here and await user input. Do not simulate the user's
+   response. Do not proceed to Stage 6 until you have received explicit answers.
 7. After receiving answers, record them in the Plan Clarifications table.
    If the user cannot answer a question, record it as unresolved with
    mitigation notes so downstream assistants know the risk.

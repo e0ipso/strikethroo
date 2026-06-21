@@ -1,6 +1,6 @@
 ---
 name: st-execute-task
-description: Use when the user asks to run, execute, or implement one specific task ID within a Strikethroo plan in this repository — triggers include execute task, run task, implement task, do task N. Do not use to execute a whole plan or blueprint, to generate tasks, or for generic development outside Strikethroo.
+description: Execute a single task from a Strikethroo plan. Use when the user asks to run, implement, or carry out one specific task ID within a plan — discovers the local .ai/strikethroo root, resolves the plan, validates the task file, checks status and dependencies, runs pre-execution hooks, deploys an agent, updates status, documents noteworthy events, and emits a structured Task Execution Result. Do not use for generic development work outside Strikethroo.
 ---
 
 # st-execute-task

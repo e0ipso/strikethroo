@@ -1,6 +1,6 @@
 ---
 name: st-generate-tasks
-description: Use when the user asks to decompose, break down, or generate tasks for an existing Strikethroo plan ID in this repository — triggers include generate tasks, break down the plan, decompose plan, create the task blueprint. Do not use to create a new plan, to execute tasks, or for generic project planning outside Strikethroo.
+description: Generate atomic Markdown tasks for an existing Strikethroo plan in this repository. Use when the user asks to decompose a specific plan ID into tasks — discovers the local .ai/strikethroo root, resolves the plan, runs the project's task-generation hooks, allocates sequential task IDs, and writes one task file per atomic unit conforming to TASK_TEMPLATE.md. Do not use for generic project planning or work outside Strikethroo.
 ---
 
 # st-generate-tasks
@@ -56,7 +56,6 @@ Read these files, in order:
   what tasks must exist.
 - `<root>/config/templates/TASK_TEMPLATE.md` — every task file you emit must
   conform to this template's frontmatter schema and section structure.
-- `<root>/config/shared/anti-rationalization.md` — apply in step 4.
 
 ### 4. Analyze and decompose the plan
 
@@ -86,15 +85,6 @@ Decompose each deliverable into atomic tasks only when genuinely needed.
   not mention.
 - Comprehensive test suites for trivial functionality.
 
-Apply `<root>/config/shared/anti-rationalization.md` to this rationalization table:
-
-| You catch yourself thinking… | The binding rule |
-| --- | --- |
-| "One extra task won't hurt." | It violates the 20–30% minimization target. Every task traces to an **explicitly stated** deliverable or it does not exist. |
-| "This edge case deserves its own task." | Fold it into the task that owns the behavior. Do not split trivially small operations into separate units. |
-| "I'll add a test suite to be safe." | Comprehensive tests for trivial functionality are gold-plating. Follow the test philosophy — meaningful tests only. |
-| "Future extensibility justifies this task." | YAGNI. The plan does not mention it, so it is not a task. |
-
 ### 5. Apply granularity and skill rules
 
 Each task must be:
@@ -102,9 +92,7 @@ Each task must be:
 - **Single-purpose** — one clear deliverable.
 - **Atomic** — cannot be meaningfully split further.
 - **Skill-specific** — executable by an agent with 1–2 technical skills.
-- **Verifiable** — has explicit acceptance criteria that include at least one
-  concrete, runnable verification step (a command plus its expected output, or
-  another observable signal). Never settle for a vague "works correctly".
+- **Verifiable** — has explicit acceptance criteria.
 
 Skill assignment (kebab-case, automatically inferred from the task's
 technical requirements):
@@ -210,9 +198,6 @@ Before declaring task generation complete, verify:
 - Task IDs are unique, sequential, and start from the value returned by
   `get-next-task-id.cjs`.
 - Groups are consistent and meaningful.
-- Every task's Acceptance Criteria includes at least one concrete, runnable
-  verification step (command + expected output / observable signal), not a
-  vague "works correctly".
 - Every **explicitly stated** deliverable in the plan is covered.
 - No redundant or overlapping tasks.
 - Minimization applied (20–30% reduction target).

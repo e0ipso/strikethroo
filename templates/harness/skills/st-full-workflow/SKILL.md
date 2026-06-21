@@ -1,6 +1,6 @@
 ---
 name: st-full-workflow
-description: Use when the user asks to run the complete end-to-end Strikethroo workflow for a work order in one shot in this repository — triggers include full workflow, end-to-end, plan and execute, do everything, run the whole strikethroo workflow. Do not use when the user wants only one stage (create a plan, generate tasks, or execute a blueprint); use the dedicated skill for that stage instead.
+description: Execute the complete Strikethroo workflow from plan creation through blueprint execution for this repository. Use when the user asks to run the full end-to-end workflow for a work order — discovers the local .ai/strikethroo root, creates a plan, generates atomic tasks, and executes the blueprint, all in a single uninterrupted sequence. Do not use for individual plan creation, task generation, or blueprint execution; use the dedicated skills for those.
 ---
 
 # st-full-workflow
@@ -166,9 +166,7 @@ Each task must be:
 - **Single-purpose** — one clear deliverable.
 - **Atomic** — cannot be meaningfully split further.
 - **Skill-specific** — executable by an agent with 1–2 technical skills.
-- **Verifiable** — has explicit acceptance criteria that include at least one
-  concrete, runnable verification step (a command plus its expected output, or
-  another observable signal). Never settle for a vague "works correctly".
+- **Verifiable** — has explicit acceptance criteria.
 
 Skill assignment (kebab-case, automatically inferred from the task's
 technical requirements):
@@ -268,9 +266,6 @@ Before declaring task generation complete, verify:
 - Task IDs are unique, sequential, and start from the value returned by
   `get-next-task-id.cjs`.
 - Groups are consistent and meaningful.
-- Every task's Acceptance Criteria includes at least one concrete, runnable
-  verification step (command + expected output / observable signal), not a
-  vague "works correctly".
 - Every **explicitly stated** deliverable in the plan is covered.
 - No redundant or overlapping tasks.
 - Minimization applied (20–30% reduction target).
@@ -339,7 +334,6 @@ Read these files in order:
 - `<root>/config/STRIKETHROO.md` — directory conventions and project context.
 - The plan document.
 - The plan's Execution Blueprint section — this defines the phase groupings and task dispatch order.
-- `<root>/config/shared/verification-gate.md` — apply in the phase loop below.
 
 #### 5. Execute phases in order
 
@@ -363,8 +357,6 @@ Maximize parallelism within each phase. Run every task that is ready at the same
 ##### 5c. Phase completion verification
 Ensure every task in the phase has status `completed`. Collect and review all task outputs. Document any issues or exceptions encountered.
 
-Do not accept a subagent's report of success as proof. Apply the evidence gate in `<root>/config/shared/verification-gate.md` before marking the phase complete. Do not mark a phase complete on an unverified claim.
-
 ##### 5d. Phase post-execution
 Read `<root>/config/hooks/POST_PHASE.md` and execute its instructions. Do not proceed to the next phase until this hook succeeds.
 
@@ -375,8 +367,6 @@ Repeat for the next phase until all phases are complete.
 #### 6. Post-execution validation
 
 Read `<root>/config/hooks/POST_EXECUTION.md` and execute its instructions. If validation fails, halt execution. The plan remains in `plans/` for debugging.
-
-Before declaring execution complete, apply the evidence gate in `<root>/config/shared/verification-gate.md` to the plan's Success Criteria and Self Validation steps.
 
 #### 7. Append execution summary
 

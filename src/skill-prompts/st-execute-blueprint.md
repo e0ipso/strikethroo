@@ -61,12 +61,13 @@ Read these files, in order:
 - `<root>/config/STRIKETHROO.md` — directory conventions and project context.
 - The plan document at the path returned by step 2.
 - The plan's Execution Blueprint section — this defines the phase groupings and task dispatch order.
+- `<root>/config/shared/verification-gate.md` and `<root>/config/shared/anti-rationalization.md` (if present) — the shared enforcement disciplines this skill applies; keep them in context, the phase loop below requires them.
 
 ### 7. Execute phases in order
 
 {{include sections/phase-execution-loop.md}}
 
-If `<root>/config/shared/anti-rationalization.md` exists, read it and apply it to this rationalization table:
+Apply `<root>/config/shared/anti-rationalization.md` (loaded with project context) to this rationalization table:
 
 | You catch yourself thinking… | The binding rule |
 | --- | --- |

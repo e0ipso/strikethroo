@@ -39,12 +39,14 @@ Read these files, in order:
   what tasks must exist.
 - `<root>/config/templates/TASK_TEMPLATE.md` — every task file you emit must
   conform to this template's frontmatter schema and section structure.
+- `<root>/config/shared/anti-rationalization.md` (if present) — the shared
+  enforcement discipline this skill applies; keep it in context for step 4.
 
 ### 4. Analyze and decompose the plan
 
 {{include sections/task-minimization.md}}
 
-If `<root>/config/shared/anti-rationalization.md` exists, read it and apply it to this rationalization table:
+Apply `<root>/config/shared/anti-rationalization.md` (loaded with project context) to this rationalization table:
 
 | You catch yourself thinking… | The binding rule |
 | --- | --- |

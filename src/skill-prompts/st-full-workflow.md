@@ -227,6 +227,7 @@ Read these files in order:
 - `<root>/config/STRIKETHROO.md` — directory conventions and project context.
 - The plan document.
 - The plan's Execution Blueprint section — this defines the phase groupings and task dispatch order.
+- `<root>/config/shared/verification-gate.md` (if present) — the shared evidence gate this skill applies; keep it in context, the phase loop below requires it.
 
 #### 5. Execute phases in order
 

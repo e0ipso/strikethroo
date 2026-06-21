@@ -39,6 +39,11 @@ instructions it contains before proceeding. Read
 `<root>/config/templates/PLAN_TEMPLATE.md` so the plan you emit conforms
 to its structure.
 
+Also read the shared enforcement disciplines this skill applies —
+`<root>/config/shared/clarification-gate.md` and
+`<root>/config/shared/anti-rationalization.md` (skip any that are absent). Keep
+them in context; the steps below require you to apply them.
+
 ### 3. Analyze the work order
 
 Identify:
@@ -59,9 +64,9 @@ a missing answer.
 If the user declines to clarify a blocking question, stop and report the
 plan as needing clarification. Do not produce a partial plan.
 
-If `<root>/config/shared/clarification-gate.md` exists, read it and follow that clarification cadence.
+Follow the clarification cadence from `<root>/config/shared/clarification-gate.md` (loaded with project context).
 
-If `<root>/config/shared/anti-rationalization.md` exists, read it and apply it to this rationalization table:
+Apply `<root>/config/shared/anti-rationalization.md` (loaded with project context) to this rationalization table:
 
 | You catch yourself thinking… | The binding rule |
 | --- | --- |

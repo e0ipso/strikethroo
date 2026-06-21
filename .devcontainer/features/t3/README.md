@@ -25,6 +25,9 @@ folder):
   `bin` to `PATH` (the project's `devcontainer.json` does this via `remoteEnv`).
 - The install runs as the remote (non-root) user so the binary is visible at
   runtime rather than landing in root's home.
+- Bundles `devcontainer-settings.json` (Cursor provider enabled) into
+  `/usr/local/share/t3-devcontainer/settings.json` as the default seed when no
+  host copy is mounted.
 
 ## Project mounts
 
@@ -37,10 +40,12 @@ settings from a read-only host copy.
 | `~/.t3/devcontainer/settings.json` | `/home/node/.cred-seed/t3/settings.json` | read-only seed bind |
 
 `T3CODE_HOME` is set to `/home/node/.t3`. On container start,
-`.devcontainer/scripts/seed-t3-settings.sh` copies the read-only seed to
+`.devcontainer/scripts/seed-t3-settings.sh` copies settings to
 `$T3CODE_HOME/userdata/settings.json` only when that runtime file does not
-already exist. This prevents t3 from editing the host file while still letting
-the container's server settings drift after the first seed.
+already exist. It prefers the read-only host seed when mounted; otherwise it
+falls back to the feature's bundled default (Cursor enabled). This prevents t3
+from editing the host file while still letting the container's server settings
+drift after the first seed.
 
 Do not point the read-only seed at the live desktop
 `~/.t3/userdata/settings.json`; t3 writes settings atomically, so a live

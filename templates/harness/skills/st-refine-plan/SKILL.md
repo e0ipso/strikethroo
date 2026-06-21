@@ -55,9 +55,8 @@ Read these files, in order:
   before proceeding.
 - `<root>/config/templates/PLAN_TEMPLATE.md` — the structural baseline the
   refined plan must continue to conform to.
-- `<root>/config/shared/clarification-gate.md` (if present) — the shared
-  clarification discipline this skill applies; keep it in context for the
-  Clarification Loop.
+- `<root>/config/shared/clarification-gate.md` — the shared clarification
+  discipline this skill applies; keep it in context for the Clarification Loop.
 
 ### 4. Baseline Review
 

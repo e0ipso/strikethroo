@@ -41,8 +41,8 @@ to its structure.
 
 Also read the shared enforcement disciplines this skill applies —
 `<root>/config/shared/clarification-gate.md` and
-`<root>/config/shared/anti-rationalization.md` (skip any that are absent). Keep
-them in context; the steps below require you to apply them.
+`<root>/config/shared/anti-rationalization.md`. Keep them in context; the steps
+below require you to apply them.
 
 ### 3. Analyze the work order
 

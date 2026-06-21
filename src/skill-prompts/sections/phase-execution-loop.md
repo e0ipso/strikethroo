@@ -18,7 +18,7 @@ Maximize parallelism within each phase. Run every task that is ready at the same
 {{heading}} {{phase_step}}c. Phase completion verification
 Ensure every task in the phase has status `completed`. Collect and review all task outputs. Document any issues or exceptions encountered.
 
-Do not accept a subagent's report of success as proof. Apply the evidence gate from `<root>/config/shared/verification-gate.md` (loaded with project context; skip only if that file is absent) before marking the phase complete. Do not mark a phase complete on an unverified claim.
+Do not accept a subagent's report of success as proof. Apply the evidence gate from `<root>/config/shared/verification-gate.md` (loaded with project context) before marking the phase complete. Do not mark a phase complete on an unverified claim.
 
 {{heading}} {{phase_step}}d. Phase post-execution
 Read `<root>/config/hooks/POST_PHASE.md` and execute its instructions. Do not proceed to the next phase until this hook succeeds.

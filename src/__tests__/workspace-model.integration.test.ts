@@ -72,7 +72,7 @@ describe('workspace-model against synthetic fixtures', () => {
   const writeMetadata = (root: string): void => {
     fs.writeFileSync(
       path.join(root, '.init-metadata.json'),
-      JSON.stringify({ version: '0.0.0', workspaceSchemaVersion: 1 }),
+      JSON.stringify({ version: '0.0.0', workspaceSchemaVersion: 2 }),
       'utf8'
     );
   };

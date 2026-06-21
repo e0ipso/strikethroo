@@ -6,9 +6,9 @@ declare const EXPECTED_WORKSPACE_SCHEMA_VERSION: number;
 // In the bundled .cjs, esbuild's `define` substitutes the identifier with an
 // integer literal. In direct TS execution (Vitest), the ambient declaration
 // has no runtime value; the `typeof` guard avoids a ReferenceError and falls
-// back to the initial schema version.
+// back to the current schema version used by source-level tests.
 const EXPECTED_SCHEMA: number =
-  typeof EXPECTED_WORKSPACE_SCHEMA_VERSION !== 'undefined' ? EXPECTED_WORKSPACE_SCHEMA_VERSION : 1;
+  typeof EXPECTED_WORKSPACE_SCHEMA_VERSION !== 'undefined' ? EXPECTED_WORKSPACE_SCHEMA_VERSION : 2;
 
 const isValidStrikethrooRoot = (strikethrooPath: string): boolean => {
   try {

@@ -1,3 +1,11 @@
+## 3.5.0 (2026-06-21)
+
+* docs: update Kenkeep ([2dc934f](https://github.com/e0ipso/strikethroo/commit/2dc934f))
+* docs(plan): add strikethroo prompt-improvement plan from skills-framework correlation (#39) ([82995a3](https://github.com/e0ipso/strikethroo/commit/82995a3)), closes [#39](https://github.com/e0ipso/strikethroo/issues/39)
+* feat(devcontainer): enable Cursor in t3 via bundled default settings ([dc93599](https://github.com/e0ipso/strikethroo/commit/dc93599))
+* chore: improve devcontainer ([1220785](https://github.com/e0ipso/strikethroo/commit/1220785))
+* chore: update kenkeep workspace ([58ca988](https://github.com/e0ipso/strikethroo/commit/58ca988))
+
 ## <small>3.4.2 (2026-06-17)</small>
 
 * fix: use composite plan name for task links (#33) ([fb71586](https://github.com/e0ipso/strikethroo/commit/fb71586)), closes [#33](https://github.com/e0ipso/strikethroo/issues/33)

@@ -72,7 +72,9 @@ Runtime logic each skill needs is authored once in TypeScript under `src/skill-s
 
 ### Prompt source of truth
 
-Each `SKILL.md` is assembled at build time from source templates in `src/skill-prompts/`. Shared procedural blocks live in `src/skill-prompts/sections/`, referenced via `{{include sections/<name>.md}}`; per-skill differences use `{{variable}}` substitution from the template's frontmatter `vars` block. See `src/skill-prompts/README.md`.
+Each `SKILL.md` is assembled at build time from source templates in `src/skill-prompts/`. Shared procedural blocks live in `src/skill-prompts/sections/`, referenced via `{{include sections/<name>.md}}`; per-skill differences use `{{variable}}` substitution from the template's frontmatter `vars` block. See `src/skill-prompts/README.md` for assembly mechanics and `src/skill-prompts/AUTHORING.md` for the prompt-authoring house style (form-over-narrative, "no nuance clauses", anti-rationalization tables, Skill Discovery Optimization for descriptions, imperative phrasing) — read it before editing prompt content.
+
+Enforcement-discipline blocks shared across skills live alongside the procedural sections: `sections/anti-rationalization.md` (excuse → counter framing + red-flags list, injected with skill-specific tables into `st-create-plan`, `st-generate-tasks`, `st-execute-blueprint`), `sections/verification-gate.md` (the 5-step evidence-before-claims gate, wired into the phase-completion and post-execution loops), and `sections/clarification-gate.md` (one-question-at-a-time, multiple-choice-first, pre-emit approval gate, reused by `st-create-plan` and `st-refine-plan`).
 
 ---
 
@@ -190,7 +192,9 @@ project/
 │   ├── config/
 │   │   ├── STRIKETHROO.md         # Project context
 │   │   ├── hooks/                 # PRE_PLAN, POST_PLAN, PRE_PHASE, POST_PHASE, PRE_TASK_ASSIGNMENT,
-│   │   │                          #   PRE_TASK_EXECUTION, POST_TASK_GENERATION_ALL, POST_EXECUTION, POST_ERROR_DETECTION
+│   │   │                          #   PRE_TASK_EXECUTION (ships a default, overridable TDD red-green-refactor
+│   │   │                          #   discipline that defers to the test philosophy), POST_TASK_GENERATION_ALL,
+│   │   │                          #   POST_EXECUTION, POST_ERROR_DETECTION
 │   │   └── templates/             # PLAN_TEMPLATE.md, TASK_TEMPLATE.md
 └── .claude/agents/                # Claude-only sub-agents copied by `init`
 ```

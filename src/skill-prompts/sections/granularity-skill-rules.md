@@ -3,7 +3,9 @@ Each task must be:
 - **Single-purpose** — one clear deliverable.
 - **Atomic** — cannot be meaningfully split further.
 - **Skill-specific** — executable by an agent with 1–2 technical skills.
-- **Verifiable** — has explicit acceptance criteria.
+- **Verifiable** — has explicit acceptance criteria that include at least one
+  concrete, runnable verification step (a command plus its expected output, or
+  another observable signal). Never settle for a vague "works correctly".
 
 Skill assignment (kebab-case, automatically inferred from the task's
 technical requirements):

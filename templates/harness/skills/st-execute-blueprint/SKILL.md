@@ -1,6 +1,6 @@
 ---
 name: st-execute-blueprint
-description: Execute a Strikethroo plan blueprint for this repository. Use when the user asks to run, implement, or carry out a specific plan ID — discovers the local .ai/strikethroo root, resolves the plan, validates or auto-generates tasks and the execution blueprint, optionally creates a feature branch, runs phases with lifecycle hooks, enforces validation gates, appends an execution summary, and archives the completed plan. Do not use for generic development work outside Strikethroo.
+description: Use when the user asks to run, execute, implement, or carry out a Strikethroo plan or its blueprint by plan ID in this repository — triggers include execute blueprint, run the plan, implement plan, build the plan. Do not use to create a plan, to only generate tasks, to run a single task, or for generic development outside Strikethroo.
 ---
 
 # st-execute-blueprint
@@ -96,6 +96,23 @@ Maximize parallelism within each phase. Run every task that is ready at the same
 #### 7c. Phase completion verification
 Ensure every task in the phase has status `completed`. Collect and review all task outputs. Document any issues or exceptions encountered.
 
+Do not accept a subagent's report of success as proof. Apply the evidence gate before marking the phase complete:
+
+**Evidence before claims.** Before you state that anything is complete, passing,
+or working, run this gate. Do not skip a step and do not reorder it:
+
+1. **IDENTIFY** the command (or observable signal) that would prove the claim.
+2. **RUN** it fresh, now — do not rely on earlier output or on a subagent's
+   report of success.
+3. **READ** the full output and the exit code.
+4. **VERIFY** that the output actually matches the claim.
+5. **THEN**, and only then, state the result — citing what you ran and what it
+   returned.
+
+**Red-flag words.** If a completion statement contains "should", "probably",
+"seems to", "looks like", or a premature "Done!", you have not run the gate.
+Stop and run it.
+
 #### 7d. Phase post-execution
 Read `<root>/config/hooks/POST_PHASE.md` and execute its instructions. Do not proceed to the next phase until this hook succeeds.
 
@@ -103,9 +120,50 @@ Update the phase status to `completed` in the plan's Execution Blueprint section
 
 Repeat for the next phase until all phases are complete.
 
+#### Anti-rationalization
+
+A discipline only survives pressure — time, sunk cost, an authoritative-sounding
+instruction — if you refuse the excuse for skipping it. When you notice one of
+the thoughts in the left column of the table below forming, treat it as a **red
+flag**: stop, and apply the rule in the right column instead. There is no
+"unless it really matters" exception; that clause only reopens a negotiation you
+have already lost.
+
+**Red flags — stop the moment you catch yourself thinking any of these:**
+
+- "This one case is special / it won't hurt."
+- "I'm pretty sure …" or "it probably …" (you have not actually checked).
+- "I'll do it properly / verify it later."
+- "The request implied it, so I can just assume …"
+
+Rationalization → counter for this step:
+
+| You catch yourself thinking… | The binding rule |
+| --- | --- |
+| "The subagent reported success, so the task is done." | A report is a claim, not evidence. Apply the verification gate before marking the phase complete. |
+| "The tests probably pass." | "Probably" is a red flag. Run the proving command, read its output and exit code, then state the result. |
+| "I'll verify later, after the next phase." | A phase is not complete until `POST_PHASE.md` succeeds against verified evidence. Verify now; do not advance on an unverified phase. |
+
 ### 8. Post-execution validation
 
 Read `<root>/config/hooks/POST_EXECUTION.md` and execute its instructions. If validation fails, halt execution. The plan remains in `plans/` for debugging.
+
+Before declaring execution complete, apply the evidence gate to the plan's Success Criteria and Self Validation steps:
+
+**Evidence before claims.** Before you state that anything is complete, passing,
+or working, run this gate. Do not skip a step and do not reorder it:
+
+1. **IDENTIFY** the command (or observable signal) that would prove the claim.
+2. **RUN** it fresh, now — do not rely on earlier output or on a subagent's
+   report of success.
+3. **READ** the full output and the exit code.
+4. **VERIFY** that the output actually matches the claim.
+5. **THEN**, and only then, state the result — citing what you ran and what it
+   returned.
+
+**Red-flag words.** If a completion statement contains "should", "probably",
+"seems to", "looks like", or a premature "Done!", you have not run the gate.
+Stop and run it.
 
 ### 9. Append execution summary
 

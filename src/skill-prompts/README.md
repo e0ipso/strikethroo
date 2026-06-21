@@ -7,6 +7,12 @@ time, writing self-contained output to `templates/harness/skills/*/SKILL.md`.
 
 This mirrors how `src/skill-scripts/*.ts` produces `.cjs` bundles.
 
+> **Before editing prompt content**, read [`AUTHORING.md`](./AUTHORING.md) — the
+> house-style guide for *how* to write these prompts (form-over-narrative, the
+> "no nuance clauses" rule, anti-rationalization tables, Skill Discovery
+> Optimization for descriptions, imperative phrasing). This file (`README.md`)
+> covers the assembly *mechanics*; `AUTHORING.md` covers the writing discipline.
+
 ## Directory layout
 
 ```

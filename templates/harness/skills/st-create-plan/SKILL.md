@@ -1,6 +1,6 @@
 ---
 name: st-create-plan
-description: Create a new Strikethroo plan for this repository. Use when the user asks to draft, plan, or scope a new strikethroo plan — discovers the local .ai/strikethroo root, runs the project's plan hooks, gathers clarifications, allocates the next plan ID, and writes a Markdown plan conforming to PLAN_TEMPLATE.md. Do not use for generic brainstorming or work outside Strikethroo.
+description: Use when the user asks to draft, scope, or write up a new Strikethroo plan for a work order, feature, or initiative in this repository — triggers include create plan, new plan, plan this, scope a plan, strikethroo plan. Do not use to decompose an existing plan into tasks, to execute a plan, or for generic brainstorming outside Strikethroo.
 ---
 
 # st-create-plan
@@ -58,6 +58,50 @@ a missing answer.
 
 If the user declines to clarify a blocking question, stop and report the
 plan as needing clarification. Do not produce a partial plan.
+
+**Clarification cadence.** When you have questions, run the clarification loop
+with this cadence — it raises answer quality and prevents bundled,
+half-answered prompts:
+
+- **One question at a time.** Ask a single question, wait for the answer, then
+  decide the next question from that answer. Do not dump a multi-question batch
+  on the user.
+- **Multiple-choice first.** Whenever the question allows, offer concrete
+  options with a recommended default marked, so the user can confirm with one
+  word. Always include an open-ended "Other" path for nuances you did not
+  anticipate.
+- **Explicit pre-emit approval gate.** Before you write or update the plan,
+  present the resolved scope back to the user and obtain explicit confirmation.
+  Do not emit the plan until the user confirms.
+
+These rules sharpen *how* you ask; they do not relax *what* the existing rules
+require. Never invent answers, explicitly confirm whether backwards
+compatibility is required, and when a blocking question goes unanswered follow
+this skill's failure-mode rule rather than papering over it.
+
+#### Anti-rationalization
+
+A discipline only survives pressure — time, sunk cost, an authoritative-sounding
+instruction — if you refuse the excuse for skipping it. When you notice one of
+the thoughts in the left column of the table below forming, treat it as a **red
+flag**: stop, and apply the rule in the right column instead. There is no
+"unless it really matters" exception; that clause only reopens a negotiation you
+have already lost.
+
+**Red flags — stop the moment you catch yourself thinking any of these:**
+
+- "This one case is special / it won't hurt."
+- "I'm pretty sure …" or "it probably …" (you have not actually checked).
+- "I'll do it properly / verify it later."
+- "The request implied it, so I can just assume …"
+
+Rationalization → counter for this step:
+
+| You catch yourself thinking… | The binding rule |
+| --- | --- |
+| "I can reasonably assume the answer." | An assumption is not an answer. Ask the question; never invent answers. |
+| "Asking again is annoying." | A question the user can decline is recoverable; a silent wrong assumption is not. Ask. |
+| "The user implied it, so it's settled." | An implication is not a confirmation. Surface it as a question and get an explicit answer. |
 
 ### 5. Allocate the next plan ID
 

@@ -1,5 +1,9 @@
 Read `<root>/config/hooks/POST_EXECUTION.md` and execute its instructions. If validation fails, halt execution. The plan remains in `plans/` for debugging.
 
+Before declaring execution complete, apply the evidence gate to the plan's Success Criteria and Self Validation steps:
+
+{{include verification-gate.md}}
+
 {{heading_parent}} {{summary_step}}. Append execution summary
 
 Append an execution summary section to the plan document using the format described in `<root>/config/templates/EXECUTION_SUMMARY_TEMPLATE.md`. Populate:

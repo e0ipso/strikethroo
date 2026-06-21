@@ -1,6 +1,6 @@
 ---
 name: st-refine-plan
-description: Refine an existing Strikethroo plan in this repository. Use when the user asks to review, improve, interrogate, or update a specific plan ID — discovers the local .ai/strikethroo root, resolves the plan, runs the project's plan hooks, pressure-tests the document for gaps and contradictions, gathers clarifications interactively or autonomously, and updates the plan in-place while preserving its identity and structure. Do not use for creating new plans or for generic brainstorming outside Strikethroo.
+description: Use when the user asks to review, refine, improve, interrogate, pressure-test, or update an existing Strikethroo plan by plan ID in this repository — triggers include refine plan, improve plan, review plan, red-team the plan, update plan. Do not use to create a new plan, to generate tasks, or for generic brainstorming outside Strikethroo.
 ---
 
 # st-refine-plan
@@ -107,16 +107,37 @@ appropriately.
 Think harder before interrupting the user — only trigger this loop when you
 can cite concrete uncertainties.
 
+**Clarification cadence.** When you have questions, run the clarification loop
+with this cadence — it raises answer quality and prevents bundled,
+half-answered prompts:
+
+- **One question at a time.** Ask a single question, wait for the answer, then
+  decide the next question from that answer. Do not dump a multi-question batch
+  on the user.
+- **Multiple-choice first.** Whenever the question allows, offer concrete
+  options with a recommended default marked, so the user can confirm with one
+  word. Always include an open-ended "Other" path for nuances you did not
+  anticipate.
+- **Explicit pre-emit approval gate.** Before you write or update the plan,
+  present the resolved scope back to the user and obtain explicit confirmation.
+  Do not emit the plan until the user confirms.
+
+These rules sharpen *how* you ask; they do not relax *what* the existing rules
+require. Never invent answers, explicitly confirm whether backwards
+compatibility is required, and when a blocking question goes unanswered follow
+this skill's failure-mode rule rather than papering over it.
+
 1. Review the gaps documented in the Baseline Review.
 2. If no gaps remain, stop here and proceed to Stage 6.
-3. Build a clarification packet grouped by theme.
+3. Group the open questions by theme, but ask them one at a time per the
+   cadence above rather than dumping them as a single batch.
 4. Prefill each question with the most plausible answer so the user can
    confirm or deny quickly.
 5. Always include an "Other / open-ended" option to capture nuances you did
    not anticipate.
-6. **STOP AND ASK**: Present the clarification packet to the user. You must
-   halt execution here and await user input. Do not simulate the user's
-   response. Do not proceed to Stage 6 until you have received explicit answers.
+6. **STOP AND ASK**: Put each question to the user and halt execution to await
+   their input. Do not simulate the user's response. Do not proceed to Stage 6
+   until you have received explicit answers and confirmed the resolved scope.
 7. After receiving answers, record them in the Plan Clarifications table.
    If the user cannot answer a question, record it as unresolved with
    mitigation notes so downstream assistants know the risk.

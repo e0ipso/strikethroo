@@ -74,7 +74,7 @@ Runtime logic each skill needs is authored once in TypeScript under `src/skill-s
 
 Each `SKILL.md` is assembled at build time from source templates in `src/skill-prompts/`. Shared procedural blocks live in `src/skill-prompts/sections/`, referenced via `{{include sections/<name>.md}}`; per-skill differences use `{{variable}}` substitution from the template's frontmatter `vars` block. See `src/skill-prompts/README.md` for assembly mechanics and `src/skill-prompts/AUTHORING.md` for the prompt-authoring house style (form-over-narrative, "no nuance clauses", anti-rationalization tables, Skill Discovery Optimization for descriptions, imperative phrasing) — read it before editing prompt content.
 
-Enforcement-discipline blocks shared across skills live alongside the procedural sections: `sections/anti-rationalization.md` (excuse → counter framing, paired with skill-specific rationalization tables in `st-create-plan`, `st-generate-tasks`, `st-execute-blueprint`), `sections/verification-gate.md` (the evidence-before-claims gate, wired into `st-execute-blueprint`/`st-full-workflow`'s phase-completion step and back-referenced at post-execution), and `sections/clarification-gate.md` (one-question-at-a-time, multiple-choice-first, pre-emit approval gate, reused by `st-create-plan` and `st-refine-plan`).
+Enforcement disciplines shared **across** skills are not baked into each `SKILL.md`; they ship as project-customizable files under `config/shared/` (copied into the workspace by `init`, hash-tracked like hooks) and the skills read them **at runtime**, referenced defensively as "if `<root>/config/shared/<file>.md` exists, read it and apply it" so older workspaces without the files keep working (no schema bump). The three files: `verification-gate.md` (evidence-before-claims gate, applied at `st-execute-blueprint`/`st-full-workflow` phase-completion and post-execution), `clarification-gate.md` (one-question-at-a-time, multiple-choice-first, pre-emit approval, used by `st-create-plan`/`st-refine-plan`), and `anti-rationalization.md` (the excuse → red-flag framing; each consuming skill — `st-create-plan`, `st-generate-tasks`, `st-execute-blueprint` — supplies its own skill-specific rationalization table inline and points the agent at this shared framing). This mirrors how the `PRE_TASK_EXECUTION` TDD hook is shared.
 
 ---
 
@@ -195,6 +195,8 @@ project/
 │   │   │                          #   PRE_TASK_EXECUTION (ships a default, overridable TDD red-green-refactor
 │   │   │                          #   discipline that defers to the test philosophy), POST_TASK_GENERATION_ALL,
 │   │   │                          #   POST_EXECUTION, POST_ERROR_DETECTION
+│   │   ├── shared/                # Cross-skill disciplines read at runtime: verification-gate.md,
+│   │   │                          #   clarification-gate.md, anti-rationalization.md
 │   │   └── templates/             # PLAN_TEMPLATE.md, TASK_TEMPLATE.md
 └── .claude/agents/                # Claude-only sub-agents copied by `init`
 ```

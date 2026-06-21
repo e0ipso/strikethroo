@@ -27,10 +27,17 @@ Prefer steps, checkpoints, and checkable rules over paragraphs of advice.
 - **Descriptions are triggers, not summaries.** Lead with "Use when…", list
   triggering conditions + keywords, add a short "Do not use…" guard, and omit the
   workflow recitation. Keep it tight.
-- **Shared vs inline.** Extract a `sections/*.md` include when reused by 2+
-  templates; keep skill-specific content (e.g. rationalization rows) inline. The
-  `vars` parser is single-line only, so multi-row tables cannot be `{{variable}}`
-  values. Put heavy detail behind `<details>`.
+- **Shared vs inline vs runtime.** Three levels of reuse:
+  - *Build-time include* (`{{include sections/*.md}}`) — procedural blocks reused
+    by 2+ templates; inlined into each `SKILL.md` at build.
+  - *Runtime config* (`config/shared/*.md`, read via "if `<root>/config/shared/X.md`
+    exists, read it and apply it") — cross-skill enforcement disciplines a project
+    should be able to customize, like hooks. Keeps them out of every `SKILL.md` and
+    editable per project. Reference defensively ("if present") for backwards-compat.
+  - *Inline* — genuinely skill-specific content (e.g. a skill's own rationalization
+    rows). The `vars` parser is single-line only, so multi-row tables cannot be
+    `{{variable}}` values; keep them inline.
+  Put heavy detail behind `<details>`.
 
 ## After editing
 

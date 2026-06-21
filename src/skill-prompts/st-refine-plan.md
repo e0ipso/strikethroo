@@ -90,7 +90,7 @@ appropriately.
 Think harder before interrupting the user — only trigger this loop when you
 can cite concrete uncertainties.
 
-{{include sections/clarification-gate.md}}
+If `<root>/config/shared/clarification-gate.md` exists, read it and follow that clarification cadence.
 
 1. Review the gaps documented in the Baseline Review.
 2. If no gaps remain, stop here and proceed to Stage 6.

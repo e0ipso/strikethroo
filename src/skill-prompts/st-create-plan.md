@@ -53,9 +53,12 @@ a missing answer.
 If the user declines to clarify a blocking question, stop and report the
 plan as needing clarification. Do not produce a partial plan.
 
-{{include sections/clarification-gate.md}}
+If `<root>/config/shared/clarification-gate.md` exists, read it and follow that clarification cadence.
 
-{{include sections/anti-rationalization.md}}
+If `<root>/config/shared/anti-rationalization.md` exists, read it and apply it to this rationalization table:
+
+| You catch yourself thinking… | The binding rule |
+| --- | --- |
 | "I can reasonably assume the answer." | An assumption is not an answer. Ask the question; never invent answers. |
 | "Asking again is annoying." | A question the user can decline is recoverable; a silent wrong assumption is not. Ask. |
 | "The user implied it, so it's settled." | An implication is not a confirmation. Surface it as a question and get an explicit answer. |

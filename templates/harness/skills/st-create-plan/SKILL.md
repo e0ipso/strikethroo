@@ -59,17 +59,9 @@ a missing answer.
 If the user declines to clarify a blocking question, stop and report the
 plan as needing clarification. Do not produce a partial plan.
 
-**Clarification cadence.** When you have questions:
+If `<root>/config/shared/clarification-gate.md` exists, read it and follow that clarification cadence.
 
-- **One at a time.** Ask a single question, wait for the answer, then decide the next from it — do not dump a batch.
-- **Multiple-choice first.** When the question allows, offer options with a recommended default plus an open-ended "Other"; the user confirms in one word.
-- **Approval gate.** Present the resolved scope and get explicit confirmation before you write or update the plan.
-
-#### Anti-rationalization
-
-A discipline survives pressure only if you refuse the excuse to skip it. When a
-thought in the left column forms, treat it as a red flag and apply the right
-column — there is no "unless it matters" exception.
+If `<root>/config/shared/anti-rationalization.md` exists, read it and apply it to this rationalization table:
 
 | You catch yourself thinking… | The binding rule |
 | --- | --- |

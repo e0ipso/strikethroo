@@ -44,7 +44,10 @@ Read these files, in order:
 
 {{include sections/task-minimization.md}}
 
-{{include sections/anti-rationalization.md}}
+If `<root>/config/shared/anti-rationalization.md` exists, read it and apply it to this rationalization table:
+
+| You catch yourself thinking… | The binding rule |
+| --- | --- |
 | "One extra task won't hurt." | It violates the 20–30% minimization target. Every task traces to an **explicitly stated** deliverable or it does not exist. |
 | "This edge case deserves its own task." | Fold it into the task that owns the behavior. Do not split trivially small operations into separate units. |
 | "I'll add a test suite to be safe." | Comprehensive tests for trivial functionality are gold-plating. Follow the test philosophy — meaningful tests only. |

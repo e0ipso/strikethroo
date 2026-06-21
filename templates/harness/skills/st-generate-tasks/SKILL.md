@@ -85,11 +85,7 @@ Decompose each deliverable into atomic tasks only when genuinely needed.
   not mention.
 - Comprehensive test suites for trivial functionality.
 
-#### Anti-rationalization
-
-A discipline survives pressure only if you refuse the excuse to skip it. When a
-thought in the left column forms, treat it as a red flag and apply the right
-column — there is no "unless it matters" exception.
+If `<root>/config/shared/anti-rationalization.md` exists, read it and apply it to this rationalization table:
 
 | You catch yourself thinking… | The binding rule |
 | --- | --- |

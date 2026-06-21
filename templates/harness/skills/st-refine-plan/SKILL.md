@@ -107,11 +107,7 @@ appropriately.
 Think harder before interrupting the user — only trigger this loop when you
 can cite concrete uncertainties.
 
-**Clarification cadence.** When you have questions:
-
-- **One at a time.** Ask a single question, wait for the answer, then decide the next from it — do not dump a batch.
-- **Multiple-choice first.** When the question allows, offer options with a recommended default plus an open-ended "Other"; the user confirms in one word.
-- **Approval gate.** Present the resolved scope and get explicit confirmation before you write or update the plan.
+If `<root>/config/shared/clarification-gate.md` exists, read it and follow that clarification cadence.
 
 1. Review the gaps documented in the Baseline Review.
 2. If no gaps remain, stop here and proceed to Stage 6.

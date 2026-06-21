@@ -66,7 +66,10 @@ Read these files, in order:
 
 {{include sections/phase-execution-loop.md}}
 
-{{include sections/anti-rationalization.md}}
+If `<root>/config/shared/anti-rationalization.md` exists, read it and apply it to this rationalization table:
+
+| You catch yourself thinking… | The binding rule |
+| --- | --- |
 | "The subagent reported success, so the task is done." | A report is a claim, not evidence. Apply the verification gate before marking the phase complete. |
 | "The tests probably pass." | "Probably" is a red flag. Run the proving command, read its output and exit code, then state the result. |
 | "I'll verify later, after the next phase." | A phase is not complete until `POST_PHASE.md` succeeds against verified evidence. Verify now; do not advance on an unverified phase. |

@@ -96,16 +96,7 @@ Maximize parallelism within each phase. Run every task that is ready at the same
 #### 7c. Phase completion verification
 Ensure every task in the phase has status `completed`. Collect and review all task outputs. Document any issues or exceptions encountered.
 
-Do not accept a subagent's report of success as proof. Apply the evidence gate before marking the phase complete:
-
-**Evidence before claims.** Before stating that anything is complete, passing, or working:
-
-1. **IDENTIFY** the command or signal that proves the claim.
-2. **RUN** it fresh now — never rely on earlier output or a subagent's report.
-3. **READ** the full output and exit code.
-4. **VERIFY** it matches the claim, then state the result.
-
-Red-flag words — "should", "probably", "seems to", "looks like", a premature "Done!" — mean you have not run the gate. Run it.
+Do not accept a subagent's report of success as proof. If `<root>/config/shared/verification-gate.md` exists, read it and apply that evidence gate before marking the phase complete.
 
 #### 7d. Phase post-execution
 Read `<root>/config/hooks/POST_PHASE.md` and execute its instructions. Do not proceed to the next phase until this hook succeeds.
@@ -114,11 +105,7 @@ Update the phase status to `completed` in the plan's Execution Blueprint section
 
 Repeat for the next phase until all phases are complete.
 
-#### Anti-rationalization
-
-A discipline survives pressure only if you refuse the excuse to skip it. When a
-thought in the left column forms, treat it as a red flag and apply the right
-column — there is no "unless it matters" exception.
+If `<root>/config/shared/anti-rationalization.md` exists, read it and apply it to this rationalization table:
 
 | You catch yourself thinking… | The binding rule |
 | --- | --- |
@@ -130,7 +117,7 @@ column — there is no "unless it matters" exception.
 
 Read `<root>/config/hooks/POST_EXECUTION.md` and execute its instructions. If validation fails, halt execution. The plan remains in `plans/` for debugging.
 
-Before declaring execution complete, apply the same evidence gate ("Evidence before claims", above) to the plan's Success Criteria and Self Validation steps.
+Before declaring execution complete, apply the evidence gate from `<root>/config/shared/verification-gate.md` (if present) to the plan's Success Criteria and Self Validation steps.
 
 ### 9. Append execution summary
 

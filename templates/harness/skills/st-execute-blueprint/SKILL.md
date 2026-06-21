@@ -130,16 +130,7 @@ column — there is no "unless it matters" exception.
 
 Read `<root>/config/hooks/POST_EXECUTION.md` and execute its instructions. If validation fails, halt execution. The plan remains in `plans/` for debugging.
 
-Before declaring execution complete, apply the evidence gate to the plan's Success Criteria and Self Validation steps:
-
-**Evidence before claims.** Before stating that anything is complete, passing, or working:
-
-1. **IDENTIFY** the command or signal that proves the claim.
-2. **RUN** it fresh now — never rely on earlier output or a subagent's report.
-3. **READ** the full output and exit code.
-4. **VERIFY** it matches the claim, then state the result.
-
-Red-flag words — "should", "probably", "seems to", "looks like", a premature "Done!" — mean you have not run the gate. Run it.
+Before declaring execution complete, apply the same evidence gate ("Evidence before claims", above) to the plan's Success Criteria and Self Validation steps.
 
 ### 9. Append execution summary
 

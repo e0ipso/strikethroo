@@ -95,9 +95,23 @@ Ensures linting passes and creates a descriptive conventional commit for the pha
 
 #### PRE_TASK_EXECUTION
 
-**When:** Before each individual task is dispatched. Ships empty.
+**When:** Before each individual task is dispatched.
 
-Add project-specific pre-flight checks -- for example, verifying required services are running or that necessary environment variables are set.
+Ships a default RED → GREEN → REFACTOR test-first cycle scoped to meaningful tests (custom logic, critical paths, edge cases). Add project-specific pre-flight checks here too -- for example, verifying required services are running or that necessary environment variables are set.
+
+To change or remove the default discipline, edit or empty this file in your workspace. `init` preserves your edits on re-run unless you pass `--force`.
+
+## Shared disciplines
+
+Cross-skill enforcement rules live in `.ai/strikethroo/config/shared/` (copied by `init`, hash-tracked like hooks). Skills read them at runtime when present:
+
+| File | Applied by | Purpose |
+| --- | --- | --- |
+| `clarification-gate.md` | Plan creation and refinement | One question at a time, multiple-choice first, explicit approval before emitting a plan |
+| `anti-rationalization.md` | Planning, task generation, execution | Framing for excuse → counter tables in the skills |
+| `verification-gate.md` | Blueprint execution | Evidence before any "done" or "passing" claim |
+
+Edit these files to tune project discipline. Empty a file to disable that shared rule set. `init` preserves your edits unless `--force` is used.
 
 ## Templates
 

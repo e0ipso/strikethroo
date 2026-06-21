@@ -2,9 +2,7 @@
 
 ## Test-Driven Development: RED → GREEN → REFACTOR
 
-Default task-execution discipline — an overridable preference, not a hard rule.
-Edit or empty this file to change it; `init` preserves your edits unless
-`--force` is used. For each increment:
+Before writing production code for this task, follow this cycle for each increment:
 
 1. **RED** — Write one failing test and run it; confirm it fails for the
    expected reason.
@@ -13,4 +11,5 @@ Edit or empty this file to change it; `init` preserves your edits unless
 
 Apply this only to the meaningful tests the test philosophy calls for (custom
 logic, critical paths, edge cases) — not to trivial, CRUD, or framework code.
-If a task warrants no new test under that philosophy, implement directly.
+If a task warrants no new test under that philosophy, state why and implement
+directly.

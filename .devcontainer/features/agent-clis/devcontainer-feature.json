@@ -1,0 +1,38 @@
+{
+  "id": "agent-clis",
+  "version": "1.0.0",
+  "name": "AI Coding Agent CLIs",
+  "description": "Installs AI coding agent CLIs: OpenCode, Claude Code, GitHub Copilot CLI, Cursor CLI, and Codex. Each tool is individually toggleable.",
+  "options": {
+    "opencode": {
+      "type": "boolean",
+      "default": true,
+      "description": "Install the OpenCode CLI"
+    },
+    "claude": {
+      "type": "boolean",
+      "default": true,
+      "description": "Install the Claude Code CLI"
+    },
+    "copilot": {
+      "type": "boolean",
+      "default": true,
+      "description": "Install the GitHub Copilot CLI"
+    },
+    "cursor": {
+      "type": "boolean",
+      "default": true,
+      "description": "Install the Cursor CLI"
+    },
+    "codex": {
+      "type": "boolean",
+      "default": true,
+      "description": "Install the Codex CLI"
+    }
+  },
+  "installsAfter": [
+    "ghcr.io/devcontainers/features/common-utils",
+    "ghcr.io/devcontainers/features/node",
+    "ghcr.io/devcontainers/features/github-cli"
+  ]
+}

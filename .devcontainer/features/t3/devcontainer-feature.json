@@ -1,0 +1,17 @@
+{
+  "id": "t3",
+  "version": "1.0.0",
+  "name": "t3 CLI",
+  "description": "Installs the t3 CLI globally via npm.",
+  "options": {
+    "version": {
+      "type": "string",
+      "default": "latest",
+      "description": "npm dist-tag or version of t3 to install (e.g. \"latest\" or \"1.2.3\")"
+    }
+  },
+  "installsAfter": [
+    "ghcr.io/devcontainers/features/common-utils",
+    "ghcr.io/devcontainers/features/node"
+  ]
+}

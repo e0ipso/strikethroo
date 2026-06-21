@@ -1,5 +1,5 @@
 {
-  "name": "Strikethroo",
+  "name": "strikethroo-dev",
   "forwardPorts": [34489],
   "portsAttributes": {
     "34489": {
@@ -7,17 +7,27 @@
       "onAutoForward": "silent"
     }
   },
-  "build": {
-    "dockerfile": "Dockerfile",
-    "args": {
-      "BASE_IMAGE": "node:24",
-      "TZ": "${localEnv:TZ:Europe/Madrid}"
-    }
-  },
   "runArgs": [
-    "--cap-add=NET_ADMIN",
-    "--cap-add=NET_RAW"
+    "--hostname=strikethroo-dev"
   ],
+  "image": "node:24",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": false,
+      "installOhMyZsh": false,
+      "configureZshAsDefaultShell": false,
+      "upgradePackages": false,
+      "username": "node",
+      "userUid": "automatic",
+      "userGid": "automatic"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers-extra/features/apt-get-packages:1": {
+      "packages": "less,procps,fzf,man-db,unzip,gnupg2,gawk,jq,nano,vim,tree,python3-yaml,libxml2-utils"
+    },
+    "./features/agent-clis": {},
+    "./features/t3": {}
+  },
   "customizations": {
     "vscode": {
       "extensions": [
@@ -63,8 +73,9 @@
     "source=${localEnv:HOME}/.config/opencode/node_modules,target=/home/node/.config/opencode/node_modules,readonly,type=bind,consistency=cached",
     "source=${localEnv:HOME}/.cache/opencode,target=/home/node/.cache/opencode,type=bind,consistency=cached",
     "source=opencode-data-${devcontainerId},target=/home/node/.local/share/opencode,type=volume",
-    "source=${localEnv:HOME}/.local/share/opencode/auth.json,target=/home/node/.local/share/opencode/auth.json,readonly,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.local/share/opencode/auth.json,target=/home/node/.cred-seed/opencode/auth.json,readonly,type=bind,consistency=cached",
 
+    "source=${localEnv:HOME}/.claude/.credentials.json,target=/home/node/.cred-seed/claude/.credentials.json,readonly,type=bind,consistency=cached",
     "source=${localEnv:HOME}/.claude/CLAUDE.md,target=/home/node/.claude/CLAUDE.md,readonly,type=bind,consistency=cached",
     "source=${localEnv:HOME}/.claude.json,target=/home/node/.claude.json,type=bind,readonly,consistency=cached",
     "source=${localEnv:HOME}/.claude/settings.json,target=/home/node/.claude/settings.json,readonly,type=bind,consistency=cached",
@@ -73,11 +84,16 @@
     "source=${localEnv:HOME}/.claude/commands,target=/home/node/.claude/commands,readonly,type=bind,consistency=cached",
 
     "source=${localEnv:HOME}/.codex/prompts,target=/home/node/.codex/prompts,readonly,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.codex/auth.json,target=/home/node/.cred-seed/codex/auth.json,readonly,type=bind,consistency=cached",
 
     "source=${localEnv:HOME}/.copilot/config.json,target=/home/node/.copilot/config.json,readonly,type=bind,consistency=cached",
     "source=${localEnv:HOME}/.copilot/hooks,target=/home/node/.copilot/hooks,readonly,type=bind,consistency=cached",
 
     "source=${localEnv:HOME}/.cursor/cli-config.json,target=/home/node/.cursor/cli-config.json,readonly,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.config/cursor/auth.json,target=/home/node/.cred-seed/cursor/auth.json,readonly,type=bind,consistency=cached",
+
+    "source=t3code-home-${devcontainerId},target=/home/node/.t3,type=volume",
+    "source=${localEnv:HOME}/.t3/devcontainer/settings.json,target=/home/node/.cred-seed/t3/settings.json,readonly,type=bind,consistency=cached",
 
     "source=${localEnv:HOME}/.config/gh/hosts.yml,target=/home/node/.config/gh/hosts.yml,type=bind,consistency=cached",
     "source=${localEnv:HOME}/.gitconfig,target=/home/node/.gitconfig,type=bind,consistency=cached"
@@ -86,13 +102,29 @@
     "NODE_OPTIONS": "--max-old-space-size=4096",
     "POWERLEVEL9K_DISABLE_GITSTATUS": "true",
     "SSH_AUTH_SOCK": "/ssh-agent",
-    "LC_ALL": "C.UTF-8"
+    "LC_ALL": "C.UTF-8",
+    "TZ": "${localEnv:TZ:Europe/Madrid}",
+    "DEVCONTAINER": "true",
+    "EDITOR": "vim",
+    "VISUAL": "vim",
+    "NPM_CONFIG_PREFIX": "/usr/local/share/npm-global",
+    "T3CODE_HOME": "/home/node/.t3",
+    "HISTFILE": "/commandhistory/.bash_history",
+    "PROMPT_COMMAND": "history -a"
+  },
+  "remoteEnv": {
+    "PATH": "/home/node/.local/bin:/usr/local/share/npm-global/bin:${containerEnv:PATH}"
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
-  "postCreateCommand": "true",
+  "postCreateCommand": {
+    "fix-perms": "sudo mkdir -p /commandhistory /usr/local/share/npm-global && sudo touch /commandhistory/.bash_history && sudo chown -R node:node /home/node /commandhistory /usr/local/share/npm-global > /dev/null 2>&1 || true"
+  },
   "postStartCommand": {
-    "upgrades": "opencode upgrade; claude upgrade; copilot update; agent update; codex update"
+    "upgrades": "opencode upgrade; claude upgrade; copilot update; agent update; codex update",
+    "seed-auth": ".devcontainer/scripts/seed-auth.sh",
+    "seed-t3-settings": ".devcontainer/scripts/seed-t3-settings.sh",
+    "copilot-auth": "grep -q COPILOT_GITHUB_TOKEN /home/node/.bashrc 2>/dev/null || echo 'export COPILOT_GITHUB_TOKEN=\"$(gh auth token 2>/dev/null)\"' >> /home/node/.bashrc"
   },
   "waitFor": "postStartCommand"
 }

@@ -1,11 +1,11 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:3f1788211e2c4a0dcb3743c10e0a71a073a18ce431d6bd3532159c5b520ad1c9'
-node_count: 76
+nodes_hash: 'sha256:a5d7cb655bd37e223ffee4f3c54eff0a3619b854f37ded3481073efc3b5ae252'
+node_count: 71
 ---
 # kenkeep Graph
 
-Total nodes: 76
+Total nodes: 71
 
 ## map-archive-ui-control-confirmation-gated-archive-button-on-done-plans
 
@@ -25,7 +25,7 @@ Total nodes: 76
 
 - **kind:** map
 - **title:** CLI exposes only init and serve commands
-- **path:** map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md
+- **path:** cli/map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md
 - **tags:** cli, architecture
 
 ## map-cross-harness-code-abstraction-centralized-in-54-lines-across-3-locations
@@ -53,7 +53,7 @@ Total nodes: 76
 
 - **kind:** map
 - **title:** docs/_config.yml controls GitHub Pages baseurl for the Jekyll docs site
-- **path:** map-docs-config-yml-controls-github-pages-baseurl-for-the-jekyll-docs-site.md
+- **path:** docs/map-docs-config-yml-controls-github-pages-baseurl-for-the-jekyll-docs-site.md
 - **tags:** docs, github-pages, jekyll
 
 ## map-eslint-config-eslint-config-mjs-flat-config-eslint-9
@@ -98,13 +98,6 @@ Total nodes: 76
 - **path:** web/rendering/map-mermaiderror-tsx-shared-mermaid-render-error-component.md
 - **tags:** mermaid, spa, components, error-handling
 
-## map-nine-shared-section-files-under-src-skill-prompts-sections-cover-the-main-cross-skill-duplications
-
-- **kind:** map
-- **title:** Nine shared section files under src/skill-prompts/sections/ cover the main cross-skill duplications
-- **path:** skills/prompts/map-nine-shared-section-files-under-src-skill-prompts-sections-cover-the-main-cross-skill-duplications.md
-- **tags:** build, skill-prompts, sections
-
 ## map-npm-run-dev-serve-ts-node-backend-hot-reload-script
 
 - **kind:** map
@@ -126,20 +119,6 @@ Total nodes: 76
 - **title:** .releaserc.json repositoryUrl must match current GitHub repo slug
 - **path:** release/map-releaserc-json-repositoryurl-must-match-current-github-repo-slug.md
 - **tags:** releaserc, semantic-release, config
-
-## map-scripts-build-skill-prompts-cjs-assembles-skill-md-from-src-skill-prompts-source-templates
-
-- **kind:** map
-- **title:** scripts/build-skill-prompts.cjs assembles SKILL.md from src/skill-prompts/ source templates
-- **path:** skills/prompts/map-scripts-build-skill-prompts-cjs-assembles-skill-md-from-src-skill-prompts-source-templates.md
-- **tags:** build, skill-prompts, assembler, scripts
-
-## map-serve-spa-design-read-only-viewer-with-archive-as-the-only-write-mutation
-
-- **kind:** map
-- **title:** serve SPA design: read-only viewer with archive as the only write mutation
-- **path:** serve/map-serve-spa-design-read-only-viewer-with-archive-as-the-only-write-mutation.md
-- **tags:** web, spa, serve, architecture
 
 ## map-serve-ui-prd-and-tickets-live-under-ai-strikethroo-scratch-ui
 
@@ -180,9 +159,9 @@ Total nodes: 76
 ## map-src-skill-prompts-is-the-authored-source-of-truth-for-skill-md-content
 
 - **kind:** map
-- **title:** src/skill-prompts/ is the authored source of truth for SKILL.md content
+- **title:** Skill-prompt build system — src/skill-prompts/ source, assembler, shared sections
 - **path:** skills/prompts/map-src-skill-prompts-is-the-authored-source-of-truth-for-skill-md-content.md
-- **tags:** build, skill-prompts, source-of-truth
+- **tags:** build, skill-prompts, source-of-truth, assembler, sections
 
 ## map-src-tests-fixtures-serve-workspace-committed-fixture-workspace-for-tests
 
@@ -191,20 +170,6 @@ Total nodes: 76
 - **path:** testing/map-src-tests-fixtures-serve-workspace-committed-fixture-workspace-for-tests.md
 - **tags:** testing, fixtures, integration, e2e, serve
 - **relates_to:** practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore
-
-## map-src-web-public-favicon-svg-strikethroo-brand-favicon
-
-- **kind:** map
-- **title:** src/web/public/favicon.svg — Strikethroo brand favicon
-- **path:** web/branding/map-src-web-public-favicon-svg-strikethroo-brand-favicon.md
-- **tags:** web, assets, favicon, brand
-
-## map-two-channel-release-npm-tarball-vs-github-git-tree
-
-- **kind:** map
-- **title:** Two-channel release: npm tarball vs GitHub git tree
-- **path:** release/map-two-channel-release-npm-tarball-vs-github-git-tree.md
-- **tags:** release, distribution, npm, skills
 
 ## map-vercel-labs-skills-installer-scans-standard-dirs-before-plugin-json
 
@@ -262,13 +227,6 @@ Total nodes: 76
 - **title:** Avoid */ inside @theme CSS comments to prevent premature comment termination
 - **path:** web/styling/practice-avoid-inside-theme-css-comments-to-prevent-premature-comment-termination.md
 - **tags:** tailwind, css, comments, build
-
-## practice-capture-harness-uses-a-committed-fixture-workspace-not-the-live-ai-strikethroo-t
-
-- **kind:** practice
-- **title:** Capture harness uses a committed fixture workspace, not the live .ai/strikethroo tree
-- **path:** capture/practice-capture-harness-uses-a-committed-fixture-workspace-not-the-live-ai-strikethroo-t.md
-- **tags:** capture, testing, fixtures, playwright, documentation
 
 ## practice-commit-subject-50-chars-body-wrapped-at-72-chars-hook-enforced
 
@@ -328,27 +286,12 @@ Total nodes: 76
 - **path:** skills/prompts/practice-exclude-readme-md-from-skill-prompt-template-processing-in-the-assembler.md
 - **tags:** build, skill-prompts, assembler
 
-## practice-extract-real-font-glyph-outlines-for-favicon-svg-rather-than-geometric-approximation
-
-- **kind:** practice
-- **title:** Extract real font glyph outlines for favicon SVG rather than geometric approximation
-- **path:** web/branding/practice-extract-real-font-glyph-outlines-for-favicon-svg-rather-than-geometric-approximation.md
-- **tags:** web, favicon, font, svg
-
 ## practice-hot-reload-dev-loop-requires-three-concurrent-processes
 
 - **kind:** practice
 - **title:** Hot-reload dev loop requires three concurrent processes
 - **path:** dev/practice-hot-reload-dev-loop-requires-three-concurrent-processes.md
 - **tags:** dev, tooling, web, serve
-
-## practice-integration-and-e2e-tests-must-use-the-committed-fixture-workspace-not-the-live
-
-- **kind:** practice
-- **title:** Integration and e2e tests must use the committed fixture workspace, not the live .ai/strikethroo/
-- **path:** testing/practice-integration-and-e2e-tests-must-use-the-committed-fixture-workspace-not-the-live.md
-- **tags:** testing, fixtures, ci, integration, e2e, gitignore
-- **relates_to:** practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore
 
 ## practice-isolate-concurrent-agent-changes-before-committing-by-excluding-entangled-files
 
@@ -440,9 +383,9 @@ Total nodes: 76
 ## practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files
 
 - **kind:** practice
-- **title:** Serve layer mutation invariant: archive endpoint is the only route that writes workspace files
+- **title:** Serve SPA is read-only; archive is the only workspace mutation (self-review writes nothing)
 - **path:** serve/practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files.md
-- **tags:** serve, architecture, testing, mutation
+- **tags:** serve, web, spa, architecture, testing, mutation
 
 ## practice-serve-layer-uses-discriminated-union-result-types-not-custom-error-classes
 
@@ -461,10 +404,9 @@ Total nodes: 76
 ## practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime
 
 - **kind:** practice
-- **title:** SPA (dist-web/) ships only via the npm tarball, not force-added into git
+- **title:** Two-channel release: npm tarball vs GitHub git tree
 - **path:** release/practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime.md
-- **tags:** web, spa, build, distribution, serve, semantic-release
-- **relates_to:** map-two-channel-release-npm-tarball-vs-github-git-tree
+- **tags:** release, distribution, npm, skills, web, spa, build, serve, semantic-release
 
 ## practice-spa-source-changes-require-npm-run-build-web-before-serve-reflects-them
 
@@ -489,12 +431,12 @@ Total nodes: 76
 - **tags:** web, serve, dev, debugging
 - **relates_to:** map-npm-run-dev-serve-ts-node-backend-hot-reload-script, practice-hot-reload-dev-loop-requires-three-concurrent-processes
 
-## practice-svg-favicon-must-use-hex-color-values-not-oklch-or-hsl
+## practice-strikethroo-brand-favicon-svg
 
 - **kind:** practice
-- **title:** SVG favicon must use hex color values, not oklch or hsl
-- **path:** web/branding/practice-svg-favicon-must-use-hex-color-values-not-oklch-or-hsl.md
-- **tags:** web, favicon, svg
+- **title:** Strikethroo brand favicon at src/web/public/favicon.svg
+- **path:** web/branding/practice-strikethroo-brand-favicon-svg.md
+- **tags:** web, assets, favicon, brand, font, svg
 
 ## practice-use-baseui-components-for-interactive-ui-elements-in-the-spa
 
@@ -510,6 +452,22 @@ Total nodes: 76
 - **path:** skills/prompts/practice-use-build-time-composition-to-eliminate-cross-skill-prompt-duplication.md
 - **tags:** build, skill-prompts, architecture
 
+## practice-use-committed-fixture-workspaces-not-the-live-ai-strikethroo-tree
+
+- **kind:** practice
+- **title:** Use committed fixture workspaces, not the live gitignored .ai/strikethroo/ tree
+- **path:** testing/practice-use-committed-fixture-workspaces-not-the-live-ai-strikethroo-tree.md
+- **tags:** testing, capture, fixtures, playwright, ci, integration, e2e, gitignore, documentation
+- **relates_to:** practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore
+
+## practice-use-dalia-brand-rules-for-social-carousel-assets
+
+- **kind:** practice
+- **title:** Author social and carousel assets with Dalia brand rules
+- **path:** web/branding/practice-use-dalia-brand-rules-for-social-carousel-assets.md
+- **tags:** brand, social, design, assets, playwright, workflow
+- **relates_to:** map-dalia-ui-design-system-vendored-into-src-web-vendor-not-a-package-dependency, map-spa-vendor-styles-five-retained-css-files-under-src-web-vendor-styles
+
 ## practice-use-domcontentloaded-not-networkidle-when-playwright-driving-the-spa
 
 - **kind:** practice
@@ -523,6 +481,14 @@ Total nodes: 76
 - **title:** Use git rm -r for tracked skill output dirs, not rm -rf
 - **path:** release/practice-use-git-rm-r-for-tracked-skill-output-dirs-not-rm-rf.md
 - **tags:** git, tracked-files, build-artifacts, skills
+
+## practice-use-the-throughline-strikethroo-wordmark
+
+- **kind:** practice
+- **title:** Use the throughline strikethroo wordmark
+- **path:** web/branding/practice-use-the-throughline-strikethroo-wordmark.md
+- **tags:** brand, wordmark, social
+- **relates_to:** practice-strikethroo-brand-favicon-svg
 
 ## practice-use-theme-token-utilities-everywhere-in-the-spa-never-arbitrary-value-brackets-f
 

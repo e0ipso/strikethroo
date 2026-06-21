@@ -16,8 +16,8 @@ summary: >-
 _None._
 
 ## Conventions (how we build)
-- Open [**Documentation captures current state only**](conventions/practice-documentation-captures-current-state-only.md) to learn about: All docs describe how things work now. No historical context, migration notes, or retired-term mappings. #documentation #conventions
-- Open [**Phase is reserved for execution blueprint task groups**](conventions/practice-phase-reserved-for-blueprint-task-groups.md) to learn about: "Phase" means parallel task batches in the blueprint. The three workflow stages are "steps", never "phases". #terminology #documentation #execution-blueprint
+- Open [**Documentation captures current state only**](practice-documentation-captures-current-state-only.md) to learn about: All docs describe how things work now. No historical context, migration notes, or retired-term mappings. #documentation #conventions
+- Open [**Phase is reserved for execution blueprint task groups**](practice-phase-reserved-for-blueprint-task-groups.md) to learn about: "Phase" means parallel task batches in the blueprint. The three workflow stages are "steps", never "phases". #terminology #documentation #execution-blueprint
 
 ## Components (what exists)
 _None yet._
@@ -25,13 +25,13 @@ _None yet._
 ## By topic
 
 ### #documentation
-- Open [**Documentation captures current state only**](conventions/practice-documentation-captures-current-state-only.md) — All docs describe how things work now. No historical context, migration notes, or retired-term mappings.
-- Open [**Phase is reserved for execution blueprint task groups**](conventions/practice-phase-reserved-for-blueprint-task-groups.md) — "Phase" means parallel task batches in the blueprint. The three workflow stages are "steps", never "phases".
-- Open [**Capture harness uses a committed fixture workspace, not the live .ai/strikethroo tree**](capture/practice-capture-harness-uses-a-committed-fixture-workspace-not-the-live-ai-strikethroo-t.md) — The capture:web harness defaults to src/capture/fixtures/capture-workspace/ for repeatable output. Set CAPTURE_WORKSPACE env var to override.
+- Open [**Documentation captures current state only**](practice-documentation-captures-current-state-only.md) — All docs describe how things work now. No historical context, migration notes, or retired-term mappings.
+- Open [**Phase is reserved for execution blueprint task groups**](practice-phase-reserved-for-blueprint-task-groups.md) — "Phase" means parallel task batches in the blueprint. The three workflow stages are "steps", never "phases".
+- Open [**Use committed fixture workspaces, not the live gitignored .ai/strikethroo/ tree**](../testing/practice-use-committed-fixture-workspaces-not-the-live-ai-strikethroo-tree.md) — Capture, integration, and e2e must use committed fixture workspaces — not the live gitignored .ai/strikethroo/ tree that breaks CI and capture determinism.
 ### #conventions
-- Open [**Documentation captures current state only**](conventions/practice-documentation-captures-current-state-only.md) — All docs describe how things work now. No historical context, migration notes, or retired-term mappings.
+- Open [**Documentation captures current state only**](practice-documentation-captures-current-state-only.md) — All docs describe how things work now. No historical context, migration notes, or retired-term mappings.
 ### #execution-blueprint
-- Open [**Plan Detail: blueprint markdown section is distinct from the tasks-frontmatter Tasks tab**](serve/practice-plan-detail-blueprint-markdown-vs-tasks-frontmatter.md) — Four data sources feed the Plan Detail tabs; the blueprint prose and tasks-frontmatter rendering must not be conflated
-- Open [**Phase is reserved for execution blueprint task groups**](conventions/practice-phase-reserved-for-blueprint-task-groups.md) — "Phase" means parallel task batches in the blueprint. The three workflow stages are "steps", never "phases".
+- Open [**Plan Detail: blueprint markdown section is distinct from the tasks-frontmatter Tasks tab**](../serve/practice-plan-detail-blueprint-markdown-vs-tasks-frontmatter.md) — Four data sources feed the Plan Detail tabs; the blueprint prose and tasks-frontmatter rendering must not be conflated
+- Open [**Phase is reserved for execution blueprint task groups**](practice-phase-reserved-for-blueprint-task-groups.md) — "Phase" means parallel task batches in the blueprint. The three workflow stages are "steps", never "phases".
 ### #terminology
-- Open [**Phase is reserved for execution blueprint task groups**](conventions/practice-phase-reserved-for-blueprint-task-groups.md) — "Phase" means parallel task batches in the blueprint. The three workflow stages are "steps", never "phases".
+- Open [**Phase is reserved for execution blueprint task groups**](practice-phase-reserved-for-blueprint-task-groups.md) — "Phase" means parallel task batches in the blueprint. The three workflow stages are "steps", never "phases".

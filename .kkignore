@@ -43,3 +43,6 @@
 .github/skills/
 .opencode/plugins/
 .opencode/skills/
+
+# --- Strikethroo scratch workspace (ephemeral planning/assets) ---
+.ai/strikethroo/scratch

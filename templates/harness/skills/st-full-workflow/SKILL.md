@@ -364,20 +364,14 @@ Ensure every task in the phase has status `completed`. Collect and review all ta
 
 Do not accept a subagent's report of success as proof. Apply the evidence gate before marking the phase complete:
 
-**Evidence before claims.** Before you state that anything is complete, passing,
-or working, run this gate. Do not skip a step and do not reorder it:
+**Evidence before claims.** Before stating that anything is complete, passing, or working:
 
-1. **IDENTIFY** the command (or observable signal) that would prove the claim.
-2. **RUN** it fresh, now — do not rely on earlier output or on a subagent's
-   report of success.
-3. **READ** the full output and the exit code.
-4. **VERIFY** that the output actually matches the claim.
-5. **THEN**, and only then, state the result — citing what you ran and what it
-   returned.
+1. **IDENTIFY** the command or signal that proves the claim.
+2. **RUN** it fresh now — never rely on earlier output or a subagent's report.
+3. **READ** the full output and exit code.
+4. **VERIFY** it matches the claim, then state the result.
 
-**Red-flag words.** If a completion statement contains "should", "probably",
-"seems to", "looks like", or a premature "Done!", you have not run the gate.
-Stop and run it.
+Red-flag words — "should", "probably", "seems to", "looks like", a premature "Done!" — mean you have not run the gate. Run it.
 
 ##### 5d. Phase post-execution
 Read `<root>/config/hooks/POST_PHASE.md` and execute its instructions. Do not proceed to the next phase until this hook succeeds.
@@ -392,20 +386,14 @@ Read `<root>/config/hooks/POST_EXECUTION.md` and execute its instructions. If va
 
 Before declaring execution complete, apply the evidence gate to the plan's Success Criteria and Self Validation steps:
 
-**Evidence before claims.** Before you state that anything is complete, passing,
-or working, run this gate. Do not skip a step and do not reorder it:
+**Evidence before claims.** Before stating that anything is complete, passing, or working:
 
-1. **IDENTIFY** the command (or observable signal) that would prove the claim.
-2. **RUN** it fresh, now — do not rely on earlier output or on a subagent's
-   report of success.
-3. **READ** the full output and the exit code.
-4. **VERIFY** that the output actually matches the claim.
-5. **THEN**, and only then, state the result — citing what you ran and what it
-   returned.
+1. **IDENTIFY** the command or signal that proves the claim.
+2. **RUN** it fresh now — never rely on earlier output or a subagent's report.
+3. **READ** the full output and exit code.
+4. **VERIFY** it matches the claim, then state the result.
 
-**Red-flag words.** If a completion statement contains "should", "probably",
-"seems to", "looks like", or a premature "Done!", you have not run the gate.
-Stop and run it.
+Red-flag words — "should", "probably", "seems to", "looks like", a premature "Done!" — mean you have not run the gate. Run it.
 
 #### 7. Append execution summary
 

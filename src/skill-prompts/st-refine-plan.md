@@ -38,9 +38,7 @@ Read these files, in order:
   before proceeding.
 - `<root>/config/templates/PLAN_TEMPLATE.md` — the structural baseline the
   refined plan must continue to conform to.
-- `<root>/config/shared/clarification-gate.md` (if present) — the shared
-  clarification discipline this skill applies; keep it in context for the
-  Clarification Loop.
+- `<root>/config/shared/clarification-gate.md` (if present) — apply in the Clarification Loop.
 
 ### 4. Baseline Review
 
@@ -93,7 +91,7 @@ appropriately.
 Think harder before interrupting the user — only trigger this loop when you
 can cite concrete uncertainties.
 
-Follow the clarification cadence from `<root>/config/shared/clarification-gate.md` (loaded with project context).
+Follow the clarification cadence in `<root>/config/shared/clarification-gate.md`.
 
 1. Review the gaps documented in the Baseline Review.
 2. If no gaps remain, stop here and proceed to Stage 6.

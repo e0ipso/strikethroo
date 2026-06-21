@@ -73,7 +73,7 @@ Read these files, in order:
 - `<root>/config/STRIKETHROO.md` — directory conventions and project context.
 - The plan document at the path returned by step 2.
 - The plan's Execution Blueprint section — this defines the phase groupings and task dispatch order.
-- `<root>/config/shared/verification-gate.md` and `<root>/config/shared/anti-rationalization.md` (if present) — the shared enforcement disciplines this skill applies; keep them in context, the phase loop below requires them.
+- `<root>/config/shared/verification-gate.md` and `<root>/config/shared/anti-rationalization.md` (if present) — apply in the phase loop below.
 
 ### 7. Execute phases in order
 
@@ -97,7 +97,7 @@ Maximize parallelism within each phase. Run every task that is ready at the same
 #### 7c. Phase completion verification
 Ensure every task in the phase has status `completed`. Collect and review all task outputs. Document any issues or exceptions encountered.
 
-Do not accept a subagent's report of success as proof. Apply the evidence gate from `<root>/config/shared/verification-gate.md` (loaded with project context; skip only if that file is absent) before marking the phase complete. Do not mark a phase complete on an unverified claim.
+Do not accept a subagent's report of success as proof. Apply the evidence gate in `<root>/config/shared/verification-gate.md` (skip if absent) before marking the phase complete. Do not mark a phase complete on an unverified claim.
 
 #### 7d. Phase post-execution
 Read `<root>/config/hooks/POST_PHASE.md` and execute its instructions. Do not proceed to the next phase until this hook succeeds.
@@ -106,7 +106,7 @@ Update the phase status to `completed` in the plan's Execution Blueprint section
 
 Repeat for the next phase until all phases are complete.
 
-Apply `<root>/config/shared/anti-rationalization.md` (loaded with project context) to this rationalization table:
+Apply `<root>/config/shared/anti-rationalization.md` to this rationalization table:
 
 | You catch yourself thinking… | The binding rule |
 | --- | --- |
@@ -118,7 +118,7 @@ Apply `<root>/config/shared/anti-rationalization.md` (loaded with project contex
 
 Read `<root>/config/hooks/POST_EXECUTION.md` and execute its instructions. If validation fails, halt execution. The plan remains in `plans/` for debugging.
 
-Before declaring execution complete, apply the evidence gate from `<root>/config/shared/verification-gate.md` (loaded with project context; skip only if absent) to the plan's Success Criteria and Self Validation steps.
+Before declaring execution complete, apply the evidence gate in `<root>/config/shared/verification-gate.md` (skip if absent) to the plan's Success Criteria and Self Validation steps.
 
 ### 9. Append execution summary
 

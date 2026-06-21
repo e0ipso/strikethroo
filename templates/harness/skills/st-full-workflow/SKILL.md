@@ -339,7 +339,7 @@ Read these files in order:
 - `<root>/config/STRIKETHROO.md` — directory conventions and project context.
 - The plan document.
 - The plan's Execution Blueprint section — this defines the phase groupings and task dispatch order.
-- `<root>/config/shared/verification-gate.md` (if present) — the shared evidence gate this skill applies; keep it in context, the phase loop below requires it.
+- `<root>/config/shared/verification-gate.md` (if present) — apply in the phase loop below.
 
 #### 5. Execute phases in order
 
@@ -363,7 +363,7 @@ Maximize parallelism within each phase. Run every task that is ready at the same
 ##### 5c. Phase completion verification
 Ensure every task in the phase has status `completed`. Collect and review all task outputs. Document any issues or exceptions encountered.
 
-Do not accept a subagent's report of success as proof. Apply the evidence gate from `<root>/config/shared/verification-gate.md` (loaded with project context; skip only if that file is absent) before marking the phase complete. Do not mark a phase complete on an unverified claim.
+Do not accept a subagent's report of success as proof. Apply the evidence gate in `<root>/config/shared/verification-gate.md` (skip if absent) before marking the phase complete. Do not mark a phase complete on an unverified claim.
 
 ##### 5d. Phase post-execution
 Read `<root>/config/hooks/POST_PHASE.md` and execute its instructions. Do not proceed to the next phase until this hook succeeds.
@@ -376,7 +376,7 @@ Repeat for the next phase until all phases are complete.
 
 Read `<root>/config/hooks/POST_EXECUTION.md` and execute its instructions. If validation fails, halt execution. The plan remains in `plans/` for debugging.
 
-Before declaring execution complete, apply the evidence gate from `<root>/config/shared/verification-gate.md` (loaded with project context; skip only if absent) to the plan's Success Criteria and Self Validation steps.
+Before declaring execution complete, apply the evidence gate in `<root>/config/shared/verification-gate.md` (skip if absent) to the plan's Success Criteria and Self Validation steps.
 
 #### 7. Append execution summary
 

@@ -30,10 +30,12 @@ Prefer steps, checkpoints, and checkable rules over paragraphs of advice.
 - **Shared vs inline vs runtime.** Three levels of reuse:
   - *Build-time include* (`{{include sections/*.md}}`) — procedural blocks reused
     by 2+ templates; inlined into each `SKILL.md` at build.
-  - *Runtime config* (`config/shared/*.md`, read via "if `<root>/config/shared/X.md`
-    exists, read it and apply it") — cross-skill enforcement disciplines a project
-    should be able to customize, like hooks. Keeps them out of every `SKILL.md` and
-    editable per project. Reference defensively ("if present") for backwards-compat.
+  - *Runtime config* (`config/hooks/*.md`, `config/shared/*.md`, read via "if
+    `<root>/config/.../X.md` exists, read it and apply it") — cross-skill
+    enforcement disciplines a project should be able to customize. **Runtime config
+    is instructions only** — no meta about init, hash tracking, or how the file is
+    loaded; put customization notes in `docs/customization.md` / `AGENTS.md`.
+    Reference defensively ("if present") for backwards-compat.
   - *Inline* — genuinely skill-specific content (e.g. a skill's own rationalization
     rows). The `vars` parser is single-line only, so multi-row tables cannot be
     `{{variable}}` values; keep them inline.

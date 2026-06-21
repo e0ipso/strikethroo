@@ -56,9 +56,6 @@ plan as needing clarification. Do not produce a partial plan.
 {{include sections/clarification-gate.md}}
 
 {{include sections/anti-rationalization.md}}
-
-| You catch yourself thinking… | The binding rule |
-| --- | --- |
 | "I can reasonably assume the answer." | An assumption is not an answer. Ask the question; never invent answers. |
 | "Asking again is annoying." | A question the user can decline is recoverable; a silent wrong assumption is not. Ask. |
 | "The user implied it, so it's settled." | An implication is not a confirmation. Surface it as a question and get an explicit answer. |

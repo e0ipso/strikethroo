@@ -85,7 +85,9 @@ review.xml
 
 # AI Assistants
 .opencode
-.cursor
+.cursor/*
+# Track the offloaded Cursor Cloud instructions (loaded on demand from AGENTS.md)
+!.cursor/cloud-instructions.md
 .claude
 .agents/skills/
 skills-lock.json

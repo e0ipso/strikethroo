@@ -1,3 +1,7 @@
+## 3.6.0 (2026-06-22)
+
+* feat(skills): execute prompt-correlation blueprint; move plan out of docs/ (#40) ([b53ba8f](https://github.com/e0ipso/strikethroo/commit/b53ba8f)), closes [#40](https://github.com/e0ipso/strikethroo/issues/40)
+
 ## 3.5.0 (2026-06-21)
 
 * docs: update Kenkeep ([2dc934f](https://github.com/e0ipso/strikethroo/commit/2dc934f))

@@ -14,7 +14,7 @@ POST_PLAN: "Post-plan checks ensuring the plan includes a Self Validation sectio
 PRE_PHASE: "Pre-phase setup that creates the plan's feature branch and validates that every task's dependencies are completed before the phase runs."
 POST_PHASE: "Post-phase gate confirming linting passes and a conventional commit was made, then updating task and phase statuses in the plan."
 PRE_TASK_ASSIGNMENT: "Guidance for matching each task's required skills against available sub-agents and engaging relevant harness skills before assignment."
-PRE_TASK_EXECUTION: "Hook run immediately before a task is executed; customize it with checks or setup the assistant should perform per task."
+PRE_TASK_EXECUTION: "Pre-task discipline run before implementation — ships a RED-GREEN-REFACTOR test-first cycle scoped to meaningful tests; edit to add pre-flight checks or replace the default."
 POST_TASK_GENERATION_ALL: "After all tasks are generated, reviews task complexity (splitting, sharpening, or merging) and appends the dependency diagram and execution phases to the plan."
 POST_EXECUTION: "Validation gates run before a blueprint is marked complete — linting, tests, task-status checks, documentation accuracy, and the plan's Self Validation steps — plus tech-debt cleanup."
 POST_ERROR_DETECTION: "Error-handling hook that marks a task's frontmatter status as failed when its execution fails."

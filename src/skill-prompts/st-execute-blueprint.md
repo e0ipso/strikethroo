@@ -1,6 +1,6 @@
 ---
 name: st-execute-blueprint
-description: "Execute a Strikethroo plan blueprint for this repository. Use when the user asks to run, implement, or carry out a specific plan ID — discovers the local .ai/strikethroo root, resolves the plan, validates or auto-generates tasks and the execution blueprint, optionally creates a feature branch, runs phases with lifecycle hooks, enforces validation gates, appends an execution summary, and archives the completed plan. Do not use for generic development work outside Strikethroo."
+description: "Use when the user asks to run, execute, implement, or carry out a Strikethroo plan or its blueprint by plan ID in this repository — triggers include execute blueprint, run the plan, implement plan, build the plan. Do not use to create a plan, to only generate tasks, to run a single task, or for generic development outside Strikethroo."
 target: st-execute-blueprint
 vars:
   action_verb_phrase: "execute a plan"
@@ -61,10 +61,19 @@ Read these files, in order:
 - `<root>/config/STRIKETHROO.md` — directory conventions and project context.
 - The plan document at the path returned by step 2.
 - The plan's Execution Blueprint section — this defines the phase groupings and task dispatch order.
+- `<root>/config/shared/verification-gate.md` and `<root>/config/shared/anti-rationalization.md` — apply in the phase loop below.
 
 ### 7. Execute phases in order
 
 {{include sections/phase-execution-loop.md}}
+
+Apply `<root>/config/shared/anti-rationalization.md` to this rationalization table:
+
+| You catch yourself thinking… | The binding rule |
+| --- | --- |
+| "The subagent reported success, so the task is done." | A report is a claim, not evidence. Apply the verification gate before marking the phase complete. |
+| "The tests probably pass." | "Probably" is a red flag. Run the proving command, read its output and exit code, then state the result. |
+| "I'll verify later, after the next phase." | A phase is not complete until `POST_PHASE.md` succeeds against verified evidence. Verify now; do not advance on an unverified phase. |
 
 ### 8. Post-execution validation
 

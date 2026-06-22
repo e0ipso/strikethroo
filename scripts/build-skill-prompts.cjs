@@ -255,9 +255,12 @@ function main() {
     process.exit(1);
   }
 
+  // Top-level docs that are not skill templates (no frontmatter, not assembled).
+  const NON_TEMPLATE_DOCS = new Set(['README.md', 'AUTHORING.md']);
+
   const templates = fs
     .readdirSync(SRC_DIR)
-    .filter((f) => f.endsWith('.md') && f !== 'README.md' && !fs.statSync(path.join(SRC_DIR, f)).isDirectory());
+    .filter((f) => f.endsWith('.md') && !NON_TEMPLATE_DOCS.has(f) && !fs.statSync(path.join(SRC_DIR, f)).isDirectory());
 
   if (templates.length === 0) {
     console.error(`No .md templates found in ${SRC_DIR}`);

@@ -7,6 +7,9 @@ time, writing self-contained output to `templates/harness/skills/*/SKILL.md`.
 
 This mirrors how `src/skill-scripts/*.ts` produces `.cjs` bundles.
 
+> This file covers assembly *mechanics*. For *how to write* the prompts
+> (house style), read [`AUTHORING.md`](./AUTHORING.md) before editing content.
+
 ## Directory layout
 
 ```

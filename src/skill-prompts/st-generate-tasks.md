@@ -1,6 +1,6 @@
 ---
 name: st-generate-tasks
-description: "Generate atomic Markdown tasks for an existing Strikethroo plan in this repository. Use when the user asks to decompose a specific plan ID into tasks — discovers the local .ai/strikethroo root, resolves the plan, runs the project's task-generation hooks, allocates sequential task IDs, and writes one task file per atomic unit conforming to TASK_TEMPLATE.md. Do not use for generic project planning or work outside Strikethroo."
+description: "Use when the user asks to decompose, break down, or generate tasks for an existing Strikethroo plan ID in this repository — triggers include generate tasks, break down the plan, decompose plan, create the task blueprint. Do not use to create a new plan, to execute tasks, or for generic project planning outside Strikethroo."
 target: st-generate-tasks
 vars:
   action_verb_phrase: "generate tasks"
@@ -39,10 +39,20 @@ Read these files, in order:
   what tasks must exist.
 - `<root>/config/templates/TASK_TEMPLATE.md` — every task file you emit must
   conform to this template's frontmatter schema and section structure.
+- `<root>/config/shared/anti-rationalization.md` — apply in step 4.
 
 ### 4. Analyze and decompose the plan
 
 {{include sections/task-minimization.md}}
+
+Apply `<root>/config/shared/anti-rationalization.md` to this rationalization table:
+
+| You catch yourself thinking… | The binding rule |
+| --- | --- |
+| "One extra task won't hurt." | It violates the 20–30% minimization target. Every task traces to an **explicitly stated** deliverable or it does not exist. |
+| "This edge case deserves its own task." | Fold it into the task that owns the behavior. Do not split trivially small operations into separate units. |
+| "I'll add a test suite to be safe." | Comprehensive tests for trivial functionality are gold-plating. Follow the test philosophy — meaningful tests only. |
+| "Future extensibility justifies this task." | YAGNI. The plan does not mention it, so it is not a task. |
 
 ### 5. Apply granularity and skill rules
 

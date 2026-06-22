@@ -1,6 +1,6 @@
 ---
 name: st-full-workflow
-description: "Execute the complete Strikethroo workflow from plan creation through blueprint execution for this repository. Use when the user asks to run the full end-to-end workflow for a work order — discovers the local .ai/strikethroo root, creates a plan, generates atomic tasks, and executes the blueprint, all in a single uninterrupted sequence. Do not use for individual plan creation, task generation, or blueprint execution; use the dedicated skills for those."
+description: "Use when the user asks to run the complete end-to-end Strikethroo workflow for a work order in one shot in this repository — triggers include full workflow, end-to-end, plan and execute, do everything, run the whole strikethroo workflow. Do not use when the user wants only one stage (create a plan, generate tasks, or execute a blueprint); use the dedicated skill for that stage instead."
 target: st-full-workflow
 vars:
   action_verb_phrase: "execute the full workflow"
@@ -227,6 +227,7 @@ Read these files in order:
 - `<root>/config/STRIKETHROO.md` — directory conventions and project context.
 - The plan document.
 - The plan's Execution Blueprint section — this defines the phase groupings and task dispatch order.
+- `<root>/config/shared/verification-gate.md` — apply in the phase loop below.
 
 #### 5. Execute phases in order
 

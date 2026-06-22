@@ -14,7 +14,10 @@ const SKILL_DIR = path.join(REPO_ROOT, 'templates', 'harness', 'skills', 'st-ful
 const buildFixtureRoot = (root: string): string => {
   const tm = path.join(root, '.ai', 'strikethroo');
   fs.mkdirSync(tm, { recursive: true });
-  fs.writeFileSync(path.join(tm, '.init-metadata.json'), JSON.stringify({ version: 'test' }));
+  fs.writeFileSync(
+    path.join(tm, '.init-metadata.json'),
+    JSON.stringify({ version: 'test', workspaceSchemaVersion: 2 })
+  );
   return tm;
 };
 

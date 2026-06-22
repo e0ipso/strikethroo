@@ -6,6 +6,9 @@ Before declaring task generation complete, verify:
 - Task IDs are unique, sequential, and start from the value returned by
   `get-next-task-id.cjs`.
 - Groups are consistent and meaningful.
+- Every task's Acceptance Criteria includes at least one concrete, runnable
+  verification step (command + expected output / observable signal), not a
+  vague "works correctly".
 - Every **explicitly stated** deliverable in the plan is covered.
 - No redundant or overlapping tasks.
 - Minimization applied (20–30% reduction target).

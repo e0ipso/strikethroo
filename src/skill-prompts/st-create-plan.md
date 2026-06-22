@@ -1,6 +1,6 @@
 ---
 name: st-create-plan
-description: "Create a new Strikethroo plan for this repository. Use when the user asks to draft, plan, or scope a new strikethroo plan — discovers the local .ai/strikethroo root, runs the project's plan hooks, gathers clarifications, allocates the next plan ID, and writes a Markdown plan conforming to PLAN_TEMPLATE.md. Do not use for generic brainstorming or work outside Strikethroo."
+description: "Use when the user asks to draft, scope, or write up a new Strikethroo plan for a work order, feature, or initiative in this repository — triggers include create plan, new plan, plan this, scope a plan, strikethroo plan. Do not use to decompose an existing plan into tasks, to execute a plan, or for generic brainstorming outside Strikethroo."
 target: st-create-plan
 vars:
   action_verb_phrase: "create a plan"
@@ -33,6 +33,10 @@ instructions it contains before proceeding. Read
 `<root>/config/templates/PLAN_TEMPLATE.md` so the plan you emit conforms
 to its structure.
 
+Also read `<root>/config/shared/clarification-gate.md` and
+`<root>/config/shared/anti-rationalization.md`. The steps below require you to
+apply them.
+
 ### 3. Analyze the work order
 
 Identify:
@@ -52,6 +56,16 @@ a missing answer.
 
 If the user declines to clarify a blocking question, stop and report the
 plan as needing clarification. Do not produce a partial plan.
+
+Follow the clarification cadence in `<root>/config/shared/clarification-gate.md`.
+
+Apply `<root>/config/shared/anti-rationalization.md` to this rationalization table:
+
+| You catch yourself thinking… | The binding rule |
+| --- | --- |
+| "I can reasonably assume the answer." | An assumption is not an answer. Ask the question; never invent answers. |
+| "Asking again is annoying." | A question the user can decline is recoverable; a silent wrong assumption is not. Ask. |
+| "The user implied it, so it's settled." | An implication is not a confirmation. Surface it as a question and get an explicit answer. |
 
 ### 5. Allocate the next plan ID
 

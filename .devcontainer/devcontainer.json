@@ -1,5 +1,5 @@
 {
-  "name": "strikethroo-dev",
+  "name": "Strikethroo",
   "forwardPorts": [34489],
   "portsAttributes": {
     "34489": {
@@ -25,8 +25,14 @@
     "ghcr.io/devcontainers-extra/features/apt-get-packages:1": {
       "packages": "less,procps,fzf,man-db,unzip,gnupg2,gawk,jq,nano,vim,tree,python3-yaml,libxml2-utils"
     },
-    "./features/agent-clis": {},
-    "./features/t3": {}
+    "ghcr.io/e0ipso/devcontainer-feature-ai-assistant/claude:1": {},
+    "ghcr.io/e0ipso/devcontainer-feature-ai-assistant/codex:1": {},
+    "ghcr.io/e0ipso/devcontainer-feature-ai-assistant/copilot:1": {},
+    "ghcr.io/e0ipso/devcontainer-feature-ai-assistant/cursor:1": {},
+    "ghcr.io/e0ipso/devcontainer-feature-ai-assistant/opencode:1": {},
+    "ghcr.io/e0ipso/devcontainer-feature-ai-assistant/t3:1": {
+      "providersCursorEnabled": true
+    }
   },
   "customizations": {
     "vscode": {
@@ -93,7 +99,6 @@
     "source=${localEnv:HOME}/.config/cursor/auth.json,target=/home/node/.cred-seed/cursor/auth.json,readonly,type=bind,consistency=cached",
 
     "source=t3code-home-${devcontainerId},target=/home/node/.t3,type=volume",
-    "source=${localEnv:HOME}/.t3/devcontainer/settings.json,target=/home/node/.cred-seed/t3/settings.json,readonly,type=bind,consistency=cached",
 
     "source=${localEnv:HOME}/.config/gh/hosts.yml,target=/home/node/.config/gh/hosts.yml,type=bind,consistency=cached",
     "source=${localEnv:HOME}/.gitconfig,target=/home/node/.gitconfig,type=bind,consistency=cached"
@@ -109,6 +114,7 @@
     "VISUAL": "vim",
     "NPM_CONFIG_PREFIX": "/usr/local/share/npm-global",
     "T3CODE_HOME": "/home/node/.t3",
+    "T3CODE_TELEMETRY_ENABLED": "false",
     "HISTFILE": "/commandhistory/.bash_history",
     "PROMPT_COMMAND": "history -a"
   },
@@ -121,7 +127,11 @@
     "fix-perms": "sudo mkdir -p /commandhistory /usr/local/share/npm-global && sudo touch /commandhistory/.bash_history && sudo chown -R node:node /home/node /commandhistory /usr/local/share/npm-global > /dev/null 2>&1 || true"
   },
   "postStartCommand": {
-    "upgrades": "opencode upgrade; claude upgrade; copilot update; agent update; codex update",
+    "opencode-upgrade": "opencode upgrade",
+    "claude-upgrade": "claude upgrade",
+    "copilot-update": "copilot update",
+    "cursor-upgrade": "agent update",
+    "codex-update": "codex update",
     "seed-auth": ".devcontainer/scripts/seed-auth.sh",
     "seed-t3-settings": ".devcontainer/scripts/seed-t3-settings.sh",
     "copilot-auth": "grep -q COPILOT_GITHUB_TOKEN /home/node/.bashrc 2>/dev/null || echo 'export COPILOT_GITHUB_TOKEN=\"$(gh auth token 2>/dev/null)\"' >> /home/node/.bashrc"

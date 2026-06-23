@@ -127,11 +127,6 @@
     "fix-perms": "sudo mkdir -p /commandhistory /usr/local/share/npm-global && sudo touch /commandhistory/.bash_history && sudo chown -R node:node /home/node /commandhistory /usr/local/share/npm-global > /dev/null 2>&1 || true"
   },
   "postStartCommand": {
-    "opencode-upgrade": "opencode upgrade",
-    "claude-upgrade": "claude upgrade",
-    "copilot-update": "copilot update",
-    "cursor-upgrade": "agent update",
-    "codex-update": "codex update",
     "seed-auth": ".devcontainer/scripts/seed-auth.sh",
     "seed-t3-settings": ".devcontainer/scripts/seed-t3-settings.sh",
     "copilot-auth": "grep -q COPILOT_GITHUB_TOKEN /home/node/.bashrc 2>/dev/null || echo 'export COPILOT_GITHUB_TOKEN=\"$(gh auth token 2>/dev/null)\"' >> /home/node/.bashrc"

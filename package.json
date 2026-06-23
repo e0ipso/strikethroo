@@ -17,7 +17,7 @@
     "start": "node dist/cli.js",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "vitest run --coverage",
-    "pretest:e2e": "playwright install --with-deps chromium",
+    "pretest:e2e": "playwright install chromium",
     "test:e2e": "playwright test",
     "test:watch": "vitest",
     "capture:web": "node --require ts-node/register/transpile-only src/capture/capture-web.ts",

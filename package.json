@@ -50,7 +50,7 @@
     "typescript"
   ],
   "author": "e0ipso",
-  "license": "proprietary",
+  "license": "MIT",
   "publishConfig": {
     "access": "public"
   },

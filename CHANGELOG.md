@@ -1,3 +1,11 @@
+## <small>3.6.1 (2026-06-29)</small>
+
+* fix: align package.json license with MIT LICENSE file ([fd3639d](https://github.com/e0ipso/strikethroo/commit/fd3639d))
+* ci: avoid sudo commands ([e324458](https://github.com/e0ipso/strikethroo/commit/e324458))
+* chore: allow autoupdate ([bb61d43](https://github.com/e0ipso/strikethroo/commit/bb61d43))
+* chore: simplify devcontainer ([17956cb](https://github.com/e0ipso/strikethroo/commit/17956cb))
+* docs: add Cursor Cloud setup instructions to AGENTS.md (#41) ([65c24f0](https://github.com/e0ipso/strikethroo/commit/65c24f0)), closes [#41](https://github.com/e0ipso/strikethroo/issues/41)
+
 ## 3.6.0 (2026-06-22)
 
 * feat(skills): execute prompt-correlation blueprint; move plan out of docs/ (#40) ([b53ba8f](https://github.com/e0ipso/strikethroo/commit/b53ba8f)), closes [#40](https://github.com/e0ipso/strikethroo/issues/40)

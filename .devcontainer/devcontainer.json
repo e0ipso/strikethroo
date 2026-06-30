@@ -1,14 +1,9 @@
 {
-  "name": "Strikethroo",
-  "forwardPorts": [34489],
-  "portsAttributes": {
-    "34489": {
-      "label": "t3",
-      "onAutoForward": "silent"
-    }
-  },
+  "name": "${localWorkspaceFolderBasename}",
   "runArgs": [
-    "--hostname=strikethroo-dev"
+    "--hostname=${localWorkspaceFolderBasename}-dev",
+    "--publish",
+    "127.0.0.1:24649:34489"
   ],
   "image": "node:24",
   "features": {

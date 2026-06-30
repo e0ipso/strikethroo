@@ -1,7 +1,7 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
-node_count: 0
+nodes_hash: 'sha256:0ac39ca7bca430594e1487371ccf7ee95127186c44d568dfd68d53863c02032f'
+node_count: 2
 ---
 # kenkeep Index
 
@@ -9,10 +9,9 @@ node_count: 0
 
 ## Subfolders
 - Load [`capture/`](capture/index.md) for more information on the documentation-visual capture harness — its committed fixture workspace and Playwright SPA-driving technique.
-- Load [`cli/`](cli/index.md) for more information on the strikethroo CLI surface and init/serve commands; read when changing src/cli.ts or the CLI command set.
 - Load [`conventions/`](conventions/index.md) for more information on documentation and terminology conventions — current-state-only docs and the reserved meaning of phase.
 - Load [`dev/`](dev/index.md) for more information on the local development loop — dev:serve hot reload, the three concurrent processes, and rebuilding the SPA for serve.
-- Load [`docs/`](docs/index.md) for more information on Jekyll docs site configuration under docs/; read when changing GitHub Pages baseurl or docs/_config.yml.
+- Load [`devcontainer/`](devcontainer/index.md) for more information on devcontainer environment and t3 agent sandbox setup — Docker networking, port configuration, and t3 desktop connection; read when configuring or troubleshooting the devcontainer.
 - Load [`git/`](git/index.md) for more information on Git workflow constraints — commit-message hooks, the pre-commit test gate, attribution rules, and gitignored workspace state.
 - Load [`release/`](release/index.md) for more information on releasing and distribution — semantic-release, the npm-tarball vs GitHub-git-tree channels, and skill-artifact force-adding.
 - Load [`serve/`](serve/index.md) for more information on the read-only serve backend — HTTP/JSON API routes, the workspace data model and derivation, and the archive and self-review operations.
@@ -25,8 +24,20 @@ node_count: 0
 _None yet._
 
 ## Components (what exists)
-_None yet._
+- Open [**CLI exposes only init and serve commands**](map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md) to learn about: Running strikethroo --help lists only init and serve; there are no visualization/management (status, plan) commands. #cli #architecture
+- Open [**docs/_config.yml controls GitHub Pages baseurl for the Jekyll docs site**](map-docs-config-yml-controls-github-pages-baseurl-for-the-jekyll-docs-site.md) to learn about: docs/_config.yml sets baseurl and the aux_links GitHub URL; both must match the current repo slug for the Jekyll docs site to serve correctly. #docs #github-pages #jekyll
 
 ## By topic
 
-_No tags yet._
+### #architecture
+- Open [**Serve layer uses discriminated-union result types, not custom error classes**](serve/practice-serve-layer-uses-discriminated-union-result-types-not-custom-error-classes.md) — AGENTS.md's FileSystemError/ConfigError classes are aspirational; the actual serve convention is a discriminated ArchiveResult/LaunchResult union.
+- Open [**CLI exposes only init and serve commands**](map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md) — Running strikethroo --help lists only init and serve; there are no visualization/management (status, plan) commands.
+- Open [**Serve SPA is read-only; archive is the only workspace mutation (self-review writes nothing)**](serve/practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files.md) — The serve SPA is read-only except archive: POST /api/plans/:id/archive moves done plans to archive/. Self-review spawns a process but writes no files.
+### #cli
+- Open [**CLI exposes only init and serve commands**](map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md) — Running strikethroo --help lists only init and serve; there are no visualization/management (status, plan) commands.
+### #docs
+- Open [**docs/_config.yml controls GitHub Pages baseurl for the Jekyll docs site**](map-docs-config-yml-controls-github-pages-baseurl-for-the-jekyll-docs-site.md) — docs/_config.yml sets baseurl and the aux_links GitHub URL; both must match the current repo slug for the Jekyll docs site to serve correctly.
+### #github-pages
+- Open [**docs/_config.yml controls GitHub Pages baseurl for the Jekyll docs site**](map-docs-config-yml-controls-github-pages-baseurl-for-the-jekyll-docs-site.md) — docs/_config.yml sets baseurl and the aux_links GitHub URL; both must match the current repo slug for the Jekyll docs site to serve correctly.
+### #jekyll
+- Open [**docs/_config.yml controls GitHub Pages baseurl for the Jekyll docs site**](map-docs-config-yml-controls-github-pages-baseurl-for-the-jekyll-docs-site.md) — docs/_config.yml sets baseurl and the aux_links GitHub URL; both must match the current repo slug for the Jekyll docs site to serve correctly.

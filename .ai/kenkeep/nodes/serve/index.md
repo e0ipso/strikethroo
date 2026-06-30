@@ -48,7 +48,7 @@ _None._
 - Open [**serve UI PRD and tickets live under .ai/strikethroo/scratch/ui/**](map-serve-ui-prd-and-tickets-live-under-ai-strikethroo-scratch-ui.md) — The PRD and 13 dependency-ordered tickets for the serve SPA feature are in .ai/strikethroo/scratch/ui/, not in the formal plans/ flow.
 ### #architecture
 - Open [**Serve layer uses discriminated-union result types, not custom error classes**](practice-serve-layer-uses-discriminated-union-result-types-not-custom-error-classes.md) — AGENTS.md's FileSystemError/ConfigError classes are aspirational; the actual serve convention is a discriminated ArchiveResult/LaunchResult union.
-- Open [**CLI exposes only init and serve commands**](../cli/map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md) — Running strikethroo --help lists only init and serve; there are no visualization/management (status, plan) commands.
+- Open [**CLI exposes only init and serve commands**](../map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md) — Running strikethroo --help lists only init and serve; there are no visualization/management (status, plan) commands.
 - Open [**Serve SPA is read-only; archive is the only workspace mutation (self-review writes nothing)**](practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files.md) — The serve SPA is read-only except archive: POST /api/plans/:id/archive moves done plans to archive/. Self-review spawns a process but writes no files.
 ### #archive
 - Open [**Archive UI control — confirmation-gated Archive button on done plans**](../web/ui/map-archive-ui-control-confirmation-gated-archive-button-on-done-plans.md) — Done plans get an Archive button wired to ArchivePlanModal; POST /api/plans/:id/archive triggers SSE-driven UI refresh.
@@ -86,6 +86,7 @@ _None._
 ### #scratch
 - Open [**serve UI PRD and tickets live under .ai/strikethroo/scratch/ui/**](map-serve-ui-prd-and-tickets-live-under-ai-strikethroo-scratch-ui.md) — The PRD and 13 dependency-ordered tickets for the serve SPA feature are in .ai/strikethroo/scratch/ui/, not in the formal plans/ flow.
 ### #security
+- Open [**Keep t3 pairing auth — sibling devcontainers can reach the Docker bridge**](../devcontainer/practice-keep-t3-pairing-auth-sibling-devcontainers-can-reach-the-docker-bridge.md) — t3 binds 0.0.0.0 inside the container; sibling devcontainers on the Docker default bridge can reach it without auth.
 - Open [**Web routes and API resolve plans by composite {id}--{slug} directory name, not numeric id alone**](practice-web-routes-and-api-resolve-plans-by-composite-id-slug-directory-name-not-numeric.md) — The serve API and SPA router use the composite {id}--{slug} directory name as the routing key. Numeric-only URLs 404. The numeric id is display/sort only.
 ### #self-review
 - Open [**src/serve/self-review.ts — POST /api/self-review endpoint**](map-src-serve-self-review-ts-post-api-self-review-endpoint.md) — Spawns an external reviewer binary; writes nothing to the workspace. Returns LaunchResult discriminated union. Also adds GET /api/capabilities.

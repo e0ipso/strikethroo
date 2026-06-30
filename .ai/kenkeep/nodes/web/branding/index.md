@@ -56,3 +56,4 @@ _None yet._
 - Open [**Use the throughline strikethroo wordmark**](practice-use-the-throughline-strikethroo-wordmark.md) — Use the Outfit throughline wordmark with an ink strike through the x-height; not the Dalia UI Wordmark or a dot.
 ### #workflow
 - Open [**Author social and carousel assets with Dalia brand rules**](practice-use-dalia-brand-rules-for-social-carousel-assets.md) — Social assets use Dalia tokens, Fraunces/Outfit, Lucide icons, and HTML + Playwright screenshots — not Mermaid or the Dalia Wordmark component.
+- Open [**t3-serve.sh + new-devcontainer — stable devcontainer-to-t3-desktop workflow**](../../devcontainer/map-t3-serve-sh-new-devcontainer-stable-devcontainer-to-t3-desktop-workflow.md) — Two tools connect t3 desktop to a devcontainer: new-devcontainer bakes a deterministic port; t3-serve.sh is exec-only.

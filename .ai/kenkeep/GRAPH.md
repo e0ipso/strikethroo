@@ -1,11 +1,11 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:a5d7cb655bd37e223ffee4f3c54eff0a3619b854f37ded3481073efc3b5ae252'
-node_count: 71
+nodes_hash: 'sha256:a98f95b8ddfdce7d669494e07369dafb03db9ce6b7a4816f10f50135fefa5bbc'
+node_count: 74
 ---
 # kenkeep Graph
 
-Total nodes: 71
+Total nodes: 74
 
 ## map-archive-ui-control-confirmation-gated-archive-button-on-done-plans
 
@@ -25,7 +25,7 @@ Total nodes: 71
 
 - **kind:** map
 - **title:** CLI exposes only init and serve commands
-- **path:** cli/map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md
+- **path:** map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md
 - **tags:** cli, architecture
 
 ## map-cross-harness-code-abstraction-centralized-in-54-lines-across-3-locations
@@ -53,7 +53,7 @@ Total nodes: 71
 
 - **kind:** map
 - **title:** docs/_config.yml controls GitHub Pages baseurl for the Jekyll docs site
-- **path:** docs/map-docs-config-yml-controls-github-pages-baseurl-for-the-jekyll-docs-site.md
+- **path:** map-docs-config-yml-controls-github-pages-baseurl-for-the-jekyll-docs-site.md
 - **tags:** docs, github-pages, jekyll
 
 ## map-eslint-config-eslint-config-mjs-flat-config-eslint-9
@@ -170,6 +170,14 @@ Total nodes: 71
 - **path:** testing/map-src-tests-fixtures-serve-workspace-committed-fixture-workspace-for-tests.md
 - **tags:** testing, fixtures, integration, e2e, serve
 - **relates_to:** practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore
+
+## map-t3-serve-sh-new-devcontainer-stable-devcontainer-to-t3-desktop-workflow
+
+- **kind:** map
+- **title:** t3-serve.sh + new-devcontainer — stable devcontainer-to-t3-desktop workflow
+- **path:** devcontainer/map-t3-serve-sh-new-devcontainer-stable-devcontainer-to-t3-desktop-workflow.md
+- **tags:** devcontainer, t3, docker, workflow
+- **derived_from:** 05a1bddf-ef9e-4147-8e07-0b971366c7d7:map:0
 
 ## map-vercel-labs-skills-installer-scans-standard-dirs-before-plugin-json
 
@@ -307,6 +315,22 @@ Total nodes: 71
 - **title:** Keep .ai/strikethroo (dogfood workspace) explicitly ignored in .gitignore
 - **path:** git/practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore.md
 - **tags:** git, gitignore, workspace
+
+## practice-keep-host-0-0-0-0-in-t3-serve-docker-port-forwarding-needs-it
+
+- **kind:** practice
+- **title:** Keep --host 0.0.0.0 in t3 serve — Docker port forwarding needs it
+- **path:** devcontainer/practice-keep-host-0-0-0-0-in-t3-serve-docker-port-forwarding-needs-it.md
+- **tags:** devcontainer, docker, t3, networking
+- **derived_from:** 05a1bddf-ef9e-4147-8e07-0b971366c7d7:practice:0
+
+## practice-keep-t3-pairing-auth-sibling-devcontainers-can-reach-the-docker-bridge
+
+- **kind:** practice
+- **title:** Keep t3 pairing auth — sibling devcontainers can reach the Docker bridge
+- **path:** devcontainer/practice-keep-t3-pairing-auth-sibling-devcontainers-can-reach-the-docker-bridge.md
+- **tags:** devcontainer, docker, security, t3
+- **derived_from:** 05a1bddf-ef9e-4147-8e07-0b971366c7d7:practice:1
 
 ## practice-lint-staged-scopes-lint-format-but-pre-commit-still-runs-the-full-test-suite
 

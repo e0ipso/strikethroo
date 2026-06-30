@@ -2,3 +2,5 @@ _sessions/
 _logs/
 .state/
 !.state/installed-version
+hooks/
+.state/*

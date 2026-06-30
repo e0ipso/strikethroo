@@ -234,7 +234,7 @@ Custom error classes (`src/types.ts`): `FileSystemError`, `ConfigError`, `Templa
 When developing in a Cursor Cloud Agent VM, read [`.cursor/cloud-instructions.md`](.cursor/cloud-instructions.md) for environment setup and run caveats (build-before-run, the `serve` workspace requirement, e2e browser install). Load it on demand — it is not needed for routine local work.
 
 <!-- >>> kenkeep:kk-index >>> -->
-Curated project knowledge lives in [.ai/kenkeep/ENTRY.md](.ai/kenkeep/ENTRY.md), the entry catalog of the knowledge base. Enter there and descend before designing a non-trivial change:
+You are required to load [.ai/kenkeep/ENTRY.md](.ai/kenkeep/ENTRY.md), the small curated entry catalog for this repo. Enter there and descend using progressive disclosure principles.
 
 
 <!-- <<< kenkeep:kk-index <<< -->

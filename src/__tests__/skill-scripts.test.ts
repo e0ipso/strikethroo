@@ -301,7 +301,7 @@ describe('create-feature-branch integration', () => {
     expect(exitCode).toBe(1);
   });
 
-  test('reuses existing branch', () => {
+  test('checks out existing branch when on main', () => {
     const planFile = buildGitFixture(tempDir, 'my-test-plan', 42);
     execFileSync('git', ['checkout', '-b', 'feature/42--my-test-plan'], {
       cwd: tempDir,
@@ -322,7 +322,12 @@ describe('create-feature-branch integration', () => {
       encoding: 'utf8',
     });
     expect(result).toContain('already exists');
-    expect(result).toContain('Proceeding with existing branch');
+    expect(result).toContain('Switched to existing branch: feature/42--my-test-plan');
+    const currentBranch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+    }).trim();
+    expect(currentBranch).toBe('feature/42--my-test-plan');
   });
 });
 
@@ -514,6 +519,149 @@ const buildTaskFixture = (
   }
 };
 
+const buildPhaseBlueprintFixture = (
+  root: string,
+  planId: number,
+  planName: string,
+  tasks: Array<{ id: number; status: string; dependencies: number[] }>,
+  blueprintPhases: number[][]
+): void => {
+  buildTaskFixture(root, planId, planName, tasks);
+  const paddedPlanId = String(planId).padStart(2, '0');
+  const planFile = path.join(
+    root,
+    '.ai',
+    'strikethroo',
+    'plans',
+    `${paddedPlanId}--${planName}`,
+    `plan-${paddedPlanId}--${planName}.md`
+  );
+  const phaseSections = blueprintPhases
+    .map((taskIds, index) => {
+      const lines = taskIds.map(id => `- Task ${String(id).padStart(2, '0')}`).join('\n');
+      return `### Phase ${index + 1}: Test\n${lines}`;
+    })
+    .join('\n\n');
+  fs.appendFileSync(planFile, `\n## Execution Blueprint\n\n${phaseSections}\n`);
+};
+
+describe('check-phase-readiness scenarios', () => {
+  let tempDir: string;
+
+  beforeAll(() => {
+    execFileSync('npm', ['run', 'build:skills'], {
+      cwd: REPO_ROOT,
+      stdio: 'pipe',
+    });
+  });
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-phase-readiness-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  test('reports phase ready when dependencies are completed', () => {
+    buildPhaseBlueprintFixture(
+      tempDir,
+      4,
+      'phase-ready',
+      [
+        { id: 1, status: 'completed', dependencies: [] },
+        { id: 2, status: 'pending', dependencies: [1] },
+      ],
+      [[1, 2]]
+    );
+    const script = path.join(
+      REPO_ROOT,
+      'templates',
+      'harness',
+      'skills',
+      'st-execute-blueprint',
+      'scripts',
+      'check-phase-readiness.cjs'
+    );
+    const result = execFileSync('node', [script, '4', '1'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+      env: { ...process.env, NO_COLOR: '1' },
+    });
+    expect(result).toContain('Phase 1 is ready to execute');
+  });
+
+  test('fails when a phase task has unresolved dependencies', () => {
+    buildPhaseBlueprintFixture(
+      tempDir,
+      5,
+      'phase-blocked',
+      [
+        { id: 1, status: 'pending', dependencies: [] },
+        { id: 2, status: 'pending', dependencies: [1] },
+      ],
+      [[2]]
+    );
+    const script = path.join(
+      REPO_ROOT,
+      'templates',
+      'harness',
+      'skills',
+      'st-execute-blueprint',
+      'scripts',
+      'check-phase-readiness.cjs'
+    );
+    let exitCode: number | null = null;
+    let output = '';
+    try {
+      output = execFileSync('node', [script, '5', '1'], {
+        cwd: tempDir,
+        encoding: 'utf8',
+        env: { ...process.env, NO_COLOR: '1' },
+      });
+    } catch (e: any) {
+      exitCode = e.status ?? null;
+      output = (e.stdout || '') + (e.stderr || '');
+    }
+    expect(exitCode).toBe(1);
+    expect(output).toContain('not ready');
+    expect(output).toContain('dependency 1 status is pending');
+  });
+
+  test('fails when a phase task needs clarification', () => {
+    buildPhaseBlueprintFixture(
+      tempDir,
+      6,
+      'phase-clarify',
+      [{ id: 1, status: 'needs-clarification', dependencies: [] }],
+      [[1]]
+    );
+    const script = path.join(
+      REPO_ROOT,
+      'templates',
+      'harness',
+      'skills',
+      'st-execute-blueprint',
+      'scripts',
+      'check-phase-readiness.cjs'
+    );
+    let exitCode: number | null = null;
+    let output = '';
+    try {
+      output = execFileSync('node', [script, '6', '1'], {
+        cwd: tempDir,
+        encoding: 'utf8',
+        env: { ...process.env, NO_COLOR: '1' },
+      });
+    } catch (e: any) {
+      exitCode = e.status ?? null;
+      output = (e.stdout || '') + (e.stderr || '');
+    }
+    expect(exitCode).toBe(1);
+    expect(output).toContain('needs-clarification');
+  });
+});
+
 describe('st-execute-task bundle smoke check', () => {
   let tempDir: string;
   let fixtureSkillDir: string;
@@ -697,6 +845,7 @@ describe('check-task-dependencies scenarios', () => {
       stdout = e.stdout || '';
     }
     expect(exitCode).toBe(1);
+    expect(stdout).toContain('Task 1 - Status: failed');
     expect(stdout).toContain('failed');
   });
 
@@ -727,6 +876,7 @@ describe('check-task-dependencies scenarios', () => {
       stdout = e.stdout || '';
     }
     expect(exitCode).toBe(1);
+    expect(stdout).toContain('Task 1 - Status: in-progress');
     expect(stdout).toContain('in-progress');
   });
 

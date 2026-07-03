@@ -33,18 +33,17 @@ const _hasUncommittedChanges = (): boolean => {
 };
 
 const _branchExists = (branchName: string): boolean => {
-  const localBranches = execGit('git branch --list');
-  if (
-    localBranches &&
-    localBranches.split('\n').some(b => b.trim().replace('* ', '') === branchName)
-  ) {
-    return true;
+  const localMatch = execGit(`git branch --list "${branchName}"`);
+  if (localMatch) {
+    const names = localMatch
+      .split('\n')
+      .map(b => b.trim().replace(/^\*\s*/, ''))
+      .filter(Boolean);
+    if (names.includes(branchName)) return true;
   }
 
-  const remoteBranches = execGit('git branch -r --list');
-  if (remoteBranches && remoteBranches.split('\n').some(b => b.trim().includes(branchName))) {
-    return true;
-  }
+  const remoteMatch = execGit(`git branch -r --list "origin/${branchName}"`);
+  if (remoteMatch && remoteMatch.trim().length > 0) return true;
 
   return false;
 };
@@ -113,8 +112,18 @@ const main = (startPath: string = process.cwd()): void => {
   const branchName = `feature/${planId}--${sanitizedName}`;
 
   if (_branchExists(branchName)) {
+    if (currentBranch === branchName) {
+      _printSuccess(`Already on branch: ${branchName}`);
+      process.exit(0);
+    }
+
     _printWarning(`Branch "${branchName}" already exists`);
-    _printInfo('Proceeding with existing branch');
+    const checkoutResult = execGit(`git checkout "${branchName}"`);
+    if (checkoutResult === null) {
+      _printError(`Failed to checkout branch "${branchName}"`);
+      process.exit(1);
+    }
+    _printSuccess(`Switched to existing branch: ${branchName}`);
     process.exit(0);
   }
 

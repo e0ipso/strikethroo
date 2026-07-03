@@ -24,7 +24,7 @@ Hooks are Markdown files in `.ai/strikethroo/config/hooks/`. The LLM reads them 
 <div class="st-card">
 <span class="st-card__icon st-card__icon--terminal" aria-hidden="true"></span>
 <p class="st-card__title">Deterministic Tool Execution</p>
-<p>Have the LLM execute specific commands or enforce concrete behaviors on your behalf. Examples: git branch creation, conventional commit formatting, status tracking updates.</p>
+<p>Have the LLM execute specific commands or enforce concrete behaviors on your behalf. Examples: running bundled validation scripts, conventional commit formatting, status tracking updates.</p>
 </div>
 </div>
 
@@ -79,19 +79,19 @@ The LLM verifies all tasks reached `completed` status, checks that documentation
 
 ### Workflow Control Hooks
 
-These hooks execute deterministic actions -- branching, committing, status updates -- where the LLM acts as executor rather than reasoner.
+These hooks execute deterministic actions -- committing, status updates, validation gates -- where the LLM acts as executor rather than reasoner. Bundled validation scripts (`create-feature-branch.cjs`, `check-phase-readiness.cjs`, etc.) live in the skill's `scripts/` directory and are invoked by the skill prompt, not by workspace hooks.
 
 #### PRE_PHASE
 
 **When:** Before each execution phase begins.
 
-Creates a feature branch (`feature/{planId}--{plan-name}`) from main if needed, validates repository state, checks that all task dependencies are resolved, and confirms no tasks are marked "needs-clarification". Add environment checks (required services running, tool versions) if your project needs them.
+The execute-blueprint skill runs `check-phase-readiness.cjs` before this hook fires. Use the hook for phase identification, resume logic, and project-specific pre-flight checks (required services running, tool versions).
 
 #### POST_PHASE
 
 **When:** After each execution phase completes.
 
-Ensures linting passes and creates a descriptive conventional commit for the phase. Updates the blueprint and task statuses with completion markers. Ships with minimal validation by design -- the heavy lifting belongs in CI.
+Creates a descriptive conventional commit for the phase and updates blueprint and task statuses with completion markers. Add your project's lint/format commands here if you want a phase-level check — Strikethroo does not ship or prescribe a linter. CI remains the authoritative gate for quality thresholds.
 
 #### PRE_TASK_EXECUTION
 

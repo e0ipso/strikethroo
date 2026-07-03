@@ -64,6 +64,11 @@ const SKILL_ENTRYPOINTS = [
     out: 'create-feature-branch.cjs',
   },
   {
+    src: 'src/skill-scripts/check-phase-readiness.ts',
+    skill: 'st-execute-blueprint',
+    out: 'check-phase-readiness.cjs',
+  },
+  {
     src: 'src/skill-scripts/find-strikethroo-root.ts',
     skill: 'st-refine-plan',
     out: 'find-strikethroo-root.cjs',
@@ -112,6 +117,11 @@ const SKILL_ENTRYPOINTS = [
     src: 'src/skill-scripts/create-feature-branch.ts',
     skill: 'st-full-workflow',
     out: 'create-feature-branch.cjs',
+  },
+  {
+    src: 'src/skill-scripts/check-phase-readiness.ts',
+    skill: 'st-full-workflow',
+    out: 'check-phase-readiness.cjs',
   },
 ];
 

@@ -1,10 +1,12 @@
 Use an internal task or todo tracker to monitor progress. For each phase defined in the Execution Blueprint:
 
 {{heading}} {{phase_step}}a. Phase pre-execution
+Run `scripts/check-phase-readiness.cjs <plan-id> <phase-number>`. If the script exits non-zero, halt the phase and report the blocking issues before continuing.
+
 Read `<root>/config/hooks/PRE_PHASE.md` and execute its instructions before starting the phase.
 
 {{heading}} {{phase_step}}b. Task dispatch
-Identify all tasks scheduled for this phase whose dependencies are fully satisfied. Read `<root>/config/hooks/PRE_TASK_EXECUTION.md` and execute its instructions before starting any implementation work.
+Identify all tasks scheduled for this phase whose dependencies are fully satisfied. Read `<root>/config/hooks/PRE_TASK_ASSIGNMENT.md` and follow its instructions for agent selection before dispatching tasks.
 
 Deploy all selected agents simultaneously using your internal Task tool. Each agent MUST:
 

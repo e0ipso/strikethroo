@@ -1,3 +1,9 @@
+## 3.7.0 (2026-07-03)
+
+* feat(skills): add phase readiness check (#42) ([26175bb](https://github.com/e0ipso/strikethroo/commit/26175bb)), closes [#42](https://github.com/e0ipso/strikethroo/issues/42)
+* chore: update devcontainer for CLI compatibility ([454a5f7](https://github.com/e0ipso/strikethroo/commit/454a5f7))
+* docs: update kenkeep ([4292c94](https://github.com/e0ipso/strikethroo/commit/4292c94))
+
 ## <small>3.6.1 (2026-06-29)</small>
 
 * fix: align package.json license with MIT LICENSE file ([fd3639d](https://github.com/e0ipso/strikethroo/commit/fd3639d))

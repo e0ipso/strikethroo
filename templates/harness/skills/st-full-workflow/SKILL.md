@@ -330,7 +330,7 @@ If `taskCount` is 0 or `blueprintExists` is `no`:
 
 #### 3. Optionally create a feature branch
 
-Run `scripts/create-feature-branch.cjs <plan-id>`. The script creates a branch named after the plan and prints the branch name. Continue execution regardless of whether a branch is created.
+Run `scripts/create-feature-branch.cjs <plan-id>` once before phase execution. Branch creation is best-effort: when the script reports that it skipped creation (for example, not on `main`/`master`), continue on the current branch and do not retry or create a branch manually. When the script exits with an error (for example, uncommitted changes on `main`/`master`), halt and report the error. Do not treat a skipped branch as a failure or spend effort working around a skip.
 
 #### 4. Load execution blueprint
 
@@ -346,10 +346,12 @@ Read these files in order:
 Use an internal task or todo tracker to monitor progress. For each phase defined in the Execution Blueprint:
 
 ##### 5a. Phase pre-execution
+Run `scripts/check-phase-readiness.cjs <plan-id> <phase-number>`. If the script exits non-zero, halt the phase and report the blocking issues before continuing.
+
 Read `<root>/config/hooks/PRE_PHASE.md` and execute its instructions before starting the phase.
 
 ##### 5b. Task dispatch
-Identify all tasks scheduled for this phase whose dependencies are fully satisfied. Read `<root>/config/hooks/PRE_TASK_EXECUTION.md` and execute its instructions before starting any implementation work.
+Identify all tasks scheduled for this phase whose dependencies are fully satisfied. Read `<root>/config/hooks/PRE_TASK_ASSIGNMENT.md` and follow its instructions for agent selection before dispatching tasks.
 
 Deploy all selected agents simultaneously using your internal Task tool. Each agent MUST:
 

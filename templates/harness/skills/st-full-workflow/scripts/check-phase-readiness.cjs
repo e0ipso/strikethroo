@@ -27,14 +27,57 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// src/skill-scripts/check-task-dependencies.ts
-var check_task_dependencies_exports = {};
-__export(check_task_dependencies_exports, {
-  _main: () => _main
+// src/skill-scripts/check-phase-readiness.ts
+var check_phase_readiness_exports = {};
+__export(check_phase_readiness_exports, {
+  main: () => main
 });
-module.exports = __toCommonJS(check_task_dependencies_exports);
+module.exports = __toCommonJS(check_phase_readiness_exports);
 var fs5 = __toESM(require("fs"));
-var path5 = __toESM(require("path"));
+
+// src/skill-scripts/shared/blueprint-parse.ts
+var BLUEPRINT_SECTION_RE = /^##[ \t]+Execution Blueprint[ \t]*$/m;
+var PHASE_HEADING_RE = /^###[ \t]+(?:✅[ \t]*)?Phase[ \t]+(\d+)[ \t]*:?[ \t]*(.*?)[ \t]*$/gm;
+var TASK_REF_RE = /Task[ \t]+0*(\d+)/i;
+var parseBlueprintPhases = (planBody) => {
+  const sectionMatch = planBody.match(BLUEPRINT_SECTION_RE);
+  if (!sectionMatch || sectionMatch.index === void 0) return void 0;
+  const blueprint = planBody.slice(sectionMatch.index);
+  const headings = [];
+  PHASE_HEADING_RE.lastIndex = 0;
+  let m;
+  while ((m = PHASE_HEADING_RE.exec(blueprint)) !== null) {
+    headings.push({
+      index: m.index,
+      afterHeading: m.index + m[0].length,
+      name: (m[2] ?? "").trim()
+    });
+  }
+  if (headings.length === 0) return void 0;
+  const phases = [];
+  for (let i = 0; i < headings.length; i++) {
+    const current = headings[i];
+    const next = headings[i + 1];
+    const end = next ? next.index : blueprint.length;
+    const segment = blueprint.slice(current.afterHeading, end);
+    const taskIds = [];
+    for (const line of segment.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("-") && !trimmed.startsWith("*")) continue;
+      const ref = trimmed.match(TASK_REF_RE);
+      if (ref && ref[1] !== void 0) {
+        const id = parseInt(ref[1], 10);
+        if (!Number.isNaN(id) && !taskIds.includes(id)) taskIds.push(id);
+      }
+    }
+    phases.push({
+      index: i + 1,
+      name: current.name.length > 0 ? current.name : void 0,
+      taskIds
+    });
+  }
+  return phases;
+};
 
 // src/skill-scripts/shared/plan-resolve.ts
 var fs3 = __toESM(require("fs"));
@@ -355,30 +398,27 @@ var collectTaskReadinessIssues = (planDir, taskId) => {
   return issues;
 };
 
-// src/skill-scripts/check-task-dependencies.ts
+// src/skill-scripts/check-phase-readiness.ts
 var _printError = (message) => {
   console.error(`ERROR: ${message}`);
 };
 var _printSuccess = (message) => {
   console.log(`\u2713 ${message}`);
 };
-var _printWarning = (message) => {
-  console.log(`\u26A0 ${message}`);
-};
 var _printInfo = (message) => {
   console.log(message);
 };
-var _main = (startPath = process.cwd()) => {
+var main = (startPath = process.cwd()) => {
   if (process.argv.length !== 4) {
     _printError("Invalid number of arguments");
-    console.log("Usage: node check-task-dependencies.cjs <plan-id-or-path> <task-id>");
-    console.log("Example: node check-task-dependencies.cjs 16 03");
+    console.log("Usage: node check-phase-readiness.cjs <plan-id-or-path> <phase-number>");
+    console.log("Example: node check-phase-readiness.cjs 16 1");
     process.exit(1);
   }
   const inputId = process.argv[2];
-  const taskId = process.argv[3];
-  if (!inputId || !taskId) {
-    _printError("Invalid arguments");
+  const phaseNumber = parseInt(process.argv[3], 10);
+  if (Number.isNaN(phaseNumber) || phaseNumber < 1) {
+    _printError("Phase number must be a positive integer");
     process.exit(1);
   }
   const resolved = resolvePlan(inputId, startPath);
@@ -386,77 +426,46 @@ var _main = (startPath = process.cwd()) => {
     _printError(`Plan "${inputId}" not found or invalid`);
     process.exit(1);
   }
-  const { planDir, planId } = resolved;
-  _printInfo(`Found plan directory: ${planDir}`);
-  const taskFile = findTaskFile(planDir, taskId);
-  if (!taskFile) {
-    _printError(`Task with ID ${taskId} not found in plan ${planId}`);
+  const { planDir, planFile, planId } = resolved;
+  const planBody = fs5.readFileSync(planFile, "utf8");
+  const phases = parseBlueprintPhases(planBody);
+  if (!phases || phases.length === 0) {
+    _printError("No Execution Blueprint section with phases found in plan");
     process.exit(1);
   }
-  _printInfo(`Checking task: ${path5.basename(taskFile)}`);
+  const phase = phases.find((p) => p.index === phaseNumber);
+  if (!phase) {
+    _printError(`Phase ${phaseNumber} not found in plan ${planId}`);
+    process.exit(1);
+  }
+  _printInfo(`Checking phase ${phaseNumber} readiness for plan ${planId}`);
+  if (phase.name) _printInfo(`Phase name: ${phase.name}`);
+  if (phase.taskIds.length === 0) {
+    _printError(`Phase ${phaseNumber} has no tasks listed in the blueprint`);
+    process.exit(1);
+  }
+  _printInfo(`Tasks in phase: ${phase.taskIds.join(", ")}`);
   console.log("");
-  const issues = collectTaskReadinessIssues(planDir, taskId);
-  const dependencyIssues = issues.filter((issue) => issue.kind === "unresolved-dependency");
-  const blockingIssues = issues.filter((issue) => issue.kind !== "unresolved-dependency");
-  if (blockingIssues.length > 0) {
-    for (const issue of blockingIssues) {
-      _printError(issue.detail);
-    }
-    process.exit(1);
-  }
-  const taskContent = fs5.readFileSync(taskFile, "utf8");
-  const frontmatter = extractFrontmatter(taskContent);
-  if (!frontmatter) {
-    _printError("Could not extract frontmatter from task file");
-    process.exit(1);
-  }
-  const dependencies = extractDependencies(frontmatter);
-  if (dependencies.length === 0) {
-    _printSuccess("Task has no dependencies - ready to execute!");
+  const allIssues = phase.taskIds.flatMap(
+    (taskId) => collectTaskReadinessIssues(planDir, taskId).map((issue) => ({
+      ...issue,
+      phaseTaskId: String(taskId)
+    }))
+  );
+  if (allIssues.length === 0) {
+    _printSuccess(`Phase ${phaseNumber} is ready to execute`);
     process.exit(0);
   }
-  _printInfo("Task dependencies found:");
-  dependencies.forEach((dep) => {
-    console.log(`  - Task ${dep}`);
-  });
-  console.log("");
-  _printInfo("Checking dependency status...");
-  console.log("");
-  let resolvedCount = 0;
-  for (const depId of dependencies) {
-    const depFile = findTaskFile(planDir, depId);
-    const depFrontmatter = depFile ? extractFrontmatter(fs5.readFileSync(depFile, "utf8")) : null;
-    const depStatus = depFrontmatter ? extractStatus(depFrontmatter) : null;
-    if (depStatus === "completed") {
-      _printSuccess(`Task ${depId} - Status: completed \u2713`);
-      resolvedCount++;
-    } else {
-      _printWarning(`Task ${depId} - Status: ${depStatus ?? "unknown"} \u2717`);
-    }
+  _printError(`Phase ${phaseNumber} is not ready:`);
+  for (const issue of allIssues) {
+    console.log(`  - Task ${issue.phaseTaskId}: ${issue.detail}`);
   }
-  console.log("");
-  _printInfo("=========================================");
-  _printInfo("Dependency Check Summary");
-  _printInfo("=========================================");
-  _printInfo(`Total dependencies: ${dependencies.length}`);
-  _printInfo(`Resolved: ${resolvedCount}`);
-  _printInfo(`Unresolved: ${dependencies.length - resolvedCount}`);
-  console.log("");
-  if (dependencyIssues.length === 0) {
-    _printSuccess(`All dependencies are resolved! Task ${taskId} is ready to execute.`);
-    process.exit(0);
-  }
-  _printError(`Task ${taskId} has unresolved dependencies:`);
-  dependencyIssues.forEach((issue) => {
-    console.log(issue.detail);
-  });
-  _printInfo("Please complete the dependencies before executing this task.");
   process.exit(1);
 };
 if (require.main === module) {
-  _main();
+  main();
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  _main
+  main
 });

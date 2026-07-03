@@ -162,7 +162,7 @@ export async function init(options: InitOptions): Promise<CommandResult> {
     );
 
     // Add documentation link
-    console.log(`\n  📚 Documentation: ${chalk.cyan('https://mateuaguilo.com/strikethroo')}\n`);
+    console.log(`\n  📚 Documentation: ${chalk.cyan('https://strikethroo.canpicasoft.com')}\n`);
 
     // Show suggested workflow help text
     await displayWorkflowHelp();

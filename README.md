@@ -15,10 +15,10 @@
 </p>
 
 <p align="center">
-  <a href="https://mateuaguilo.com/strikethroo/workflow.html">Workflow</a> &nbsp;·&nbsp;
-  <a href="https://mateuaguilo.com/strikethroo/customization.html">Customization</a> &nbsp;·&nbsp;
-  <a href="https://mateuaguilo.com/strikethroo/visualizations.html">Visualizations</a> &nbsp;·&nbsp;
-  <a href="https://mateuaguilo.com/strikethroo/faq.html">FAQ</a>
+  <a href="https://strikethroo.canpicasoft.com/workflow.html">Workflow</a> &nbsp;·&nbsp;
+  <a href="https://strikethroo.canpicasoft.com/customization.html">Customization</a> &nbsp;·&nbsp;
+  <a href="https://strikethroo.canpicasoft.com/visualizations.html">Visualizations</a> &nbsp;·&nbsp;
+  <a href="https://strikethroo.canpicasoft.com/faq.html">FAQ</a>
 </p>
 
 ## Why Strikethroo?
@@ -85,7 +85,7 @@ Define the shape of plans and tasks -- add your own sections and checklists.
 
 One file of domain knowledge every step reads.
 
-Hooks, templates, and a project-context file are all plain Markdown -- nothing to compile, no plugin API to learn. See the [Customization Guide](https://mateuaguilo.com/strikethroo/customization.html) for examples.
+Hooks, templates, and a project-context file are all plain Markdown -- nothing to compile, no plugin API to learn. See the [Customization Guide](https://strikethroo.canpicasoft.com/customization.html) for examples.
 
 ## Quick Start
 
@@ -124,7 +124,7 @@ Three steps, each delivered as an Agent Skill that loads when you describe what 
 
 Human review gates between steps catch scope creep before any code is written. Each step runs with clean context -- the planning agent sees only the work order, the task agent sees only the approved plan, and each execution sub-agent receives only its specific task.
 
-See the [Workflow Guide](https://mateuaguilo.com/strikethroo/workflow.html) for the full step-by-step with advanced patterns. Once a plan exists, visualize its plans, tasks, and dependency graph in [Visualizations](https://mateuaguilo.com/strikethroo/visualizations.html).
+See the [Workflow Guide](https://strikethroo.canpicasoft.com/workflow.html) for the full step-by-step with advanced patterns. Once a plan exists, visualize its plans, tasks, and dependency graph in [Visualizations](https://strikethroo.canpicasoft.com/visualizations.html).
 
 ## Visualize the data
 Strikethroo comes with an optional **web application** to help you visualize your plans, tasks, and progress. No installation necessary, just execute the following command in a project using Strikethroo:
@@ -141,9 +141,9 @@ This will open a web page that will help you navigate your plans and their tasks
 
 ## Documentation
 
-- [Workflow Guide](https://mateuaguilo.com/strikethroo/workflow.html) -- Step-by-step workflow with visual guides
-- [Customization Guide](https://mateuaguilo.com/strikethroo/customization.html) -- Hooks, templates, and project context
-- [Reference](https://mateuaguilo.com/strikethroo/reference.html) -- Glossary and CLI reference
-- [FAQ](https://mateuaguilo.com/strikethroo/faq.html) -- Answers to common questions
-- [Visualizations](https://mateuaguilo.com/strikethroo/visualizations.html) -- See plans, tasks, and the dependency graph
-- [Migrating from 1.x](https://mateuaguilo.com/strikethroo/migration.html) -- Upgrade from slash commands to Agent Skills
+- [Workflow Guide](https://strikethroo.canpicasoft.com/workflow.html) -- Step-by-step workflow with visual guides
+- [Customization Guide](https://strikethroo.canpicasoft.com/customization.html) -- Hooks, templates, and project context
+- [Reference](https://strikethroo.canpicasoft.com/reference.html) -- Glossary and CLI reference
+- [FAQ](https://strikethroo.canpicasoft.com/faq.html) -- Answers to common questions
+- [Visualizations](https://strikethroo.canpicasoft.com/visualizations.html) -- See plans, tasks, and the dependency graph
+- [Migrating from 1.x](https://strikethroo.canpicasoft.com/migration.html) -- Upgrade from slash commands to Agent Skills

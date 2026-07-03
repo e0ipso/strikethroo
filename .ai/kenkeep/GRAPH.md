@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:a98f95b8ddfdce7d669494e07369dafb03db9ce6b7a4816f10f50135fefa5bbc'
+nodes_hash: 'sha256:509cb8c79689358570c1f8bc4f81618854c936d272a845e811769329240a0027'
 node_count: 74
 ---
 # kenkeep Graph
@@ -25,7 +25,7 @@ Total nodes: 74
 
 - **kind:** map
 - **title:** CLI exposes only init and serve commands
-- **path:** map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md
+- **path:** cli/map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md
 - **tags:** cli, architecture
 
 ## map-cross-harness-code-abstraction-centralized-in-54-lines-across-3-locations
@@ -53,7 +53,7 @@ Total nodes: 74
 
 - **kind:** map
 - **title:** docs/_config.yml controls GitHub Pages baseurl for the Jekyll docs site
-- **path:** map-docs-config-yml-controls-github-pages-baseurl-for-the-jekyll-docs-site.md
+- **path:** docs/map-docs-config-yml-controls-github-pages-baseurl-for-the-jekyll-docs-site.md
 - **tags:** docs, github-pages, jekyll
 
 ## map-eslint-config-eslint-config-mjs-flat-config-eslint-9
@@ -431,6 +431,7 @@ Total nodes: 74
 - **title:** Two-channel release: npm tarball vs GitHub git tree
 - **path:** release/practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime.md
 - **tags:** release, distribution, npm, skills, web, spa, build, serve, semantic-release
+- **derived_from:** 7f15ae61-53e1-4644-8689-567a37c4ff39:practice:0
 
 ## practice-spa-source-changes-require-npm-run-build-web-before-serve-reflects-them
 

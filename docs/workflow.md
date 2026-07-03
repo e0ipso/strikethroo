@@ -88,7 +88,7 @@ A wrong ordering is easiest to spot on the dependency graph -- a live mermaid re
 
 > /st-execute-blueprint 1
 
-The `st-execute-blueprint` skill runs tasks grouped into phases. Within each phase, independent tasks run in parallel. Hooks fire throughout: [`PRE_PHASE`](customization.html#pre_phase) runs before each phase starts, then for every task [`PRE_TASK_ASSIGNMENT`](customization.html#pre_task_assignment) and [`PRE_TASK_EXECUTION`](customization.html#pre_task_execution) run before it is dispatched. [`POST_ERROR_DETECTION`](customization.html#post_error_detection) runs if a task fails, and [`POST_PHASE`](customization.html#post_phase) runs after each phase completes.
+The `st-execute-blueprint` skill runs tasks grouped into phases. Before phases begin, it runs `create-feature-branch.cjs` to create a plan feature branch when appropriate (skipped when not on `main`/`master` — that is expected, not a failure). Before each phase, the skill runs `check-phase-readiness.cjs`, then the [`PRE_PHASE`](customization.html#pre_phase) hook. Independent tasks run in parallel within the phase. For every task, [`PRE_TASK_ASSIGNMENT`](customization.html#pre_task_assignment) runs before dispatch and [`PRE_TASK_EXECUTION`](customization.html#pre_task_execution) runs on the task agent before implementation. [`POST_ERROR_DETECTION`](customization.html#post_error_detection) runs if a task fails, and [`POST_PHASE`](customization.html#post_phase) runs after each phase completes.
 
 {% include callout.html variant="note" content="If you skipped step 3, `st-execute-blueprint` auto-generates the tasks and the blueprint before starting." %}
 

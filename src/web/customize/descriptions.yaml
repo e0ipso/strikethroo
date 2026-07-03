@@ -11,8 +11,8 @@
 # --- Lifecycle hooks ---
 PRE_PLAN: "Scope-control and simplicity guidance the assistant applies before drafting a plan, enforcing YAGNI and minimal viable implementation."
 POST_PLAN: "Post-plan checks ensuring the plan includes a Self Validation section and answers whether documentation or AGENTS.md needs updating."
-PRE_PHASE: "Pre-phase setup that creates the plan's feature branch and validates that every task's dependencies are completed before the phase runs."
-POST_PHASE: "Post-phase gate confirming linting passes and a conventional commit was made, then updating task and phase statuses in the plan."
+PRE_PHASE: "Pre-phase setup before a phase runs — identifies the current phase, lists scheduled tasks, and verifies resume state from completed phases."
+POST_PHASE: "Post-phase gate — optional project-specific lint/format checks, a conventional commit, and blueprint task status updates."
 PRE_TASK_ASSIGNMENT: "Guidance for matching each task's required skills against available sub-agents and engaging relevant harness skills before assignment."
 PRE_TASK_EXECUTION: "Pre-task discipline run before implementation — ships a RED-GREEN-REFACTOR test-first cycle scoped to meaningful tests; edit to add pre-flight checks or replace the default."
 POST_TASK_GENERATION_ALL: "After all tasks are generated, reviews task complexity (splitting, sharpening, or merging) and appends the dependency diagram and execution phases to the plan."

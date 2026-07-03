@@ -1,9 +1,11 @@
 # POST_PHASE Hook
 
-Ensure that:
+## Phase Post-Execution
 
- - The code base is passing the linting requirements
- - A descriptive commit (using conventional commits with a subject and a description) for the phase was successfully created.
+Before moving to the next phase:
+
+- Run lint and/or format checks if this hook defines them for your project. If none are defined here, skip this step.
+- Create a descriptive conventional commit for the phase (subject and body).
 
 ### Execution Monitoring
 
@@ -21,4 +23,3 @@ Valid status transitions:
 - `in-progress` → `completed` (successful execution)
 - `in-progress` → `failed` (execution error)
 - `failed` → `in-progress` (retry attempt)
-

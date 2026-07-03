@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:55795cfb2c8f999677ded726f712df734e08d7149d41603c723bc4e71e75ca61'
+nodes_hash: 'sha256:285cddcdd9ad538a5d9b4de6fdd8c1d276addef3d0469f0f90ff79a894ad8df7'
 node_count: 8
 summary: >-
   releasing and distribution — semantic-release, the npm-tarball vs
@@ -12,6 +12,8 @@ summary: >-
 
 > kenkeep navigation: the injected body above is the root index node, the top-level catalog of branches and root-level leaves. Do not expect the whole knowledge base here; descend on demand. Read the root index node, pick one or more branches whose intent and tags match your task (several branches can be relevant), and read those branch `index.md` nodes. Descend further only where the task needs it, opening only the leaves you have confirmed are relevant. Follow each leaf's `relates_to` and `depends_on` cross edges to reach related leaves in other branches. You decide how deep to go per branch.
 
+> This index only orients you; leaves hold the durable guidance. Open at least one relevant leaf before acting.
+
 ## Subfolders
 _None._
 
@@ -19,7 +21,7 @@ _None._
 - Open [**Do not commit .agents/skills/ or skills-lock.json — they are local installation artifacts**](practice-do-not-commit-agents-skills-or-skills-lock-json-they-are-local-installation-artifacts.md) to learn about: \`.agents/skills/\` and \`skills-lock.json\` are produced by running \`npx skills add\` locally and must be gitignored, not committed. #distribution #skills #gitignore
 - Open [**Manual npm publish must be paired with a matching git tag to prevent semantic-release failure**](practice-manual-npm-publish-must-be-paired-with-a-matching-git-tag-to-prevent-semantic-release-failure.md) to learn about: Without a matching vX.Y.Z tag, semantic-release on the next push tries the same version again and gets a 403 from npm. #release #npm #semantic-release
 - Open [**Manual npm publish requires force-adding git-ignored skill artifacts into git**](practice-manual-npm-publish-requires-force-adding-git-ignored-skill-artifacts-into-git.md) to learn about: When bypassing semantic-release, manually force-add SKILL.md and .cjs bundles into git before tagging, or npx skills add finds no skills. #release #npm #skills #git
-- Open [**Two-channel release: npm tarball vs GitHub git tree**](practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime.md) to learn about: npm publish ships dist/ and dist-web/; npx skills add reads force-added SKILL.md and .cjs bundles from the GitHub git tree. Both channels must be populated on every release. #release #distribution #npm #skills #web #spa #build #serve #semantic-release
+- Open [**Two-channel release: npm tarball vs GitHub git tree**](practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime.md) to learn about: npm publish ships dist/ and dist-web/; npx skills add reads force-added SKILL.md and .cjs bundles from the GitHub git tree. Normal source commits leave generated skill-artifact force-adding to release automation. #release #distribution #npm #skills #web #spa #build #serve #semantic-release
 - Open [**Use git rm -r for tracked skill output dirs, not rm -rf**](practice-use-git-rm-r-for-tracked-skill-output-dirs-not-rm-rf.md) to learn about: Release commits force-add skill bundles and SKILL.md files, making them tracked at HEAD. Removing them requires git rm -r, not rm -rf. #git #tracked-files #build-artifacts #skills
 
 ## Components (what exists)
@@ -36,18 +38,18 @@ _None._
 ### #distribution
 - Open [**Do not commit .agents/skills/ or skills-lock.json — they are local installation artifacts**](practice-do-not-commit-agents-skills-or-skills-lock-json-they-are-local-installation-artifacts.md) — \`.agents/skills/\` and \`skills-lock.json\` are produced by running \`npx skills add\` locally and must be gitignored, not committed.
 - Open [**vercel-labs/skills installer scans standard dirs before plugin.json**](map-vercel-labs-skills-installer-scans-standard-dirs-before-plugin-json.md) — The installer checks \`.agents/skills/\`, \`.claude/skills/\`, etc. in priority order before falling back to \`.claude-plugin/plugin.json\` manifest paths.
-- Open [**Two-channel release: npm tarball vs GitHub git tree**](practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime.md) — npm publish ships dist/ and dist-web/; npx skills add reads force-added SKILL.md and .cjs bundles from the GitHub git tree. Both channels must be populated on every release.
+- Open [**Two-channel release: npm tarball vs GitHub git tree**](practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime.md) — npm publish ships dist/ and dist-web/; npx skills add reads force-added SKILL.md and .cjs bundles from the GitHub git tree. Normal source commits leave generated skill-artifact force-adding to release automation.
 ### #npm
 - Open [**Manual npm publish must be paired with a matching git tag to prevent semantic-release failure**](practice-manual-npm-publish-must-be-paired-with-a-matching-git-tag-to-prevent-semantic-release-failure.md) — Without a matching vX.Y.Z tag, semantic-release on the next push tries the same version again and gets a 403 from npm.
 - Open [**Manual npm publish requires force-adding git-ignored skill artifacts into git**](practice-manual-npm-publish-requires-force-adding-git-ignored-skill-artifacts-into-git.md) — When bypassing semantic-release, manually force-add SKILL.md and .cjs bundles into git before tagging, or npx skills add finds no skills.
-- Open [**Two-channel release: npm tarball vs GitHub git tree**](practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime.md) — npm publish ships dist/ and dist-web/; npx skills add reads force-added SKILL.md and .cjs bundles from the GitHub git tree. Both channels must be populated on every release.
+- Open [**Two-channel release: npm tarball vs GitHub git tree**](practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime.md) — npm publish ships dist/ and dist-web/; npx skills add reads force-added SKILL.md and .cjs bundles from the GitHub git tree. Normal source commits leave generated skill-artifact force-adding to release automation.
 ### #release
 - Open [**Manual npm publish must be paired with a matching git tag to prevent semantic-release failure**](practice-manual-npm-publish-must-be-paired-with-a-matching-git-tag-to-prevent-semantic-release-failure.md) — Without a matching vX.Y.Z tag, semantic-release on the next push tries the same version again and gets a 403 from npm.
 - Open [**Manual npm publish requires force-adding git-ignored skill artifacts into git**](practice-manual-npm-publish-requires-force-adding-git-ignored-skill-artifacts-into-git.md) — When bypassing semantic-release, manually force-add SKILL.md and .cjs bundles into git before tagging, or npx skills add finds no skills.
-- Open [**Two-channel release: npm tarball vs GitHub git tree**](practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime.md) — npm publish ships dist/ and dist-web/; npx skills add reads force-added SKILL.md and .cjs bundles from the GitHub git tree. Both channels must be populated on every release.
+- Open [**Two-channel release: npm tarball vs GitHub git tree**](practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime.md) — npm publish ships dist/ and dist-web/; npx skills add reads force-added SKILL.md and .cjs bundles from the GitHub git tree. Normal source commits leave generated skill-artifact force-adding to release automation.
 ### #semantic-release
 - Open [**Manual npm publish must be paired with a matching git tag to prevent semantic-release failure**](practice-manual-npm-publish-must-be-paired-with-a-matching-git-tag-to-prevent-semantic-release-failure.md) — Without a matching vX.Y.Z tag, semantic-release on the next push tries the same version again and gets a 403 from npm.
-- Open [**Two-channel release: npm tarball vs GitHub git tree**](practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime.md) — npm publish ships dist/ and dist-web/; npx skills add reads force-added SKILL.md and .cjs bundles from the GitHub git tree. Both channels must be populated on every release.
+- Open [**Two-channel release: npm tarball vs GitHub git tree**](practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime.md) — npm publish ships dist/ and dist-web/; npx skills add reads force-added SKILL.md and .cjs bundles from the GitHub git tree. Normal source commits leave generated skill-artifact force-adding to release automation.
 - Open [**.releaserc.json repositoryUrl must match current GitHub repo slug**](map-releaserc-json-repositoryurl-must-match-current-github-repo-slug.md) — .releaserc.json's repositoryUrl feeds @semantic-release/github; it must match the current GitHub repo slug or releases fail.
 ### #git
 - Open [**Project commit hook rejects AI co-authorship attribution trailers**](../git/practice-project-commit-hook-rejects-ai-co-authorship-attribution-trailers.md) — A commit hook rejects Co-Authored-By AI attribution lines; omit them when committing in this repository.

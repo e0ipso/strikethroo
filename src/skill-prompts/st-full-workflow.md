@@ -218,7 +218,7 @@ If `taskCount` is 0 or `blueprintExists` is `no`:
 
 #### 3. Optionally create a feature branch
 
-Run `scripts/create-feature-branch.cjs <plan-id>`. The script creates a branch named after the plan and prints the branch name. Continue execution regardless of whether a branch is created.
+Run `scripts/create-feature-branch.cjs <plan-id>` once before phase execution. Branch creation is best-effort: when the script reports that it skipped creation (for example, not on `main`/`master`), continue on the current branch and do not retry or create a branch manually. When the script exits with an error (for example, uncommitted changes on `main`/`master`), halt and report the error. Do not treat a skipped branch as a failure or spend effort working around a skip.
 
 #### 4. Load execution blueprint
 

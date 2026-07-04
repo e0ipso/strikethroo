@@ -1,18 +1,19 @@
 ---
-schema_version: 2
-id: practice-phase-reserved-for-blueprint-task-groups
+type: practice
 title: Phase is reserved for execution blueprint task groups
-kind: practice
+description: >-
+  "Phase" means parallel task batches in the blueprint. The three workflow
+  stages are "steps", never "phases".
 tags:
   - terminology
   - documentation
   - execution-blueprint
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  "Phase" means parallel task batches in the blueprint. The three workflow
-  stages are "steps", never "phases".
+kk_schema_version: 3
+kk_id: practice-phase-reserved-for-blueprint-task-groups
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 "Phase" has a precise technical meaning in this project: a group of tasks within an execution blueprint that execute in parallel. Phases run in sequence; tasks within a phase run concurrently.
 

@@ -1,11 +1,3 @@
----
-schema_version: 2
-nodes_hash: 'sha256:5e82f1e6c5788021f79cb7362911185b463534a494f2daa16e53d049c1acd097'
-node_count: 8
-summary: >-
-  the test strategy — the committed fixture workspace, Vitest node-env limits,
-  and Playwright e2e selectors and flakiness
----
 # kenkeep Index: testing
 
 ↑ Parent: [kenkeep](../index.md)

@@ -1,19 +1,20 @@
 ---
-schema_version: 2
-id: practice-project-commit-hook-rejects-ai-co-authorship-attribution-trailers
+type: practice
 title: Project commit hook rejects AI co-authorship attribution trailers
-kind: practice
+description: >-
+  A commit hook rejects Co-Authored-By AI attribution lines; omit them when
+  committing in this repository.
 tags:
   - git
   - commit
   - hooks
   - attribution
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  A commit hook rejects Co-Authored-By AI attribution lines; omit them when
-  committing in this repository.
+kk_schema_version: 3
+kk_id: practice-project-commit-hook-rejects-ai-co-authorship-attribution-trailers
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 The project's commit hook rejected a commit message that contained an AI co-authorship `Co-Authored-By:` trailer. The staging was reset and the commit did not land.
 

@@ -1,22 +1,23 @@
 ---
-schema_version: 2
-id: >-
-  practice-eslint-test-block-must-include-browser-globals-for-page-evaluate-callbacks
+type: practice
 title: ESLint test block must include browser globals for page.evaluate callbacks
-kind: practice
+description: >-
+  Playwright e2e tests use page.evaluate with browser globals (location, URL,
+  document); the ESLint test block must include browserGlobals to avoid no-undef
+  errors.
 tags:
   - linting
   - eslint
   - globals
   - testing
   - e2e
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  Playwright e2e tests use page.evaluate with browser globals (location, URL,
-  document); the ESLint test block must include browserGlobals to avoid no-undef
-  errors.
+kk_schema_version: 3
+kk_id: >-
+  practice-eslint-test-block-must-include-browser-globals-for-page-evaluate-callbacks
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 The ESLint config (`eslint.config.mjs`) defines a shared `browserGlobals` object applied to both the test block and the SPA web block. This is required because Playwright e2e tests use `page.evaluate()` callbacks that reference `location`, `URL`, `document`, and similar browser globals.
 

@@ -1,9 +1,3 @@
----
-schema_version: 2
-nodes_hash: 'sha256:bba158aa8d8fb31e149bec002f3d0ef1fb6a5dc403488767402df26379754d26'
-node_count: 3
-summary: SPA interactive UI components and read-only affordance conventions
----
 # kenkeep Index: web / ui
 
 ↑ Parent: [web](../index.md)

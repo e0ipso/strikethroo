@@ -1,11 +1,3 @@
----
-schema_version: 2
-nodes_hash: 'sha256:285cddcdd9ad538a5d9b4de6fdd8c1d276addef3d0469f0f90ff79a894ad8df7'
-node_count: 8
-summary: >-
-  releasing and distribution — semantic-release, the npm-tarball vs
-  GitHub-git-tree channels, and skill-artifact force-adding
----
 # kenkeep Index: release
 
 ↑ Parent: [kenkeep](../index.md)

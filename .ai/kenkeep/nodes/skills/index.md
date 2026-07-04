@@ -1,11 +1,3 @@
----
-schema_version: 2
-nodes_hash: 'sha256:8ee43b0f672793b2bd062a4020112841ff7237afb66209da00e628c2be7edebe'
-node_count: 3
-summary: >-
-  the harness-agnostic Agent Skills system — intent-based loading, the
-  skill-scripts root utility, and cross-harness abstraction
----
 # kenkeep Index: skills
 
 ↑ Parent: [kenkeep](../index.md)

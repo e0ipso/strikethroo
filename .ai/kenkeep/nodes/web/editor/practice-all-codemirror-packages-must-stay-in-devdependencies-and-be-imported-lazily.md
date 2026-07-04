@@ -1,21 +1,22 @@
 ---
-schema_version: 2
-id: >-
-  practice-all-codemirror-packages-must-stay-in-devdependencies-and-be-imported-lazily
+type: practice
 title: All CodeMirror packages must stay in devDependencies and be imported lazily
-kind: practice
+description: >-
+  CodeMirror packages are build-time only and must never move to runtime
+  dependencies. All four packages are loaded inside a single React.lazy import
+  boundary.
 tags:
   - codemirror
   - spa
   - devdependencies
   - lazy-loading
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  CodeMirror packages are build-time only and must never move to runtime
-  dependencies. All four packages are loaded inside a single React.lazy import
-  boundary.
+kk_schema_version: 3
+kk_id: >-
+  practice-all-codemirror-packages-must-stay-in-devdependencies-and-be-imported-lazily
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 The project's hard constraint: all CodeMirror packages (`@uiw/react-codemirror`, `@codemirror/lang-markdown`, `@codemirror/language-data`, `@codemirror/theme-one-dark`) are build-time only and must remain `devDependencies`. They must never move to runtime `dependencies`.
 

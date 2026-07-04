@@ -1,11 +1,3 @@
----
-schema_version: 2
-nodes_hash: 'sha256:9d215020e5bc2da464a3549ba722b192f05a293263ed0a50838950c3a230b4b8'
-node_count: 7
-summary: >-
-  SPA styling — Tailwind v4 utilities, the @theme token layer, dark mode, and
-  the vendored dalia CSS foundation
----
 # kenkeep Index: web / styling
 
 ↑ Parent: [web](../index.md)

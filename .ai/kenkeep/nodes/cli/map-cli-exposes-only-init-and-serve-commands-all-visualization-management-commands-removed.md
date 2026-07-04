@@ -1,18 +1,19 @@
 ---
-schema_version: 2
-id: >-
-  map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed
+type: map
 title: CLI exposes only init and serve commands
-kind: map
+description: >-
+  Running strikethroo --help lists only init and serve; there are no
+  visualization/management (status, plan) commands.
 tags:
   - cli
   - architecture
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  Running strikethroo --help lists only init and serve; there are no
-  visualization/management (status, plan) commands.
+kk_schema_version: 3
+kk_id: >-
+  map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 `src/cli.ts` registers only two commands: `init` and `serve`. Running `strikethroo --help` lists exactly those; invoking `status` or `plan show 1` hits the unknown-command handler and exits 1.
 

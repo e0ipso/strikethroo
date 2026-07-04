@@ -1,11 +1,3 @@
----
-schema_version: 2
-nodes_hash: 'sha256:9d2f800c1dd8cce5b705325a5108fd8a62247069525e417069c5df6bf917a32e'
-node_count: 3
-summary: >-
-  the strikethroo brand favicon and the font-glyph-extraction technique behind
-  it
----
 # kenkeep Index: web / branding
 
 ↑ Parent: [web](../index.md)

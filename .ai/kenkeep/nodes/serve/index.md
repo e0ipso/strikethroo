@@ -1,11 +1,3 @@
----
-schema_version: 2
-nodes_hash: 'sha256:06df24d85d75d4abd388871a8df05f1ac54fe10766a7c7cb4fe42a74bce63d60'
-node_count: 9
-summary: >-
-  the read-only serve backend — HTTP/JSON API routes, the workspace data model
-  and derivation, and the archive and self-review operations
----
 # kenkeep Index: serve
 
 ↑ Parent: [kenkeep](../index.md)

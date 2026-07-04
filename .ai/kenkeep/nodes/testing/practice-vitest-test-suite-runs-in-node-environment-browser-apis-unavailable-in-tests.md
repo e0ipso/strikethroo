@@ -1,21 +1,22 @@
 ---
-schema_version: 2
-id: >-
-  practice-vitest-test-suite-runs-in-node-environment-browser-apis-unavailable-in-tests
+type: practice
 title: Vitest test suite runs in node environment — browser APIs unavailable in tests
-kind: practice
+description: >-
+  Vitest is configured with environment: node; localStorage, matchMedia, and
+  document are unavailable. Isolate DOM-touching code behind pure interfaces.
 tags:
   - testing
   - vitest
   - browser
   - dom
   - node
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  Vitest is configured with environment: node; localStorage, matchMedia, and
-  document are unavailable. Isolate DOM-touching code behind pure interfaces.
+kk_schema_version: 3
+kk_id: >-
+  practice-vitest-test-suite-runs-in-node-environment-browser-apis-unavailable-in-tests
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 The project Vitest configuration uses the `node` environment — no jsdom. Browser-only APIs (`localStorage`, `matchMedia`, `document`, `window`) are not available in any unit test file.
 

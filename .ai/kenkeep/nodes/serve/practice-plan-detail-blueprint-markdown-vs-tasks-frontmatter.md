@@ -1,22 +1,23 @@
 ---
-schema_version: 2
-id: practice-plan-detail-blueprint-markdown-vs-tasks-frontmatter
+type: practice
 title: >-
   Plan Detail: blueprint markdown section is distinct from the tasks-frontmatter
   Tasks tab
-kind: practice
+description: >-
+  Four data sources feed the Plan Detail tabs; the blueprint prose and
+  tasks-frontmatter rendering must not be conflated
 tags:
   - web
   - spa
   - serve
   - plan-detail
   - execution-blueprint
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  Four data sources feed the Plan Detail tabs; the blueprint prose and
-  tasks-frontmatter rendering must not be conflated
+kk_schema_version: 3
+kk_id: practice-plan-detail-blueprint-markdown-vs-tasks-frontmatter
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 In the serve SPA Plan Detail screen (`src/web/plans/detail/`), four distinct data sources feed the tabs and must not be conflated:
 

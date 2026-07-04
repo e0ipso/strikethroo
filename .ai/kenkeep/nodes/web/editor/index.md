@@ -1,11 +1,3 @@
----
-schema_version: 2
-nodes_hash: 'sha256:69dc6fd43f464ba3f501a1541ad324934cfb4aa19e7bb25564d29b4d3d85abab'
-node_count: 4
-summary: >-
-  the code-split CodeMirror 6 markdown editor in the Customize detail route and
-  its lazy-loading constraints
----
 # kenkeep Index: web / editor
 
 ↑ Parent: [web](../index.md)

@@ -1,8 +1,9 @@
 ---
-schema_version: 2
-id: practice-strikethroo-brand-favicon-svg
+type: practice
 title: Strikethroo brand favicon at src/web/public/favicon.svg
-kind: practice
+description: >-
+  Cream Outfit `s` on ink rounded-square with strike-through; embed real glyph
+  paths and hex colors only.
 tags:
   - web
   - assets
@@ -10,13 +11,12 @@ tags:
   - brand
   - font
   - svg
-derived_from: []
-relates_to: []
-depends_on: []
-confidence: high
-summary: >-
-  Cream Outfit `s` on ink rounded-square with strike-through; embed real glyph
-  paths and hex colors only.
+kk_schema_version: 3
+kk_id: practice-strikethroo-brand-favicon-svg
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 The favicon at `src/web/public/favicon.svg` is the Strikethroo compact mark: a cream (`#f7f3ec`) lowercase `s` on an ink (`#19110a`) rounded-square container with a thin strike-through bar. Vite copies `src/web/public/` to `dist-web/` at build time.
 

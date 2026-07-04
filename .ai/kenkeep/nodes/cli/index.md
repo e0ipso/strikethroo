@@ -1,11 +1,3 @@
----
-schema_version: 2
-nodes_hash: 'sha256:dc76dd3483e7f5cfaa80b37b1c16af81f20e52964f2acea7250547a1a4c62470'
-node_count: 1
-summary: >-
-  CLI command surface and command-routing boundaries; read when changing
-  src/cli.ts or documenting available commands
----
 # kenkeep Index: cli
 
 ↑ Parent: [kenkeep](../index.md)

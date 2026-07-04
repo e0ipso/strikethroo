@@ -1,23 +1,24 @@
 ---
-schema_version: 2
-id: >-
-  practice-web-routes-and-api-resolve-plans-by-composite-id-slug-directory-name-not-numeric
+type: practice
 title: >-
   Web routes and API resolve plans by composite {id}--{slug} directory name, not
   numeric id alone
-kind: practice
+description: >-
+  The serve API and SPA router use the composite {id}--{slug} directory name as
+  the routing key. Numeric-only URLs 404. The numeric id is display/sort only.
 tags:
   - routing
   - serve
   - security
   - plan-id
   - spa
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  The serve API and SPA router use the composite {id}--{slug} directory name as
-  the routing key. Numeric-only URLs 404. The numeric id is display/sort only.
+kk_schema_version: 3
+kk_id: >-
+  practice-web-routes-and-api-resolve-plans-by-composite-id-slug-directory-name-not-numeric
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 Plan identity in the website layer uses the composite `{id}--{slug}` directory name (as `PlanSummary.name`) as the routing and lookup key, not the numeric frontmatter `id` alone. Changed in Plan 103 to address cross-worktree plan ID collisions undetectable at git-merge time.
 

@@ -1,24 +1,25 @@
 ---
-schema_version: 2
-id: >-
-  practice-use-theme-token-utilities-everywhere-in-the-spa-never-arbitrary-value-brackets-f
+type: practice
 title: >-
   Use @theme token utilities everywhere in the SPA; never arbitrary-value
   brackets for design values
-kind: practice
+description: >-
+  All SPA brand/status/signature values must be @theme-backed utilities
+  (bg-cream, text-ink, etc.). Zero [oklch], [var()], or [px] bracket values for
+  design tokens.
 tags:
   - tailwind
   - tokens
   - css
   - dark-mode
   - spa
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  All SPA brand/status/signature values must be @theme-backed utilities
-  (bg-cream, text-ink, etc.). Zero [oklch], [var()], or [px] bracket values for
-  design tokens.
+kk_schema_version: 3
+kk_id: >-
+  practice-use-theme-token-utilities-everywhere-in-the-spa-never-arbitrary-value-brackets-f
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 The SPA styling convention is utility-first Tailwind v4 with zero arbitrary-value brackets for design values. Every brand, status, and signature value is defined once in `src/web/vendor/styles/tokens.css` under `@theme` and consumed as a clean Tailwind utility:
 - Palette: `bg-cream`, `text-ink`, `text-ink-3`, `text-ink-4`, `text-dalia`

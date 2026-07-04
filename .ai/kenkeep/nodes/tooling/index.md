@@ -1,11 +1,3 @@
----
-schema_version: 2
-nodes_hash: 'sha256:3a6ec6a36c98d57028cf47d8103d30863a91d611a0589cd25cef50f7be4d2e50'
-node_count: 3
-summary: >-
-  lint, format, and type-check tooling — the ESLint flat config, Prettier
-  exclusions, and gaps in the lint gate
----
 # kenkeep Index: tooling
 
 ↑ Parent: [kenkeep](../index.md)

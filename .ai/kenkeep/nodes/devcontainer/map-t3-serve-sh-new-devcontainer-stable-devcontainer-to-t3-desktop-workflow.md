@@ -1,21 +1,21 @@
 ---
-schema_version: 2
-id: map-t3-serve-sh-new-devcontainer-stable-devcontainer-to-t3-desktop-workflow
+type: map
 title: t3-serve.sh + new-devcontainer — stable devcontainer-to-t3-desktop workflow
-kind: map
+description: >-
+  Two tools connect t3 desktop to a devcontainer: new-devcontainer bakes a
+  deterministic port; t3-serve.sh is exec-only.
 tags:
   - devcontainer
   - t3
   - docker
   - workflow
-derived_from:
+kk_schema_version: 3
+kk_id: map-t3-serve-sh-new-devcontainer-stable-devcontainer-to-t3-desktop-workflow
+kk_derived_from:
   - '05a1bddf-ef9e-4147-8e07-0b971366c7d7:map:0'
-relates_to: []
-depends_on: []
-confidence: high
-summary: >-
-  Two tools connect t3 desktop to a devcontainer: new-devcontainer bakes a
-  deterministic port; t3-serve.sh is exec-only.
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 Two complementary tools enable a stable per-repo t3 desktop connection:
 
@@ -24,3 +24,9 @@ Two complementary tools enable a stable per-repo t3 desktop connection:
 **`.devcontainer/t3-serve.sh`** (exec-only wrapper, committed to the repo): Runs `t3 serve --host 0.0.0.0 --mode web --no-browser` inside the already-running container. Does not start or recreate the container. The host publish (`127.0.0.1:<baked-port>:34489`) is a literal in `devcontainer.json`. After the first pairing, the desktop session persists in the `t3code-home-${devcontainerId}` Docker volume across restarts.
 
 **Workflow**: start the container (`devcontainer up` or VS Code), then run `./.devcontainer/t3-serve.sh`; connect t3 desktop to `http://127.0.0.1:<port>` + the printed pairing token.
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [05a1bddf-ef9e-4147-8e07-0b971366c7d7:map:0](05a1bddf-ef9e-4147-8e07-0b971366c7d7:map:0)
+<!-- kk:citations:end -->

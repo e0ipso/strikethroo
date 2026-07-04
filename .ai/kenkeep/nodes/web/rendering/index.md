@@ -1,11 +1,3 @@
----
-schema_version: 2
-nodes_hash: 'sha256:dfe70b23268aea2c5913017b56019ef83c9df1460946b9f552e809407ff4f28b'
-node_count: 3
-summary: >-
-  SPA markdown and mermaid rendering — the shared sanitization boundary,
-  prose-component reuse, and render-error handling
----
 # kenkeep Index: web / rendering
 
 ↑ Parent: [web](../index.md)

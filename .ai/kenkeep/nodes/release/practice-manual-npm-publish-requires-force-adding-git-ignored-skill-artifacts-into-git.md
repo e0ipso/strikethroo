@@ -1,20 +1,21 @@
 ---
-schema_version: 2
-id: >-
-  practice-manual-npm-publish-requires-force-adding-git-ignored-skill-artifacts-into-git
+type: practice
 title: Manual npm publish requires force-adding git-ignored skill artifacts into git
-kind: practice
+description: >-
+  When bypassing semantic-release, manually force-add SKILL.md and .cjs bundles
+  into git before tagging, or npx skills add finds no skills.
 tags:
   - release
   - npm
   - skills
   - git
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  When bypassing semantic-release, manually force-add SKILL.md and .cjs bundles
-  into git before tagging, or npx skills add finds no skills.
+kk_schema_version: 3
+kk_id: >-
+  practice-manual-npm-publish-requires-force-adding-git-ignored-skill-artifacts-into-git
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 The `npx skills add` installer resolves from the **GitHub git tree**, not the npm tarball. On `main`, `SKILL.md` files and `.cjs` bundles are git-ignored. They only land in git because `@semantic-release/git` force-adds them into the release commit.
 

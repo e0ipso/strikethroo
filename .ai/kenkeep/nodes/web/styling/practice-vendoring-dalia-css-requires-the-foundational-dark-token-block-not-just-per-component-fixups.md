@@ -1,11 +1,12 @@
 ---
-schema_version: 2
-id: >-
-  practice-vendoring-dalia-css-requires-the-foundational-dark-token-block-not-just-per-component-fixups
+type: practice
 title: >-
   Dark mode requires both the foundational .dark token block and per-component
   fixups, both in tokens.css
-kind: practice
+description: >-
+  Both the @theme token block and the .dark palette-swap must live in
+  tokens.css. Deleting CSS files without relocating these blocks silently breaks
+  dark mode.
 tags:
   - web
   - css
@@ -13,15 +14,15 @@ tags:
   - dark-mode
   - vendoring
   - tokens
-derived_from: []
-relates_to:
+kk_schema_version: 3
+kk_id: >-
+  practice-vendoring-dalia-css-requires-the-foundational-dark-token-block-not-just-per-component-fixups
+kk_derived_from: []
+kk_relates_to:
   - >-
     map-dalia-ui-design-system-vendored-into-src-web-vendor-not-a-package-dependency
-confidence: high
-summary: >-
-  Both the @theme token block and the .dark palette-swap must live in
-  tokens.css. Deleting CSS files without relocating these blocks silently breaks
-  dark mode.
+kk_depends_on: []
+kk_confidence: high
 ---
 Dark mode in the SPA requires two layers that must coexist in `src/web/vendor/styles/tokens.css`:
 
@@ -31,3 +32,9 @@ Dark mode in the SPA requires two layers that must coexist in `src/web/vendor/st
 In the initial vendoring, only per-component `.dark .foo { }` fixups were carried; the foundational `.dark` swap block was missing, so dark mode appeared to do nothing. Both layers are now in `tokens.css` (moved from the deleted `app-shell.css` during the Tailwind migration).
 
 If you delete or rename any CSS file under `src/web/vendor/styles/`, grep it for `:root {` and `.dark {` token-definition blocks before removing. Relocate any found definitions to `tokens.css`. Losing the foundational `.dark` swap block silently breaks dark mode even when the build passes.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-dalia-ui-design-system-vendored-into-src-web-vendor-not-a-package-dependency](/web/styling/map-dalia-ui-design-system-vendored-into-src-web-vendor-not-a-package-dependency.md)
+<!-- kk:related:end -->

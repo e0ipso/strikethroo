@@ -1,20 +1,21 @@
 ---
-schema_version: 2
-id: map-serve-ui-prd-and-tickets-live-under-ai-strikethroo-scratch-ui
+type: map
 title: serve UI PRD and tickets live under .ai/strikethroo/scratch/ui/
-kind: map
+description: >-
+  The PRD and 13 dependency-ordered tickets for the serve SPA feature are in
+  .ai/strikethroo/scratch/ui/, not in the formal plans/ flow.
 tags:
   - web
   - spa
   - serve
   - design
   - scratch
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  The PRD and 13 dependency-ordered tickets for the serve SPA feature are in
-  .ai/strikethroo/scratch/ui/, not in the formal plans/ flow.
+kk_schema_version: 3
+kk_id: map-serve-ui-prd-and-tickets-live-under-ai-strikethroo-scratch-ui
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 The detailed implementation planning for `npx strikethroo serve` was written as scratch documents under `.ai/strikethroo/scratch/ui/`:
 

@@ -1,19 +1,20 @@
 ---
-schema_version: 2
-id: practice-hot-reload-dev-loop-requires-three-concurrent-processes
+type: practice
 title: Hot-reload dev loop requires three concurrent processes
-kind: practice
+description: >-
+  Backend: ts-node via node --watch. Frontend: Vite at localhost:5173 with
+  /api/* proxied to localhost:4317. No dist/ involvement.
 tags:
   - dev
   - tooling
   - web
   - serve
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  Backend: ts-node via node --watch. Frontend: Vite at localhost:5173 with
-  /api/* proxied to localhost:4317. No dist/ involvement.
+kk_schema_version: 3
+kk_id: practice-hot-reload-dev-loop-requires-three-concurrent-processes
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 The full hot-reload dev loop uses three processes:
 

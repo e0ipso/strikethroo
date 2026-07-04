@@ -1,11 +1,3 @@
----
-schema_version: 2
-nodes_hash: 'sha256:21f245d8bcf0d8420b177b75a2ca34d52a143d6e0aab9d023f54f76bcadb2329'
-node_count: 3
-summary: >-
-  building SKILL.md from src/skill-prompts/ source templates — shared sections,
-  the assembler, and the source-of-truth convention
----
 # kenkeep Index: skills / prompts
 
 ↑ Parent: [skills](../index.md)

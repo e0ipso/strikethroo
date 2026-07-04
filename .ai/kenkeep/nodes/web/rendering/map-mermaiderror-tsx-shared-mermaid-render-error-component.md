@@ -1,19 +1,20 @@
 ---
-schema_version: 2
-id: map-mermaiderror-tsx-shared-mermaid-render-error-component
+type: map
 title: MermaidError.tsx — shared mermaid render-error component
-kind: map
+description: >-
+  src/web/plans/detail/MermaidError.tsx renders a Lucide Frown icon with a
+  collapsed Details disclosure for the verbatim parse error.
 tags:
   - mermaid
   - spa
   - components
   - error-handling
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  src/web/plans/detail/MermaidError.tsx renders a Lucide Frown icon with a
-  collapsed Details disclosure for the verbatim parse error.
+kk_schema_version: 3
+kk_id: map-mermaiderror-tsx-shared-mermaid-render-error-component
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 `src/web/plans/detail/MermaidError.tsx` is the shared render-error surface for invalid mermaid diagrams. It renders a Lucide `Frown` icon (soft red), a "Couldn't draw this diagram" message, and a native `<details>` element (collapsed by default) containing the verbatim parser error in a monospace block.
 

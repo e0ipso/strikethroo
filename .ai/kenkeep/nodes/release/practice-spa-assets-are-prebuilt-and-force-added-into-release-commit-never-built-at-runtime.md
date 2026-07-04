@@ -1,9 +1,10 @@
 ---
-schema_version: 2
-id: >-
-  practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime
+type: practice
 title: 'Two-channel release: npm tarball vs GitHub git tree'
-kind: practice
+description: >-
+  npm publish ships dist/ and dist-web/; npx skills add reads force-added
+  SKILL.md and .cjs bundles from the GitHub git tree. Normal source commits
+  leave generated skill-artifact force-adding to release automation.
 tags:
   - release
   - distribution
@@ -14,15 +15,14 @@ tags:
   - build
   - serve
   - semantic-release
-derived_from:
+kk_schema_version: 3
+kk_id: >-
+  practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime
+kk_derived_from:
   - '7f15ae61-53e1-4644-8689-567a37c4ff39:practice:0'
-relates_to: []
-depends_on: []
-confidence: high
-summary: >-
-  npm publish ships dist/ and dist-web/; npx skills add reads force-added
-  SKILL.md and .cjs bundles from the GitHub git tree. Normal source commits
-  leave generated skill-artifact force-adding to release automation.
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 There are two distinct delivery channels that must both be updated on each release:
 
@@ -44,3 +44,9 @@ Force-add belongs to the skill release channel only: `templates/harness/skills/*
 `dist/` (the CLI `tsc` output) is neither committed nor force-added — it is git-ignored and ships solely in the npm tarball, exactly like `dist-web/`.
 
 Each artifact lives where its consumer reads it. The SPA's only consumer is the npm-published `serve` command, so committing it to git is pure churn (large binary diffs, repeated removals). The skill bundles are the mirror image — their consumer is the git ref that `npx skills add` clones, so they must exist at release tags even though normal source commits leave generated bundle staging to the release pipeline.
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [7f15ae61-53e1-4644-8689-567a37c4ff39:practice:0](7f15ae61-53e1-4644-8689-567a37c4ff39:practice:0)
+<!-- kk:citations:end -->

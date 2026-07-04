@@ -1,11 +1,3 @@
----
-schema_version: 2
-nodes_hash: 'sha256:be65b654b25caae26d399922a18103827ac212b11d5e90e8e8841cc28a6b471c'
-node_count: 7
-summary: >-
-  Git workflow constraints — commit-message hooks, the pre-commit test gate,
-  attribution rules, and gitignored workspace state
----
 # kenkeep Index: git
 
 ↑ Parent: [kenkeep](../index.md)

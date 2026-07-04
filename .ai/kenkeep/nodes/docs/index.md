@@ -1,11 +1,3 @@
----
-schema_version: 2
-nodes_hash: 'sha256:687768d192a6b1999cf3f0617bccba4b5bebe1b7f310735e3f708362166ceb36'
-node_count: 1
-summary: >-
-  documentation site configuration and docs-publishing conventions; read when
-  changing docs/ or GitHub Pages settings
----
 # kenkeep Index: docs
 
 ↑ Parent: [kenkeep](../index.md)

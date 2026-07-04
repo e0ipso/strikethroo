@@ -1,19 +1,20 @@
 ---
-schema_version: 2
-id: map-npm-run-dev-serve-ts-node-backend-hot-reload-script
+type: map
 title: 'npm run dev:serve — ts-node backend hot-reload script'
-kind: map
+description: >-
+  Runs src/cli.ts serve via ts-node with node --watch; restarts on src/ changes;
+  no dist/ involvement.
 tags:
   - web
   - serve
   - scripts
   - dev
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  Runs src/cli.ts serve via ts-node with node --watch; restarts on src/ changes;
-  no dist/ involvement.
+kk_schema_version: 3
+kk_id: map-npm-run-dev-serve-ts-node-backend-hot-reload-script
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 `npm run dev:serve` is the backend half of the hot-reload dev loop. It invokes `node --watch` with `ts-node --transpile-only` to run `src/cli.ts serve --no-open` directly from TypeScript source, restarting on any change to `src/**/*.ts`.
 

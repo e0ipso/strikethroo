@@ -1,23 +1,24 @@
 ---
-schema_version: 2
-id: >-
-  practice-convey-done-state-with-strikethrough-color-or-emoji-not-non-interactive-checkboxes
+type: practice
 title: >-
   Convey done/undone state with strikethrough, color, or emoji — never a
   non-interactive checkbox
-kind: practice
+description: >-
+  In read-only UI, render Done/Undone with a passive visual cue (strikethrough,
+  text color, emoji); a checkbox implies it is clickable
 tags:
   - web
   - ui
   - ux
   - accessibility
   - affordance
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  In read-only UI, render Done/Undone with a passive visual cue (strikethrough,
-  text color, emoji); a checkbox implies it is clickable
+kk_schema_version: 3
+kk_id: >-
+  practice-convey-done-state-with-strikethrough-color-or-emoji-not-non-interactive-checkboxes
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 A checkbox is an interactive affordance: it tells the user "click me to toggle this". When a surface is read-only — like the blueprint task rows in the Plan tab (`BlueprintRail.tsx`) and the Tasks-tab Swimlanes (`ExecSwimlanesView.tsx`) — a rendered checkbox is a lie. It invites a click that does nothing, which is both confusing and an accessibility defect (a control with no action).
 

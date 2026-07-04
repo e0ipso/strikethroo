@@ -1,20 +1,21 @@
 ---
-schema_version: 2
-id: practice-use-baseui-components-for-interactive-ui-elements-in-the-spa
+type: practice
 title: Use BaseUI components for interactive UI elements in the SPA
-kind: practice
+description: >-
+  @base-ui-components/react is required for all new interactive UI elements;
+  hand-rolled components are pre-mandate legacy.
 tags:
   - web
   - baseui
   - components
   - interactive
   - spa
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  @base-ui-components/react is required for all new interactive UI elements;
-  hand-rolled components are pre-mandate legacy.
+kk_schema_version: 3
+kk_id: practice-use-baseui-components-for-interactive-ui-elements-in-the-spa
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 All new interactive UI elements in the SPA must use `@base-ui-components/react`. The user explicitly established this as a standing requirement: "make sure to use the BaseUI components that we are required to use always."
 

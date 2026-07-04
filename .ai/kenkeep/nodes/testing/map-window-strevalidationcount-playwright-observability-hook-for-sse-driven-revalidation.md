@@ -1,11 +1,11 @@
 ---
-schema_version: 2
-id: >-
-  map-window-strevalidationcount-playwright-observability-hook-for-sse-driven-revalidation
+type: map
 title: >-
   window.__stRevalidationCount — Playwright observability hook for SSE-driven
   revalidation
-kind: map
+description: >-
+  Deliberately-shipped window counter that Playwright e2e tests read to verify
+  live-data revalidation fired after an SSE change event.
 tags:
   - web
   - testing
@@ -13,12 +13,13 @@ tags:
   - e2e
   - observability
   - sse
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  Deliberately-shipped window counter that Playwright e2e tests read to verify
-  live-data revalidation fired after an SSE change event.
+kk_schema_version: 3
+kk_id: >-
+  map-window-strevalidationcount-playwright-observability-hook-for-sse-driven-revalidation
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 `window.__stRevalidationCount` is a deliberately-shipped production observability hook in the SPA. It is incremented each time `RevalidationProvider` triggers a data refresh in response to an SSE `changed` event from `/api/events`.
 

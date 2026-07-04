@@ -1,23 +1,24 @@
 ---
-schema_version: 2
-id: >-
-  practice-reuse-shared-spa-prose-rendering-components-across-all-markdown-rendering-screens
+type: practice
 title: >-
   Reuse shared SPA prose-rendering components across all markdown-rendering
   screens
-kind: practice
+description: >-
+  The project has a standing code-reuse mandate: all markdown-rendering screens
+  must use the shared Section/ReaderProse renderer.
 tags:
   - web
   - spa
   - components
   - reuse
   - architecture
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  The project has a standing code-reuse mandate: all markdown-rendering screens
-  must use the shared Section/ReaderProse renderer.
+kk_schema_version: 3
+kk_id: >-
+  practice-reuse-shared-spa-prose-rendering-components-across-all-markdown-rendering-screens
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 The project enforces a code-reuse mandate for SPA UI components. When a shared renderer exists (the `Section` component exported from `ReaderProse.tsx`), every screen rendering the same content type must use it — creating a parallel implementation is a violation.
 

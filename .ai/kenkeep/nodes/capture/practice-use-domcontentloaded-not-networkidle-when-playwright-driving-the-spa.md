@@ -1,19 +1,20 @@
 ---
-schema_version: 2
-id: practice-use-domcontentloaded-not-networkidle-when-playwright-driving-the-spa
+type: practice
 title: Use domcontentloaded not networkidle when Playwright-driving the SPA
-kind: practice
+description: >-
+  The SPA holds an open SSE connection (/api/events) so networkidle never fires.
+  Use domcontentloaded plus explicit waitForSelector calls instead.
 tags:
   - capture
   - playwright
   - sse
   - testing
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  The SPA holds an open SSE connection (/api/events) so networkidle never fires.
-  Use domcontentloaded plus explicit waitForSelector calls instead.
+kk_schema_version: 3
+kk_id: practice-use-domcontentloaded-not-networkidle-when-playwright-driving-the-spa
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 When driving the SPA with Playwright (for captures or e2e tests), `waitUntil: 'networkidle'` never resolves because the SPA maintains a persistent SSE connection to `/api/events` for live updates.
 

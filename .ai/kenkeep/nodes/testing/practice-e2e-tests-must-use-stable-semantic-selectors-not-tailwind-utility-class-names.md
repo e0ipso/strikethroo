@@ -1,21 +1,22 @@
 ---
-schema_version: 2
-id: >-
-  practice-e2e-tests-must-use-stable-semantic-selectors-not-tailwind-utility-class-names
+type: practice
 title: 'E2e tests must use stable semantic selectors, not Tailwind utility class names'
-kind: practice
+description: >-
+  Playwright e2e assertions must target role, text, aria-*, or data-testid —
+  never Tailwind utility class names, which change during styling iterations.
 tags:
   - testing
   - e2e
   - playwright
   - selectors
   - tailwind
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  Playwright e2e assertions must target role, text, aria-*, or data-testid —
-  never Tailwind utility class names, which change during styling iterations.
+kk_schema_version: 3
+kk_id: >-
+  practice-e2e-tests-must-use-stable-semantic-selectors-not-tailwind-utility-class-names
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 Playwright e2e tests must not assert on Tailwind utility class names (`.flex`, `.rounded-card`, `.text-ink`, etc.). Utility classes change during styling refactors without changing behavior, so class-based assertions produce false failures.
 

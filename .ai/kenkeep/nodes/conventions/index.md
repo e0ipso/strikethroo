@@ -1,11 +1,3 @@
----
-schema_version: 2
-nodes_hash: 'sha256:cd7b77c495afd40aaadf2f1c86899655974e37170ae684604d4dd4b859a4b4e4'
-node_count: 2
-summary: >-
-  documentation and terminology conventions — current-state-only docs and the
-  reserved meaning of phase
----
 # kenkeep Index: conventions
 
 ↑ Parent: [kenkeep](../index.md)

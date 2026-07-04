@@ -1,19 +1,20 @@
 ---
-schema_version: 2
-id: >-
-  practice-use-build-time-composition-to-eliminate-cross-skill-prompt-duplication
+type: practice
 title: Use build-time composition to eliminate cross-skill prompt duplication
-kind: practice
+description: >-
+  Shared procedural blocks in SKILL.md files must live as include-resolved
+  sections under src/skill-prompts/sections/, not copy-pasted per skill.
 tags:
   - build
   - skill-prompts
   - architecture
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  Shared procedural blocks in SKILL.md files must live as include-resolved
-  sections under src/skill-prompts/sections/, not copy-pasted per skill.
+kk_schema_version: 3
+kk_id: >-
+  practice-use-build-time-composition-to-eliminate-cross-skill-prompt-duplication
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 Approximately 60–70% of the total SKILL.md corpus is duplicated text (root discovery, plan resolution, test philosophy, phase execution loop, etc.). Rather than maintaining these in sync manually across 6 files, the canonical text lives once under `src/skill-prompts/sections/` and is assembled at build time via `{{include sections/<name>.md}}` directives.
 

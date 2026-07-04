@@ -1,10 +1,11 @@
 ---
-schema_version: 2
-id: practice-use-committed-fixture-workspaces-not-the-live-ai-strikethroo-tree
+type: practice
 title: >-
   Use committed fixture workspaces, not the live gitignored .ai/strikethroo/
   tree
-kind: practice
+description: >-
+  Capture, integration, and e2e must use committed fixture workspaces — not the
+  live gitignored .ai/strikethroo/ tree that breaks CI and capture determinism.
 tags:
   - testing
   - capture
@@ -15,16 +16,14 @@ tags:
   - e2e
   - gitignore
   - documentation
-derived_from: []
-relates_to:
+kk_schema_version: 3
+kk_id: practice-use-committed-fixture-workspaces-not-the-live-ai-strikethroo-tree
+kk_derived_from: []
+kk_relates_to:
   - >-
     practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore
-depends_on: []
-confidence: high
-summary: >-
-  Capture, integration, and e2e must use committed fixture workspaces — not
-  the live gitignored .ai/strikethroo/ tree that breaks CI and capture
-  determinism.
+kk_depends_on: []
+kk_confidence: high
 ---
 The project's `.ai/strikethroo/` workspace is gitignored. Any harness that reads the live tree gets non-deterministic or CI-only-local behavior.
 
@@ -33,3 +32,9 @@ The project's `.ai/strikethroo/` workspace is gitignored. Any harness that reads
 **Integration and e2e tests** must point at `src/__tests__/fixtures/serve-workspace/` instead of the live workspace. Name the constant `FIXTURE_ROOT` for clarity. Tests reading `.ai/strikethroo/` directly only pass locally; CI's clean checkout has no workspace on disk.
 
 Adding representative fixture files is the correct fix when new test assertions require new workspace shape; never repoint capture or tests back to the live tree.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore](/git/practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore.md)
+<!-- kk:related:end -->

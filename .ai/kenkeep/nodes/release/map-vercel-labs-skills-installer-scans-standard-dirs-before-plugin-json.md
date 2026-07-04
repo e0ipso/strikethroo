@@ -1,18 +1,19 @@
 ---
-schema_version: 2
-id: map-vercel-labs-skills-installer-scans-standard-dirs-before-plugin-json
+type: map
 title: vercel-labs/skills installer scans standard dirs before plugin.json
-kind: map
+description: >-
+  The installer checks `.agents/skills/`, `.claude/skills/`, etc. in priority
+  order before falling back to `.claude-plugin/plugin.json` manifest paths.
 tags:
   - distribution
   - skills
   - installer
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  The installer checks `.agents/skills/`, `.claude/skills/`, etc. in priority
-  order before falling back to `.claude-plugin/plugin.json` manifest paths.
+kk_schema_version: 3
+kk_id: map-vercel-labs-skills-installer-scans-standard-dirs-before-plugin-json
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 The `vercel-labs/skills` installer (`skills.ts` `getPluginSkillPaths`) scans standard well-known directories such as `.agents/skills/` and `.claude/skills/` before consulting `plugin.json`. If any of those directories exists and contains skill subdirectories, the installer uses those paths — it never reaches the `plugin.json`-declared paths under `templates/harness/skills/`.
 

@@ -1,20 +1,24 @@
 ---
-schema_version: 2
-id: map-src-skill-prompts-is-the-authored-source-of-truth-for-skill-md-content
-title: Skill-prompt build system — src/skill-prompts/ source, assembler, shared sections
-kind: map
+type: map
+title: >-
+  Skill-prompt build system — src/skill-prompts/ source, assembler, shared
+  sections
+description: >-
+  src/skill-prompts/ templates + sections/ are authored source;
+  build-skill-prompts.cjs assembles git-ignored SKILL.md output via {{include}}
+  and {{variable}}.
 tags:
   - build
   - skill-prompts
   - source-of-truth
   - assembler
   - sections
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  src/skill-prompts/ templates + sections/ are authored source; build-skill-prompts.cjs
-  assembles git-ignored SKILL.md output via {{include}} and {{variable}}.
+kk_schema_version: 3
+kk_id: map-src-skill-prompts-is-the-authored-source-of-truth-for-skill-md-content
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 The source templates under `src/skill-prompts/` use `{{include sections/<name>.md}}` directives and `{{variable}}` substitution resolved from per-template YAML frontmatter `vars`. Shared sections live in `src/skill-prompts/sections/`. Assembled `SKILL.md` files are build output written to `templates/harness/skills/*/SKILL.md`.
 

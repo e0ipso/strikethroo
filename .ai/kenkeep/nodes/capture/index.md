@@ -1,11 +1,3 @@
----
-schema_version: 2
-nodes_hash: 'sha256:782a72e64ccb3682ed17dc6d8e948e3179547affa8fff09e4f3987ce68d67af7'
-node_count: 2
-summary: >-
-  the documentation-visual capture harness — its committed fixture workspace and
-  Playwright SPA-driving technique
----
 # kenkeep Index: capture
 
 ↑ Parent: [kenkeep](../index.md)

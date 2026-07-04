@@ -1,11 +1,3 @@
----
-schema_version: 2
-nodes_hash: 'sha256:b92bacb290744f14dba5c5c1cf807e1b52e387c89298f1ba5f306f4ff60329e3'
-node_count: 4
-summary: >-
-  the local development loop — dev:serve hot reload, the three concurrent
-  processes, and rebuilding the SPA for serve
----
 # kenkeep Index: dev
 
 ↑ Parent: [kenkeep](../index.md)

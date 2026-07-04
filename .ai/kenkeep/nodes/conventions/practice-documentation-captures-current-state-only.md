@@ -1,17 +1,18 @@
 ---
-schema_version: 2
-id: practice-documentation-captures-current-state-only
+type: practice
 title: Documentation captures current state only
-kind: practice
+description: >-
+  All docs describe how things work now. No historical context, migration notes,
+  or retired-term mappings.
 tags:
   - documentation
   - conventions
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  All docs describe how things work now. No historical context, migration notes,
-  or retired-term mappings.
+kk_schema_version: 3
+kk_id: practice-documentation-captures-current-state-only
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 All documentation in this project — KB nodes, docs/ pages, AGENTS.md, templates — describes how things work right now. Historical context (what used to be, why it changed, what was renamed) does not belong.
 

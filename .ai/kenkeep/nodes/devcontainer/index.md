@@ -1,12 +1,3 @@
----
-schema_version: 2
-nodes_hash: 'sha256:38f23763b3e8873d4b61b7feec6d6c8ec867c922f84de82a83d6eea9f883c4c5'
-node_count: 3
-summary: >-
-  devcontainer environment and t3 agent sandbox setup — Docker networking, port
-  configuration, and t3 desktop connection; read when configuring or
-  troubleshooting the devcontainer
----
 # kenkeep Index: devcontainer
 
 ↑ Parent: [kenkeep](../index.md)

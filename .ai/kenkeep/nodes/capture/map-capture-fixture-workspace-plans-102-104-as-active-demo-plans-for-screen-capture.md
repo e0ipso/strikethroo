@@ -1,23 +1,24 @@
 ---
-schema_version: 2
-id: >-
-  map-capture-fixture-workspace-plans-102-104-as-active-demo-plans-for-screen-capture
+type: map
 title: >-
   Capture fixture workspace: plans 102–104 as active demo plans for screen
   capture
-kind: map
+description: >-
+  src/capture/fixtures/capture-workspace/ uses plans 102–104 as active plans;
+  plan 103 drives the primary stills (2 done tasks), plan 102 drives the Graph
+  screenshot.
 tags:
   - capture
   - fixtures
   - workspace
   - playwright
-derived_from: []
-relates_to: []
-confidence: medium
-summary: >-
-  src/capture/fixtures/capture-workspace/ uses plans 102–104 as active plans;
-  plan 103 drives the primary stills (2 done tasks), plan 102 drives the Graph
-  screenshot.
+kk_schema_version: 3
+kk_id: >-
+  map-capture-fixture-workspace-plans-102-104-as-active-demo-plans-for-screen-capture
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: medium
 ---
 The Playwright capture harness (`src/capture/capture-web.ts`) drives a committed fixture workspace at `src/capture/fixtures/capture-workspace/`. Active plans:
 - Plan 102: 6 tasks, 4 phases, all pending (for swimlanes/graph screenshot)

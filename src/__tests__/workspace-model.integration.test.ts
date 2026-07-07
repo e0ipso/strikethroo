@@ -175,4 +175,39 @@ describe('workspace-model against synthetic fixtures', () => {
     expect(second.dependencies).toEqual([1]);
     expect(second.skills).toEqual(['typescript', 'vitest']);
   });
+
+  it('exposes complexity_score from task frontmatter when present', () => {
+    const root = path.join(tmpRoot, 'strikethroo');
+    makePlan(
+      root,
+      '13--complexity-score',
+      '---\nid: 13\nsummary: "Complexity score"\ncreated: 2026-05-29\n---\n# Complexity Score\n\nBody.\n',
+      [
+        {
+          name: '01--scored.md',
+          body: '---\nid: 1\ngroup: "g"\ndependencies: []\nstatus: "pending"\ncomplexity_score: 3\nskills: [typescript]\n---\n# Scored Task\n\nBody.\n',
+        },
+        {
+          name: '02--invalid-score.md',
+          body: '---\nid: 2\ngroup: "g"\ndependencies: []\nstatus: "pending"\ncomplexity_score: "high"\nskills: [typescript]\n---\n# Invalid Score Task\n\nBody.\n',
+        },
+      ]
+    );
+
+    const detail = getPlanDetail(root, '13--complexity-score');
+    expect(detail).toBeDefined();
+    const scored = detail!.tasks.find(t => t.id === 1)!;
+    const invalid = detail!.tasks.find(t => t.id === 2)!;
+    expect(scored.complexity_score).toBe(3);
+    expect(invalid.complexity_score).toBeUndefined();
+  });
+
+  it('returns undefined complexity_score for legacy fixture tasks without the field', () => {
+    const detail = getPlanDetail(FIXTURE_ROOT, '83--workspace-data-layer');
+    expect(detail).toBeDefined();
+    expect(detail!.tasks.length).toBeGreaterThan(0);
+    for (const task of detail!.tasks) {
+      expect(task.complexity_score).toBeUndefined();
+    }
+  });
 });

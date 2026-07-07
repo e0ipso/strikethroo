@@ -14,3 +14,7 @@ Before declaring task generation complete, verify:
 - Minimization applied (20–30% reduction target).
 - Test tasks focus on business logic, not framework functionality.
 - No gold-plating: only plan requirements are addressed.
+- Every generated task has `complexity_score` in its frontmatter.
+- Every `complexity_score` value is an integer between 1 and 10 inclusive.
+- Atomic tasks (1–2 skills, clear criteria) scoring greater than 4 include
+  `complexity_notes` explaining why.

@@ -7,6 +7,8 @@ created: [YYYY-MM-DD]
 skills: # Technical skills required for this task
   - [SKILL-1]
   - [SKILL-2]
+complexity_score: [1-10]  # Required on every newly generated task
+complexity_notes: ""     # Optional qualitative context, encouraged when score > 4
 ---
 # [TASK-TITLE]
 

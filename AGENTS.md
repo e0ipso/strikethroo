@@ -151,7 +151,7 @@ Note the two sibling directories under `templates/harness/`: `skills/` is instal
 
 ## Schema Version Contract
 
-`.ai/strikethroo/.init-metadata.json` carries `workspaceSchemaVersion` (current `3`), distinct from the CLI's `version` string. It changes only when the workspace shape (hook names, required templates, directory structure) changes incompatibly. The bump to `3` records the introduction of `complexity_score` as required task frontmatter (a required template field). Single source of truth: `CURRENT_WORKSPACE_SCHEMA_VERSION` in `src/metadata.ts`. Upgrade path: re-run `npx strikethroo init`.
+`.ai/strikethroo/.init-metadata.json` carries `workspaceSchemaVersion` (current `3`), distinct from the CLI's `version` string. It changes only when the workspace shape (hook names, required templates, directory structure) changes incompatibly. Single source of truth: `CURRENT_WORKSPACE_SCHEMA_VERSION` in `src/metadata.ts`. Upgrade path: re-run `npx strikethroo init`.
 
 Skills bake `EXPECTED_WORKSPACE_SCHEMA_VERSION` into each `.cjs` via esbuild's `define`. At runtime `src/skill-scripts/shared/root.ts` compares the workspace value against the baked value:
 
@@ -220,8 +220,6 @@ Base templates live at `templates/strikethroo/config/templates/{PLAN,TASK}_TEMPL
 **Plan frontmatter:** `id`, `summary`, `created`. **Plan sections:** Original Work Order, Plan Clarifications, Executive Summary, Context and Background, Technical Implementation Approach, Risk Considerations, Success Criteria, Resource Requirements.
 
 **Task frontmatter:** `id`, `group`, `dependencies`, `status`, `created`, `skills`, `complexity_score` (required on every newly generated task), and optionally `complexity_notes`. **Task sections:** Objective, Skills Required, Acceptance Criteria, Technical Requirements, Input Dependencies, Output Artifacts, Implementation Notes.
-
-**Backward compatibility for `complexity_score`:** Older task files may omit `complexity_score`. Consumers MUST NOT reject legacy tasks for a missing score; it simply means the complexity is unknown. Suggested fallbacks: skip complexity-based agent routing, or infer a conservative default from `skills.length` (for example, map one skill to `3`, two skills to `5`).
 
 ---
 

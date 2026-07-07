@@ -63,7 +63,7 @@ Prefer reading it rendered? `npx strikethroo serve` shows the plan document with
 
 > /st-generate-tasks 1
 
-The `st-generate-tasks` skill breaks the plan into atomic tasks (1-2 skills each), maps dependencies, and produces an execution blueprint organized into phases of parallel work. The [`POST_TASK_GENERATION_ALL`](customization.html#post_task_generation_all) hook runs once all task files exist.
+The `st-generate-tasks` skill breaks the plan into atomic tasks (1-2 skills each), maps dependencies, assigns a `complexity_score` to every task, and produces an execution blueprint organized into phases of parallel work. The [`POST_TASK_GENERATION_ALL`](customization.html#post_task_generation_all) hook runs once all task files exist; it is blueprint-only and does not revisit complexity analysis.
 
 **Output**: `.ai/strikethroo/plans/01--user-authentication/tasks/*.md`
 
@@ -76,6 +76,7 @@ The blueprint's phases -- groups of tasks that run in parallel -- render as swim
 The task documents don't need a line-by-line review -- just a quick validation pass before you let it run. Skim the `tasks/` directory and confirm:
 - Nothing obviously outside the original scope slipped in
 - No task is overloaded (3+ skills signals it should be split)
+- Each task has a `complexity_score` between 1 and 10
 - The dependency order is sane
 
 If something looks wrong, fix the task file directly; otherwise move straight to execution. Save the careful reading for the plan (step 2) and the result (step 6).

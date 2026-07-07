@@ -96,7 +96,7 @@ const buildFixture = (): string => {
   fs.mkdirSync(root, { recursive: true });
   fs.writeFileSync(
     path.join(root, '.init-metadata.json'),
-    JSON.stringify({ version: '0.0.0', workspaceSchemaVersion: 2 }),
+    JSON.stringify({ version: '0.0.0', workspaceSchemaVersion: 3 }),
     'utf8'
   );
   makePlan(root, '12--example', 12, 'Example Done Plan', [

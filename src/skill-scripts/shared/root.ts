@@ -8,7 +8,7 @@ declare const EXPECTED_WORKSPACE_SCHEMA_VERSION: number;
 // has no runtime value; the `typeof` guard avoids a ReferenceError and falls
 // back to the current schema version used by source-level tests.
 const EXPECTED_SCHEMA: number =
-  typeof EXPECTED_WORKSPACE_SCHEMA_VERSION !== 'undefined' ? EXPECTED_WORKSPACE_SCHEMA_VERSION : 2;
+  typeof EXPECTED_WORKSPACE_SCHEMA_VERSION !== 'undefined' ? EXPECTED_WORKSPACE_SCHEMA_VERSION : 3;
 
 const isValidStrikethrooRoot = (strikethrooPath: string): boolean => {
   try {

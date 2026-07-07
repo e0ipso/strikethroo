@@ -18,7 +18,7 @@ import { InitMetadata } from './types';
  * Skill bundles read this constant at build time to enforce a runtime
  * schema-mismatch check against the workspace they're invoked against.
  */
-export const CURRENT_WORKSPACE_SCHEMA_VERSION = 2;
+export const CURRENT_WORKSPACE_SCHEMA_VERSION = 3;
 
 /**
  * Calculate SHA-256 hash of a file

@@ -39,7 +39,7 @@ var path4 = __toESM(require("path"));
 // src/skill-scripts/shared/root.ts
 var fs = __toESM(require("fs"));
 var path = __toESM(require("path"));
-var EXPECTED_SCHEMA = true ? 2 : 2;
+var EXPECTED_SCHEMA = true ? 3 : 3;
 var isValidStrikethrooRoot = (strikethrooPath) => {
   try {
     if (!fs.existsSync(strikethrooPath)) return false;

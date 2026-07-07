@@ -151,7 +151,7 @@ Note the two sibling directories under `templates/harness/`: `skills/` is instal
 
 ## Schema Version Contract
 
-`.ai/strikethroo/.init-metadata.json` carries `workspaceSchemaVersion` (current `2`), distinct from the CLI's `version` string. It changes only when the workspace shape (hook names, required templates, directory structure) changes incompatibly. Single source of truth: `CURRENT_WORKSPACE_SCHEMA_VERSION` in `src/metadata.ts`.
+`.ai/strikethroo/.init-metadata.json` carries `workspaceSchemaVersion` (current `3`), distinct from the CLI's `version` string. It changes only when the workspace shape (hook names, required templates, directory structure) changes incompatibly. Single source of truth: `CURRENT_WORKSPACE_SCHEMA_VERSION` in `src/metadata.ts`.
 
 Skills bake `EXPECTED_WORKSPACE_SCHEMA_VERSION` into each `.cjs` via esbuild's `define`. At runtime `src/skill-scripts/shared/root.ts` compares the workspace value against the baked value:
 

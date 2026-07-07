@@ -31,7 +31,7 @@ const buildMixedFixture = (root: string): void => {
   fs.mkdirSync(tm, { recursive: true });
   fs.writeFileSync(
     path.join(tm, '.init-metadata.json'),
-    JSON.stringify({ version: 'test', workspaceSchemaVersion: 2 })
+    JSON.stringify({ version: 'test', workspaceSchemaVersion: 3 })
   );
 
   writeFile(
@@ -85,7 +85,7 @@ describe('skill-scripts plan ID allocation', () => {
       fs.mkdirSync(tm, { recursive: true });
       fs.writeFileSync(
         path.join(tm, '.init-metadata.json'),
-        JSON.stringify({ version: 'test', workspaceSchemaVersion: 2 })
+        JSON.stringify({ version: 'test', workspaceSchemaVersion: 3 })
       );
       expect(computeNextPlanId(tm)).toBe(1);
     } finally {
@@ -196,7 +196,7 @@ describe('create-feature-branch integration', () => {
     fs.mkdirSync(tm, { recursive: true });
     fs.writeFileSync(
       path.join(tm, '.init-metadata.json'),
-      JSON.stringify({ version: 'test', workspaceSchemaVersion: 2 })
+      JSON.stringify({ version: 'test', workspaceSchemaVersion: 3 })
     );
     const planDir = path.join(tm, 'plans', `${planId}--${planName}`);
     fs.mkdirSync(planDir, { recursive: true });
@@ -348,7 +348,7 @@ describe('st-execute-blueprint bundle smoke check', () => {
     fs.mkdirSync(tm, { recursive: true });
     fs.writeFileSync(
       path.join(tm, '.init-metadata.json'),
-      JSON.stringify({ version: 'test', workspaceSchemaVersion: 2 })
+      JSON.stringify({ version: 'test', workspaceSchemaVersion: 3 })
     );
     const planDir = path.join(tm, 'plans', '03--alpha');
     fs.mkdirSync(planDir, { recursive: true });
@@ -443,7 +443,7 @@ describe('st-refine-plan bundle smoke check', () => {
     fs.mkdirSync(tm, { recursive: true });
     fs.writeFileSync(
       path.join(tm, '.init-metadata.json'),
-      JSON.stringify({ version: '1.0.0', workspaceSchemaVersion: 2 })
+      JSON.stringify({ version: '1.0.0', workspaceSchemaVersion: 3 })
     );
     const planDir = path.join(tm, 'plans', '03--alpha');
     fs.mkdirSync(planDir, { recursive: true });
@@ -496,7 +496,7 @@ const buildTaskFixture = (
   fs.mkdirSync(tm, { recursive: true });
   fs.writeFileSync(
     path.join(tm, '.init-metadata.json'),
-    JSON.stringify({ version: 'test', workspaceSchemaVersion: 2 })
+    JSON.stringify({ version: 'test', workspaceSchemaVersion: 3 })
   );
   const paddedPlanId = String(planId).padStart(2, '0');
   const planDir = path.join(tm, 'plans', `${paddedPlanId}--${planName}`);

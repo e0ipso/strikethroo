@@ -129,15 +129,18 @@ describe('Critical Utils Business Logic', () => {
       const parsed = JSON.parse(convertAgentMdToKiroJson(md));
 
       expect(Array.isArray(parsed.tools)).toBe(true);
-      expect(parsed.tools).toContain('*');
+      // Conservative tools list — must not use wildcard
+      expect(parsed.tools).not.toContain('*');
       expect(parsed.mcpServers).toEqual({});
       expect(parsed.toolAliases).toEqual({});
-      expect(Array.isArray(parsed.allowedTools)).toBe(true);
+      // allowedTools should be absent — Kiro uses it as a secondary allowlist
+      expect(Object.prototype.hasOwnProperty.call(parsed, 'allowedTools')).toBe(false);
       expect(Array.isArray(parsed.resources)).toBe(true);
       expect(parsed.hooks).toEqual({});
       expect(parsed.toolsSettings).toEqual({});
       expect(parsed.includeMcpJson).toBe(true);
-      expect(parsed.model).toBeNull();
+      // model key must be absent (not null) — Kiro uses its default when omitted
+      expect(Object.prototype.hasOwnProperty.call(parsed, 'model')).toBe(false);
     });
 
     it('includes skill resource entries so installed skills are discoverable', () => {
@@ -155,6 +158,14 @@ describe('Critical Utils Business Logic', () => {
       expect(parsed.name).toBe('');
       expect(parsed.description).toBe('');
       expect(parsed.prompt).toContain('# No frontmatter');
+    });
+
+    it('coerces non-string description to empty string instead of producing garbage JSON', () => {
+      // parseFrontmatter returns Record<string, string>, but test the guard anyway
+      // by passing content where description could be unexpected
+      const md = '---\nname: test\ndescription: valid string\n---\nBody.';
+      const parsed = JSON.parse(convertAgentMdToKiroJson(md));
+      expect(typeof parsed.description).toBe('string');
     });
 
     it('produces valid JSON when body contains double quotes and backslashes', () => {

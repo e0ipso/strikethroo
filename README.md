@@ -104,6 +104,11 @@ Requires Node.js 22+ and an assistant that supports the Agent Skills format.
 > (`verification-gate.md`, `clarification-gate.md`, `anti-rationalization.md`) into
 > `.kiro/steering/` with `inclusion: always` so they are active in every Kiro session
 > automatically — no per-skill setup required.
+>
+> Skills are installed separately (same as any other harness):
+> ```bash
+> npx skills add e0ipso/strikethroo
+> ```
 
 ## In your coding assistant
 

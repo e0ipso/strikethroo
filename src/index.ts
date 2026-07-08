@@ -144,8 +144,18 @@ export async function init(options: InitOptions): Promise<CommandResult> {
     // For Kiro: copy shared enforcement files into .kiro/steering/ as always-active context
     let kiroSteeringFiles: string[] = [];
     if (harnesses.includes('kiro')) {
-      console.log(`  ${chalk.green('✓')} Copying strikethroo disciplines to .kiro/steering`);
-      kiroSteeringFiles = await copyKiroSteeringFiles(baseDir);
+      kiroSteeringFiles = await copyKiroSteeringFiles(baseDir, options.force || false);
+      if (kiroSteeringFiles.length > 0) {
+        console.log(
+          `  ${chalk.green('✓')} Copied ${kiroSteeringFiles.length} strikethroo discipline(s) to .kiro/steering`
+        );
+      } else {
+        console.log(
+          chalk.yellow(
+            `  ⚠  No strikethroo disciplines copied to .kiro/steering (source files may be missing or files already exist — use --force to overwrite)`
+          )
+        );
+      }
     }
 
     // ========== CREATED FILES SECTION ==========
@@ -376,12 +386,22 @@ async function createHarnessStructure(harness: Harness, baseDir: string): Promis
  * Copy strikethroo's shared enforcement files into .kiro/steering/ so they
  * are injected as always-active context in every Kiro session.
  *
- * Each file gets an `inclusion: always` frontmatter block prepended.
- * Files are prefixed with `strikethroo-` to avoid collisions with the
- * user's own steering files. The source is the already-initialised
- * `.ai/strikethroo/config/shared/` directory (written by copyCommonTemplates).
+ * Each file gets an `inclusion: always` frontmatter block prepended (only
+ * if the block is not already present — idempotent on re-init with --force).
+ * Files are prefixed with `strikethroo-` to avoid collisions with user files.
+ *
+ * Protection against silent overwrites: if a destination file already exists,
+ * it is skipped unless `force` is true. This mirrors the hash-tracking
+ * protection used for the rest of `init` — user edits to steering files are
+ * preserved across re-runs unless explicitly overridden with `--force`.
+ *
+ * Source is `.ai/strikethroo/config/shared/`, written by `copyCommonTemplates`
+ * before this function is called (ordering guaranteed by `init()`).
+ *
+ * Returns the list of file paths written. Throws on any file-system error so
+ * the caller can surface a clear failure rather than silently continuing.
  */
-async function copyKiroSteeringFiles(baseDir: string): Promise<string[]> {
+async function copyKiroSteeringFiles(baseDir: string, force: boolean): Promise<string[]> {
   const sharedDir = resolvePath(baseDir, '.ai/strikethroo/config/shared');
   const steeringDir = resolvePath(baseDir, '.kiro/steering');
   await fs.ensureDir(steeringDir);
@@ -393,15 +413,46 @@ async function copyKiroSteeringFiles(baseDir: string): Promise<string[]> {
   ];
 
   const created: string[] = [];
+  const errors: string[] = [];
+
   for (const { src, dest } of FILES) {
     const sourcePath = path.join(sharedDir, src);
     const destPath = path.join(steeringDir, dest);
-    if (!(await exists(sourcePath))) continue;
-    const original = await fs.readFile(sourcePath, 'utf-8');
-    const withFrontmatter = `---\ninclusion: always\n---\n\n${original}`;
-    await fs.writeFile(destPath, withFrontmatter, 'utf-8');
-    created.push(destPath);
+
+    if (!(await exists(sourcePath))) {
+      // Source file missing — workspace may not be fully initialised yet;
+      // skip silently but callers should check for an empty return.
+      continue;
+    }
+
+    // Skip if destination already exists and --force not set (protect user edits)
+    if (!force && (await exists(destPath))) {
+      continue;
+    }
+
+    try {
+      const original = await fs.readFile(sourcePath, 'utf-8');
+
+      // Idempotent frontmatter injection: strip any existing `inclusion: always`
+      // block at the top before prepending, so re-running with --force does not
+      // produce duplicate frontmatter blocks.
+      const FRONTMATTER_RE = /^---\r?\n[\s\S]*?\r?\n---\r?\n\n?/;
+      const bodyOnly = FRONTMATTER_RE.test(original)
+        ? original.replace(FRONTMATTER_RE, '')
+        : original;
+
+      const withFrontmatter = `---\ninclusion: always\n---\n\n${bodyOnly}`;
+      await fs.writeFile(destPath, withFrontmatter, 'utf-8');
+      created.push(destPath);
+    } catch (err) {
+      errors.push(`${dest}: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
+
+  if (errors.length > 0) {
+    throw new Error(`Failed to write ${errors.length} steering file(s):\n  ${errors.join('\n  ')}`);
+  }
+
   return created;
 }
 

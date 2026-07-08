@@ -198,26 +198,35 @@ export function getAgentFormat(harness: Harness): AgentFormatInfo {
  * containing `name` and `description`) into Kiro's JSON agent format.
  *
  * The resulting object uses the minimal set of fields needed to produce a
- * working Kiro agent. `prompt` carries the full instruction body; all other
- * fields use safe defaults that match Kiro's own generated agents.
+ * working Kiro agent. `prompt` carries the full instruction body.
+ *
+ * Tool access is intentionally conservative: only the tools a plan-creation
+ * agent actually needs are listed. `tools: ['*']` (wildcard) is avoided to
+ * limit blast radius from prompt-injection attacks embedded in plan content.
+ * `allowedTools` is omitted; Kiro uses it as a secondary allowlist so leaving
+ * it absent lets `tools` govern access exclusively.
+ * `model` is omitted entirely when no model is specified, rather than
+ * serializing as null, which Kiro may reject or misinterpret.
  */
 export function convertAgentMdToKiroJson(mdContent: string): string {
   const { frontmatter, body } = parseFrontmatter(mdContent);
   const name = (frontmatter.name ?? '').trim();
-  const description = (frontmatter.description ?? '').trim();
-  const agent = {
+  // Guard: description must be a string; coerce unexpected types to empty string
+  const rawDescription = frontmatter.description;
+  const description = (typeof rawDescription === 'string' ? rawDescription : '').trim();
+  const agent: Record<string, unknown> = {
     name,
     description,
     prompt: body.trim(),
-    tools: ['*'],
+    // Conservative tool access: plan-creator needs reads, writes, and search.
+    tools: ['read_file', 'write_file', 'list_directory', 'search_files', 'web_search'],
     mcpServers: {},
     toolAliases: {},
-    allowedTools: [],
     resources: ['skill://.kiro/skills/*/SKILL.md', 'skill://~/.kiro/skills/*/SKILL.md'],
     hooks: {},
     toolsSettings: {},
     includeMcpJson: true,
-    model: null,
+    // `model` key intentionally omitted — absent key tells Kiro to use its default.
   };
   return JSON.stringify(agent, null, 2);
 }

@@ -1,3 +1,5 @@
+import { parseComplexityScore } from '../skill-scripts/shared/complexity-score';
+
 /**
  * Pure, dependency-light markdown parsing primitives for the serve data layer.
  *
@@ -181,11 +183,8 @@ export const parseFrontmatter = (content: string): ParsedFrontmatter => {
         result.group = value;
         break;
       case 'complexity_score': {
-        const trimmed = value.trim();
-        if (/^\d+$/.test(trimmed)) {
-          const parsed = Number.parseInt(trimmed, 10);
-          if (parsed >= 1 && parsed <= 10) result.complexity_score = parsed;
-        }
+        const parsed = parseComplexityScore(value);
+        if (parsed !== undefined) result.complexity_score = parsed;
         break;
       }
       default:

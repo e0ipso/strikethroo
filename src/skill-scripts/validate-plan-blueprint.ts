@@ -1,11 +1,9 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import { findStrikethrooRoot } from './shared/root';
 import { getAllPlans } from './shared/plan-scan';
 import { resolvePlan } from './shared/plan-resolve';
-import { extractFrontmatter } from './shared/task-file';
 import { hasExecutionBlueprint } from './shared/blueprint-detection';
 import { countTaskFiles } from './shared/task-count';
+import { validateTaskComplexityScores } from './shared/task-complexity';
 
 interface ValidationResult {
   planFile: string;
@@ -28,57 +26,6 @@ const VALID_FIELDS: ReadonlyArray<keyof ValidationResult> = [
   'complexityScoresValid',
   'invalidComplexityTasks',
 ];
-
-/**
- * Validates that every task file carries an integer `complexity_score` from 1
- * to 10 inclusive, mirroring the serve-model parser contract in
- * `src/serve/markdown.ts`. Returns a human-readable reason per offending task
- * file (missing, non-integer, or out-of-range); an empty array means all task
- * files satisfy the contract.
- */
-const validateComplexityScores = (planDir: string): string[] => {
-  const tasksDir = path.join(planDir, 'tasks');
-  if (!fs.existsSync(tasksDir)) return [];
-  let files: string[];
-  try {
-    if (!fs.lstatSync(tasksDir).isDirectory()) return [];
-    files = fs
-      .readdirSync(tasksDir)
-      .filter(f => f.endsWith('.md'))
-      .sort();
-  } catch (_err) {
-    return [];
-  }
-
-  const invalid: string[] = [];
-  for (const file of files) {
-    let content: string;
-    try {
-      content = fs.readFileSync(path.join(tasksDir, file), 'utf8');
-    } catch (_err) {
-      invalid.push(`${file}: unreadable`);
-      continue;
-    }
-    const frontmatter = extractFrontmatter(content);
-    const match = frontmatter
-      ? frontmatter.match(/^\s*complexity_score\s*:\s*(.*?)\s*(?:#.*)?$/im)
-      : null;
-    if (!match || match[1] === undefined) {
-      invalid.push(`${file}: missing complexity_score`);
-      continue;
-    }
-    const raw = match[1].trim();
-    if (!/^\d+$/.test(raw)) {
-      invalid.push(`${file}: non-integer complexity_score "${raw}"`);
-      continue;
-    }
-    const parsed = Number.parseInt(raw, 10);
-    if (parsed < 1 || parsed > 10) {
-      invalid.push(`${file}: complexity_score ${parsed} out of range 1-10`);
-    }
-  }
-  return invalid;
-};
 
 const usage = (): void => {
   const lines = [
@@ -139,7 +86,7 @@ const main = (): void => {
     process.exit(1);
   }
 
-  const invalidComplexity = validateComplexityScores(resolved.planDir);
+  const invalidComplexity = validateTaskComplexityScores(resolved.planDir);
   const result: ValidationResult = {
     planFile: resolved.planFile,
     planDir: resolved.planDir,

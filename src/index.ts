@@ -9,7 +9,13 @@ import * as fs from 'fs-extra';
 import * as path from 'path';
 import chalk from 'chalk';
 import { InitOptions, Harness, CommandResult, ConflictResolution, InitMetadata } from './types';
-import { parseHarnesses, validateHarnesses, getAgentFormat, convertAgentMdToToml } from './utils';
+import {
+  parseHarnesses,
+  validateHarnesses,
+  getAgentFormat,
+  convertAgentMdToToml,
+  convertAgentMdToKiroJson,
+} from './utils';
 import {
   calculateFileHash,
   loadMetadata,
@@ -135,6 +141,13 @@ export async function init(options: InitOptions): Promise<CommandResult> {
       }
     }
 
+    // For Kiro: copy shared enforcement files into .kiro/steering/ as always-active context
+    let kiroSteeringFiles: string[] = [];
+    if (harnesses.includes('kiro')) {
+      console.log(`  ${chalk.green('✓')} Copying strikethroo disciplines to .kiro/steering`);
+      kiroSteeringFiles = await copyKiroSteeringFiles(baseDir);
+    }
+
     // ========== CREATED FILES SECTION ==========
     console.log(formatSectionHeader('Created Files'));
 
@@ -148,6 +161,13 @@ export async function init(options: InitOptions): Promise<CommandResult> {
     for (const [harness, files] of allCreatedAgentFiles) {
       console.log(chalk.cyan(`  ${harness} Agents:`));
       for (const file of files) {
+        console.log(`    ${chalk.blue('●')} ${file}`);
+      }
+    }
+
+    if (kiroSteeringFiles.length > 0) {
+      console.log(chalk.cyan('  Kiro Steering:'));
+      for (const file of kiroSteeringFiles) {
         console.log(`    ${chalk.blue('●')} ${file}`);
       }
     }
@@ -340,6 +360,8 @@ async function createHarnessStructure(harness: Harness, baseDir: string): Promis
 
     if (formatInfo.format === 'toml') {
       await fs.writeFile(targetPath, convertAgentMdToToml(content), 'utf-8');
+    } else if (formatInfo.format === 'json') {
+      await fs.writeFile(targetPath, convertAgentMdToKiroJson(content), 'utf-8');
     } else {
       await fs.writeFile(targetPath, content, 'utf-8');
     }
@@ -348,6 +370,39 @@ async function createHarnessStructure(harness: Harness, baseDir: string): Promis
   }
 
   return createdFiles;
+}
+
+/**
+ * Copy strikethroo's shared enforcement files into .kiro/steering/ so they
+ * are injected as always-active context in every Kiro session.
+ *
+ * Each file gets an `inclusion: always` frontmatter block prepended.
+ * Files are prefixed with `strikethroo-` to avoid collisions with the
+ * user's own steering files. The source is the already-initialised
+ * `.ai/strikethroo/config/shared/` directory (written by copyCommonTemplates).
+ */
+async function copyKiroSteeringFiles(baseDir: string): Promise<string[]> {
+  const sharedDir = resolvePath(baseDir, '.ai/strikethroo/config/shared');
+  const steeringDir = resolvePath(baseDir, '.kiro/steering');
+  await fs.ensureDir(steeringDir);
+
+  const FILES: Array<{ src: string; dest: string }> = [
+    { src: 'verification-gate.md', dest: 'strikethroo-verification-gate.md' },
+    { src: 'clarification-gate.md', dest: 'strikethroo-clarification-gate.md' },
+    { src: 'anti-rationalization.md', dest: 'strikethroo-anti-rationalization.md' },
+  ];
+
+  const created: string[] = [];
+  for (const { src, dest } of FILES) {
+    const sourcePath = path.join(sharedDir, src);
+    const destPath = path.join(steeringDir, dest);
+    if (!(await exists(sourcePath))) continue;
+    const original = await fs.readFile(sourcePath, 'utf-8');
+    const withFrontmatter = `---\ninclusion: always\n---\n\n${original}`;
+    await fs.writeFile(destPath, withFrontmatter, 'utf-8');
+    created.push(destPath);
+  }
+  return created;
 }
 
 /**

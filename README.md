@@ -99,6 +99,12 @@ npx skills add e0ipso/strikethroo
 
 Requires Node.js 22+ and an assistant that supports the Agent Skills format.
 
+> **Kiro users:** `npx strikethroo init --harnesses kiro` creates `.kiro/agents/plan-creator.json`
+> and also copies strikethroo's shared enforcement disciplines
+> (`verification-gate.md`, `clarification-gate.md`, `anti-rationalization.md`) into
+> `.kiro/steering/` with `inclusion: always` so they are active in every Kiro session
+> automatically — no per-skill setup required.
+
 ## In your coding assistant
 
 ```mermaid

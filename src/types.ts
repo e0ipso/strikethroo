@@ -8,7 +8,7 @@
 /**
  * Supported AI harnesses for task management
  */
-export type Harness = 'claude' | 'codex' | 'cursor' | 'gemini' | 'github' | 'opencode';
+export type Harness = 'claude' | 'codex' | 'cursor' | 'gemini' | 'github' | 'opencode' | 'kiro';
 
 /**
  * Options for the init command

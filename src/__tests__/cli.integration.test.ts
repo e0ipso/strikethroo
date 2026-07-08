@@ -247,4 +247,68 @@ describe('CLI Integration', () => {
       expect(await fs.pathExists(path.join(testDir, '.claude/agents/plan-creator.md'))).toBe(true);
     });
   });
+
+  describe('init — kiro harness', () => {
+    it('bootstraps .ai/strikethroo and creates the Kiro agent JSON file', async () => {
+      const result = executeCommand(`node "${cliPath}" init --harnesses kiro`);
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('Strikethroo initialized successfully!');
+
+      await verifyStrikethrooBootstrap(testDir);
+      expect(await fs.pathExists(path.join(testDir, '.kiro/agents/plan-creator.json'))).toBe(true);
+    });
+
+    it('emits a valid Kiro agent JSON with required fields', async () => {
+      executeCommand(`node "${cliPath}" init --harnesses kiro`);
+      const raw = await fs.readFile(path.join(testDir, '.kiro/agents/plan-creator.json'), 'utf-8');
+      const parsed = JSON.parse(raw);
+
+      expect(typeof parsed.name).toBe('string');
+      expect(parsed.name.length).toBeGreaterThan(0);
+      expect(typeof parsed.description).toBe('string');
+      expect(typeof parsed.prompt).toBe('string');
+      expect(parsed.prompt.length).toBeGreaterThan(0);
+      expect(Array.isArray(parsed.tools)).toBe(true);
+      expect(parsed.includeMcpJson).toBe(true);
+      expect(parsed.model).toBeNull();
+    });
+
+    it('copies shared enforcement files to .kiro/steering with inclusion: always frontmatter', async () => {
+      executeCommand(`node "${cliPath}" init --harnesses kiro`);
+
+      const steeringDir = path.join(testDir, '.kiro/steering');
+      expect(await fs.pathExists(steeringDir)).toBe(true);
+
+      const files = [
+        'strikethroo-verification-gate.md',
+        'strikethroo-clarification-gate.md',
+        'strikethroo-anti-rationalization.md',
+      ];
+
+      for (const file of files) {
+        const filePath = path.join(steeringDir, file);
+        expect(await fs.pathExists(filePath)).toBe(true);
+        const content = await fs.readFile(filePath, 'utf-8');
+        expect(content).toContain('inclusion: always');
+      }
+    });
+
+    it('lists steering files in the Created Files output', async () => {
+      const result = executeCommand(`node "${cliPath}" init --harnesses kiro`);
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('Kiro Steering:');
+      expect(result.stdout).toContain('strikethroo-verification-gate.md');
+    });
+
+    it('works alongside other harnesses in a multi-harness init', async () => {
+      const result = executeCommand(`node "${cliPath}" init --harnesses claude,kiro`);
+      expect(result.exitCode).toBe(0);
+
+      expect(await fs.pathExists(path.join(testDir, '.claude/agents/plan-creator.md'))).toBe(true);
+      expect(await fs.pathExists(path.join(testDir, '.kiro/agents/plan-creator.json'))).toBe(true);
+      expect(
+        await fs.pathExists(path.join(testDir, '.kiro/steering/strikethroo-verification-gate.md'))
+      ).toBe(true);
+    });
+  });
 });

@@ -13,6 +13,7 @@ const VALID_HARNESSES: readonly Harness[] = [
   'gemini',
   'github',
   'opencode',
+  'kiro',
 ];
 
 /**
@@ -165,7 +166,7 @@ export function convertAgentMdToToml(mdContent: string): string {
 }
 
 export interface AgentFormatInfo {
-  format: 'md' | 'toml';
+  format: 'md' | 'toml' | 'json';
   extension: string;
   directory: string;
 }
@@ -187,5 +188,36 @@ export function getAgentFormat(harness: Harness): AgentFormatInfo {
       return { format: 'md', extension: '.md', directory: '.cursor/agents' };
     case 'opencode':
       return { format: 'md', extension: '.md', directory: '.opencode/agents' };
+    case 'kiro':
+      return { format: 'json', extension: '.json', directory: '.kiro/agents' };
   }
+}
+
+/**
+ * Convert a canonical agent markdown template (with YAML frontmatter
+ * containing `name` and `description`) into Kiro's JSON agent format.
+ *
+ * The resulting object uses the minimal set of fields needed to produce a
+ * working Kiro agent. `prompt` carries the full instruction body; all other
+ * fields use safe defaults that match Kiro's own generated agents.
+ */
+export function convertAgentMdToKiroJson(mdContent: string): string {
+  const { frontmatter, body } = parseFrontmatter(mdContent);
+  const name = (frontmatter.name ?? '').trim();
+  const description = (frontmatter.description ?? '').trim();
+  const agent = {
+    name,
+    description,
+    prompt: body.trim(),
+    tools: ['*'],
+    mcpServers: {},
+    toolAliases: {},
+    allowedTools: [],
+    resources: ['skill://.kiro/skills/*/SKILL.md', 'skill://~/.kiro/skills/*/SKILL.md'],
+    hooks: {},
+    toolsSettings: {},
+    includeMcpJson: true,
+    model: null,
+  };
+  return JSON.stringify(agent, null, 2);
 }

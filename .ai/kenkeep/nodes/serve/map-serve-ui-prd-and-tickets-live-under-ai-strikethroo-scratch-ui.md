@@ -13,7 +13,9 @@ tags:
 kk_schema_version: 3
 kk_id: map-serve-ui-prd-and-tickets-live-under-ai-strikethroo-scratch-ui
 kk_derived_from: []
-kk_relates_to: []
+kk_relates_to:
+  - >-
+    practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files
 kk_depends_on: []
 kk_confidence: high
 ---
@@ -22,3 +24,9 @@ The detailed implementation planning for `npx strikethroo serve` was written as 
 - `PRD.md` — full product requirements with Design Assets table and ticket index
 - `designs/` — extracted from `strikethroo.zip` (app-kit.jsx, screens-*.jsx, app.css, sample plan/tasks)
 - `tickets/01` through `tickets/13` — dependency-ordered tickets covering all serve screens and infrastructure
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files](/serve/practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files.md)
+<!-- kk:related:end -->

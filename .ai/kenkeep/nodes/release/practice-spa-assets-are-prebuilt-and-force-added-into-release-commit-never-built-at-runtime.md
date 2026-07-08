@@ -21,7 +21,8 @@ kk_id: >-
 kk_derived_from:
   - '7f15ae61-53e1-4644-8689-567a37c4ff39:practice:0'
 kk_relates_to: []
-kk_depends_on: []
+kk_depends_on:
+  - practice-use-git-rm-r-for-tracked-skill-output-dirs-not-rm-rf
 kk_confidence: high
 ---
 There are two distinct delivery channels that must both be updated on each release:
@@ -50,3 +51,9 @@ Each artifact lives where its consumer reads it. The SPA's only consumer is the 
 
 [1] [7f15ae61-53e1-4644-8689-567a37c4ff39:practice:0](7f15ae61-53e1-4644-8689-567a37c4ff39:practice:0)
 <!-- kk:citations:end -->
+
+<!-- kk:related:start -->
+# Related
+
+- Depends on: [practice-use-git-rm-r-for-tracked-skill-output-dirs-not-rm-rf](/release/practice-use-git-rm-r-for-tracked-skill-output-dirs-not-rm-rf.md)
+<!-- kk:related:end -->

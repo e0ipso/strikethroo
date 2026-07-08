@@ -10,8 +10,8 @@
 _None._
 
 ## Conventions (how we build)
-- Open [**Convey done/undone state with strikethrough, color, or emoji — never a non-interactive checkbox**](practice-convey-done-state-with-strikethrough-color-or-emoji-not-non-interactive-checkboxes.md) to learn about: In read-only UI, render Done/Undone with a passive visual cue (strikethrough, text color, emoji); a checkbox implies it is clickable #web #ui #ux #accessibility #affordance
 - Open [**Use BaseUI components for interactive UI elements in the SPA**](practice-use-baseui-components-for-interactive-ui-elements-in-the-spa.md) to learn about: @base-ui-components/react is required for all new interactive UI elements; hand-rolled components are pre-mandate legacy. #web #baseui #components #interactive #spa
+- Open [**Convey done/undone state with strikethrough, color, or emoji — never a non-interactive checkbox**](practice-convey-done-state-with-strikethrough-color-or-emoji-not-non-interactive-checkboxes.md) to learn about: In read-only UI, render Done/Undone with a passive visual cue (strikethrough, text color, emoji); a checkbox implies it is clickable #web #ui #ux #accessibility #affordance
 
 ## Components (what exists)
 - Open [**Archive UI control — confirmation-gated Archive button on done plans**](map-archive-ui-control-confirmation-gated-archive-button-on-done-plans.md) to learn about: Done plans get an Archive button wired to ArchivePlanModal; POST /api/plans/:id/archive triggers SSE-driven UI refresh. #web #plans #archive #ui
@@ -31,13 +31,13 @@ _None._
 ### #affordance
 - Open [**Convey done/undone state with strikethrough, color, or emoji — never a non-interactive checkbox**](practice-convey-done-state-with-strikethrough-color-or-emoji-not-non-interactive-checkboxes.md) — In read-only UI, render Done/Undone with a passive visual cue (strikethrough, text color, emoji); a checkbox implies it is clickable
 ### #archive
-- Open [**Archive UI control — confirmation-gated Archive button on done plans**](map-archive-ui-control-confirmation-gated-archive-button-on-done-plans.md) — Done plans get an Archive button wired to ArchivePlanModal; POST /api/plans/:id/archive triggers SSE-driven UI refresh.
 - Open [**src/serve/archive.ts — archivePlan() operation**](../../serve/map-src-serve-archive-ts-archiveplan-operation.md) — Pure discriminated-result function: validates plan exists, is under plans/, is in derived done state, then does atomic fs.rename into archive/.
+- Open [**Archive UI control — confirmation-gated Archive button on done plans**](map-archive-ui-control-confirmation-gated-archive-button-on-done-plans.md) — Done plans get an Archive button wired to ArchivePlanModal; POST /api/plans/:id/archive triggers SSE-driven UI refresh.
 ### #baseui
 - Open [**Use BaseUI components for interactive UI elements in the SPA**](practice-use-baseui-components-for-interactive-ui-elements-in-the-spa.md) — @base-ui-components/react is required for all new interactive UI elements; hand-rolled components are pre-mandate legacy.
 ### #components
-- Open [**Reuse shared SPA prose-rendering components across all markdown-rendering screens**](../rendering/practice-reuse-shared-spa-prose-rendering-components-across-all-markdown-rendering-screens.md) — The project has a standing code-reuse mandate: all markdown-rendering screens must use the shared Section/ReaderProse renderer.
 - Open [**Use BaseUI components for interactive UI elements in the SPA**](practice-use-baseui-components-for-interactive-ui-elements-in-the-spa.md) — @base-ui-components/react is required for all new interactive UI elements; hand-rolled components are pre-mandate legacy.
+- Open [**Reuse shared SPA prose-rendering components across all markdown-rendering screens**](../rendering/practice-reuse-shared-spa-prose-rendering-components-across-all-markdown-rendering-screens.md) — The project has a standing code-reuse mandate: all markdown-rendering screens must use the shared Section/ReaderProse renderer.
 - Open [**MermaidError.tsx — shared mermaid render-error component**](../rendering/map-mermaiderror-tsx-shared-mermaid-render-error-component.md) — src/web/plans/detail/MermaidError.tsx renders a Lucide Frown icon with a collapsed Details disclosure for the verbatim parse error.
 ### #interactive
 - Open [**Use BaseUI components for interactive UI elements in the SPA**](practice-use-baseui-components-for-interactive-ui-elements-in-the-spa.md) — @base-ui-components/react is required for all new interactive UI elements; hand-rolled components are pre-mandate legacy.

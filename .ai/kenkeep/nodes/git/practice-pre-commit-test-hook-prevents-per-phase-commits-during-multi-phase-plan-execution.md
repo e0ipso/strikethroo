@@ -10,7 +10,7 @@ tags:
   - pre-commit
   - testing
   - phase
-  - commits
+  - commit
 kk_schema_version: 3
 kk_id: >-
   practice-pre-commit-test-hook-prevents-per-phase-commits-during-multi-phase-plan-execution

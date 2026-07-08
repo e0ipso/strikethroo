@@ -14,7 +14,8 @@ tags:
 kk_schema_version: 3
 kk_id: map-get-api-capabilities-returns-project-name-and-path-via-deriveproject
 kk_derived_from: []
-kk_relates_to: []
+kk_relates_to:
+  - map-src-serve-self-review-ts-post-api-self-review-endpoint
 kk_depends_on: []
 kk_confidence: high
 ---
@@ -23,3 +24,9 @@ kk_confidence: high
 `deriveProject` returns the directory's `name` (basename) and absolute `path`. For non-standard layouts (e.g. shallow test fixtures), it falls back to the root itself. The `name` is displayed in the Sidebar footer; the `path` is the hover tooltip.
 
 The `Capabilities` type in `src/web/data/api.ts` includes `project?: { name: string; path: string }`. The SPA reads it via `useCapabilities()` in the Sidebar component.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-src-serve-self-review-ts-post-api-self-review-endpoint](/serve/map-src-serve-self-review-ts-post-api-self-review-endpoint.md)
+<!-- kk:related:end -->

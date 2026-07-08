@@ -6,7 +6,7 @@ description: >-
   approval prompt that halts autonomous runs.
 tags:
   - git
-  - commits
+  - commit
   - pre-commit
   - hooks
 kk_schema_version: 3

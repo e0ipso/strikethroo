@@ -11,10 +11,18 @@ tags:
 kk_schema_version: 3
 kk_id: map-src-serve-self-review-ts-post-api-self-review-endpoint
 kk_derived_from: []
-kk_relates_to: []
+kk_relates_to:
+  - >-
+    practice-serve-layer-uses-discriminated-union-result-types-not-custom-error-classes
 kk_depends_on: []
 kk_confidence: high
 ---
 `src/serve/self-review.ts` implements the self-review launch feature. It spawns an external binary without writing any files to the workspace — the canonical non-GET route that does **not** violate the filesystem-mutation boundary.
 
 It also adds `GET /api/capabilities` to the server, returning `{ selfReview: boolean }` indicating whether the binary is on PATH.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [practice-serve-layer-uses-discriminated-union-result-types-not-custom-error-classes](/serve/practice-serve-layer-uses-discriminated-union-result-types-not-custom-error-classes.md)
+<!-- kk:related:end -->

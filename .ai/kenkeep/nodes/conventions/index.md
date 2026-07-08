@@ -10,8 +10,8 @@
 _None._
 
 ## Conventions (how we build)
-- Open [**Documentation captures current state only**](practice-documentation-captures-current-state-only.md) to learn about: All docs describe how things work now. No historical context, migration notes, or retired-term mappings. #documentation #conventions
 - Open [**Phase is reserved for execution blueprint task groups**](practice-phase-reserved-for-blueprint-task-groups.md) to learn about: "Phase" means parallel task batches in the blueprint. The three workflow stages are "steps", never "phases". #terminology #documentation #execution-blueprint
+- Open [**Documentation captures current state only**](practice-documentation-captures-current-state-only.md) to learn about: All docs describe how things work now. No historical context, migration notes, or retired-term mappings. #documentation #conventions
 
 ## Components (what exists)
 _None yet._

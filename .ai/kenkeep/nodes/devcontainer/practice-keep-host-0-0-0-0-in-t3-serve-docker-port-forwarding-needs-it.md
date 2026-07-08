@@ -13,7 +13,9 @@ kk_schema_version: 3
 kk_id: practice-keep-host-0-0-0-0-in-t3-serve-docker-port-forwarding-needs-it
 kk_derived_from:
   - '05a1bddf-ef9e-4147-8e07-0b971366c7d7:practice:0'
-kk_relates_to: []
+kk_relates_to:
+  - >-
+    practice-keep-t3-pairing-auth-sibling-devcontainers-can-reach-the-docker-bridge
 kk_depends_on: []
 kk_confidence: high
 ---
@@ -26,3 +28,9 @@ The working invocation: `t3 serve --host 0.0.0.0 --mode web --no-browser`.
 
 [1] [05a1bddf-ef9e-4147-8e07-0b971366c7d7:practice:0](05a1bddf-ef9e-4147-8e07-0b971366c7d7:practice:0)
 <!-- kk:citations:end -->
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [practice-keep-t3-pairing-auth-sibling-devcontainers-can-reach-the-docker-bridge](/devcontainer/practice-keep-t3-pairing-auth-sibling-devcontainers-can-reach-the-docker-bridge.md)
+<!-- kk:related:end -->

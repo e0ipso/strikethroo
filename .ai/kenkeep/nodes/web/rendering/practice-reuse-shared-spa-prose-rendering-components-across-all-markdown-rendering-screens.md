@@ -16,7 +16,8 @@ kk_schema_version: 3
 kk_id: >-
   practice-reuse-shared-spa-prose-rendering-components-across-all-markdown-rendering-screens
 kk_derived_from: []
-kk_relates_to: []
+kk_relates_to:
+  - map-mermaiderror-tsx-shared-mermaid-render-error-component
 kk_depends_on: []
 kk_confidence: high
 ---
@@ -25,3 +26,9 @@ The project enforces a code-reuse mandate for SPA UI components. When a shared r
 Concrete constraint: any SPA screen rendering plan or task markdown prose must go through the `Section` renderer from `ReaderProse.tsx`, gaining the `##`-heading affordance, inline lazy/themed mermaid, and the Success-Criteria `.crit` treatment uniformly.
 
 The rule was stated when the Task Detail screen was found using a one-off `<div className="prose" dangerouslySetInnerHTML={renderMarkdown(body)}>` instead of the shared component: "That is a violation of the mandate of code reuse!"
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-mermaiderror-tsx-shared-mermaid-render-error-component](/web/rendering/map-mermaiderror-tsx-shared-mermaid-render-error-component.md)
+<!-- kk:related:end -->

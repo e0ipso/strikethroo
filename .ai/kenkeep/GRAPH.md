@@ -1,6 +1,6 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:1aa2b7c5259d136852b86c7c80ad490651b3aa9c8360163ee5a82e667ed0ce62'
+nodes_hash: 'sha256:2e4212eac8959e2f190177a9bc0d31991a7bffb8aa4a1cdbc4a4807c5767b28b'
 node_count: 74
 ---
 # kenkeep Graph
@@ -13,6 +13,7 @@ Total nodes: 74
 - **title:** Archive UI control — confirmation-gated Archive button on done plans
 - **path:** web/ui/map-archive-ui-control-confirmation-gated-archive-button-on-done-plans.md
 - **tags:** web, plans, archive, ui
+- **relates_to:** map-src-serve-archive-ts-archiveplan-operation
 
 ## map-capture-fixture-workspace-plans-102-104-as-active-demo-plans-for-screen-capture
 
@@ -20,6 +21,7 @@ Total nodes: 74
 - **title:** Capture fixture workspace: plans 102–104 as active demo plans for screen capture
 - **path:** capture/map-capture-fixture-workspace-plans-102-104-as-active-demo-plans-for-screen-capture.md
 - **tags:** capture, fixtures, workspace, playwright
+- **relates_to:** practice-use-committed-fixture-workspaces-not-the-live-ai-strikethroo-tree
 
 ## map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed
 
@@ -27,6 +29,7 @@ Total nodes: 74
 - **title:** CLI exposes only init and serve commands
 - **path:** cli/map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md
 - **tags:** cli, architecture
+- **relates_to:** map-skills-are-auto-loaded-by-intent-matching-not-slash-command-prefix
 
 ## map-cross-harness-code-abstraction-centralized-in-54-lines-across-3-locations
 
@@ -34,6 +37,7 @@ Total nodes: 74
 - **title:** Cross-harness code abstraction centralized in ~54 lines across 3 locations
 - **path:** skills/map-cross-harness-code-abstraction-centralized-in-54-lines-across-3-locations.md
 - **tags:** architecture, harness, skills
+- **relates_to:** map-skills-are-auto-loaded-by-intent-matching-not-slash-command-prefix
 
 ## map-customizedetailroute-title-appends-singular-kind-hook-or-template-not-hooks-temp
 
@@ -41,6 +45,7 @@ Total nodes: 74
 - **title:** CustomizeDetailRoute: title appends singular kind (hook or template, not hooks/templates)
 - **path:** web/editor/map-customizedetailroute-title-appends-singular-kind-hook-or-template-not-hooks-temp.md
 - **tags:** customize, spa, ui
+- **relates_to:** map-markdowneditor-tsx-code-split-codemirror-6-markdown-editor-in-customize-detail-r
 
 ## map-dalia-ui-design-system-vendored-into-src-web-vendor-not-a-package-dependency
 
@@ -55,6 +60,7 @@ Total nodes: 74
 - **title:** docs/_config.yml controls GitHub Pages baseurl for the Jekyll docs site
 - **path:** docs/map-docs-config-yml-controls-github-pages-baseurl-for-the-jekyll-docs-site.md
 - **tags:** docs, github-pages, jekyll
+- **relates_to:** map-releaserc-json-repositoryurl-must-match-current-github-repo-slug
 
 ## map-eslint-config-eslint-config-mjs-flat-config-eslint-9
 
@@ -62,6 +68,7 @@ Total nodes: 74
 - **title:** ESLint config: eslint.config.mjs (flat config, ESLint 9)
 - **path:** tooling/map-eslint-config-eslint-config-mjs-flat-config-eslint-9.md
 - **tags:** eslint, tooling, config
+- **relates_to:** practice-eslint-test-block-must-include-browser-globals-for-page-evaluate-callbacks
 
 ## map-find-strikethroo-root-ts-skill-scripts-utility-that-locates-the-ai-strikethroo-workspace-root
 
@@ -69,6 +76,7 @@ Total nodes: 74
 - **title:** find-strikethroo-root.ts — skill-scripts utility that locates the .ai/strikethroo workspace root
 - **path:** skills/map-find-strikethroo-root-ts-skill-scripts-utility-that-locates-the-ai-strikethroo-workspace-root.md
 - **tags:** skill-scripts, workspace-root
+- **relates_to:** map-src-skill-prompts-is-the-authored-source-of-truth-for-skill-md-content
 
 ## map-get-api-capabilities-returns-project-name-and-path-via-deriveproject
 
@@ -76,6 +84,7 @@ Total nodes: 74
 - **title:** GET /api/capabilities returns project name and path via deriveProject()
 - **path:** serve/map-get-api-capabilities-returns-project-name-and-path-via-deriveproject.md
 - **tags:** serve, api, capabilities, sidebar, project
+- **relates_to:** map-src-serve-self-review-ts-post-api-self-review-endpoint
 
 ## map-installed-skills-in-claude-skills-are-decoupled-from-repo-builds
 
@@ -83,6 +92,7 @@ Total nodes: 74
 - **title:** Installed skills in .claude/skills/ are decoupled from repo builds
 - **path:** release/map-installed-skills-in-claude-skills-are-decoupled-from-repo-builds.md
 - **tags:** skills, installation, harness
+- **relates_to:** map-vercel-labs-skills-installer-scans-standard-dirs-before-plugin-json
 
 ## map-markdowneditor-tsx-code-split-codemirror-6-markdown-editor-in-customize-detail-r
 
@@ -90,6 +100,7 @@ Total nodes: 74
 - **title:** MarkdownEditor.tsx — code-split CodeMirror 6 markdown editor in Customize detail route
 - **path:** web/editor/map-markdowneditor-tsx-code-split-codemirror-6-markdown-editor-in-customize-detail-r.md
 - **tags:** codemirror, spa, customize, editor
+- **relates_to:** practice-all-codemirror-packages-must-stay-in-devdependencies-and-be-imported-lazily
 
 ## map-mermaiderror-tsx-shared-mermaid-render-error-component
 
@@ -97,6 +108,7 @@ Total nodes: 74
 - **title:** MermaidError.tsx — shared mermaid render-error component
 - **path:** web/rendering/map-mermaiderror-tsx-shared-mermaid-render-error-component.md
 - **tags:** mermaid, spa, components, error-handling
+- **relates_to:** practice-set-suppresserrorrendering-true-in-mermaid-initialization
 
 ## map-npm-run-dev-serve-ts-node-backend-hot-reload-script
 
@@ -126,6 +138,7 @@ Total nodes: 74
 - **title:** serve UI PRD and tickets live under .ai/strikethroo/scratch/ui/
 - **path:** serve/map-serve-ui-prd-and-tickets-live-under-ai-strikethroo-scratch-ui.md
 - **tags:** web, spa, serve, design, scratch
+- **relates_to:** practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files
 
 ## map-skills-are-auto-loaded-by-intent-matching-not-slash-command-prefix
 
@@ -148,6 +161,7 @@ Total nodes: 74
 - **title:** src/serve/archive.ts — archivePlan() operation
 - **path:** serve/map-src-serve-archive-ts-archiveplan-operation.md
 - **tags:** serve, archive, api
+- **relates_to:** practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files
 
 ## map-src-serve-self-review-ts-post-api-self-review-endpoint
 
@@ -155,6 +169,7 @@ Total nodes: 74
 - **title:** src/serve/self-review.ts — POST /api/self-review endpoint
 - **path:** serve/map-src-serve-self-review-ts-post-api-self-review-endpoint.md
 - **tags:** serve, self-review, api
+- **relates_to:** practice-serve-layer-uses-discriminated-union-result-types-not-custom-error-classes
 
 ## map-src-skill-prompts-is-the-authored-source-of-truth-for-skill-md-content
 
@@ -162,6 +177,7 @@ Total nodes: 74
 - **title:** Skill-prompt build system — src/skill-prompts/ source, assembler, shared sections
 - **path:** skills/prompts/map-src-skill-prompts-is-the-authored-source-of-truth-for-skill-md-content.md
 - **tags:** build, skill-prompts, source-of-truth, assembler, sections
+- **relates_to:** practice-exclude-readme-md-from-skill-prompt-template-processing-in-the-assembler, practice-use-build-time-composition-to-eliminate-cross-skill-prompt-duplication
 
 ## map-src-tests-fixtures-serve-workspace-committed-fixture-workspace-for-tests
 
@@ -177,6 +193,7 @@ Total nodes: 74
 - **title:** t3-serve.sh + new-devcontainer — stable devcontainer-to-t3-desktop workflow
 - **path:** devcontainer/map-t3-serve-sh-new-devcontainer-stable-devcontainer-to-t3-desktop-workflow.md
 - **tags:** devcontainer, t3, docker, workflow
+- **depends_on:** practice-keep-host-0-0-0-0-in-t3-serve-docker-port-forwarding-needs-it
 - **derived_from:** 05a1bddf-ef9e-4147-8e07-0b971366c7d7:map:0
 
 ## map-vercel-labs-skills-installer-scans-standard-dirs-before-plugin-json
@@ -185,6 +202,7 @@ Total nodes: 74
 - **title:** vercel-labs/skills installer scans standard dirs before plugin.json
 - **path:** release/map-vercel-labs-skills-installer-scans-standard-dirs-before-plugin-json.md
 - **tags:** distribution, skills, installer
+- **relates_to:** practice-do-not-commit-agents-skills-or-skills-lock-json-they-are-local-installation-artifacts
 
 ## map-window-strevalidationcount-playwright-observability-hook-for-sse-driven-revalidation
 
@@ -199,6 +217,7 @@ Total nodes: 74
 - **title:** Add lazy-only CodeMirror packages to vite optimizeDeps.include to prevent dev-server MIME errors
 - **path:** web/editor/practice-add-lazy-only-codemirror-packages-to-vite-optimizedeps-include-to-prevent-dev-se.md
 - **tags:** vite, codemirror, dev-server, lazy-loading, optimization
+- **depends_on:** map-markdowneditor-tsx-code-split-codemirror-6-markdown-editor-in-customize-detail-r
 
 ## practice-after-a-git-merge-always-rebuild-dist-web-before-running-e2e-tests
 
@@ -206,6 +225,7 @@ Total nodes: 74
 - **title:** After a git merge, always rebuild dist-web/ before running e2e tests
 - **path:** testing/practice-after-a-git-merge-always-rebuild-dist-web-before-running-e2e-tests.md
 - **tags:** build, dist-web, testing, e2e, git, merge
+- **relates_to:** practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime
 
 ## practice-all-codemirror-packages-must-stay-in-devdependencies-and-be-imported-lazily
 
@@ -228,6 +248,7 @@ Total nodes: 74
 - **title:** Apply sticky positioning to .sb sidebar to keep footer visible on all pages
 - **path:** web/styling/practice-apply-sticky-positioning-to-sb-sidebar-to-keep-footer-visible-on-all-pages.md
 - **tags:** web, css, layout, sidebar, app-shell
+- **relates_to:** map-get-api-capabilities-returns-project-name-and-path-via-deriveproject
 
 ## practice-avoid-inside-theme-css-comments-to-prevent-premature-comment-termination
 
@@ -235,6 +256,7 @@ Total nodes: 74
 - **title:** Avoid */ inside @theme CSS comments to prevent premature comment termination
 - **path:** web/styling/practice-avoid-inside-theme-css-comments-to-prevent-premature-comment-termination.md
 - **tags:** tailwind, css, comments, build
+- **relates_to:** map-spa-vendor-styles-five-retained-css-files-under-src-web-vendor-styles
 
 ## practice-commit-subject-50-chars-body-wrapped-at-72-chars-hook-enforced
 
@@ -250,6 +272,7 @@ Total nodes: 74
 - **title:** Convey done/undone state with strikethrough, color, or emoji — never a non-interactive checkbox
 - **path:** web/ui/practice-convey-done-state-with-strikethrough-color-or-emoji-not-non-interactive-checkboxes.md
 - **tags:** web, ui, ux, accessibility, affordance
+- **relates_to:** practice-use-baseui-components-for-interactive-ui-elements-in-the-spa
 
 ## practice-do-not-commit-agents-skills-or-skills-lock-json-they-are-local-installation-artifacts
 
@@ -263,7 +286,7 @@ Total nodes: 74
 - **kind:** practice
 - **title:** Do not use --no-verify to skip git commit hooks
 - **path:** git/practice-do-not-use-no-verify-to-skip-git-commit-hooks.md
-- **tags:** git, commits, pre-commit, hooks
+- **tags:** git, commit, pre-commit, hooks
 - **relates_to:** practice-pre-commit-test-hook-prevents-per-phase-commits-during-multi-phase-plan-execution
 
 ## practice-documentation-captures-current-state-only
@@ -272,6 +295,7 @@ Total nodes: 74
 - **title:** Documentation captures current state only
 - **path:** conventions/practice-documentation-captures-current-state-only.md
 - **tags:** documentation, conventions
+- **relates_to:** practice-phase-reserved-for-blueprint-task-groups
 
 ## practice-e2e-tests-must-use-stable-semantic-selectors-not-tailwind-utility-class-names
 
@@ -279,6 +303,7 @@ Total nodes: 74
 - **title:** E2e tests must use stable semantic selectors, not Tailwind utility class names
 - **path:** testing/practice-e2e-tests-must-use-stable-semantic-selectors-not-tailwind-utility-class-names.md
 - **tags:** testing, e2e, playwright, selectors, tailwind
+- **relates_to:** practice-use-theme-token-utilities-everywhere-in-the-spa-never-arbitrary-value-brackets-f
 
 ## practice-eslint-test-block-must-include-browser-globals-for-page-evaluate-callbacks
 
@@ -322,6 +347,7 @@ Total nodes: 74
 - **title:** Keep --host 0.0.0.0 in t3 serve — Docker port forwarding needs it
 - **path:** devcontainer/practice-keep-host-0-0-0-0-in-t3-serve-docker-port-forwarding-needs-it.md
 - **tags:** devcontainer, docker, t3, networking
+- **relates_to:** practice-keep-t3-pairing-auth-sibling-devcontainers-can-reach-the-docker-bridge
 - **derived_from:** 05a1bddf-ef9e-4147-8e07-0b971366c7d7:practice:0
 
 ## practice-keep-t3-pairing-auth-sibling-devcontainers-can-reach-the-docker-bridge
@@ -346,6 +372,7 @@ Total nodes: 74
 - **title:** Manual npm publish must be paired with a matching git tag to prevent semantic-release failure
 - **path:** release/practice-manual-npm-publish-must-be-paired-with-a-matching-git-tag-to-prevent-semantic-release-failure.md
 - **tags:** release, npm, semantic-release
+- **relates_to:** practice-manual-npm-publish-requires-force-adding-git-ignored-skill-artifacts-into-git
 
 ## practice-manual-npm-publish-requires-force-adding-git-ignored-skill-artifacts-into-git
 
@@ -353,6 +380,7 @@ Total nodes: 74
 - **title:** Manual npm publish requires force-adding git-ignored skill artifacts into git
 - **path:** release/practice-manual-npm-publish-requires-force-adding-git-ignored-skill-artifacts-into-git.md
 - **tags:** release, npm, skills, git
+- **depends_on:** practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime
 
 ## practice-npm-run-lint-only-covers-ts-files-tsx-web-files-need-separate-type-check
 
@@ -360,6 +388,7 @@ Total nodes: 74
 - **title:** npm run lint only covers .ts files; .tsx web files need separate type-check
 - **path:** tooling/practice-npm-run-lint-only-covers-ts-files-tsx-web-files-need-separate-type-check.md
 - **tags:** web, lint, tsx, build
+- **relates_to:** practice-lint-staged-scopes-lint-format-but-pre-commit-still-runs-the-full-test-suite
 
 ## practice-phase-reserved-for-blueprint-task-groups
 
@@ -367,6 +396,7 @@ Total nodes: 74
 - **title:** Phase is reserved for execution blueprint task groups
 - **path:** conventions/practice-phase-reserved-for-blueprint-task-groups.md
 - **tags:** terminology, documentation, execution-blueprint
+- **relates_to:** practice-plan-detail-blueprint-markdown-vs-tasks-frontmatter
 
 ## practice-plan-detail-blueprint-markdown-vs-tasks-frontmatter
 
@@ -388,7 +418,7 @@ Total nodes: 74
 - **kind:** practice
 - **title:** Pre-commit test hook prevents per-phase commits during multi-phase plan execution
 - **path:** git/practice-pre-commit-test-hook-prevents-per-phase-commits-during-multi-phase-plan-execution.md
-- **tags:** pre-commit, testing, phase, commits
+- **tags:** pre-commit, testing, phase, commit
 
 ## practice-project-commit-hook-rejects-ai-co-authorship-attribution-trailers
 
@@ -403,6 +433,7 @@ Total nodes: 74
 - **title:** Reuse shared SPA prose-rendering components across all markdown-rendering screens
 - **path:** web/rendering/practice-reuse-shared-spa-prose-rendering-components-across-all-markdown-rendering-screens.md
 - **tags:** web, spa, components, reuse, architecture
+- **relates_to:** map-mermaiderror-tsx-shared-mermaid-render-error-component
 
 ## practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files
 
@@ -431,6 +462,7 @@ Total nodes: 74
 - **title:** Two-channel release: npm tarball vs GitHub git tree
 - **path:** release/practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime.md
 - **tags:** release, distribution, npm, skills, web, spa, build, serve, semantic-release
+- **depends_on:** practice-use-git-rm-r-for-tracked-skill-output-dirs-not-rm-rf
 - **derived_from:** 7f15ae61-53e1-4644-8689-567a37c4ff39:practice:0
 
 ## practice-spa-source-changes-require-npm-run-build-web-before-serve-reflects-them
@@ -447,6 +479,7 @@ Total nodes: 74
 - **title:** src/web/vendor/ and dist-web/ are excluded from Prettier formatting
 - **path:** tooling/practice-src-web-vendor-and-dist-web-are-excluded-from-prettier-formatting.md
 - **tags:** prettier, vendor, css, build
+- **relates_to:** map-spa-vendor-styles-five-retained-css-files-under-src-web-vendor-styles
 
 ## practice-start-or-reuse-dev-serve-instance-to-visually-debug-the-spa
 
@@ -499,6 +532,7 @@ Total nodes: 74
 - **title:** Use domcontentloaded not networkidle when Playwright-driving the SPA
 - **path:** capture/practice-use-domcontentloaded-not-networkidle-when-playwright-driving-the-spa.md
 - **tags:** capture, playwright, sse, testing
+- **relates_to:** map-window-strevalidationcount-playwright-observability-hook-for-sse-driven-revalidation
 
 ## practice-use-git-rm-r-for-tracked-skill-output-dirs-not-rm-rf
 
@@ -536,6 +570,7 @@ Total nodes: 74
 - **title:** Vitest test suite runs in node environment — browser APIs unavailable in tests
 - **path:** testing/practice-vitest-test-suite-runs-in-node-environment-browser-apis-unavailable-in-tests.md
 - **tags:** testing, vitest, browser, dom, node
+- **relates_to:** practice-eslint-test-block-must-include-browser-globals-for-page-evaluate-callbacks
 
 ## practice-web-routes-and-api-resolve-plans-by-composite-id-slug-directory-name-not-numeric
 
@@ -543,3 +578,4 @@ Total nodes: 74
 - **title:** Web routes and API resolve plans by composite {id}--{slug} directory name, not numeric id alone
 - **path:** serve/practice-web-routes-and-api-resolve-plans-by-composite-id-slug-directory-name-not-numeric.md
 - **tags:** routing, serve, security, plan-id, spa
+- **relates_to:** map-src-serve-archive-ts-archiveplan-operation

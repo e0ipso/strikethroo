@@ -14,7 +14,9 @@ kk_schema_version: 3
 kk_id: >-
   practice-e2e-tests-must-use-stable-semantic-selectors-not-tailwind-utility-class-names
 kk_derived_from: []
-kk_relates_to: []
+kk_relates_to:
+  - >-
+    practice-use-theme-token-utilities-everywhere-in-the-spa-never-arbitrary-value-brackets-f
 kk_depends_on: []
 kk_confidence: high
 ---
@@ -27,3 +29,9 @@ Stable selector strategies in preference order:
 4. `data-testid` attributes on collection containers (e.g. `data-testid="plans-empty"`, `data-testid="config-card"`, `data-testid="archive-row"`)
 
 When a styling migration removes CSS classes that tests depended on, add minimal `data-testid` or `aria-*` attributes to the component rather than asserting on utility classes.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [practice-use-theme-token-utilities-everywhere-in-the-spa-never-arbitrary-value-brackets-f](/web/styling/practice-use-theme-token-utilities-everywhere-in-the-spa-never-arbitrary-value-brackets-f.md)
+<!-- kk:related:end -->

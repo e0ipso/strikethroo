@@ -14,7 +14,8 @@ kk_schema_version: 3
 kk_id: >-
   practice-apply-sticky-positioning-to-sb-sidebar-to-keep-footer-visible-on-all-pages
 kk_derived_from: []
-kk_relates_to: []
+kk_relates_to:
+  - map-get-api-capabilities-returns-project-name-and-path-via-deriveproject
 kk_depends_on: []
 kk_confidence: high
 ---
@@ -23,3 +24,9 @@ The `.app` CSS grid uses `min-height: 100vh` with no overflow containment, so th
 Fix (`app-shell.css`, `.sb`): `position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;`. The sidebar pins to the viewport height, the footer stays visible on every page, and `overflow-y: auto` lets the sidebar scroll internally if its content exceeds the viewport.
 
 This layout property is load-bearing — removing it would silently break the sidebar footer visibility on any plan longer than the viewport.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-get-api-capabilities-returns-project-name-and-path-via-deriveproject](/serve/map-get-api-capabilities-returns-project-name-and-path-via-deriveproject.md)
+<!-- kk:related:end -->

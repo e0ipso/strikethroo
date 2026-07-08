@@ -10,8 +10,8 @@
 _None._
 
 ## Conventions (how we build)
-- Open [**Reuse shared SPA prose-rendering components across all markdown-rendering screens**](practice-reuse-shared-spa-prose-rendering-components-across-all-markdown-rendering-screens.md) to learn about: The project has a standing code-reuse mandate: all markdown-rendering screens must use the shared Section/ReaderProse renderer. #web #spa #components #reuse #architecture
 - Open [**Set suppressErrorRendering: true in mermaid initialization**](practice-set-suppresserrorrendering-true-in-mermaid-initialization.md) to learn about: Without this flag, mermaid v11 injects an orphaned error SVG into <body> on parse failure even when the caller catches the error. #mermaid #spa #rendering #error-handling
+- Open [**Reuse shared SPA prose-rendering components across all markdown-rendering screens**](practice-reuse-shared-spa-prose-rendering-components-across-all-markdown-rendering-screens.md) to learn about: The project has a standing code-reuse mandate: all markdown-rendering screens must use the shared Section/ReaderProse renderer. #web #spa #components #reuse #architecture
 
 ## Components (what exists)
 - Open [**MermaidError.tsx — shared mermaid render-error component**](map-mermaiderror-tsx-shared-mermaid-render-error-component.md) to learn about: src/web/plans/detail/MermaidError.tsx renders a Lucide Frown icon with a collapsed Details disclosure for the verbatim parse error. #mermaid #spa #components #error-handling
@@ -23,8 +23,8 @@ _None._
 - Open [**serve UI PRD and tickets live under .ai/strikethroo/scratch/ui/**](../../serve/map-serve-ui-prd-and-tickets-live-under-ai-strikethroo-scratch-ui.md) — The PRD and 13 dependency-ordered tickets for the serve SPA feature are in .ai/strikethroo/scratch/ui/, not in the formal plans/ flow.
 - Open [**Serve SPA is read-only; archive is the only workspace mutation (self-review writes nothing)**](../../serve/practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files.md) — The serve SPA is read-only except archive: POST /api/plans/:id/archive moves done plans to archive/. Self-review spawns a process but writes no files.
 ### #components
-- Open [**Reuse shared SPA prose-rendering components across all markdown-rendering screens**](practice-reuse-shared-spa-prose-rendering-components-across-all-markdown-rendering-screens.md) — The project has a standing code-reuse mandate: all markdown-rendering screens must use the shared Section/ReaderProse renderer.
 - Open [**Use BaseUI components for interactive UI elements in the SPA**](../ui/practice-use-baseui-components-for-interactive-ui-elements-in-the-spa.md) — @base-ui-components/react is required for all new interactive UI elements; hand-rolled components are pre-mandate legacy.
+- Open [**Reuse shared SPA prose-rendering components across all markdown-rendering screens**](practice-reuse-shared-spa-prose-rendering-components-across-all-markdown-rendering-screens.md) — The project has a standing code-reuse mandate: all markdown-rendering screens must use the shared Section/ReaderProse renderer.
 - Open [**MermaidError.tsx — shared mermaid render-error component**](map-mermaiderror-tsx-shared-mermaid-render-error-component.md) — src/web/plans/detail/MermaidError.tsx renders a Lucide Frown icon with a collapsed Details disclosure for the verbatim parse error.
 ### #error-handling
 - Open [**MermaidError.tsx — shared mermaid render-error component**](map-mermaiderror-tsx-shared-mermaid-render-error-component.md) — src/web/plans/detail/MermaidError.tsx renders a Lucide Frown icon with a collapsed Details disclosure for the verbatim parse error.

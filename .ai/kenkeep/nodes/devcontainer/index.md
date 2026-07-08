@@ -10,8 +10,8 @@
 _None._
 
 ## Conventions (how we build)
-- Open [**Keep --host 0.0.0.0 in t3 serve — Docker port forwarding needs it**](practice-keep-host-0-0-0-0-in-t3-serve-docker-port-forwarding-needs-it.md) to learn about: t3 serve inside the devcontainer must bind 0.0.0.0; Docker port publish forwards to eth0, not container loopback. #devcontainer #docker #t3 #networking
 - Open [**Keep t3 pairing auth — sibling devcontainers can reach the Docker bridge**](practice-keep-t3-pairing-auth-sibling-devcontainers-can-reach-the-docker-bridge.md) to learn about: t3 binds 0.0.0.0 inside the container; sibling devcontainers on the Docker default bridge can reach it without auth. #devcontainer #docker #security #t3
+- Open [**Keep --host 0.0.0.0 in t3 serve — Docker port forwarding needs it**](practice-keep-host-0-0-0-0-in-t3-serve-docker-port-forwarding-needs-it.md) to learn about: t3 serve inside the devcontainer must bind 0.0.0.0; Docker port publish forwards to eth0, not container loopback. #devcontainer #docker #t3 #networking
 
 ## Components (what exists)
 - Open [**t3-serve.sh + new-devcontainer — stable devcontainer-to-t3-desktop workflow**](map-t3-serve-sh-new-devcontainer-stable-devcontainer-to-t3-desktop-workflow.md) to learn about: Two tools connect t3 desktop to a devcontainer: new-devcontainer bakes a deterministic port; t3-serve.sh is exec-only. #devcontainer #t3 #docker #workflow
@@ -19,16 +19,16 @@ _None._
 ## By topic
 
 ### #devcontainer
-- Open [**Keep --host 0.0.0.0 in t3 serve — Docker port forwarding needs it**](practice-keep-host-0-0-0-0-in-t3-serve-docker-port-forwarding-needs-it.md) — t3 serve inside the devcontainer must bind 0.0.0.0; Docker port publish forwards to eth0, not container loopback.
 - Open [**Keep t3 pairing auth — sibling devcontainers can reach the Docker bridge**](practice-keep-t3-pairing-auth-sibling-devcontainers-can-reach-the-docker-bridge.md) — t3 binds 0.0.0.0 inside the container; sibling devcontainers on the Docker default bridge can reach it without auth.
+- Open [**Keep --host 0.0.0.0 in t3 serve — Docker port forwarding needs it**](practice-keep-host-0-0-0-0-in-t3-serve-docker-port-forwarding-needs-it.md) — t3 serve inside the devcontainer must bind 0.0.0.0; Docker port publish forwards to eth0, not container loopback.
 - Open [**t3-serve.sh + new-devcontainer — stable devcontainer-to-t3-desktop workflow**](map-t3-serve-sh-new-devcontainer-stable-devcontainer-to-t3-desktop-workflow.md) — Two tools connect t3 desktop to a devcontainer: new-devcontainer bakes a deterministic port; t3-serve.sh is exec-only.
 ### #docker
-- Open [**Keep --host 0.0.0.0 in t3 serve — Docker port forwarding needs it**](practice-keep-host-0-0-0-0-in-t3-serve-docker-port-forwarding-needs-it.md) — t3 serve inside the devcontainer must bind 0.0.0.0; Docker port publish forwards to eth0, not container loopback.
 - Open [**Keep t3 pairing auth — sibling devcontainers can reach the Docker bridge**](practice-keep-t3-pairing-auth-sibling-devcontainers-can-reach-the-docker-bridge.md) — t3 binds 0.0.0.0 inside the container; sibling devcontainers on the Docker default bridge can reach it without auth.
+- Open [**Keep --host 0.0.0.0 in t3 serve — Docker port forwarding needs it**](practice-keep-host-0-0-0-0-in-t3-serve-docker-port-forwarding-needs-it.md) — t3 serve inside the devcontainer must bind 0.0.0.0; Docker port publish forwards to eth0, not container loopback.
 - Open [**t3-serve.sh + new-devcontainer — stable devcontainer-to-t3-desktop workflow**](map-t3-serve-sh-new-devcontainer-stable-devcontainer-to-t3-desktop-workflow.md) — Two tools connect t3 desktop to a devcontainer: new-devcontainer bakes a deterministic port; t3-serve.sh is exec-only.
 ### #t3
-- Open [**Keep --host 0.0.0.0 in t3 serve — Docker port forwarding needs it**](practice-keep-host-0-0-0-0-in-t3-serve-docker-port-forwarding-needs-it.md) — t3 serve inside the devcontainer must bind 0.0.0.0; Docker port publish forwards to eth0, not container loopback.
 - Open [**Keep t3 pairing auth — sibling devcontainers can reach the Docker bridge**](practice-keep-t3-pairing-auth-sibling-devcontainers-can-reach-the-docker-bridge.md) — t3 binds 0.0.0.0 inside the container; sibling devcontainers on the Docker default bridge can reach it without auth.
+- Open [**Keep --host 0.0.0.0 in t3 serve — Docker port forwarding needs it**](practice-keep-host-0-0-0-0-in-t3-serve-docker-port-forwarding-needs-it.md) — t3 serve inside the devcontainer must bind 0.0.0.0; Docker port publish forwards to eth0, not container loopback.
 - Open [**t3-serve.sh + new-devcontainer — stable devcontainer-to-t3-desktop workflow**](map-t3-serve-sh-new-devcontainer-stable-devcontainer-to-t3-desktop-workflow.md) — Two tools connect t3 desktop to a devcontainer: new-devcontainer bakes a deterministic port; t3-serve.sh is exec-only.
 ### #networking
 - Open [**Keep --host 0.0.0.0 in t3 serve — Docker port forwarding needs it**](practice-keep-host-0-0-0-0-in-t3-serve-docker-port-forwarding-needs-it.md) — t3 serve inside the devcontainer must bind 0.0.0.0; Docker port publish forwards to eth0, not container loopback.

@@ -14,7 +14,9 @@ kk_id: >-
   practice-manual-npm-publish-requires-force-adding-git-ignored-skill-artifacts-into-git
 kk_derived_from: []
 kk_relates_to: []
-kk_depends_on: []
+kk_depends_on:
+  - >-
+    practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime
 kk_confidence: high
 ---
 The `npx skills add` installer resolves from the **GitHub git tree**, not the npm tarball. On `main`, `SKILL.md` files and `.cjs` bundles are git-ignored. They only land in git because `@semantic-release/git` force-adds them into the release commit.
@@ -26,3 +28,9 @@ git add --force templates/harness/skills/*/SKILL.md templates/harness/skills/*/s
 git commit -m "build: ship assembled skills for manual release"
 ```
 Then create the matching tag and push.
+
+<!-- kk:related:start -->
+# Related
+
+- Depends on: [practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime](/release/practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime.md)
+<!-- kk:related:end -->

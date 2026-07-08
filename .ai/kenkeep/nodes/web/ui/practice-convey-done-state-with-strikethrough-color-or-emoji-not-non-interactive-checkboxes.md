@@ -16,7 +16,8 @@ kk_schema_version: 3
 kk_id: >-
   practice-convey-done-state-with-strikethrough-color-or-emoji-not-non-interactive-checkboxes
 kk_derived_from: []
-kk_relates_to: []
+kk_relates_to:
+  - practice-use-baseui-components-for-interactive-ui-elements-in-the-spa
 kk_depends_on: []
 kk_confidence: high
 ---
@@ -25,3 +26,9 @@ A checkbox is an interactive affordance: it tells the user "click me to toggle t
 Convey Done vs. Undone with a passive visual cue instead. The SPA's convention is **strikethrough** text for a completed task; `StatusPill` may accompany it. Text color or an emoji marker are equally valid passive cues where strikethrough does not fit. Reserve `Tickbox` strictly for surfaces where toggling actually mutates state.
 
 Rule of thumb: if clicking the control would not change anything, do not render a control — render a state indicator.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [practice-use-baseui-components-for-interactive-ui-elements-in-the-spa](/web/ui/practice-use-baseui-components-for-interactive-ui-elements-in-the-spa.md)
+<!-- kk:related:end -->

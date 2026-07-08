@@ -16,7 +16,11 @@ tags:
 kk_schema_version: 3
 kk_id: map-src-skill-prompts-is-the-authored-source-of-truth-for-skill-md-content
 kk_derived_from: []
-kk_relates_to: []
+kk_relates_to:
+  - >-
+    practice-exclude-readme-md-from-skill-prompt-template-processing-in-the-assembler
+  - >-
+    practice-use-build-time-composition-to-eliminate-cross-skill-prompt-duplication
 kk_depends_on: []
 kk_confidence: high
 ---
@@ -27,3 +31,10 @@ The assembler at `scripts/build-skill-prompts.cjs` is a standalone CommonJS Node
 The `README.md` in `src/skill-prompts/` is explicitly excluded from template processing. Source templates carry `name`, `description`, `target`, and `vars` in their frontmatter; the assembler strips `target` and `vars` from the output.
 
 Nine shared section files cover the main cross-skill duplications: `root-discovery.md` (all 6 templates), `plan-resolution.md` (generate-tasks, refine-plan, execute-blueprint, execute-task), `task-minimization.md` (generate-tasks, full-workflow), `granularity-skill-rules.md` (generate-tasks, full-workflow), `test-philosophy.md` (generate-tasks, full-workflow), `task-file-output.md` (generate-tasks, full-workflow), `validation-checklist.md` (generate-tasks, full-workflow), `phase-execution-loop.md` (execute-blueprint, full-workflow), `post-execution-archive.md` (execute-blueprint, full-workflow). Variables `heading`, `heading_parent`, `phase_step`, `summary_step`, and `archive_step` handle structural differences between `execute-blueprint` and `full-workflow`.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [practice-exclude-readme-md-from-skill-prompt-template-processing-in-the-assembler](/skills/prompts/practice-exclude-readme-md-from-skill-prompt-template-processing-in-the-assembler.md)
+- Related: [practice-use-build-time-composition-to-eliminate-cross-skill-prompt-duplication](/skills/prompts/practice-use-build-time-composition-to-eliminate-cross-skill-prompt-duplication.md)
+<!-- kk:related:end -->

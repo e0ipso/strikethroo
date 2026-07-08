@@ -10,13 +10,13 @@
 _None._
 
 ## Conventions (how we build)
-- Open [**Pre-commit test hook prevents per-phase commits during multi-phase plan execution**](practice-pre-commit-test-hook-prevents-per-phase-commits-during-multi-phase-plan-execution.md) to learn about: The pre-commit hook runs npm test; mid-execution the source is in a broken state, so per-phase commits fail until all phases complete. #pre-commit #testing #phase #commits
+- Open [**Pre-commit test hook prevents per-phase commits during multi-phase plan execution**](practice-pre-commit-test-hook-prevents-per-phase-commits-during-multi-phase-plan-execution.md) to learn about: The pre-commit hook runs npm test; mid-execution the source is in a broken state, so per-phase commits fail until all phases complete. #pre-commit #testing #phase #commit
 - Open [**Keep .ai/strikethroo (dogfood workspace) explicitly ignored in .gitignore**](practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore.md) to learn about: The /.ai/strikethroo path must stay in .gitignore to prevent accidentally committing dogfood workspace state. #git #gitignore #workspace
-- Open [**Do not use --no-verify to skip git commit hooks**](practice-do-not-use-no-verify-to-skip-git-commit-hooks.md) to learn about: Bypassing commit hooks with --no-verify hides real breakage and triggers an approval prompt that halts autonomous runs. #git #commits #pre-commit #hooks
+- Open [**Do not use --no-verify to skip git commit hooks**](practice-do-not-use-no-verify-to-skip-git-commit-hooks.md) to learn about: Bypassing commit hooks with --no-verify hides real breakage and triggers an approval prompt that halts autonomous runs. #git #commit #pre-commit #hooks
+- Open [**lint-staged scopes lint/format but pre-commit still runs the full test suite**](practice-lint-staged-scopes-lint-format-but-pre-commit-still-runs-the-full-test-suite.md) to learn about: lint-staged runs eslint+prettier on staged src files; the pre-commit hook still runs the full npm test suite after lint-staged completes. #linting #tooling #eslint #prettier #pre-commit
 - Open [**Project commit hook rejects AI co-authorship attribution trailers**](practice-project-commit-hook-rejects-ai-co-authorship-attribution-trailers.md) to learn about: A commit hook rejects Co-Authored-By AI attribution lines; omit them when committing in this repository. #git #commit #hooks #attribution
 - Open [**Commit subject ≤50 chars; body wrapped at 72 chars (hook enforced)**](practice-commit-subject-50-chars-body-wrapped-at-72-chars-hook-enforced.md) to learn about: A commit-message hook enforces 50-char subject lines and 72-char body wrapping; violations abort the commit. #git #commit #hooks #formatting
 - Open [**Isolate concurrent-agent changes before committing by excluding entangled files from staging**](practice-isolate-concurrent-agent-changes-before-committing-by-excluding-entangled-files.md) to learn about: When two agents work on the same tree simultaneously, stage only your files; verify routing direction against HEAD; expect pre-commit failures from the other agent's in-progress WIP. #git #concurrent-agents #staging #pre-commit
-- Open [**lint-staged scopes lint/format but pre-commit still runs the full test suite**](practice-lint-staged-scopes-lint-format-but-pre-commit-still-runs-the-full-test-suite.md) to learn about: lint-staged runs eslint+prettier on staged src files; the pre-commit hook still runs the full npm test suite after lint-staged completes. #linting #tooling #eslint #prettier #pre-commit
 
 ## Components (what exists)
 _None yet._
@@ -24,23 +24,21 @@ _None yet._
 ## By topic
 
 ### #git
+- Open [**Do not use --no-verify to skip git commit hooks**](practice-do-not-use-no-verify-to-skip-git-commit-hooks.md) — Bypassing commit hooks with --no-verify hides real breakage and triggers an approval prompt that halts autonomous runs.
 - Open [**Project commit hook rejects AI co-authorship attribution trailers**](practice-project-commit-hook-rejects-ai-co-authorship-attribution-trailers.md) — A commit hook rejects Co-Authored-By AI attribution lines; omit them when committing in this repository.
 - Open [**Commit subject ≤50 chars; body wrapped at 72 chars (hook enforced)**](practice-commit-subject-50-chars-body-wrapped-at-72-chars-hook-enforced.md) — A commit-message hook enforces 50-char subject lines and 72-char body wrapping; violations abort the commit.
+### #commit
 - Open [**Do not use --no-verify to skip git commit hooks**](practice-do-not-use-no-verify-to-skip-git-commit-hooks.md) — Bypassing commit hooks with --no-verify hides real breakage and triggers an approval prompt that halts autonomous runs.
+- Open [**Commit subject ≤50 chars; body wrapped at 72 chars (hook enforced)**](practice-commit-subject-50-chars-body-wrapped-at-72-chars-hook-enforced.md) — A commit-message hook enforces 50-char subject lines and 72-char body wrapping; violations abort the commit.
+- Open [**Project commit hook rejects AI co-authorship attribution trailers**](practice-project-commit-hook-rejects-ai-co-authorship-attribution-trailers.md) — A commit hook rejects Co-Authored-By AI attribution lines; omit them when committing in this repository.
 ### #pre-commit
 - Open [**Do not use --no-verify to skip git commit hooks**](practice-do-not-use-no-verify-to-skip-git-commit-hooks.md) — Bypassing commit hooks with --no-verify hides real breakage and triggers an approval prompt that halts autonomous runs.
 - Open [**Pre-commit test hook prevents per-phase commits during multi-phase plan execution**](practice-pre-commit-test-hook-prevents-per-phase-commits-during-multi-phase-plan-execution.md) — The pre-commit hook runs npm test; mid-execution the source is in a broken state, so per-phase commits fail until all phases complete.
 - Open [**Isolate concurrent-agent changes before committing by excluding entangled files from staging**](practice-isolate-concurrent-agent-changes-before-committing-by-excluding-entangled-files.md) — When two agents work on the same tree simultaneously, stage only your files; verify routing direction against HEAD; expect pre-commit failures from the other agent's in-progress WIP.
 ### #hooks
+- Open [**Do not use --no-verify to skip git commit hooks**](practice-do-not-use-no-verify-to-skip-git-commit-hooks.md) — Bypassing commit hooks with --no-verify hides real breakage and triggers an approval prompt that halts autonomous runs.
 - Open [**Project commit hook rejects AI co-authorship attribution trailers**](practice-project-commit-hook-rejects-ai-co-authorship-attribution-trailers.md) — A commit hook rejects Co-Authored-By AI attribution lines; omit them when committing in this repository.
 - Open [**Commit subject ≤50 chars; body wrapped at 72 chars (hook enforced)**](practice-commit-subject-50-chars-body-wrapped-at-72-chars-hook-enforced.md) — A commit-message hook enforces 50-char subject lines and 72-char body wrapping; violations abort the commit.
-- Open [**Do not use --no-verify to skip git commit hooks**](practice-do-not-use-no-verify-to-skip-git-commit-hooks.md) — Bypassing commit hooks with --no-verify hides real breakage and triggers an approval prompt that halts autonomous runs.
-### #commit
-- Open [**Project commit hook rejects AI co-authorship attribution trailers**](practice-project-commit-hook-rejects-ai-co-authorship-attribution-trailers.md) — A commit hook rejects Co-Authored-By AI attribution lines; omit them when committing in this repository.
-- Open [**Commit subject ≤50 chars; body wrapped at 72 chars (hook enforced)**](practice-commit-subject-50-chars-body-wrapped-at-72-chars-hook-enforced.md) — A commit-message hook enforces 50-char subject lines and 72-char body wrapping; violations abort the commit.
-### #commits
-- Open [**Pre-commit test hook prevents per-phase commits during multi-phase plan execution**](practice-pre-commit-test-hook-prevents-per-phase-commits-during-multi-phase-plan-execution.md) — The pre-commit hook runs npm test; mid-execution the source is in a broken state, so per-phase commits fail until all phases complete.
-- Open [**Do not use --no-verify to skip git commit hooks**](practice-do-not-use-no-verify-to-skip-git-commit-hooks.md) — Bypassing commit hooks with --no-verify hides real breakage and triggers an approval prompt that halts autonomous runs.
 ### #attribution
 - Open [**Project commit hook rejects AI co-authorship attribution trailers**](practice-project-commit-hook-rejects-ai-co-authorship-attribution-trailers.md) — A commit hook rejects Co-Authored-By AI attribution lines; omit them when committing in this repository.
 ### #concurrent-agents

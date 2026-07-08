@@ -11,10 +11,18 @@ tags:
 kk_schema_version: 3
 kk_id: map-eslint-config-eslint-config-mjs-flat-config-eslint-9
 kk_derived_from: []
-kk_relates_to: []
+kk_relates_to:
+  - >-
+    practice-eslint-test-block-must-include-browser-globals-for-page-evaluate-callbacks
 kk_depends_on: []
 kk_confidence: high
 ---
 The project uses ESLint 9 flat config at `eslint.config.mjs`. A legacy `.eslintrc.js` also exists at the repo root but is ignored by ESLint 9 when a flat config file is present — it is dead cruft.
 
 The flat config defines separate blocks for source files, test files, and the SPA web layer, with a shared `browserGlobals` object used by both the test block and the web block.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [practice-eslint-test-block-must-include-browser-globals-for-page-evaluate-callbacks](/testing/practice-eslint-test-block-must-include-browser-globals-for-page-evaluate-callbacks.md)
+<!-- kk:related:end -->

@@ -1,3 +1,11 @@
+## 3.8.0 (2026-07-08)
+
+* feat: require complexity score in task documents (#46) ([1c58a84](https://github.com/e0ipso/strikethroo/commit/1c58a84)), closes [#46](https://github.com/e0ipso/strikethroo/issues/46)
+* docs: remove Pages CNAME artifact (#44) ([b3f9dcb](https://github.com/e0ipso/strikethroo/commit/b3f9dcb)), closes [#44](https://github.com/e0ipso/strikethroo/issues/44) [#43](https://github.com/e0ipso/strikethroo/issues/43)
+* docs: update documentation domain (#43) ([2f3f852](https://github.com/e0ipso/strikethroo/commit/2f3f852)), closes [#43](https://github.com/e0ipso/strikethroo/issues/43)
+* docs: update kenkeep ([44f69ef](https://github.com/e0ipso/strikethroo/commit/44f69ef))
+* chore: ignore devcontainer lock ([6035ecf](https://github.com/e0ipso/strikethroo/commit/6035ecf))
+
 ## 3.7.0 (2026-07-03)
 
 * feat(skills): add phase readiness check (#42) ([26175bb](https://github.com/e0ipso/strikethroo/commit/26175bb)), closes [#42](https://github.com/e0ipso/strikethroo/issues/42)

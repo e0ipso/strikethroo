@@ -4,6 +4,8 @@ import { findStrikethrooRoot } from './shared/root';
 import { getAllPlans } from './shared/plan-scan';
 import { resolvePlan } from './shared/plan-resolve';
 import { extractFrontmatter } from './shared/task-file';
+import { hasExecutionBlueprint } from './shared/blueprint-detection';
+import { countTaskFiles } from './shared/task-count';
 
 interface ValidationResult {
   planFile: string;
@@ -78,27 +80,6 @@ const validateComplexityScores = (planDir: string): string[] => {
   return invalid;
 };
 
-const countTasks = (planDir: string): number => {
-  const tasksDir = path.join(planDir, 'tasks');
-  if (!fs.existsSync(tasksDir)) return 0;
-  try {
-    const stat = fs.lstatSync(tasksDir);
-    if (!stat.isDirectory()) return 0;
-    return fs.readdirSync(tasksDir).filter(f => f.endsWith('.md')).length;
-  } catch (_err) {
-    return 0;
-  }
-};
-
-const checkBlueprintExists = (planFile: string): boolean => {
-  try {
-    const content = fs.readFileSync(planFile, 'utf8');
-    return /^## Execution Blueprint/m.test(content);
-  } catch (_err) {
-    return false;
-  }
-};
-
 const usage = (): void => {
   const lines = [
     'Plan ID or absolute path is required',
@@ -164,8 +145,8 @@ const main = (): void => {
     planDir: resolved.planDir,
     strikethrooRoot: resolved.strikethrooRoot,
     planId: resolved.planId,
-    taskCount: countTasks(resolved.planDir),
-    blueprintExists: checkBlueprintExists(resolved.planFile) ? 'yes' : 'no',
+    taskCount: countTaskFiles(resolved.planDir),
+    blueprintExists: hasExecutionBlueprint(resolved.planFile) ? 'yes' : 'no',
     complexityScoresValid: invalidComplexity.length === 0 ? 'yes' : 'no',
     invalidComplexityTasks: invalidComplexity.join('; '),
   };

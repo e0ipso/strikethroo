@@ -1,3 +1,8 @@
+## 3.9.0 (2026-07-08)
+
+* feat: split skill scripts validation helpers (#48) ([9f619f4](https://github.com/e0ipso/strikethroo/commit/9f619f4)), closes [#48](https://github.com/e0ipso/strikethroo/issues/48) [#47](https://github.com/e0ipso/strikethroo/issues/47)
+* docs: update kenkeep docs ([1dfd261](https://github.com/e0ipso/strikethroo/commit/1dfd261))
+
 ## 3.8.0 (2026-07-08)
 
 * feat: require complexity score in task documents (#46) ([1c58a84](https://github.com/e0ipso/strikethroo/commit/1c58a84)), closes [#46](https://github.com/e0ipso/strikethroo/issues/46)

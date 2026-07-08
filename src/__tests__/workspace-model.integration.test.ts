@@ -191,6 +191,22 @@ describe('workspace-model against synthetic fixtures', () => {
           name: '02--invalid-score.md',
           body: '---\nid: 2\ngroup: "g"\ndependencies: []\nstatus: "pending"\ncomplexity_score: "high"\nskills: [typescript]\n---\n# Invalid Score Task\n\nBody.\n',
         },
+        {
+          name: '03--zero-score.md',
+          body: '---\nid: 3\ngroup: "g"\ndependencies: []\nstatus: "pending"\ncomplexity_score: 0\nskills: [typescript]\n---\n# Zero Score Task\n\nBody.\n',
+        },
+        {
+          name: '04--above-range-score.md',
+          body: '---\nid: 4\ngroup: "g"\ndependencies: []\nstatus: "pending"\ncomplexity_score: 42\nskills: [typescript]\n---\n# Above Range Score Task\n\nBody.\n',
+        },
+        {
+          name: '05--decimal-score.md',
+          body: '---\nid: 5\ngroup: "g"\ndependencies: []\nstatus: "pending"\ncomplexity_score: 5.5\nskills: [typescript]\n---\n# Decimal Score Task\n\nBody.\n',
+        },
+        {
+          name: '06--boundary-score.md',
+          body: '---\nid: 6\ngroup: "g"\ndependencies: []\nstatus: "pending"\ncomplexity_score: 10\nskills: [typescript]\n---\n# Boundary Score Task\n\nBody.\n',
+        },
       ]
     );
 
@@ -200,6 +216,12 @@ describe('workspace-model against synthetic fixtures', () => {
     const invalid = detail!.tasks.find(t => t.id === 2)!;
     expect(scored.complexity_score).toBe(3);
     expect(invalid.complexity_score).toBeUndefined();
+    // Out-of-range and non-integer scores are rejected by the parser.
+    expect(detail!.tasks.find(t => t.id === 3)!.complexity_score).toBeUndefined();
+    expect(detail!.tasks.find(t => t.id === 4)!.complexity_score).toBeUndefined();
+    expect(detail!.tasks.find(t => t.id === 5)!.complexity_score).toBeUndefined();
+    // Upper boundary (10) is accepted.
+    expect(detail!.tasks.find(t => t.id === 6)!.complexity_score).toBe(10);
   });
 
   it('returns undefined complexity_score for legacy fixture tasks without the field', () => {

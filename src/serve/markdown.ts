@@ -182,9 +182,9 @@ export const parseFrontmatter = (content: string): ParsedFrontmatter => {
         break;
       case 'complexity_score': {
         const trimmed = value.trim();
-        if (trimmed.length > 0) {
-          const parsed = Number(trimmed);
-          if (!Number.isNaN(parsed)) result.complexity_score = parsed;
+        if (/^\d+$/.test(trimmed)) {
+          const parsed = Number.parseInt(trimmed, 10);
+          if (parsed >= 1 && parsed <= 10) result.complexity_score = parsed;
         }
         break;
       }

@@ -390,6 +390,52 @@ describe('st-execute-blueprint bundle smoke check', () => {
     );
   });
 
+  test('validate-plan-blueprint.cjs reports complexity_score validity', () => {
+    const script = path.join(fixtureSkillDir, 'scripts', 'validate-plan-blueprint.cjs');
+    const tasksDir = path.join(tempDir, '.ai', 'strikethroo', 'plans', '03--alpha', 'tasks');
+    fs.mkdirSync(tasksDir, { recursive: true });
+    const writeTask = (name: string, scoreLine: string): void => {
+      fs.writeFileSync(
+        path.join(tasksDir, name),
+        `---\nid: 1\ngroup: "g"\ndependencies: []\nstatus: "pending"\n${scoreLine}\nskills:\n  - typescript\n---\n# Task\n`
+      );
+    };
+
+    // All valid (boundaries 1 and 10 accepted).
+    writeTask('01--lower.md', 'complexity_score: 1');
+    writeTask('02--upper.md', 'complexity_score: 10');
+    expect(
+      execFileSync('node', [script, '3', 'complexityScoresValid'], {
+        cwd: tempDir,
+        encoding: 'utf8',
+      }).trim()
+    ).toBe('yes');
+
+    // Introduce out-of-range, non-integer, and missing offenders.
+    writeTask('03--zero.md', 'complexity_score: 0');
+    writeTask('04--decimal.md', 'complexity_score: 5.5');
+    fs.writeFileSync(
+      path.join(tasksDir, '05--missing.md'),
+      '---\nid: 5\ngroup: "g"\ndependencies: []\nstatus: "pending"\nskills:\n  - typescript\n---\n# Task\n'
+    );
+
+    expect(
+      execFileSync('node', [script, '3', 'complexityScoresValid'], {
+        cwd: tempDir,
+        encoding: 'utf8',
+      }).trim()
+    ).toBe('no');
+
+    const invalid = execFileSync('node', [script, '3', 'invalidComplexityTasks'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+    }).trim();
+    expect(invalid).toContain('03--zero.md');
+    expect(invalid).toContain('04--decimal.md');
+    expect(invalid).toContain('05--missing.md');
+    expect(invalid).not.toContain('01--lower.md');
+  });
+
   test('create-feature-branch.cjs creates expected branch', () => {
     const script = path.join(fixtureSkillDir, 'scripts', 'create-feature-branch.cjs');
     const planFile = path.join(

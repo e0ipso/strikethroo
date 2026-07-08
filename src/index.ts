@@ -433,9 +433,9 @@ async function copyKiroSteeringFiles(baseDir: string, force: boolean): Promise<s
     try {
       const original = await fs.readFile(sourcePath, 'utf-8');
 
-      // Idempotent frontmatter injection: strip any existing `inclusion: always`
+      // Idempotent frontmatter injection: strip any existing YAML frontmatter
       // block at the top before prepending, so re-running with --force does not
-      // produce duplicate frontmatter blocks.
+      // produce duplicate frontmatter blocks regardless of the original content.
       const FRONTMATTER_RE = /^---\r?\n[\s\S]*?\r?\n---\r?\n\n?/;
       const bodyOnly = FRONTMATTER_RE.test(original)
         ? original.replace(FRONTMATTER_RE, '')

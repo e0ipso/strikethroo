@@ -16,6 +16,10 @@ import { execFileSync } from 'child_process';
 
 import { findStrikethrooRoot } from '../skill-scripts/shared/root';
 import { getAllPlans, computeNextPlanId } from '../skill-scripts/shared/plan-scan';
+import { hasExecutionBlueprint } from '../skill-scripts/shared/blueprint-detection';
+import { parseComplexityScore } from '../skill-scripts/shared/complexity-score';
+import { countTaskFiles } from '../skill-scripts/shared/task-count';
+import { validateTaskComplexityScores } from '../skill-scripts/shared/task-complexity';
 import { _sanitizeBranchName, _extractPlanName } from '../skill-scripts/create-feature-branch';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
@@ -122,6 +126,87 @@ describe('skill-scripts root discovery', () => {
     } finally {
       fs.rmSync(empty, { recursive: true, force: true });
     }
+  });
+});
+
+describe('skill-scripts validation helpers', () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-validation-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  test('countTaskFiles counts only markdown task files', () => {
+    const planDir = path.join(tempDir, 'plans', '03--alpha');
+    const tasksDir = path.join(planDir, 'tasks');
+    fs.mkdirSync(tasksDir, { recursive: true });
+    fs.writeFileSync(path.join(tasksDir, '01--one.md'), '# One\n');
+    fs.writeFileSync(path.join(tasksDir, '02--two.md'), '# Two\n');
+    fs.writeFileSync(path.join(tasksDir, 'notes.txt'), 'ignore\n');
+
+    expect(countTaskFiles(planDir)).toBe(2);
+  });
+
+  test('countTaskFiles returns zero for absent or non-directory task folders', () => {
+    const absentPlanDir = path.join(tempDir, 'absent');
+    expect(countTaskFiles(absentPlanDir)).toBe(0);
+
+    const filePlanDir = path.join(tempDir, 'file-plan');
+    fs.mkdirSync(filePlanDir, { recursive: true });
+    fs.writeFileSync(path.join(filePlanDir, 'tasks'), 'not a directory\n');
+    expect(countTaskFiles(filePlanDir)).toBe(0);
+  });
+
+  test('hasExecutionBlueprint detects the execution blueprint heading', () => {
+    const withBlueprint = path.join(tempDir, 'with.md');
+    const withoutBlueprint = path.join(tempDir, 'without.md');
+    fs.writeFileSync(withBlueprint, '# Plan\n\n## Execution Blueprint\n\nBody.\n');
+    fs.writeFileSync(withoutBlueprint, '# Plan\n\n## Similar Heading\n\nBody.\n');
+
+    expect(hasExecutionBlueprint(withBlueprint)).toBe(true);
+    expect(hasExecutionBlueprint(withoutBlueprint)).toBe(false);
+    expect(hasExecutionBlueprint(path.join(tempDir, 'missing.md'))).toBe(false);
+  });
+
+  test('parseComplexityScore accepts only unsigned integers from 1 through 10', () => {
+    expect(parseComplexityScore('1')).toBe(1);
+    expect(parseComplexityScore('10')).toBe(10);
+    expect(parseComplexityScore('0')).toBeUndefined();
+    expect(parseComplexityScore('11')).toBeUndefined();
+    expect(parseComplexityScore('5.5')).toBeUndefined();
+    expect(parseComplexityScore('-1')).toBeUndefined();
+    expect(parseComplexityScore('high')).toBeUndefined();
+    expect(parseComplexityScore('"7"')).toBeUndefined();
+  });
+
+  test('validateTaskComplexityScores reports task complexity failures', () => {
+    const planDir = path.join(tempDir, 'plans', '03--alpha');
+    const tasksDir = path.join(planDir, 'tasks');
+    fs.mkdirSync(tasksDir, { recursive: true });
+    const writeTask = (name: string, scoreLine: string): void => {
+      fs.writeFileSync(
+        path.join(tasksDir, name),
+        `---\nid: 1\ngroup: "g"\ndependencies: []\nstatus: "pending"\n${scoreLine}\nskills:\n  - typescript\n---\n# Task\n`
+      );
+    };
+
+    writeTask('01--lower.md', 'complexity_score: 1');
+    writeTask('02--upper.md', 'complexity_score: 10 # valid comment');
+    writeTask('03--missing.md', 'summary: "no score"');
+    writeTask('04--decimal.md', 'complexity_score: 5.5');
+    writeTask('05--quoted.md', 'complexity_score: "7"');
+    writeTask('06--above.md', 'complexity_score: 11');
+
+    expect(validateTaskComplexityScores(planDir)).toEqual([
+      '03--missing.md: missing complexity_score',
+      '04--decimal.md: non-integer complexity_score "5.5"',
+      '05--quoted.md: non-integer complexity_score ""7""',
+      '06--above.md: complexity_score 11 out of range 1-10',
+    ]);
   });
 });
 

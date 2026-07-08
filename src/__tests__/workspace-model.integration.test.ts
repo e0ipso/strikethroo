@@ -207,6 +207,14 @@ describe('workspace-model against synthetic fixtures', () => {
           name: '06--boundary-score.md',
           body: '---\nid: 6\ngroup: "g"\ndependencies: []\nstatus: "pending"\ncomplexity_score: 10\nskills: [typescript]\n---\n# Boundary Score Task\n\nBody.\n',
         },
+        {
+          name: '07--comment-score.md',
+          body: '---\nid: 7\ngroup: "g"\ndependencies: []\nstatus: "pending"\ncomplexity_score: 7 # with comment\nskills: [typescript]\n---\n# Comment Score Task\n\nBody.\n',
+        },
+        {
+          name: '08--quoted-score.md',
+          body: '---\nid: 8\ngroup: "g"\ndependencies: []\nstatus: "pending"\ncomplexity_score: "8"\nskills: [typescript]\n---\n# Quoted Score Task\n\nBody.\n',
+        },
       ]
     );
 
@@ -222,6 +230,8 @@ describe('workspace-model against synthetic fixtures', () => {
     expect(detail!.tasks.find(t => t.id === 5)!.complexity_score).toBeUndefined();
     // Upper boundary (10) is accepted.
     expect(detail!.tasks.find(t => t.id === 6)!.complexity_score).toBe(10);
+    expect(detail!.tasks.find(t => t.id === 7)!.complexity_score).toBe(7);
+    expect(detail!.tasks.find(t => t.id === 8)!.complexity_score).toBe(8);
   });
 
   it('returns undefined complexity_score for legacy fixture tasks without the field', () => {

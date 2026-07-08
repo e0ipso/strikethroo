@@ -57,7 +57,7 @@ Inspect the `taskCount` and `blueprintExists` values returned by the validation 
 If `taskCount` is 0 or `blueprintExists` is `no`:
 
 - Notify the user: "Tasks or execution blueprint not found. Generating tasks automatically..."
-- Follow the `st-generate-tasks` skill for this plan ID. Execute its operating procedure in full, including running `POST_TASK_GENERATION_ALL.md` to produce the execution blueprint.
+- Follow the `st-generate-tasks` skill for this plan ID. Execute its operating procedure in full, including running `POST_TASK_GENERATION_ALL.md` to write the Execution Blueprint.
 - After generation completes, re-run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` (and the other fields) to refresh the resolved paths and counts.
 
 If generation still leaves the plan without tasks or a blueprint, stop and report failure. Do not attempt execution without a valid blueprint.

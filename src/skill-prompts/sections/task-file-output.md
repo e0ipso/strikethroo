@@ -14,11 +14,15 @@ including required frontmatter fields:
 - `created` (YYYY-MM-DD)
 - `skills` (array of 1–2 kebab-case skills)
 
-Optional frontmatter for high-complexity or decomposed tasks:
+Required additional frontmatter:
 
-- `complexity_score` (number, 1–10, include only if >4 or for decomposed
-  tasks)
-- `complexity_notes` (string)
+- `complexity_score` (integer 1–10, required on every emitted task)
+
+Optional frontmatter:
+
+- `complexity_notes` (string) — include when the score needs justification,
+  such as "Decomposed from a cross-cutting parent task" or "Ambiguous API
+  contract".
 
 The body sections (Objective, Skills Required, Acceptance Criteria, Technical
 Requirements, Input Dependencies, Output Artifacts, Implementation Notes)

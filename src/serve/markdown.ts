@@ -25,6 +25,7 @@ export interface ParsedFrontmatter {
   created?: string;
   status?: string;
   group?: string;
+  complexity_score?: number;
   dependencies: Array<number | string>;
   skills: string[];
   extra: Record<string, string>;
@@ -179,6 +180,14 @@ export const parseFrontmatter = (content: string): ParsedFrontmatter => {
       case 'group':
         result.group = value;
         break;
+      case 'complexity_score': {
+        const trimmed = value.trim();
+        if (/^\d+$/.test(trimmed)) {
+          const parsed = Number.parseInt(trimmed, 10);
+          if (parsed >= 1 && parsed <= 10) result.complexity_score = parsed;
+        }
+        break;
+      }
       default:
         result.extra[key] = value;
         break;

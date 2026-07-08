@@ -222,13 +222,48 @@ For each task, identify:
 
 A task B depends on A if B requires A's output or artifacts, modifies code created by A, or tests functionality implemented by A. Validate that the final dependency graph is acyclic.
 
-#### 7. Allocate task IDs
+#### 7. Complexity analysis
+
+For every candidate task, assign a `complexity_score` (integer 1–10) before
+writing any file. Base the score on these four dimensions:
+
+| Score | Skill breadth | Acceptance-criteria clarity | Integration surface | Decomposition depth |
+| --- | --- | --- | --- | --- |
+| 1–3 | One well-known skill | Criteria are concrete and observable | None or a single file/module | No further split possible |
+| 4–5 | One primary skill plus a familiar adjacent skill | Criteria are clear with few edge cases | One component or API boundary | Already atomic |
+| 6–7 | Two distinct skills, or one skill with ambiguous requirements | Criteria need clarification or have multiple edge cases | Multiple components or contracts | Could still be split |
+| 8–10 | Three or more skills, or cross-cutting design decisions | Criteria are vague, unknown, or depend on unresolved choices | Wide integration surface or external systems | Must be decomposed further |
+
+**Pre-emission sanity rules** — apply these before any task is written:
+
+- 3+ skills assigned → split the task into smaller tasks, each with 1–2 skills.
+- Vague acceptance criteria → sharpen them until they include at least one
+  concrete, runnable verification step.
+- Trivially small adjacent tasks → merge them into a single task.
+- Score ≥ 8 → decompose further; do not emit as-is.
+- Score 6–7 → either sharpen criteria or split; do not emit without an
+  explicit reason.
+
+**Required frontmatter:**
+
+- Every emitted task MUST include `complexity_score` (integer 1–10).
+- Optionally include `complexity_notes` when the score needs justification,
+  such as "Ambiguous API contract" or "Decomposed from a higher-score parent".
+
+**Loop-back rule:**
+
+After applying split, sharpen, or merge, re-run dependency analysis and
+re-score the adjusted tasks. Repeat this loop no more than three times. If
+complexity is still unresolved after three passes, stop and surface the
+blocker to the user.
+
+#### 8. Allocate task IDs
 
 Run `scripts/get-next-task-id.cjs <plan-id>` to obtain the first available task ID. Allocate subsequent IDs by incrementing in-process. Use the unpadded integer in the task frontmatter `id` field and the zero-padded form (`{padded-id}--{slug}`) for the filename.
 
 The slug derives from a short task title: lowercase, alphanumeric and hyphens only, collapsed, trimmed.
 
-#### 8. Emit the task files
+#### 9. Emit the task files
 
 Write each task to:
 
@@ -246,11 +281,15 @@ including required frontmatter fields:
 - `created` (YYYY-MM-DD)
 - `skills` (array of 1–2 kebab-case skills)
 
-Optional frontmatter for high-complexity or decomposed tasks:
+Required additional frontmatter:
 
-- `complexity_score` (number, 1–10, include only if >4 or for decomposed
-  tasks)
-- `complexity_notes` (string)
+- `complexity_score` (integer 1–10, required on every emitted task)
+
+Optional frontmatter:
+
+- `complexity_notes` (string) — include when the score needs justification,
+  such as "Decomposed from a cross-cutting parent task" or "Ambiguous API
+  contract".
 
 The body sections (Objective, Skills Required, Acceptance Criteria, Technical
 Requirements, Input Dependencies, Output Artifacts, Implementation Notes)
@@ -258,7 +297,7 @@ must be filled with task-specific content. Place detailed implementation
 guidance inside a `<details>` block under "Implementation Notes" — write it
 so a non-thinking LLM could execute the task from that section alone.
 
-#### 9. Validation checklist
+#### 10. Validation checklist
 
 Before declaring task generation complete, verify:
 
@@ -276,16 +315,23 @@ Before declaring task generation complete, verify:
 - Minimization applied (20–30% reduction target).
 - Test tasks focus on business logic, not framework functionality.
 - No gold-plating: only plan requirements are addressed.
+- After writing the task files, run
+  `scripts/validate-plan-blueprint.cjs <plan-id> complexityScoresValid`. Stop
+  unless it prints `yes`; if it prints `no`, run
+  `scripts/validate-plan-blueprint.cjs <plan-id> invalidComplexityTasks` to see
+  which files are missing, non-integer, or out-of-range, fix them, and re-run.
+  Every generated task must carry an integer `complexity_score` from 1 to 10.
+- Add `complexity_notes` only when a score needs explanation (typically atomic
+  tasks scoring greater than 4).
 
-#### 10. Run the POST_TASK_GENERATION_ALL hook
+#### 11. Run the POST_TASK_GENERATION_ALL hook
 
 Read `<root>/config/hooks/POST_TASK_GENERATION_ALL.md` and follow its instructions. This typically requires:
 
-- Sanity-checking complexity.
 - Appending an Execution Blueprint section to the plan document, including a Mermaid dependency diagram and explicit phase groupings.
 - Use `<root>/config/templates/BLUEPRINT_TEMPLATE.md` for structure.
 
-#### 11. Emit the Phase 2 structured summary
+#### 12. Emit the Phase 2 structured summary
 
 Conclude Phase 2 with exactly this block:
 

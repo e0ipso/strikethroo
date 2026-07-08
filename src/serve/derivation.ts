@@ -26,6 +26,7 @@ export interface Task {
   /** Task title (first `# ` heading), falling back to the filename. */
   name: string;
   group: string | undefined;
+  complexity_score: number | undefined;
   dependencies: number[];
   status: string | undefined;
   skills: string[];
@@ -94,6 +95,7 @@ export const scanTasks = (planDir: string): Task[] => {
           id: fm.id,
           name: extractTitle(body) ?? e.name.replace(/\.md$/, ''),
           group: fm.group,
+          complexity_score: fm.complexity_score,
           dependencies,
           status: fm.status,
           skills: fm.skills,

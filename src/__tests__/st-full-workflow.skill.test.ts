@@ -16,7 +16,7 @@ const buildFixtureRoot = (root: string): string => {
   fs.mkdirSync(tm, { recursive: true });
   fs.writeFileSync(
     path.join(tm, '.init-metadata.json'),
-    JSON.stringify({ version: 'test', workspaceSchemaVersion: 2 })
+    JSON.stringify({ version: 'test', workspaceSchemaVersion: 3 })
   );
   return tm;
 };

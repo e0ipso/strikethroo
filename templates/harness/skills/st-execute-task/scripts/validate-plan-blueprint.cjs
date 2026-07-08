@@ -39,7 +39,7 @@ var path4 = __toESM(require("path"));
 // src/skill-scripts/shared/root.ts
 var fs = __toESM(require("fs"));
 var path = __toESM(require("path"));
-var EXPECTED_SCHEMA = true ? 2 : 2;
+var EXPECTED_SCHEMA = true ? 3 : 3;
 var isValidStrikethrooRoot = (strikethrooPath) => {
   try {
     if (!fs.existsSync(strikethrooPath)) return false;
@@ -242,6 +242,12 @@ var resolvePlan = (input, startPath = process.cwd()) => {
   return resolveByIdInAncestry(planId, startPath);
 };
 
+// src/skill-scripts/shared/task-file.ts
+var extractFrontmatter = (content) => {
+  const match = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/);
+  return match && match[1] ? match[1] : null;
+};
+
 // src/skill-scripts/validate-plan-blueprint.ts
 var VALID_FIELDS = [
   "planFile",
@@ -249,8 +255,47 @@ var VALID_FIELDS = [
   "taskCount",
   "blueprintExists",
   "strikethrooRoot",
-  "planId"
+  "planId",
+  "complexityScoresValid",
+  "invalidComplexityTasks"
 ];
+var validateComplexityScores = (planDir) => {
+  const tasksDir = path4.join(planDir, "tasks");
+  if (!fs4.existsSync(tasksDir)) return [];
+  let files;
+  try {
+    if (!fs4.lstatSync(tasksDir).isDirectory()) return [];
+    files = fs4.readdirSync(tasksDir).filter((f) => f.endsWith(".md")).sort();
+  } catch (_err) {
+    return [];
+  }
+  const invalid = [];
+  for (const file of files) {
+    let content;
+    try {
+      content = fs4.readFileSync(path4.join(tasksDir, file), "utf8");
+    } catch (_err) {
+      invalid.push(`${file}: unreadable`);
+      continue;
+    }
+    const frontmatter = extractFrontmatter(content);
+    const match = frontmatter ? frontmatter.match(/^\s*complexity_score\s*:\s*(.*?)\s*(?:#.*)?$/im) : null;
+    if (!match || match[1] === void 0) {
+      invalid.push(`${file}: missing complexity_score`);
+      continue;
+    }
+    const raw = match[1].trim();
+    if (!/^\d+$/.test(raw)) {
+      invalid.push(`${file}: non-integer complexity_score "${raw}"`);
+      continue;
+    }
+    const parsed = Number.parseInt(raw, 10);
+    if (parsed < 1 || parsed > 10) {
+      invalid.push(`${file}: complexity_score ${parsed} out of range 1-10`);
+    }
+  }
+  return invalid;
+};
 var countTasks = (planDir) => {
   const tasksDir = path4.join(planDir, "tasks");
   if (!fs4.existsSync(tasksDir)) return 0;
@@ -324,13 +369,16 @@ var main = () => {
     }
     process.exit(1);
   }
+  const invalidComplexity = validateComplexityScores(resolved.planDir);
   const result = {
     planFile: resolved.planFile,
     planDir: resolved.planDir,
     strikethrooRoot: resolved.strikethrooRoot,
     planId: resolved.planId,
     taskCount: countTasks(resolved.planDir),
-    blueprintExists: checkBlueprintExists(resolved.planFile) ? "yes" : "no"
+    blueprintExists: checkBlueprintExists(resolved.planFile) ? "yes" : "no",
+    complexityScoresValid: invalidComplexity.length === 0 ? "yes" : "no",
+    invalidComplexityTasks: invalidComplexity.join("; ")
   };
   if (fieldName) {
     if (!VALID_FIELDS.includes(fieldName)) {

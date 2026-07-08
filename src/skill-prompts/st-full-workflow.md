@@ -151,29 +151,32 @@ For each task, identify:
 
 A task B depends on A if B requires A's output or artifacts, modifies code created by A, or tests functionality implemented by A. Validate that the final dependency graph is acyclic.
 
-#### 7. Allocate task IDs
+#### 7. Complexity analysis
+
+{{include sections/task-complexity-analysis.md}}
+
+#### 8. Allocate task IDs
 
 Run `scripts/get-next-task-id.cjs <plan-id>` to obtain the first available task ID. Allocate subsequent IDs by incrementing in-process. Use the unpadded integer in the task frontmatter `id` field and the zero-padded form (`{padded-id}--{slug}`) for the filename.
 
 The slug derives from a short task title: lowercase, alphanumeric and hyphens only, collapsed, trimmed.
 
-#### 8. Emit the task files
+#### 9. Emit the task files
 
 {{include sections/task-file-output.md}}
 
-#### 9. Validation checklist
+#### 10. Validation checklist
 
 {{include sections/validation-checklist.md}}
 
-#### 10. Run the POST_TASK_GENERATION_ALL hook
+#### 11. Run the POST_TASK_GENERATION_ALL hook
 
 Read `<root>/config/hooks/POST_TASK_GENERATION_ALL.md` and follow its instructions. This typically requires:
 
-- Sanity-checking complexity.
 - Appending an Execution Blueprint section to the plan document, including a Mermaid dependency diagram and explicit phase groupings.
 - Use `<root>/config/templates/BLUEPRINT_TEMPLATE.md` for structure.
 
-#### 11. Emit the Phase 2 structured summary
+#### 12. Emit the Phase 2 structured summary
 
 Conclude Phase 2 with exactly this block:
 

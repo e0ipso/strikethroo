@@ -88,7 +88,7 @@ describe('Conflict Detection Integration Tests', () => {
 
       expect(metadata).not.toBeNull();
       expect(metadata?.version).toBeDefined();
-      expect(metadata?.workspaceSchemaVersion).toBe(2);
+      expect(metadata?.workspaceSchemaVersion).toBe(3);
       expect(metadata?.timestamp).toBeDefined();
       expect(metadata?.files).toBeDefined();
       expect(Object.keys(metadata?.files || {}).length).toBeGreaterThan(0);

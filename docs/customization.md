@@ -57,7 +57,7 @@ The LLM validates the plan: does it cover the requirements? Does it include a se
 
 **When:** After all tasks for a plan have been generated.
 
-The LLM performs complexity analysis -- identifying tasks that span too many skills, merging trivial tasks, sharpening vague acceptance criteria. It then generates the execution blueprint with dependency diagrams and phase groupings. Customize the complexity thresholds or add project-specific decomposition rules.
+The LLM generates the execution blueprint with dependency diagrams and phase groupings. Complexity analysis happens earlier, during `st-generate-tasks`; this hook only assembles the blueprint. Customize phase rules or add project-specific blueprint conventions.
 
 #### PRE_TASK_ASSIGNMENT
 
@@ -128,7 +128,7 @@ Templates are editable Markdown files in `.ai/strikethroo/config/templates/`. Th
 <div class="st-card">
 <span class="st-card__icon st-card__icon--list-checks" aria-hidden="true"></span>
 <p class="st-card__title">TASK_TEMPLATE.md</p>
-<p>Structure for individual tasks. Frontmatter: <code>id</code>, <code>group</code>, <code>dependencies</code>, <code>status</code>, <code>created</code>, <code>skills</code>. Sections cover Objective, Skills Required, Acceptance Criteria, Technical Requirements, Dependencies, Output Artifacts, and Implementation Notes. Add project checklists to the acceptance criteria.</p>
+<p>Structure for individual tasks. Frontmatter: <code>id</code>, <code>group</code>, <code>dependencies</code>, <code>status</code>, <code>created</code>, <code>skills</code>, <code>complexity_score</code> (required on newly generated tasks), and optionally <code>complexity_notes</code>. Sections cover Objective, Skills Required, Acceptance Criteria, Technical Requirements, Dependencies, Output Artifacts, and Implementation Notes. Add project checklists to the acceptance criteria.</p>
 </div>
 <div class="st-card">
 <span class="st-card__icon st-card__icon--waypoints" aria-hidden="true"></span>

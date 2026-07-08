@@ -151,7 +151,7 @@ Note the two sibling directories under `templates/harness/`: `skills/` is instal
 
 ## Schema Version Contract
 
-`.ai/strikethroo/.init-metadata.json` carries `workspaceSchemaVersion` (current `2`), distinct from the CLI's `version` string. It changes only when the workspace shape (hook names, required templates, directory structure) changes incompatibly. Single source of truth: `CURRENT_WORKSPACE_SCHEMA_VERSION` in `src/metadata.ts`.
+`.ai/strikethroo/.init-metadata.json` carries `workspaceSchemaVersion` (current `3`), distinct from the CLI's `version` string. It changes only when the workspace shape (hook names, required templates, directory structure) changes incompatibly. Single source of truth: `CURRENT_WORKSPACE_SCHEMA_VERSION` in `src/metadata.ts`. Upgrade path: re-run `npx strikethroo init`.
 
 Skills bake `EXPECTED_WORKSPACE_SCHEMA_VERSION` into each `.cjs` via esbuild's `define`. At runtime `src/skill-scripts/shared/root.ts` compares the workspace value against the baked value:
 
@@ -219,7 +219,7 @@ Base templates live at `templates/strikethroo/config/templates/{PLAN,TASK}_TEMPL
 
 **Plan frontmatter:** `id`, `summary`, `created`. **Plan sections:** Original Work Order, Plan Clarifications, Executive Summary, Context and Background, Technical Implementation Approach, Risk Considerations, Success Criteria, Resource Requirements.
 
-**Task frontmatter:** `id`, `group`, `dependencies`, `status`, `created`, `skills`. **Task sections:** Objective, Skills Required, Acceptance Criteria, Technical Requirements, Input Dependencies, Output Artifacts, Implementation Notes.
+**Task frontmatter:** `id`, `group`, `dependencies`, `status`, `created`, `skills`, `complexity_score` (required on every newly generated task), and optionally `complexity_notes`. **Task sections:** Objective, Skills Required, Acceptance Criteria, Technical Requirements, Input Dependencies, Output Artifacts, Implementation Notes.
 
 ---
 

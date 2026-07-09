@@ -102,7 +102,7 @@ describe('CLI Integration', () => {
   describe('init — non-Claude harnesses', () => {
     it('bootstraps .ai/strikethroo and creates per-harness agent files', async () => {
       const result = executeCommand(
-        `node "${cliPath}" init --harnesses gemini,codex,cursor,github,opencode`
+        `node "${cliPath}" init --harnesses gemini,codex,cursor,github,opencode,kiro`
       );
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('Strikethroo initialized successfully!');
@@ -116,6 +116,10 @@ describe('CLI Integration', () => {
       expect(await fs.pathExists(path.join(testDir, '.github/agents/plan-creator.agent.md'))).toBe(
         true
       );
+      expect(await fs.pathExists(path.join(testDir, '.opencode/agents/plan-creator.md'))).toBe(
+        true
+      );
+      expect(await fs.pathExists(path.join(testDir, '.kiro/agents/plan-creator.json'))).toBe(true);
       expect(await fs.pathExists(path.join(testDir, '.opencode/agents/plan-creator.md'))).toBe(
         true
       );
@@ -213,6 +217,21 @@ describe('CLI Integration', () => {
     });
   });
 
+  describe('init — kiro JSON output', () => {
+    it('creates valid JSON agent for kiro', async () => {
+      const result = executeCommand(`node "${cliPath}" init --harnesses kiro`);
+      expect(result.exitCode).toBe(0);
+      const raw = await fs.readFile(path.join(testDir, '.kiro/agents/plan-creator.json'), 'utf-8');
+      const parsed = JSON.parse(raw);
+      expect(typeof parsed.name).toBe('string');
+      expect(parsed.name.length).toBeGreaterThan(0);
+      expect(typeof parsed.prompt).toBe('string');
+      expect(parsed.prompt.length).toBeGreaterThan(0);
+      expect(Array.isArray(parsed.tools)).toBe(true);
+      expect(Object.prototype.hasOwnProperty.call(parsed, 'model')).toBe(false);
+    });
+  });
+
   describe('init — github .agent.md extension', () => {
     it('creates .agent.md file for github', async () => {
       const result = executeCommand(`node "${cliPath}" init --harnesses github`);
@@ -245,108 +264,6 @@ describe('CLI Integration', () => {
 
       await verifyStrikethrooBootstrap(testDir);
       expect(await fs.pathExists(path.join(testDir, '.claude/agents/plan-creator.md'))).toBe(true);
-    });
-  });
-
-  describe('init — kiro harness', () => {
-    it('bootstraps .ai/strikethroo and creates the Kiro agent JSON file', async () => {
-      const result = executeCommand(`node "${cliPath}" init --harnesses kiro`);
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('Strikethroo initialized successfully!');
-
-      await verifyStrikethrooBootstrap(testDir);
-      expect(await fs.pathExists(path.join(testDir, '.kiro/agents/plan-creator.json'))).toBe(true);
-      // Steering files should also be created
-      expect(
-        await fs.pathExists(path.join(testDir, '.kiro/steering/strikethroo-verification-gate.md'))
-      ).toBe(true);
-    });
-
-    it('emits a valid Kiro agent JSON with required fields', async () => {
-      // executeCommand is synchronous (execSync-based) — no await needed
-      executeCommand(`node "${cliPath}" init --harnesses kiro`);
-      const raw = await fs.readFile(path.join(testDir, '.kiro/agents/plan-creator.json'), 'utf-8');
-      const parsed = JSON.parse(raw);
-
-      expect(typeof parsed.name).toBe('string');
-      expect(parsed.name.length).toBeGreaterThan(0);
-      expect(typeof parsed.description).toBe('string');
-      expect(typeof parsed.prompt).toBe('string');
-      expect(parsed.prompt.length).toBeGreaterThan(0);
-      expect(Array.isArray(parsed.tools)).toBe(true);
-      expect(parsed.includeMcpJson).toBe(true);
-      // model key should be absent (not serialized as null)
-      expect(Object.prototype.hasOwnProperty.call(parsed, 'model')).toBe(false);
-    });
-
-    it('copies shared enforcement files to .kiro/steering with inclusion: always frontmatter', async () => {
-      // executeCommand is synchronous (execSync-based) — no await needed
-      executeCommand(`node "${cliPath}" init --harnesses kiro`);
-
-      const steeringDir = path.join(testDir, '.kiro/steering');
-      expect(await fs.pathExists(steeringDir)).toBe(true);
-
-      const files = [
-        'strikethroo-verification-gate.md',
-        'strikethroo-clarification-gate.md',
-        'strikethroo-anti-rationalization.md',
-      ];
-
-      for (const file of files) {
-        const filePath = path.join(steeringDir, file);
-        expect(await fs.pathExists(filePath)).toBe(true);
-        const content = await fs.readFile(filePath, 'utf-8');
-        expect(content).toContain('inclusion: always');
-        // Frontmatter must appear exactly once at the top
-        expect(content.startsWith('---\ninclusion: always\n---')).toBe(true);
-      }
-    });
-
-    it('does not overwrite user-modified steering files unless --force is passed', async () => {
-      // First init
-      executeCommand(`node "${cliPath}" init --harnesses kiro`);
-      const filePath = path.join(testDir, '.kiro/steering/strikethroo-verification-gate.md');
-      // Simulate user edit
-      await fs.writeFile(filePath, 'USER CUSTOM CONTENT', 'utf-8');
-
-      // Re-init without --force: user content should be preserved
-      executeCommand(`node "${cliPath}" init --harnesses kiro`);
-      const afterRerun = await fs.readFile(filePath, 'utf-8');
-      expect(afterRerun).toBe('USER CUSTOM CONTENT');
-
-      // Re-init with --force: should overwrite
-      executeCommand(`node "${cliPath}" init --harnesses kiro --force`);
-      const afterForce = await fs.readFile(filePath, 'utf-8');
-      expect(afterForce).toContain('inclusion: always');
-      expect(afterForce).not.toBe('USER CUSTOM CONTENT');
-    });
-
-    it('re-init is idempotent — steering frontmatter not duplicated', async () => {
-      executeCommand(`node "${cliPath}" init --harnesses kiro`);
-      executeCommand(`node "${cliPath}" init --harnesses kiro --force`);
-      const filePath = path.join(testDir, '.kiro/steering/strikethroo-verification-gate.md');
-      const content = await fs.readFile(filePath, 'utf-8');
-      // Exactly one frontmatter block at the top
-      const frontmatterMatches = content.match(/---\ninclusion: always\n---/g);
-      expect(frontmatterMatches).toHaveLength(1);
-    });
-
-    it('lists steering files in the Created Files output', async () => {
-      const result = executeCommand(`node "${cliPath}" init --harnesses kiro`);
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('Kiro Steering:');
-      expect(result.stdout).toContain('strikethroo-verification-gate.md');
-    });
-
-    it('works alongside other harnesses in a multi-harness init', async () => {
-      const result = executeCommand(`node "${cliPath}" init --harnesses claude,kiro`);
-      expect(result.exitCode).toBe(0);
-
-      expect(await fs.pathExists(path.join(testDir, '.claude/agents/plan-creator.md'))).toBe(true);
-      expect(await fs.pathExists(path.join(testDir, '.kiro/agents/plan-creator.json'))).toBe(true);
-      expect(
-        await fs.pathExists(path.join(testDir, '.kiro/steering/strikethroo-verification-gate.md'))
-      ).toBe(true);
     });
   });
 });

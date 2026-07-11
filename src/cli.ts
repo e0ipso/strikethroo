@@ -21,7 +21,7 @@ program
   .description('Initialize a new Strikethroo project')
   .requiredOption(
     '--harnesses <value>',
-    'Comma-separated list of harnesses to configure (claude,codex,cursor,gemini,github,opencode)'
+    'Comma-separated list of harnesses to configure (claude,codex,cursor,gemini,copilot,opencode)'
   )
   .option(
     '--destination-directory <path>',

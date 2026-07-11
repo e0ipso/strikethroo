@@ -69,6 +69,11 @@ const SKILL_ENTRYPOINTS = [
     out: 'check-phase-readiness.cjs',
   },
   {
+    src: 'src/skill-scripts/dispatch-task-execution.ts',
+    skill: 'st-execute-blueprint',
+    out: 'dispatch-task-execution.cjs',
+  },
+  {
     src: 'src/skill-scripts/find-strikethroo-root.ts',
     skill: 'st-refine-plan',
     out: 'find-strikethroo-root.cjs',
@@ -92,6 +97,11 @@ const SKILL_ENTRYPOINTS = [
     src: 'src/skill-scripts/check-task-dependencies.ts',
     skill: 'st-execute-task',
     out: 'check-task-dependencies.cjs',
+  },
+  {
+    src: 'src/skill-scripts/dispatch-task-execution.ts',
+    skill: 'st-execute-task',
+    out: 'dispatch-task-execution.cjs',
   },
   {
     src: 'src/skill-scripts/find-strikethroo-root.ts',
@@ -122,6 +132,11 @@ const SKILL_ENTRYPOINTS = [
     src: 'src/skill-scripts/check-phase-readiness.ts',
     skill: 'st-full-workflow',
     out: 'check-phase-readiness.cjs',
+  },
+  {
+    src: 'src/skill-scripts/dispatch-task-execution.ts',
+    skill: 'st-full-workflow',
+    out: 'dispatch-task-execution.cjs',
   },
 ];
 

@@ -22,7 +22,7 @@ Creates the shared `.ai/strikethroo/` directory (plans, archive, config, hooks, 
 
 | Flag | Description |
 |------|-------------|
-| `--harnesses <list>` | Comma-separated harness names. Controls which per-harness artifacts are copied. Accepted values: `claude`, `gemini`, `opencode`, `codex`, `github`, `cursor`. |
+| `--harnesses <list>` | Comma-separated harness names. Controls which per-harness artifacts are copied. Accepted values: `claude`, `gemini`, `opencode`, `codex`, `copilot`, `cursor`. |
 
 **Optional flags:**
 

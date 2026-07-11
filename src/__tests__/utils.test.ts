@@ -34,10 +34,10 @@ describe('Critical Utils Business Logic', () => {
 
     it('should reject invalid harnesses', () => {
       expect(() => parseHarnesses('invalid')).toThrow(
-        'Invalid harness(es): invalid. Valid options are: claude, codex, cursor, gemini, github, opencode'
+        'Invalid harness(es): invalid. Valid options are: claude, codex, cursor, gemini, copilot, opencode'
       );
       expect(() => parseHarnesses('claude,invalid,unknown')).toThrow(
-        'Invalid harness(es): invalid, unknown. Valid options are: claude, codex, cursor, gemini, github, opencode'
+        'Invalid harness(es): invalid, unknown. Valid options are: claude, codex, cursor, gemini, copilot, opencode'
       );
     });
   });
@@ -46,7 +46,7 @@ describe('Critical Utils Business Logic', () => {
     it('should accept valid harnesses', () => {
       expect(() => validateHarnesses(['claude'])).not.toThrow();
       expect(() => validateHarnesses(['claude', 'gemini'])).not.toThrow();
-      expect(() => validateHarnesses(['opencode'])).not.toThrow();
+      expect(() => validateHarnesses(['copilot'])).not.toThrow();
       expect(() => validateHarnesses(['claude', 'gemini', 'opencode'])).not.toThrow();
     });
 
@@ -56,7 +56,7 @@ describe('Critical Utils Business Logic', () => {
 
     it('should reject invalid harnesses', () => {
       expect(() => validateHarnesses(['invalid' as Harness])).toThrow(
-        'Invalid harness: invalid. Supported harnesses: claude, codex, cursor, gemini, github, opencode'
+        'Invalid harness: invalid. Supported harnesses: claude, codex, cursor, gemini, copilot, opencode'
       );
     });
   });
@@ -100,10 +100,10 @@ describe('Critical Utils Business Logic', () => {
       });
     });
 
-    it('returns .agent.md extension for github', () => {
-      expect(getAgentFormat('github')).toEqual({
+    it('returns .md extension for copilot', () => {
+      expect(getAgentFormat('copilot')).toEqual({
         format: 'md',
-        extension: '.agent.md',
+        extension: '.md',
         directory: '.github/agents',
       });
     });

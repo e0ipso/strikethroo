@@ -1,3 +1,7 @@
+## 3.10.0 (2026-07-11)
+
+* feat: add task execution overrides (#53) ([b1231fa](https://github.com/e0ipso/strikethroo/commit/b1231fa)), closes [#53](https://github.com/e0ipso/strikethroo/issues/53)
+
 ## 3.9.0 (2026-07-08)
 
 * feat: split skill scripts validation helpers (#48) ([9f619f4](https://github.com/e0ipso/strikethroo/commit/9f619f4)), closes [#48](https://github.com/e0ipso/strikethroo/issues/48) [#47](https://github.com/e0ipso/strikethroo/issues/47)

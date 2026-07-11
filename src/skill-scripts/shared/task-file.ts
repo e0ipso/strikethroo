@@ -77,6 +77,35 @@ export const extractStatus = (frontmatter: string): string | null => {
   return null;
 };
 
+/**
+ * Changes only the root-level status line in a task's leading frontmatter.
+ * The raw replacement preserves every other byte, including nested mappings.
+ */
+export const rewriteTaskStatus = (taskMarkdown: string, status: string): string => {
+  const match = taskMarkdown.match(/^(---\r?\n)([\s\S]*?)(\r?\n---)/);
+  if (!match) throw new Error('missing frontmatter');
+
+  const opening = match[1];
+  const frontmatter = match[2];
+  const closing = match[3];
+  if (opening === undefined || frontmatter === undefined || closing === undefined) {
+    throw new Error('missing frontmatter');
+  }
+  const statusLines = frontmatter.match(/^status:[^\r\n]*/gm) ?? [];
+  if (statusLines.length === 0) throw new Error('missing root status');
+  if (statusLines.length > 1) throw new Error('duplicate root status');
+  const statusLine = statusLines[0];
+  if (statusLine === undefined) throw new Error('missing root status');
+
+  const replacement = statusLine.replace(
+    /^status:([ \t]*)(?:["'][^\r\n]*?["']|[^\r\n]*?)([ \t]*(?:#.*)?)$/,
+    (_line, spacing: string, comment: string) => `status:${spacing}"${status}"${comment}`
+  );
+  return `${opening}${frontmatter.replace(statusLine, replacement)}${closing}${taskMarkdown.slice(
+    match[0].length
+  )}`;
+};
+
 export interface TaskReadinessIssue {
   taskId: string;
   kind: 'missing' | 'needs-clarification' | 'unresolved-dependency';

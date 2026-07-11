@@ -232,6 +232,10 @@ Optional frontmatter:
 - `complexity_notes` (string) — include when the score needs justification,
   such as "Decomposed from a cross-cutting parent task" or "Ambiguous API
   contract".
+- `execution` (mapping) — a task-only execution override. When present,
+  `model` is required and must be an exact string. `reasoning_effort` and a
+  different external `harness` are optional. Do not create plan defaults,
+  inheritance, aliases, model discovery, or model-name translation.
 
 The body sections (Objective, Skills Required, Acceptance Criteria, Technical
 Requirements, Input Dependencies, Output Artifacts, Implementation Notes)

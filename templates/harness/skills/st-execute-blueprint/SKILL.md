@@ -87,7 +87,23 @@ Read `<root>/config/hooks/PRE_PHASE.md` and execute its instructions before star
 #### 7b. Task dispatch
 Identify all tasks scheduled for this phase whose dependencies are fully satisfied. Read `<root>/config/hooks/PRE_TASK_ASSIGNMENT.md` and follow its instructions for agent selection before dispatching tasks.
 
-Deploy all selected agents simultaneously using your internal Task tool. Each agent MUST:
+For each selected task, before native dispatch run:
+
+```text
+scripts/dispatch-task-execution.cjs <task-file> <current-harness> <workspace> <plan-id> <task-id>
+```
+
+`<current-harness>` is the exact supported harness identifier running this
+skill and `<workspace>` is the project working directory. Interpret its JSON
+result before choosing a route: `native-default` uses ordinary native dispatch;
+`native-override` uses native dispatch with explicit exact-model prose and
+reasoning-effort prose only when returned; `fallback` visibly records its
+reason then uses ordinary native dispatch with no override prose;
+`launched-success` has already completed externally and receives normal status
+and evidence review; `launched-failure` is a failed task and must enter the
+existing error-hook/status path without any native retry.
+
+Deploy all remaining native agents simultaneously using your internal Task tool. Each agent MUST:
 
 1. Read and execute `<root>/config/hooks/PRE_TASK_EXECUTION.md` before starting any implementation work.
 2. Execute the task according to its requirements.

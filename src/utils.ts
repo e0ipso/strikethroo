@@ -4,16 +4,7 @@
  * Validation helpers for the `--harnesses` option.
  */
 
-import { Harness } from './types';
-
-const VALID_HARNESSES: readonly Harness[] = [
-  'claude',
-  'codex',
-  'cursor',
-  'gemini',
-  'github',
-  'opencode',
-];
+import { Harness, SUPPORTED_HARNESSES } from './types';
 
 /**
  * Parse comma-separated harness values into an array
@@ -32,12 +23,12 @@ export function parseHarnesses(value: string): Harness[] {
     .filter(a => a.length > 0);
 
   const invalidHarnesses = harnesses.filter(
-    (harness): harness is string => !VALID_HARNESSES.includes(harness as Harness)
+    (harness): harness is string => !SUPPORTED_HARNESSES.includes(harness as Harness)
   );
 
   if (invalidHarnesses.length > 0) {
     throw new Error(
-      `Invalid harness(es): ${invalidHarnesses.join(', ')}. Valid options are: ${VALID_HARNESSES.join(', ')}`
+      `Invalid harness(es): ${invalidHarnesses.join(', ')}. Valid options are: ${SUPPORTED_HARNESSES.join(', ')}`
     );
   }
 
@@ -55,9 +46,9 @@ export function validateHarnesses(harnesses: Harness[]): void {
   }
 
   for (const harness of harnesses) {
-    if (!VALID_HARNESSES.includes(harness)) {
+    if (!SUPPORTED_HARNESSES.includes(harness)) {
       throw new Error(
-        `Invalid harness: ${harness}. Supported harnesses: ${VALID_HARNESSES.join(', ')}`
+        `Invalid harness: ${harness}. Supported harnesses: ${SUPPORTED_HARNESSES.join(', ')}`
       );
     }
   }
@@ -177,8 +168,8 @@ export function getAgentFormat(harness: Harness): AgentFormatInfo {
   switch (harness) {
     case 'codex':
       return { format: 'toml', extension: '.toml', directory: '.codex/agents' };
-    case 'github':
-      return { format: 'md', extension: '.agent.md', directory: '.github/agents' };
+    case 'copilot':
+      return { format: 'md', extension: '.md', directory: '.github/agents' };
     case 'claude':
       return { format: 'md', extension: '.md', directory: '.claude/agents' };
     case 'gemini':

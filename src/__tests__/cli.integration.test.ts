@@ -102,7 +102,7 @@ describe('CLI Integration', () => {
   describe('init — non-Claude harnesses', () => {
     it('bootstraps .ai/strikethroo and creates per-harness agent files', async () => {
       const result = executeCommand(
-        `node "${cliPath}" init --harnesses gemini,codex,cursor,github,opencode`
+        `node "${cliPath}" init --harnesses gemini,codex,cursor,copilot,opencode`
       );
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('Strikethroo initialized successfully!');
@@ -113,9 +113,7 @@ describe('CLI Integration', () => {
       expect(await fs.pathExists(path.join(testDir, '.gemini/agents/plan-creator.md'))).toBe(true);
       expect(await fs.pathExists(path.join(testDir, '.codex/agents/plan-creator.toml'))).toBe(true);
       expect(await fs.pathExists(path.join(testDir, '.cursor/agents/plan-creator.md'))).toBe(true);
-      expect(await fs.pathExists(path.join(testDir, '.github/agents/plan-creator.agent.md'))).toBe(
-        true
-      );
+      expect(await fs.pathExists(path.join(testDir, '.github/agents/plan-creator.md'))).toBe(true);
       expect(await fs.pathExists(path.join(testDir, '.opencode/agents/plan-creator.md'))).toBe(
         true
       );
@@ -213,25 +211,27 @@ describe('CLI Integration', () => {
     });
   });
 
-  describe('init — github .agent.md extension', () => {
-    it('creates .agent.md file for github', async () => {
-      const result = executeCommand(`node "${cliPath}" init --harnesses github`);
+  describe('init — copilot .md extension', () => {
+    it('creates .md file for copilot', async () => {
+      const result = executeCommand(`node "${cliPath}" init --harnesses copilot`);
       expect(result.exitCode).toBe(0);
-      expect(await fs.pathExists(path.join(testDir, '.github/agents/plan-creator.agent.md'))).toBe(
-        true
-      );
+      expect(await fs.pathExists(path.join(testDir, '.github/agents/plan-creator.md'))).toBe(true);
+    });
+
+    it('rejects the replaced github identifier', () => {
+      const result = executeCommand(`node "${cliPath}" init --harnesses github`);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout + result.stderr).toContain('copilot');
     });
   });
 
   describe('init — multi-harness simultaneous output', () => {
     it('creates agent files for multiple harnesses simultaneously', async () => {
-      const result = executeCommand(`node "${cliPath}" init --harnesses claude,codex,github`);
+      const result = executeCommand(`node "${cliPath}" init --harnesses claude,codex,copilot`);
       expect(result.exitCode).toBe(0);
       expect(await fs.pathExists(path.join(testDir, '.claude/agents/plan-creator.md'))).toBe(true);
       expect(await fs.pathExists(path.join(testDir, '.codex/agents/plan-creator.toml'))).toBe(true);
-      expect(await fs.pathExists(path.join(testDir, '.github/agents/plan-creator.agent.md'))).toBe(
-        true
-      );
+      expect(await fs.pathExists(path.join(testDir, '.github/agents/plan-creator.md'))).toBe(true);
     });
   });
 

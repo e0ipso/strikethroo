@@ -8,7 +8,16 @@
 /**
  * Supported AI harnesses for task management
  */
-export type Harness = 'claude' | 'codex' | 'cursor' | 'gemini' | 'github' | 'opencode';
+export const SUPPORTED_HARNESSES = [
+  'claude',
+  'codex',
+  'cursor',
+  'gemini',
+  'copilot',
+  'opencode',
+] as const;
+
+export type Harness = (typeof SUPPORTED_HARNESSES)[number];
 
 /**
  * Options for the init command

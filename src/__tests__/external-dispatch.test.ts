@@ -6,7 +6,11 @@ import {
   type ExternalDispatchDependencies,
 } from '../skill-scripts/shared/external-dispatch';
 
-const request = (harness: (typeof SUPPORTED_HARNESSES)[number], reasoningEffort?: string) => ({
+const request = (
+  harness: (typeof SUPPORTED_HARNESSES)[number],
+  reasoningEffort?: string,
+  taskMarkdown = '# Implement the task'
+) => ({
   harness,
   model: 'vendor/model-X:preview',
   reasoningEffort,
@@ -14,13 +18,13 @@ const request = (harness: (typeof SUPPORTED_HARNESSES)[number], reasoningEffort?
   planId: '12',
   taskId: '3',
   taskFile: '/workspace/project/.ai/strikethroo/plans/12--example/tasks/03--task.md',
-  taskMarkdown: '# Implement the task',
+  taskMarkdown,
 });
 
 const readyDependencies = (): ExternalDispatchDependencies => ({
   executableExists: () => true,
-  authenticate: () => ({ ok: true }),
-  launch: () => ({ exitCode: 0 }),
+  authenticate: async () => ({ ok: true }),
+  launch: async () => ({ exitCode: 0 }),
 });
 
 describe('external harness adapter registry', () => {
@@ -29,24 +33,31 @@ describe('external harness adapter registry', () => {
   });
 
   it.each([
-    ['claude', 'claude', ['-p', expect.any(String), '--model', 'vendor/model-X:preview']],
-    ['codex', 'codex', ['exec', '--model', 'vendor/model-X:preview', expect.any(String)]],
-    [
-      'cursor',
-      'cursor-agent',
-      ['--print', '--model', 'vendor/model-X:preview', expect.any(String)],
-    ],
-    ['gemini', 'gemini', ['--prompt', expect.any(String), '--model', 'vendor/model-X:preview']],
-    ['copilot', 'copilot', ['-p', expect.any(String), '--model', 'vendor/model-X:preview']],
-    ['opencode', 'opencode', ['run', '--model', 'vendor/model-X:preview', expect.any(String)]],
+    ['claude', 'claude', ['-p', '--model', 'vendor/model-X:preview']],
+    ['codex', 'codex', ['exec', '--model', 'vendor/model-X:preview', '-']],
+    ['cursor', 'cursor-agent', ['--print', '--model', 'vendor/model-X:preview']],
+    ['gemini', 'gemini', ['--prompt', '', '--model', 'vendor/model-X:preview']],
+    ['copilot', 'copilot', ['-p', '', '--model', 'vendor/model-X:preview']],
+    ['opencode', 'opencode', ['run', '--model', 'vendor/model-X:preview', '-']],
   ] as const)(
-    '%s preserves exact model in structured argv',
-    (harness, executable, expectedArgv) => {
+    '%s preserves exact model while keeping task content out of argv',
+    (harness, executable, argv) => {
       const command = buildExternalCommand(request(harness));
-      expect(command).toMatchObject({ executable, argv: expectedArgv, cwd: '/workspace/project' });
-      expect(command.argv.join(' ')).toContain('Plan 12, Task 3');
+      expect(command).toMatchObject({ executable, argv, cwd: '/workspace/project' });
+      expect(command.stdin).toContain('Plan 12, Task 3');
+      expect(command.stdin).toContain('PRE_TASK_EXECUTION.md');
+      expect(command.stdin).toContain('# Implement the task');
+      expect(command.argv.join(' ')).not.toContain('Implement the task');
     }
   );
+
+  it('keeps a large task payload exclusively on stdin', () => {
+    const payload = `# Task\n${'sensitive context '.repeat(100_000)}`;
+    const command = buildExternalCommand(request('codex', undefined, payload));
+    expect(command.stdin).toContain(payload);
+    expect(command.argv.join(' ')).not.toContain('sensitive context');
+    expect(command.argv.join(' ').length).toBeLessThan(200);
+  });
 
   it.each(SUPPORTED_HARNESSES)('omits optional reasoning argv for %s when absent', harness => {
     expect(buildExternalCommand(request(harness)).argv.join(' ')).not.toContain('reasoning_effort');
@@ -65,11 +76,11 @@ describe('external harness adapter registry', () => {
     }
   });
 
-  it('falls back before launch when a harness lacks reasoning-effort support', () => {
+  it('falls back before launch when a harness lacks reasoning-effort support', async () => {
     let launches = 0;
-    const result = dispatchExternalTask(request('copilot', 'high'), {
+    const result = await dispatchExternalTask(request('copilot', 'high'), {
       ...readyDependencies(),
-      launch: () => {
+      launch: async () => {
         launches += 1;
         return { exitCode: 0 };
       },
@@ -82,12 +93,12 @@ describe('external harness adapter registry', () => {
     expect(launches).toBe(0);
   });
 
-  it('returns pre-launch fallback without launching when executable is unavailable', () => {
+  it('returns pre-launch fallback without launching when executable is unavailable', async () => {
     let launches = 0;
-    const result = dispatchExternalTask(request('copilot'), {
+    const result = await dispatchExternalTask(request('copilot'), {
       ...readyDependencies(),
       executableExists: () => false,
-      launch: () => {
+      launch: async () => {
         launches += 1;
         return { exitCode: 0 };
       },
@@ -100,12 +111,12 @@ describe('external harness adapter registry', () => {
     expect(launches).toBe(0);
   });
 
-  it('returns pre-launch fallback without launching when authentication fails', () => {
+  it('returns pre-launch fallback without launching when authentication fails', async () => {
     let launches = 0;
-    const result = dispatchExternalTask(request('codex'), {
+    const result = await dispatchExternalTask(request('codex'), {
       ...readyDependencies(),
-      authenticate: () => ({ ok: false, detail: 'authentication check failed' }),
-      launch: () => {
+      authenticate: async () => ({ ok: false, detail: 'authentication check failed' }),
+      launch: async () => {
         launches += 1;
         return { exitCode: 0 };
       },
@@ -118,16 +129,29 @@ describe('external harness adapter registry', () => {
     expect(launches).toBe(0);
   });
 
-  it('reports a launched nonzero process as failure and never performs a native retry', () => {
+  it('reports a launched nonzero process as failure and never performs a native retry', async () => {
     let launches = 0;
-    const result = dispatchExternalTask(request('gemini'), {
+    const result = await dispatchExternalTask(request('gemini'), {
       ...readyDependencies(),
-      launch: () => {
+      launch: async () => {
         launches += 1;
         return { exitCode: 9 };
       },
     });
     expect(result).toEqual({ kind: 'launched-failure', exitCode: 9 });
     expect(launches).toBe(1);
+  });
+
+  it('converts spawn errors after launch into infrastructure failure', async () => {
+    const result = await dispatchExternalTask(request('claude'), {
+      ...readyDependencies(),
+      launch: async () => {
+        throw new Error('spawn EACCES');
+      },
+    });
+    expect(result).toEqual({
+      kind: 'infrastructure-failure',
+      detail: 'External task process failed: spawn EACCES',
+    });
   });
 });

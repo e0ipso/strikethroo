@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { spawnSync } from 'child_process';
+import { spawn } from 'child_process';
 import { SUPPORTED_HARNESSES, type Harness } from '../../types';
 
 /**
@@ -12,8 +12,8 @@ import { SUPPORTED_HARNESSES, type Harness } from '../../types';
  * Copilot: https://docs.github.com/en/copilot/reference/copilot-cli-reference
  * OpenCode: https://opencode.ai/docs/cli/
  *
- * The adapters intentionally accept the task model verbatim. They do not
- * discover, normalize, default, or inherit model settings.
+ * Adapters pass model identifiers through verbatim and send task content through
+ * stdin so it is neither process-visible argv nor constrained by ARG_MAX.
  */
 export interface ExternalDispatchRequest {
   harness: Harness;
@@ -30,11 +30,13 @@ export interface StructuredCommand {
   executable: string;
   argv: string[];
   cwd: string;
+  stdin: string;
 }
 
 export type ExternalDispatchResult =
   | { kind: 'launched-success'; exitCode: 0 }
   | { kind: 'launched-failure'; exitCode: number }
+  | { kind: 'infrastructure-failure'; detail: string }
   | {
       kind: 'fallback';
       reason:
@@ -50,8 +52,8 @@ export interface ExternalDispatchDependencies {
   authenticate: (
     command: StructuredCommand,
     adapter: ExternalHarnessAdapter
-  ) => { ok: boolean; detail?: string };
-  launch: (command: StructuredCommand) => { exitCode: number };
+  ) => Promise<{ ok: boolean; detail?: string }>;
+  launch: (command: StructuredCommand) => Promise<{ exitCode: number }>;
 }
 
 export interface ExternalHarnessAdapter {
@@ -62,8 +64,13 @@ export interface ExternalHarnessAdapter {
 
 const taskPrompt = (request: ExternalDispatchRequest): string =>
   `Strikethroo external task dispatch — Plan ${request.planId}, Task ${request.taskId}.\n` +
-  `Workspace: ${request.workspace}\nTask file: ${request.taskFile}\n\n` +
-  `Read and implement this task. Preserve its lifecycle requirements and report failures clearly.\n\n${request.taskMarkdown}`;
+  `Workspace: ${request.workspace}\nTask file: ${request.taskFile}\n` +
+  `Before implementation, read and execute ${path.join(
+    request.workspace,
+    '.ai/strikethroo/config/hooks/PRE_TASK_EXECUTION.md'
+  )}. Halt if that hook fails.\n\n` +
+  `Read and implement this task. Preserve dependency validation, status transitions, ` +
+  `evidence reporting, and error-hook handling. Report failures clearly.\n\n${request.taskMarkdown}`;
 
 const command = (
   executable: string,
@@ -73,6 +80,7 @@ const command = (
   executable,
   argv,
   cwd: request.workspace,
+  stdin: taskPrompt(request),
 });
 
 export const EXTERNAL_HARNESS_ADAPTERS: Readonly<Record<Harness, ExternalHarnessAdapter>> = {
@@ -83,7 +91,6 @@ export const EXTERNAL_HARNESS_ADAPTERS: Readonly<Record<Harness, ExternalHarness
         'claude',
         [
           '-p',
-          taskPrompt(request),
           '--model',
           request.model,
           ...(request.reasoningEffort === undefined ? [] : ['--effort', request.reasoningEffort]),
@@ -104,7 +111,7 @@ export const EXTERNAL_HARNESS_ADAPTERS: Readonly<Record<Harness, ExternalHarness
           ...(request.reasoningEffort === undefined
             ? []
             : ['--config', `model_reasoning_effort=${request.reasoningEffort}`]),
-          taskPrompt(request),
+          '-',
         ],
         request
       ),
@@ -113,19 +120,17 @@ export const EXTERNAL_HARNESS_ADAPTERS: Readonly<Record<Harness, ExternalHarness
   cursor: {
     executable: 'cursor-agent',
     buildCommand: request =>
-      command('cursor-agent', ['--print', '--model', request.model, taskPrompt(request)], request),
+      command('cursor-agent', ['--print', '--model', request.model], request),
     authenticationArgv: () => ['status'],
   },
   gemini: {
     executable: 'gemini',
-    buildCommand: request =>
-      command('gemini', ['--prompt', taskPrompt(request), '--model', request.model], request),
+    buildCommand: request => command('gemini', ['--prompt', '', '--model', request.model], request),
     authenticationArgv: () => ['auth', 'status'],
   },
   copilot: {
     executable: 'copilot',
-    buildCommand: request =>
-      command('copilot', ['-p', taskPrompt(request), '--model', request.model], request),
+    buildCommand: request => command('copilot', ['-p', '', '--model', request.model], request),
     authenticationArgv: () => ['auth', 'status'],
   },
   opencode: {
@@ -138,7 +143,7 @@ export const EXTERNAL_HARNESS_ADAPTERS: Readonly<Record<Harness, ExternalHarness
           '--model',
           request.model,
           ...(request.reasoningEffort === undefined ? [] : ['--variant', request.reasoningEffort]),
-          taskPrompt(request),
+          '-',
         ],
         request
       ),
@@ -166,35 +171,76 @@ const executableOnPath = (executable: string): boolean =>
     }
   });
 
+const runProcess = (
+  executable: string,
+  argv: string[],
+  cwd: string,
+  stdin?: string,
+  inheritOutput = false
+): Promise<{ exitCode: number }> =>
+  new Promise((resolve, reject) => {
+    let settled = false;
+    const fail = (error: Error): void => {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    };
+    const child = spawn(executable, argv, {
+      cwd,
+      shell: false,
+      stdio: [
+        stdin === undefined ? 'ignore' : 'pipe',
+        inheritOutput ? 'inherit' : 'ignore',
+        inheritOutput ? 'inherit' : 'ignore',
+      ],
+    });
+    child.once('error', fail);
+    child.once('close', code => {
+      if (settled) return;
+      settled = true;
+      resolve({ exitCode: code ?? 1 });
+    });
+    if (stdin !== undefined) {
+      child.stdin!.once('error', fail);
+      try {
+        child.stdin!.end(stdin);
+      } catch (error) {
+        fail(error instanceof Error ? error : new Error(String(error)));
+      }
+    }
+  });
+
 const dependencies: ExternalDispatchDependencies = {
   executableExists: executableOnPath,
-  authenticate: (commandSpec, adapter) => {
-    const result = spawnSync(commandSpec.executable, adapter.authenticationArgv(), {
-      cwd: commandSpec.cwd,
-      encoding: 'utf8',
-      shell: false,
-      stdio: 'pipe',
-    });
-    return result.status === 0
-      ? { ok: true }
-      : { ok: false, detail: `${commandSpec.executable} authentication check failed.` };
+  authenticate: async (commandSpec, adapter) => {
+    try {
+      const result = await runProcess(
+        commandSpec.executable,
+        adapter.authenticationArgv(),
+        commandSpec.cwd
+      );
+      return result.exitCode === 0
+        ? { ok: true }
+        : { ok: false, detail: `${commandSpec.executable} authentication check failed.` };
+    } catch (error) {
+      return {
+        ok: false,
+        detail: `${commandSpec.executable} authentication check failed: ${errorMessage(error)}`,
+      };
+    }
   },
-  launch: commandSpec => {
-    const result = spawnSync(commandSpec.executable, commandSpec.argv, {
-      cwd: commandSpec.cwd,
-      encoding: 'utf8',
-      shell: false,
-      stdio: 'inherit',
-    });
-    return { exitCode: result.status ?? 1 };
-  },
+  launch: commandSpec =>
+    runProcess(commandSpec.executable, commandSpec.argv, commandSpec.cwd, commandSpec.stdin, true),
 };
 
+const errorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
 /** Only pre-launch failures return fallback. A launched process is always committed. */
-export const dispatchExternalTask = (
+export const dispatchExternalTask = async (
   request: ExternalDispatchRequest,
   overrides: Partial<ExternalDispatchDependencies> = {}
-): ExternalDispatchResult => {
+): Promise<ExternalDispatchResult> => {
   const adapter = EXTERNAL_HARNESS_ADAPTERS[request.harness];
   if (!adapter) {
     return {
@@ -222,7 +268,7 @@ export const dispatchExternalTask = (
     };
   }
   const commandSpec = adapter.buildCommand(request);
-  const authentication = active.authenticate(commandSpec, adapter);
+  const authentication = await active.authenticate(commandSpec, adapter);
   if (!authentication.ok) {
     return {
       kind: 'fallback',
@@ -230,8 +276,15 @@ export const dispatchExternalTask = (
       detail: authentication.detail ?? `${adapter.executable} authentication check failed.`,
     };
   }
-  const launched = active.launch(commandSpec);
-  return launched.exitCode === 0
-    ? { kind: 'launched-success', exitCode: 0 }
-    : { kind: 'launched-failure', exitCode: launched.exitCode };
+  try {
+    const launched = await active.launch(commandSpec);
+    return launched.exitCode === 0
+      ? { kind: 'launched-success', exitCode: 0 }
+      : { kind: 'launched-failure', exitCode: launched.exitCode };
+  } catch (error) {
+    return {
+      kind: 'infrastructure-failure',
+      detail: `External task process failed: ${errorMessage(error)}`,
+    };
+  }
 };

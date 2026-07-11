@@ -12,6 +12,7 @@ export default defineConfig({
       'src/__tests__/cli.integration.test.ts',
       'src/__tests__/config-write.test.ts',
       'src/__tests__/conflict-detection.integration.test.ts',
+      'src/__tests__/dispatch-task-execution.integration.test.ts',
       'src/__tests__/execution-policy.test.ts',
       'src/__tests__/external-dispatch.test.ts',
       'src/__tests__/self-review.test.ts',

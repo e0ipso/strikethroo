@@ -1,6 +1,6 @@
 /**
  * Integration tests for the st-full-workflow skill bundles.
- * Covers the five generated .cjs scripts with fixture-based smoke tests.
+ * Covers the generated .cjs scripts with fixture-based smoke tests.
  */
 
 import * as fs from 'fs';
@@ -140,6 +140,11 @@ describe('st-full-workflow bundle smoke', () => {
       env: { ...process.env, NO_COLOR: '1' },
     }).trim();
     expect(stdout).toBe('3');
+  });
+
+  test('ships the task execution dispatcher referenced by the skill', () => {
+    const script = path.join(fixtureSkillDir, 'scripts', 'dispatch-task-execution.cjs');
+    expect(fs.statSync(script).isFile()).toBe(true);
   });
 
   test('create-feature-branch.cjs creates and switches to feature branch', () => {

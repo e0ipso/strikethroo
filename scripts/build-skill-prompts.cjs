@@ -305,6 +305,14 @@ function main() {
       );
     }
 
+    // Validate current assembled output, not a stale SKILL.md from a prior build.
+    for (const [, script] of output.matchAll(/scripts\/([\w.-]+\.cjs)/g)) {
+      const scriptPath = path.join(targetDir, 'scripts', script);
+      if (!fs.existsSync(scriptPath)) {
+        throw new Error(`${meta.target}: references missing script scripts/${script}`);
+      }
+    }
+
     const outPath = path.join(targetDir, 'SKILL.md');
     fs.writeFileSync(outPath, output, 'utf8');
     process.stdout.write(`  assembled ${meta.target}/SKILL.md\n`);

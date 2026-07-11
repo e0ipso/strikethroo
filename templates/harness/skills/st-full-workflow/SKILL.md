@@ -403,11 +403,25 @@ Read `<root>/config/hooks/PRE_PHASE.md` and execute its instructions before star
 ##### 5b. Task dispatch
 Identify all tasks scheduled for this phase whose dependencies are fully satisfied. Read `<root>/config/hooks/PRE_TASK_ASSIGNMENT.md` and follow its instructions for agent selection before dispatching tasks.
 
-For each selected task, before native dispatch run:
+Resolve every selected task's execution route first. Invoke one resolver per selected
+task simultaneously in a single parallel tool operation:
 
 ```text
-scripts/dispatch-task-execution.cjs <task-file> <current-harness> <workspace> <plan-id> <task-id>
+scripts/dispatch-task-execution.cjs resolve <task-file> <current-harness> <workspace> <plan-id> <task-id>
 ```
+
+Resolvers never launch external processes. After interpreting all route results, issue
+all `external-override` executions and all native Task-tool agents **together in one
+parallel tool operation**. External execution uses:
+
+```text
+scripts/dispatch-task-execution.cjs execute <task-file> <current-harness> <workspace> <plan-id> <task-id>
+```
+
+This two-step protocol is mandatory: do not execute external tasks during route
+resolution, do not serialize external commands, and do not wait for external completion
+before launching ready native agents. If an execute-time pre-flight returns `fallback`,
+record its reason and immediately launch the ordinary native path without override prose.
 
 `<current-harness>` is the exact supported harness identifier running this
 skill and `<workspace>` is the project working directory. Interpret its JSON
@@ -417,7 +431,11 @@ reasoning-effort prose only when returned; `fallback` visibly records its
 reason then uses ordinary native dispatch with no override prose;
 `launched-success` has already completed externally and receives normal status
 and evidence review; `launched-failure` is a failed task and must enter the
-existing error-hook/status path without any native retry.
+existing error-hook/status path without any native retry; `infrastructure-failure`
+is also a failed task, must be marked failed, and must run
+`<root>/config/hooks/POST_ERROR_DETECTION.md` without native retry. The command
+always emits exactly one JSON line; exit code `2` identifies entrypoint/infrastructure
+failure while exit code `1` identifies a launched task failure.
 
 Deploy all remaining native agents simultaneously using your internal Task tool. Each agent MUST:
 

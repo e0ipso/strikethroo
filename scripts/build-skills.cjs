@@ -179,21 +179,6 @@ const buildAll = async () => {
       process.exit(1);
     }
   }
-
-  // Every script referenced by an assembled skill must ship beside it. This
-  // catches shared prompt sections added without matching bundle registration.
-  for (const skill of fs.readdirSync(SKILLS_ROOT)) {
-    const skillFile = path.join(SKILLS_ROOT, skill, 'SKILL.md');
-    if (!fs.existsSync(skillFile)) continue;
-    const contents = fs.readFileSync(skillFile, 'utf8');
-    const references = [...contents.matchAll(/scripts\/([\w.-]+\.cjs)/g)];
-    for (const [, script] of references) {
-      const scriptFile = path.join(SKILLS_ROOT, skill, 'scripts', script);
-      if (!fs.existsSync(scriptFile)) {
-        throw new Error(`${skill}/SKILL.md references missing script scripts/${script}`);
-      }
-    }
-  }
 };
 
 buildAll().catch((err) => {

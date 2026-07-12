@@ -1,3 +1,7 @@
+## 3.11.0 (2026-07-12)
+
+* feat: introduce manifest-driven harness adapter registry (#56) ([08eb81c](https://github.com/e0ipso/strikethroo/commit/08eb81c)), closes [#56](https://github.com/e0ipso/strikethroo/issues/56) [#30](https://github.com/e0ipso/strikethroo/issues/30)
+
 ## 3.10.0 (2026-07-11)
 
 * feat: add task execution overrides (#53) ([b1231fa](https://github.com/e0ipso/strikethroo/commit/b1231fa)), closes [#53](https://github.com/e0ipso/strikethroo/issues/53)

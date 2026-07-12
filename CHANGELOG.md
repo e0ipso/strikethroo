@@ -1,3 +1,7 @@
+## 3.12.0 (2026-07-12)
+
+* feat: automate task execution routing during generation (#55) ([4cfb813](https://github.com/e0ipso/strikethroo/commit/4cfb813)), closes [#55](https://github.com/e0ipso/strikethroo/issues/55) [#53-compatible](https://github.com/e0ipso/strikethroo/issues/53-compatible) [#53](https://github.com/e0ipso/strikethroo/issues/53)
+
 ## 3.11.0 (2026-07-12)
 
 * feat: introduce manifest-driven harness adapter registry (#56) ([08eb81c](https://github.com/e0ipso/strikethroo/commit/08eb81c)), closes [#56](https://github.com/e0ipso/strikethroo/issues/56) [#30](https://github.com/e0ipso/strikethroo/issues/30)

@@ -169,14 +169,18 @@ The slug derives from a short task title: lowercase, alphanumeric and hyphens on
 
 {{include sections/validation-checklist.md}}
 
-#### 11. Run the POST_TASK_GENERATION_ALL hook
+#### 11. Route task execution
 
-Read `<root>/config/hooks/POST_TASK_GENERATION_ALL.md` and follow its instructions. This typically requires:
+{{include sections/task-execution-routing.md}}
+
+#### 12. Run the POST_TASK_GENERATION_ALL hook
+
+Read `<root>/config/hooks/POST_TASK_GENERATION_ALL.md` and follow its instructions. Run it only after routing succeeded or reported routing off. This typically requires:
 
 - Appending an Execution Blueprint section to the plan document, including a Mermaid dependency diagram and explicit phase groupings.
 - Use `<root>/config/templates/BLUEPRINT_TEMPLATE.md` for structure.
 
-#### 12. Emit the Phase 2 structured summary
+#### 13. Emit the Phase 2 structured summary
 
 Conclude Phase 2 with exactly this block:
 
@@ -249,6 +253,7 @@ Read these files in order:
 - **Plan ID script fails.** Re-check the resolved root and re-run. If it continues to fail, surface stderr to the user and stop — do not guess an ID.
 - **Plan directory already exists for the allocated ID in Phase 1.** Re-run the next-plan-id script and retry once. If the conflict persists, stop and report.
 - **Plan ID does not resolve in Phase 2 or 3.** Stop and surface the script's stderr. Do not guess a different ID.
+- **Execution routing fails in Phase 2.** Surface the routing helper's JSON errors and stop before blueprint generation. Do not guess profile assignments, hand-write `execution` frontmatter, or continue with partially routed tasks.
 - **Missing blueprint after auto-generation in Phase 3.** If automatic task generation fails to produce tasks or a blueprint, stop and report failure. Do not attempt execution without a blueprint.
 - **Hook failure during execution.** If `PRE_PHASE.md`, `POST_PHASE.md`, or `POST_EXECUTION.md` fails, halt execution. The plan remains in `plans/` for debugging and potential re-execution.
 - **Execution errors.** If a task fails, read `<root>/config/hooks/POST_ERROR_DETECTION.md`, document the error in Noteworthy Events, halt the phase, and request user direction before continuing.

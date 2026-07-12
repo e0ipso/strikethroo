@@ -76,6 +76,10 @@ Each `SKILL.md` is assembled at build time from source templates in `src/skill-p
 
 Enforcement disciplines shared **across** skills are not baked into each `SKILL.md`; they ship as required, project-customizable files under `config/shared/` (copied into the workspace by `init`, hash-tracked like hooks) and the skills read them **at runtime**. The three files: `verification-gate.md` (evidence-before-claims gate, applied at `st-execute-blueprint`/`st-full-workflow` phase-completion and post-execution), `clarification-gate.md` (one-question-at-a-time, multiple-choice-first, pre-emit approval, used by `st-create-plan`/`st-refine-plan`), and `anti-rationalization.md` (the excuse → red-flag framing; each consuming skill — `st-create-plan`, `st-generate-tasks`, `st-execute-blueprint` — supplies its own skill-specific rationalization table inline and points the agent at this shared framing). Because these files are required workspace shape, `CURRENT_WORKSPACE_SCHEMA_VERSION` is bumped; older workspaces must rerun `npx strikethroo init` before using updated skills. This mirrors how the `PRE_TASK_EXECUTION` TDD hook is shared.
 
+### Execution routing (automatic task model assignment)
+
+During task generation (`st-generate-tasks` and the task-generation phase of `st-full-workflow`), each task is classified in-context into a named **execution profile** from `config/execution-routing.yaml` (guided by the `TASK_EXECUTION_ROUTING.md` hook), then the bundled `route-task-execution.cjs` helper deterministically writes the selected target as the task's exact `execution` frontmatter — the PR #53 contract (`model` required exact string, optional `harness`/`reasoning_effort`, no aliases/defaults/inheritance). Profiles carry arbitrary user-defined names, mandatory LLM-facing descriptions, and ordered non-empty target arrays; the default resolver picks the first target, and one optional global resolver script (referenced from the config, stdin JSON → `{"selections": {"<taskId>": <candidateIndex>}}`) may pick a later in-profile candidate. Profile names are never persisted; missing/duplicate/unknown assignments, malformed targets, and resolver failures abort routing atomically before blueprint generation (`POST_TASK_GENERATION_ALL` stays blueprint-only and runs after routing). The shipped config is `profiles: {}` (routing disabled — tasks get no `execution` metadata); the YAML is hash-tracked by `init` but deliberately not editable in the Customize UI. Source: `src/skill-scripts/shared/execution-routing.ts` + `src/skill-scripts/route-task-execution.ts`; prompt section: `src/skill-prompts/sections/task-execution-routing.md`.
+
 ---
 
 ## Serve Feature (`src/serve/`)
@@ -151,7 +155,7 @@ Note the two sibling directories under `templates/harness/`: `skills/` is instal
 
 ## Schema Version Contract
 
-`.ai/strikethroo/.init-metadata.json` carries `workspaceSchemaVersion` (current `3`), distinct from the CLI's `version` string. It changes only when the workspace shape (hook names, required templates, directory structure) changes incompatibly. Single source of truth: `CURRENT_WORKSPACE_SCHEMA_VERSION` in `src/metadata.ts`. Upgrade path: re-run `npx strikethroo init`.
+`.ai/strikethroo/.init-metadata.json` carries `workspaceSchemaVersion` (current `4`), distinct from the CLI's `version` string. It changes only when the workspace shape (hook names, required templates, directory structure) changes incompatibly. Single source of truth: `CURRENT_WORKSPACE_SCHEMA_VERSION` in `src/metadata.ts`. Upgrade path: re-run `npx strikethroo init`.
 
 Skills bake `EXPECTED_WORKSPACE_SCHEMA_VERSION` into each `.cjs` via esbuild's `define`. At runtime `src/skill-scripts/shared/root.ts` compares the workspace value against the baked value:
 
@@ -191,10 +195,13 @@ project/
 │   ├── archive/                   # Completed plans
 │   ├── config/
 │   │   ├── STRIKETHROO.md         # Project context
+│   │   ├── execution-routing.yaml # Execution profiles for automatic task routing (ships disabled:
+│   │   │                          #   profiles: {}); optional single global resolver reference
 │   │   ├── hooks/                 # PRE_PLAN, POST_PLAN, PRE_PHASE, POST_PHASE, PRE_TASK_ASSIGNMENT,
 │   │   │                          #   PRE_TASK_EXECUTION (ships a default, overridable TDD red-green-refactor
-│   │   │                          #   discipline that defers to the test philosophy), POST_TASK_GENERATION_ALL,
-│   │   │                          #   POST_EXECUTION, POST_ERROR_DETECTION
+│   │   │                          #   discipline that defers to the test philosophy), TASK_EXECUTION_ROUTING
+│   │   │                          #   (in-context profile classification during task generation),
+│   │   │                          #   POST_TASK_GENERATION_ALL, POST_EXECUTION, POST_ERROR_DETECTION
 │   │   ├── shared/                # Cross-skill disciplines read at runtime: verification-gate.md,
 │   │   │                          #   clarification-gate.md, anti-rationalization.md
 │   │   └── templates/             # PLAN_TEMPLATE.md, TASK_TEMPLATE.md

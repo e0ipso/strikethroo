@@ -47,7 +47,7 @@ const buildFixture = (): string => {
   fs.mkdirSync(path.join(root, 'archive'), { recursive: true });
   fs.writeFileSync(
     path.join(root, '.init-metadata.json'),
-    JSON.stringify({ version: '0.0.0', workspaceSchemaVersion: 3 }),
+    JSON.stringify({ version: '0.0.0', workspaceSchemaVersion: 4 }),
     'utf8'
   );
   fs.cpSync(SHARED_CONFIG, path.join(root, 'config'), { recursive: true });

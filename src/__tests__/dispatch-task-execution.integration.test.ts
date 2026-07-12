@@ -61,9 +61,12 @@ describe('dispatch task execution entrypoint', () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'st-dispatch-'));
     const bundle = makeBundle(directory);
     const executable = path.join(directory, 'claude');
+    // /bin/rm is absolute because the constrained PATH below contains only the
+    // temp directory; the constraint keeps a real `claude` elsewhere on the
+    // host PATH from being found once this fake deletes itself.
     fs.writeFileSync(
       executable,
-      '#!/bin/sh\nif [ "$1" = "auth" ]; then rm -- "$0"; exit 0; fi\nexit 0\n',
+      '#!/bin/sh\nif [ "$1" = "auth" ]; then /bin/rm -- "$0"; exit 0; fi\nexit 0\n',
       { mode: 0o700 }
     );
     const taskFile = path.join(directory, 'task.md');
@@ -73,7 +76,7 @@ describe('dispatch task execution entrypoint', () => {
     );
     const result = run(bundle, [taskFile, 'codex', directory, '12', '3'], {
       ...process.env,
-      PATH: `${directory}${path.delimiter}${process.env.PATH ?? ''}`,
+      PATH: directory,
     });
 
     expect(result.status).toBe(2);

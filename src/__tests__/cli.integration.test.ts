@@ -58,6 +58,14 @@ describe('CLI Integration', () => {
     expect(
       await fs.pathExists(path.join(baseDir, '.ai/strikethroo/config/hooks/POST_PHASE.md'))
     ).toBe(true);
+    expect(
+      await fs.pathExists(
+        path.join(baseDir, '.ai/strikethroo/config/hooks/TASK_EXECUTION_ROUTING.md')
+      )
+    ).toBe(true);
+    expect(
+      await fs.pathExists(path.join(baseDir, '.ai/strikethroo/config/execution-routing.yaml'))
+    ).toBe(true);
   };
 
   describe('Basic CLI Functionality', () => {

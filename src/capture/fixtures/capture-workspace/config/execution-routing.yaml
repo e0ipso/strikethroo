@@ -1,0 +1,61 @@
+# Execution routing configuration
+#
+# During task generation, each newly generated task is classified into one of
+# the profiles below (see hooks/TASK_EXECUTION_ROUTING.md) and the routing
+# helper writes the selected target into the task's exact `execution`
+# frontmatter mapping.
+#
+# - Profile names are arbitrary, project-defined routing concepts. Nothing in
+#   Strikethroo depends on any particular name.
+# - `description` is the LLM-facing contract. Describe WHEN the profile
+#   applies (the kind of work, its risk, its complexity) — do not merely
+#   restate the model name.
+# - `models` is an ordered, non-empty priority list of exact execution
+#   targets. The bundled default resolver always selects the FIRST entry;
+#   later entries exist for an optional custom resolver to choose between.
+# - Each target uses exact, harness-specific identifiers copied verbatim into
+#   task frontmatter: `model` is required; `harness` and `reasoning_effort`
+#   are optional. There are no aliases, implicit defaults, model discovery,
+#   or model-name translation.
+#
+# Routing is disabled while `profiles` is empty: tasks are generated without
+# `execution` metadata, exactly as if this file did not exist.
+profiles: {}
+
+# Illustrative example (adapt names, descriptions, and identifiers to your
+# project — these model identifiers are examples, not recommendations):
+#
+# profiles:
+#   routine:
+#     description: >
+#       Localized, well-specified changes with low integration risk and a low
+#       complexity score. No new architecture, no cross-cutting concerns.
+#     models:
+#       - model: claude-haiku-4-5-20251001
+#   demanding:
+#     description: >
+#       Cross-cutting or high-risk work: new architecture, security-sensitive
+#       code, multi-module refactors, or tasks with a high complexity score.
+#     models:
+#       - model: claude-opus-4-8
+#         reasoning_effort: high
+#       - harness: codex
+#         model: exact-codex-model-id
+#
+# One optional global custom resolver may replace the default first-target
+# choice (it never performs task-to-profile classification, and per-profile
+# resolvers are not supported). It receives the classified tasks and their
+# candidate targets as JSON on stdin and must print a JSON object selecting
+# one candidate index per task:
+#
+#   stdin:  {"planId": 12, "tasks": [{"id": 1, "profile": "routine",
+#            "candidates": [{"model": "..."}]}]}
+#   stdout: {"selections": {"1": 0}}
+#
+# The script path is resolved relative to the project root (the directory
+# containing `.ai/`). A `.js`/`.cjs`/`.mjs` script runs under node; anything
+# else is executed directly. Any resolver failure aborts task routing — no
+# partially annotated tasks are left behind.
+#
+# resolver:
+#   script: ./scripts/select-execution-target.cjs

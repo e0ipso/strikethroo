@@ -54,15 +54,24 @@ describe('workspace-model against the committed fixture workspace', () => {
     expect(archived.length).toBeGreaterThan(0);
   });
 
-  it('enumerates 9 config hooks and 4 config templates with id, file, and content', () => {
+  it('enumerates 10 config hooks and 4 config templates with id, file, and content', () => {
     const config = getConfig(FIXTURE_ROOT);
-    expect(config.hooks).toHaveLength(9);
+    expect(config.hooks).toHaveLength(10);
     expect(config.templates).toHaveLength(4);
+    expect(config.hooks.map(h => h.id)).toContain('TASK_EXECUTION_ROUTING');
     for (const entry of [...config.hooks, ...config.templates]) {
       expect(entry.id.length).toBeGreaterThan(0);
       expect(entry.file.length).toBeGreaterThan(0);
       expect(typeof entry.content).toBe('string');
     }
+  });
+
+  it('keeps execution-routing.yaml off the editable config surface (filesystem-only)', () => {
+    // The structured routing configuration deliberately does not appear in
+    // the Customize UI: getConfig exposes only Markdown hooks and templates.
+    const config = getConfig(FIXTURE_ROOT);
+    const files = [...config.hooks, ...config.templates].map(e => e.relPath);
+    expect(files.some(f => f.includes('execution-routing'))).toBe(false);
   });
 });
 
@@ -72,7 +81,7 @@ describe('workspace-model against synthetic fixtures', () => {
   const writeMetadata = (root: string): void => {
     fs.writeFileSync(
       path.join(root, '.init-metadata.json'),
-      JSON.stringify({ version: '0.0.0', workspaceSchemaVersion: 3 }),
+      JSON.stringify({ version: '0.0.0', workspaceSchemaVersion: 4 }),
       'utf8'
     );
   };

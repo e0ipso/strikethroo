@@ -63,7 +63,7 @@ Prefer reading it rendered? `npx strikethroo serve` shows the plan document with
 
 > /st-generate-tasks 1
 
-The `st-generate-tasks` skill breaks the plan into atomic tasks (1-2 skills each), maps dependencies, assigns a `complexity_score` to every task, and produces an execution blueprint organized into phases of parallel work. The [`POST_TASK_GENERATION_ALL`](customization.html#post_task_generation_all) hook runs once all task files exist; it is blueprint-only and does not revisit complexity analysis.
+The `st-generate-tasks` skill breaks the plan into atomic tasks (1-2 skills each), maps dependencies, assigns a `complexity_score` to every task, and produces an execution blueprint organized into phases of parallel work. If [execution routing](customization.html#execution-routing) is configured, each task is also classified into a configured execution profile and receives exact `execution` frontmatter (model, optional harness and reasoning effort) automatically — the [`TASK_EXECUTION_ROUTING`](customization.html#task_execution_routing) hook governs that step. The [`POST_TASK_GENERATION_ALL`](customization.html#post_task_generation_all) hook runs only after routing succeeds (or reports routing off); it is blueprint-only and does not revisit complexity analysis.
 
 **Output**: `.ai/strikethroo/plans/01--user-authentication/tasks/*.md`
 

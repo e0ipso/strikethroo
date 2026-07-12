@@ -59,6 +59,12 @@ The LLM validates the plan: does it cover the requirements? Does it include a se
 
 The LLM generates the execution blueprint with dependency diagrams and phase groupings. Complexity analysis happens earlier, during `st-generate-tasks`; this hook only assembles the blueprint. Customize phase rules or add project-specific blueprint conventions.
 
+#### TASK_EXECUTION_ROUTING
+
+**When:** During task generation, after all task files exist and before the execution blueprint is generated.
+
+The LLM classifies every freshly generated task into one of the execution profiles configured in `config/execution-routing.yaml`, using the task content still in its context (`skills`, `complexity_score`, objective, acceptance criteria). A bundled deterministic helper then writes each task's exact `execution` frontmatter — the LLM never chooses model identifiers directly, and profile names are never persisted. Add project-specific classification guidance here ("treat anything touching billing as demanding"). See [Execution routing](#execution-routing) below for the configuration itself.
+
 #### PRE_TASK_ASSIGNMENT
 
 **When:** Before dispatching each task to a sub-agent.
@@ -112,6 +118,41 @@ Cross-skill enforcement rules live in `.ai/strikethroo/config/shared/` (copied b
 | `verification-gate.md` | Blueprint execution | Evidence before any "done" or "passing" claim |
 
 Edit these files to tune project discipline. Empty a file to disable that shared rule set. `init` preserves your edits unless `--force` is used.
+
+## Execution routing
+
+`.ai/strikethroo/config/execution-routing.yaml` defines named **execution profiles** that automatically assign a model (and optionally a harness and reasoning effort) to every generated task. It ships with `profiles: {}`, which disables routing: tasks are generated without `execution` metadata, exactly as before the file existed. The file is hash-tracked by `init` like hooks, but it is deliberately **not** editable in the Customize view — edit it on the filesystem.
+
+```yaml
+profiles:
+  routine:
+    description: >
+      Localized, well-specified changes with low integration risk and a low
+      complexity score.
+    models:
+      - model: exact-model-id
+  demanding:
+    description: >
+      Cross-cutting or high-risk work requiring stronger reasoning.
+    models:
+      - model: exact-stronger-model-id
+        reasoning_effort: high
+      - harness: codex
+        model: exact-codex-model-id
+
+resolver:
+  script: ./scripts/select-execution-target.cjs   # optional
+```
+
+How the pieces divide responsibility:
+
+- **Profile names are yours.** They are arbitrary routing concepts — nothing in Strikethroo depends on particular names.
+- **Descriptions are the contract.** During task generation the LLM matches each task against them, so describe *when* a profile applies (kind of work, risk, complexity) rather than restating a model name. Weak: "Uses the big model." Strong: "Cross-cutting refactors, security-sensitive code, or tasks scoring 7+ complexity."
+- **`models` order is priority.** The bundled default resolver always picks the **first** target of the assigned profile. Later entries exist only for a custom resolver to choose between.
+- **Targets are exact.** `model` is required and copied verbatim into the task's `execution` frontmatter ([PR #53](https://github.com/e0ipso/strikethroo/pull/53) semantics); `harness` and `reasoning_effort` are optional, with no aliases, defaults, discovery, or translation. Only configured targets can ever be written.
+- **One optional global resolver.** Advanced policies (price, quota, usage, telemetry) go in a single script referenced by `resolver.script` (repository-relative; `.js`/`.cjs`/`.mjs` runs under node, anything else executes directly). It receives `{"planId": …, "tasks": [{"id", "profile", "candidates"}]}` on stdin and must print `{"selections": {"<taskId>": <candidateIndex>}}`. It selects *within* the LLM-assigned profile — it never reclassifies tasks, and per-profile resolvers are rejected. Any resolver failure aborts task generation; no partially routed tasks are left behind.
+
+Routing runs inside `st-generate-tasks` (and the task-generation phase of `st-full-workflow`) after task files are emitted and before `POST_TASK_GENERATION_ALL` assembles the blueprint. The transient task-to-profile mapping is never persisted — the durable contract is each task's exact `execution` mapping.
 
 ## Templates
 

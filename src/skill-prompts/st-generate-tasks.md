@@ -95,10 +95,15 @@ hyphens only, collapsed, trimmed.
 
 {{include sections/validation-checklist.md}}
 
-### 12. Run the POST_TASK_GENERATION_ALL hook
+### 12. Route task execution
+
+{{include sections/task-execution-routing.md}}
+
+### 13. Run the POST_TASK_GENERATION_ALL hook
 
 Read `<root>/config/hooks/POST_TASK_GENERATION_ALL.md` and follow its
-instructions. This typically requires:
+instructions. Run it only after routing succeeded or reported routing off.
+This typically requires:
 
 - Appending an Execution Blueprint section to the plan document, including a
   Mermaid dependency diagram and explicit phase groupings (Phase 1 contains
@@ -106,7 +111,7 @@ instructions. This typically requires:
   dependencies all live in earlier phases). Use
   `<root>/config/templates/BLUEPRINT_TEMPLATE.md` for structure.
 
-### 13. Emit the structured summary
+### 14. Emit the structured summary
 
 Conclude with exactly this block as the final output:
 
@@ -131,3 +136,7 @@ The summary is consumed by downstream automation; keep the format exact.
   task's "Implementation Notes". Do not invent answers.
 - **A helper script fails unexpectedly.** Surface stderr to the user and
   stop — do not fall back to manual ID allocation or path discovery.
+- **Execution routing fails.** Surface the routing helper's JSON errors and
+  stop before blueprint generation. Do not guess profile assignments, do not
+  hand-write `execution` frontmatter, and do not continue with partially
+  routed tasks.

@@ -31,6 +31,11 @@ beforeEach(() => {
     '# plan template\n',
     'utf8'
   );
+  fs.writeFileSync(
+    path.join(root, 'config', 'config.yaml'),
+    'execution_routing:\n  profiles: {}\n',
+    'utf8'
+  );
   // A secret file outside config/<kind>/ to assert traversal never reaches it.
   fs.writeFileSync(path.join(root, 'secret.md'), '# do not touch\n', 'utf8');
 });
@@ -83,6 +88,28 @@ describe('writeConfigFile', () => {
     const result = await writeConfigFile(root, 'hooks', 'SAMPLE', next);
     expect(result).toEqual({ ok: true });
     expect(fs.readFileSync(path.join(root, 'config', 'hooks', 'SAMPLE.md'), 'utf8')).toBe(next);
+  });
+
+  it('overwrites the workspace config.yaml via the workspace kind', async () => {
+    const next =
+      'execution_routing:\n  profiles:\n    routine:\n      description: d\n      models:\n        - model: m\n';
+    const result = await writeConfigFile(root, 'workspace', 'config', next);
+    expect(result).toEqual({ ok: true });
+    expect(fs.readFileSync(path.join(root, 'config', 'config.yaml'), 'utf8')).toBe(next);
+  });
+
+  it('rejects any workspace id other than "config" with invalid-id', async () => {
+    const result = await writeConfigFile(root, 'workspace', 'other', 'x');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('invalid-id');
+  });
+
+  it('reports not-found for the workspace kind when config.yaml is absent', async () => {
+    fs.rmSync(path.join(root, 'config', 'config.yaml'));
+    const result = await writeConfigFile(root, 'workspace', 'config', 'x');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('not-found');
+    expect(fs.existsSync(path.join(root, 'config', 'config.yaml'))).toBe(false);
   });
 
   it('overwrites an existing template verbatim', async () => {

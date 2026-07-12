@@ -27,6 +27,7 @@ export default defineConfig({
       'src/__tests__/workspace-model.integration.test.ts',
       'src/web/__tests__/router.test.ts',
       'src/web/archive/__tests__/helpers.test.tsx',
+      'src/web/customize/__tests__/configYaml.test.ts',
       'src/web/components/__tests__/railCollapse.test.ts',
       'src/web/plans/__tests__/derive.test.ts',
       'src/web/plans/__tests__/taskNav.test.ts',

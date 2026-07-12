@@ -15,33 +15,39 @@ import {
   selectTargets,
   toExecutionMapping,
   writeExecutionFrontmatter,
-  ROUTING_CONFIG_RELPATH,
+  WORKSPACE_CONFIG_RELPATH,
   type RoutingConfig,
 } from '../skill-scripts/shared/execution-routing';
 import { readTaskExecutionPolicy } from '../skill-scripts/shared/execution-policy';
 import { SUPPORTED_HARNESSES } from '../types';
 
 const VALID_CONFIG = `
-profiles:
-  routine:
-    description: >
-      Localized low-risk work.
-    models:
-      - model: haiku-x
-  demanding:
-    description: Cross-cutting risky work.
-    models:
-      - model: opus-x
-        reasoning_effort: high
-      - harness: codex
-        model: codex-x
+# config.yaml is generic: foreign sections belong to other features.
+other_feature:
+  flag: true
+execution_routing:
+  profiles:
+    routine:
+      description: >
+        Localized low-risk work.
+      models:
+        - model: haiku-x
+    demanding:
+      description: Cross-cutting risky work.
+      models:
+        - model: opus-x
+          reasoning_effort: high
+        - harness: codex
+          model: codex-x
 `;
+
+const RESOLVER_SUFFIX = '  resolver:\n    script: ./scripts/pick.cjs\n';
 
 describe('loadRoutingConfig', () => {
   let tempDir: string;
 
   const writeConfig = (contents: string): string => {
-    const configPath = path.join(tempDir, ROUTING_CONFIG_RELPATH);
+    const configPath = path.join(tempDir, WORKSPACE_CONFIG_RELPATH);
     fs.mkdirSync(path.dirname(configPath), { recursive: true });
     fs.writeFileSync(configPath, contents);
     return tempDir;
@@ -55,30 +61,33 @@ describe('loadRoutingConfig', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('returns no-config when the file is absent', () => {
+  it('returns no-config when config.yaml is absent', () => {
     expect(loadRoutingConfig(tempDir, SUPPORTED_HARNESSES).kind).toBe('no-config');
   });
 
-  it('returns disabled when profiles is an empty mapping', () => {
-    writeConfig('profiles: {}\n');
+  it.each([
+    ['profiles is an empty mapping', 'execution_routing:\n  profiles: {}\n'],
+    [
+      'a bare profiles key with everything commented out',
+      'execution_routing:\n  profiles:\n#   routine:\n',
+    ],
+    ['config.yaml has no execution_routing section', 'other_feature:\n  flag: true\n'],
+    ['config.yaml contains only comments', '# nothing configured yet\n'],
+  ])('returns disabled when %s', (_label, contents) => {
+    writeConfig(contents);
     expect(loadRoutingConfig(tempDir, SUPPORTED_HARNESSES).kind).toBe('disabled');
   });
 
-  it('returns disabled for a bare profiles key with everything commented out', () => {
-    writeConfig('profiles:\n# routine:\n#   description: d\n');
-    expect(loadRoutingConfig(tempDir, SUPPORTED_HARNESSES).kind).toBe('disabled');
-  });
-
-  it('returns disabled for the shipped template (comments only + empty profiles)', () => {
+  it('returns disabled for the shipped template (routing section present, profiles empty)', () => {
     const template = fs.readFileSync(
-      path.join(__dirname, '..', '..', 'templates', 'strikethroo', ROUTING_CONFIG_RELPATH),
+      path.join(__dirname, '..', '..', 'templates', 'strikethroo', WORKSPACE_CONFIG_RELPATH),
       'utf8'
     );
     writeConfig(template);
     expect(loadRoutingConfig(tempDir, SUPPORTED_HARNESSES).kind).toBe('disabled');
   });
 
-  it('parses valid profiles preserving names, descriptions, and target order', () => {
+  it('parses valid profiles, ignoring foreign top-level sections', () => {
     writeConfig(VALID_CONFIG);
     const result = loadRoutingConfig(tempDir, SUPPORTED_HARNESSES);
     expect(result.kind).toBe('config');
@@ -93,7 +102,7 @@ describe('loadRoutingConfig', () => {
   });
 
   it('parses the optional global resolver', () => {
-    writeConfig(`${VALID_CONFIG}resolver:\n  script: ./scripts/pick.cjs\n`);
+    writeConfig(`${VALID_CONFIG}${RESOLVER_SUFFIX}`);
     const result = loadRoutingConfig(tempDir, SUPPORTED_HARNESSES);
     expect(result.kind).toBe('config');
     if (result.kind !== 'config') return;
@@ -101,32 +110,39 @@ describe('loadRoutingConfig', () => {
   });
 
   it.each([
-    ['not valid YAML', 'profiles: {'],
+    ['not valid YAML', 'execution_routing: {'],
     ['a non-mapping document', '- just\n- a list\n'],
-    ['a missing profiles mapping', 'resolver:\n  script: ./x\n'],
-    ['a profile without a description', 'profiles:\n  a:\n    models:\n      - model: m\n'],
+    ['a non-mapping execution_routing section', 'execution_routing: 7\n'],
+    ['a routing section without profiles', 'execution_routing:\n  resolver:\n    script: ./x\n'],
+    [
+      'a profile without a description',
+      'execution_routing:\n  profiles:\n    a:\n      models:\n        - model: m\n',
+    ],
     [
       'a profile with an empty models array',
-      'profiles:\n  a:\n    description: d\n    models: []\n',
+      'execution_routing:\n  profiles:\n    a:\n      description: d\n      models: []\n',
     ],
     [
       'a target without a model',
-      'profiles:\n  a:\n    description: d\n    models:\n      - harness: codex\n',
+      'execution_routing:\n  profiles:\n    a:\n      description: d\n      models:\n        - harness: codex\n',
     ],
     [
       'a target with an unknown key',
-      'profiles:\n  a:\n    description: d\n    models:\n      - model: m\n        temperature: 1\n',
+      'execution_routing:\n  profiles:\n    a:\n      description: d\n      models:\n        - model: m\n          temperature: 1\n',
     ],
     [
       'a target with an unsupported harness',
-      'profiles:\n  a:\n    description: d\n    models:\n      - model: m\n        harness: nope\n',
+      'execution_routing:\n  profiles:\n    a:\n      description: d\n      models:\n        - model: m\n          harness: nope\n',
     ],
     [
       'a non-string reasoning_effort',
-      'profiles:\n  a:\n    description: d\n    models:\n      - model: m\n        reasoning_effort: 3\n',
+      'execution_routing:\n  profiles:\n    a:\n      description: d\n      models:\n        - model: m\n          reasoning_effort: 3\n',
     ],
-    ['an unknown top-level key', `${VALID_CONFIG}extra: true\n`],
-    ['a resolver without a script', `${VALID_CONFIG}resolver: {}\n`],
+    [
+      'an unknown key inside the routing section',
+      'execution_routing:\n  profiles: {}\n  extra: true\n',
+    ],
+    ['a resolver without a script', `${VALID_CONFIG}  resolver: {}\n`],
   ])('rejects %s', (_label, contents) => {
     writeConfig(contents);
     const result = loadRoutingConfig(tempDir, SUPPORTED_HARNESSES);
@@ -137,7 +153,7 @@ describe('loadRoutingConfig', () => {
 
   it('rejects a per-profile resolver with a pointed error', () => {
     writeConfig(
-      'profiles:\n  a:\n    description: d\n    resolver: ./x\n    models:\n      - model: m\n'
+      'execution_routing:\n  profiles:\n    a:\n      description: d\n      resolver: ./x\n      models:\n        - model: m\n'
     );
     const result = loadRoutingConfig(tempDir, SUPPORTED_HARNESSES);
     expect(result.kind).toBe('invalid');

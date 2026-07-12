@@ -63,7 +63,7 @@ The LLM generates the execution blueprint with dependency diagrams and phase gro
 
 **When:** During task generation, after all task files exist and before the execution blueprint is generated.
 
-The LLM classifies every freshly generated task into one of the execution profiles configured in `config/execution-routing.yaml`, using the task content still in its context (`skills`, `complexity_score`, objective, acceptance criteria). A bundled deterministic helper then writes each task's exact `execution` frontmatter — the LLM never chooses model identifiers directly, and profile names are never persisted. Add project-specific classification guidance here ("treat anything touching billing as demanding"). See [Execution routing](#execution-routing) below for the configuration itself.
+The LLM classifies every freshly generated task into one of the execution profiles configured in the `execution_routing` section of `config/config.yaml`, using the task content still in its context (`skills`, `complexity_score`, objective, acceptance criteria). A bundled deterministic helper then writes each task's exact `execution` frontmatter — the LLM never chooses model identifiers directly, and profile names are never persisted. Add project-specific classification guidance here ("treat anything touching billing as demanding"). See [Execution routing](#execution-routing) below for the configuration itself.
 
 #### PRE_TASK_ASSIGNMENT
 
@@ -119,29 +119,39 @@ Cross-skill enforcement rules live in `.ai/strikethroo/config/shared/` (copied b
 
 Edit these files to tune project discipline. Empty a file to disable that shared rule set. `init` preserves your edits unless `--force` is used.
 
-## Execution routing
+## Workspace configuration
 
-`.ai/strikethroo/config/execution-routing.yaml` defines named **execution profiles** that automatically assign a model (and optionally a harness and reasoning effort) to every generated task. It ships with `profiles: {}`, which disables routing: tasks are generated without `execution` metadata, exactly as before the file existed. The file is hash-tracked by `init` like hooks, but it is deliberately **not** editable in the Customize view — edit it on the filesystem.
+`.ai/strikethroo/config/config.yaml` is the workspace's single structured configuration file. Every configurable feature claims one **top-level section** in it — there are no per-feature YAML files, and future features add sections here rather than new files. It is hash-tracked by `init` like hooks, and there are two ways to edit it:
+
+- **The Customize view's Config tab** — the web app's UI for setting up config.yaml. It renders a structured form for each section it understands (today: execution routing) and preserves any other top-level sections on save. Populating the form is a manual process; note that saving from the UI rewrites the file, so hand-written YAML comments are not preserved.
+- **Directly on the filesystem** — any editor works; the file is plain YAML.
+
+### Execution routing
+
+The `execution_routing` section defines named **execution profiles** that automatically assign a model (and optionally a harness and reasoning effort) to every generated task. It ships with `profiles: {}`, which disables routing: tasks are generated without `execution` metadata, exactly as before the section existed.
+
+The following configuration is **an example** — profile names, descriptions, and model identifiers are placeholders to adapt, not defaults Strikethroo recognizes:
 
 ```yaml
-profiles:
-  routine:
-    description: >
-      Localized, well-specified changes with low integration risk and a low
-      complexity score.
-    models:
-      - model: exact-model-id
-  demanding:
-    description: >
-      Cross-cutting or high-risk work requiring stronger reasoning.
-    models:
-      - model: exact-stronger-model-id
-        reasoning_effort: high
-      - harness: codex
-        model: exact-codex-model-id
+execution_routing:
+  profiles:
+    routine:
+      description: >
+        Localized, well-specified changes with low integration risk and a low
+        complexity score.
+      models:
+        - model: exact-model-id
+    demanding:
+      description: >
+        Cross-cutting or high-risk work requiring stronger reasoning.
+      models:
+        - model: exact-stronger-model-id
+          reasoning_effort: high
+        - harness: codex
+          model: exact-codex-model-id
 
-resolver:
-  script: ./scripts/select-execution-target.cjs   # optional
+  resolver:
+    script: ./scripts/select-execution-target.cjs   # optional
 ```
 
 How the pieces divide responsibility:

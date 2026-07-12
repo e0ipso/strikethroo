@@ -109,7 +109,7 @@ describe('Conflict Detection Integration Tests', () => {
       expect(metadata?.files['config/STRIKETHROO.md']).toBeDefined();
       expect(metadata?.files['config/hooks/POST_PHASE.md']).toBeDefined();
       expect(metadata?.files['config/hooks/TASK_EXECUTION_ROUTING.md']).toBeDefined();
-      expect(metadata?.files['config/execution-routing.yaml']).toBeDefined();
+      expect(metadata?.files['config/config.yaml']).toBeDefined();
     });
   });
 
@@ -165,13 +165,13 @@ describe('Conflict Detection Integration Tests', () => {
       expect(currentHash).not.toBe(originalHash);
     });
 
-    it('should detect user edits to the execution-routing configuration', async () => {
+    it('should detect user edits to the workspace config.yaml', async () => {
       await init({
         harnesses: 'claude',
         destinationDirectory: testDir,
       });
 
-      const routingFile = path.join(testDir, '.ai/strikethroo/config/execution-routing.yaml');
+      const routingFile = path.join(testDir, '.ai/strikethroo/config/config.yaml');
       const originalContent = await fs.readFile(routingFile, 'utf-8');
       await fs.writeFile(
         routingFile,
@@ -184,7 +184,7 @@ describe('Conflict Detection Integration Tests', () => {
 
       const metadataPath = path.join(testDir, '.ai/strikethroo/.init-metadata.json');
       const metadata = await loadMetadata(metadataPath);
-      const originalHash = metadata?.files['config/execution-routing.yaml'];
+      const originalHash = metadata?.files['config/config.yaml'];
       const currentHash = await calculateFileHash(routingFile);
 
       expect(originalHash).toBeDefined();

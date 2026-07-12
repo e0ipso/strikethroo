@@ -1,0 +1,23 @@
+# Strikethroo workspace configuration.
+#
+# This is the single structured configuration file for the workspace: every
+# configurable feature claims one top-level section here rather than adding
+# its own YAML file. Edit it directly or through the Config tab of the
+# Customize section in the web app (`npx strikethroo serve`) — note that
+# saving from the web UI rewrites this file and does not preserve comments.
+#
+# Sections:
+#   execution_routing — automatic task execution routing during task
+#     generation. Profiles are arbitrary, project-defined routing categories;
+#     each `description` tells the task-generation LLM when the profile
+#     applies, and `models` is an ordered priority list of exact execution
+#     targets (`model` required; `harness` and `reasoning_effort` optional;
+#     values are copied verbatim — no aliases, defaults, or translation).
+#     The first target wins unless one optional global `resolver.script`
+#     (repository-relative) selects a later candidate. Routing is disabled
+#     while `profiles` is empty. See the customization guide for the full
+#     contract and an illustrative example:
+#     https://strikethroo.canpicasoft.com/customization.html
+
+execution_routing:
+  profiles: {}

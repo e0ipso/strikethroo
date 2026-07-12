@@ -117,6 +117,8 @@ export interface ConfigFile {
 export interface Config {
   hooks: ConfigFile[];
   templates: ConfigFile[];
+  /** The structured workspace configuration `config/config.yaml`, if present. */
+  workspace: ConfigFile | null;
 }
 
 /** Identity of the project whose workspace the server is hosting. */
@@ -218,6 +220,7 @@ function withDescriptions(cfg: Config): Config {
   return {
     hooks: cfg.hooks.map(h => ({ ...h, description: descriptionFor(h.id) })),
     templates: cfg.templates.map(t => ({ ...t, description: descriptionFor(t.id) })),
+    workspace: cfg.workspace ?? null,
   };
 }
 
@@ -231,13 +234,16 @@ export function useConfig(): Resource<Config> {
 }
 
 /**
- * Overwrites an existing hook or template file via `PUT /api/config/:kind/:id`
- * with a JSON `{ content }` body — the SPA's single config write path. Resolves
- * on a 2xx response; throws an Error carrying the server's `error` message (or a
- * status-derived fallback) on any non-OK response or network failure.
+ * Overwrites an existing config file via `PUT /api/config/:kind/:id` with a
+ * JSON `{ content }` body — the SPA's single config write path. `hooks` and
+ * `templates` address Markdown files by id; the `workspace` kind (id
+ * `config`) addresses the structured `config/config.yaml` behind the Config
+ * form. Resolves on a 2xx response; throws an Error carrying the server's
+ * `error` message (or a status-derived fallback) on any non-OK response or
+ * network failure.
  */
 export async function saveConfigFile(
-  kind: 'hooks' | 'templates',
+  kind: 'hooks' | 'templates' | 'workspace',
   id: string,
   content: string
 ): Promise<void> {

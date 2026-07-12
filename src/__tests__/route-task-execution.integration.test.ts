@@ -53,19 +53,25 @@ const taskFile = (id: number, complexity: number): string =>
   ].join('\n');
 
 const ROUTING_CONFIG = `
-profiles:
-  routine:
-    description: Localized low-risk work.
-    models:
-      - model: haiku-x
-  demanding:
-    description: Cross-cutting risky work.
-    models:
-      - model: opus-x
-        reasoning_effort: high
-      - harness: codex
-        model: codex-x
+# Foreign sections belong to other features and must not disturb routing.
+some_future_feature:
+  enabled: true
+execution_routing:
+  profiles:
+    routine:
+      description: Localized low-risk work.
+      models:
+        - model: haiku-x
+    demanding:
+      description: Cross-cutting risky work.
+      models:
+        - model: opus-x
+          reasoning_effort: high
+        - harness: codex
+          model: codex-x
 `;
+
+const RESOLVER_SUFFIX = '  resolver:\n    script: ./pick.cjs\n';
 
 describe('route-task-execution bundle integration', () => {
   let tempDir: string;
@@ -124,7 +130,7 @@ describe('route-task-execution bundle integration', () => {
   });
 
   it('lists configured profiles with their LLM-facing descriptions', () => {
-    fs.writeFileSync(path.join(workspace, 'config', 'execution-routing.yaml'), ROUTING_CONFIG);
+    fs.writeFileSync(path.join(workspace, 'config', 'config.yaml'), ROUTING_CONFIG);
     const result = runScript(script, ['profiles', '12'], tempDir);
     expect(result.exitCode).toBe(0);
     expect(result.json).toEqual({
@@ -138,7 +144,7 @@ describe('route-task-execution bundle integration', () => {
   });
 
   it('applies a valid mapping: exact frontmatter, first-target default, dispatch-compatible', () => {
-    fs.writeFileSync(path.join(workspace, 'config', 'execution-routing.yaml'), ROUTING_CONFIG);
+    fs.writeFileSync(path.join(workspace, 'config', 'config.yaml'), ROUTING_CONFIG);
     const mapping = writeMapping({ '1': 'routine', '2': 'demanding' });
     const result = runScript(script, ['apply', '12', mapping, 'claude'], tempDir);
     expect(result.exitCode).toBe(0);
@@ -174,8 +180,8 @@ describe('route-task-execution bundle integration', () => {
 
   it('routes through a custom global resolver and honors its in-profile choice', () => {
     fs.writeFileSync(
-      path.join(workspace, 'config', 'execution-routing.yaml'),
-      `${ROUTING_CONFIG}resolver:\n  script: ./pick.cjs\n`
+      path.join(workspace, 'config', 'config.yaml'),
+      `${ROUTING_CONFIG}${RESOLVER_SUFFIX}`
     );
     fs.writeFileSync(
       path.join(tempDir, 'pick.cjs'),
@@ -207,7 +213,7 @@ process.stdin.on('end', () => {
       'invalid-assignments',
     ],
   ])('rejects %s and leaves every task file untouched', (_label, mapping, kind) => {
-    fs.writeFileSync(path.join(workspace, 'config', 'execution-routing.yaml'), ROUTING_CONFIG);
+    fs.writeFileSync(path.join(workspace, 'config', 'config.yaml'), ROUTING_CONFIG);
     const result = runScript(script, ['apply', '12', writeMapping(mapping), 'claude'], tempDir);
     expect(result.exitCode).toBe(1);
     expect(result.json.kind).toBe(kind);
@@ -217,8 +223,8 @@ process.stdin.on('end', () => {
 
   it('aborts atomically when the custom resolver fails', () => {
     fs.writeFileSync(
-      path.join(workspace, 'config', 'execution-routing.yaml'),
-      `${ROUTING_CONFIG}resolver:\n  script: ./pick.cjs\n`
+      path.join(workspace, 'config', 'config.yaml'),
+      `${ROUTING_CONFIG}${RESOLVER_SUFFIX}`
     );
     fs.writeFileSync(path.join(tempDir, 'pick.cjs'), 'process.exit(3);');
     const mapping = writeMapping({ '1': 'routine', '2': 'demanding' });
@@ -231,8 +237,8 @@ process.stdin.on('end', () => {
 
   it('fails on an invalid configuration before touching anything', () => {
     fs.writeFileSync(
-      path.join(workspace, 'config', 'execution-routing.yaml'),
-      'profiles:\n  broken:\n    description: d\n    models: []\n'
+      path.join(workspace, 'config', 'config.yaml'),
+      'execution_routing:\n  profiles:\n    broken:\n      description: d\n      models: []\n'
     );
     const result = runScript(script, ['profiles', '12'], tempDir);
     expect(result.exitCode).toBe(1);
@@ -241,7 +247,7 @@ process.stdin.on('end', () => {
   });
 
   it('rejects an unsupported current harness as a usage error', () => {
-    fs.writeFileSync(path.join(workspace, 'config', 'execution-routing.yaml'), ROUTING_CONFIG);
+    fs.writeFileSync(path.join(workspace, 'config', 'config.yaml'), ROUTING_CONFIG);
     const mapping = writeMapping({ '1': 'routine', '2': 'routine' });
     const result = runScript(script, ['apply', '12', mapping, 'not-a-harness'], tempDir);
     expect(result.exitCode).toBe(2);

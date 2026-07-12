@@ -11,7 +11,13 @@ import * as yaml from 'js-yaml';
  * target wins".
  */
 
-export const ROUTING_CONFIG_RELPATH = path.join('config', 'execution-routing.yaml');
+/**
+ * The workspace's single structured configuration file. Every configurable
+ * feature claims one top-level section in it; this module owns only the
+ * `execution_routing` section and ignores the rest.
+ */
+export const WORKSPACE_CONFIG_RELPATH = path.join('config', 'config.yaml');
+export const EXECUTION_ROUTING_SECTION = 'execution_routing';
 
 export interface RoutingTarget {
   model: string;
@@ -127,16 +133,18 @@ const validateProfile = (
 };
 
 /**
- * Loads and validates `config/execution-routing.yaml` under the workspace
- * root. An absent file is `no-config`; a present file whose `profiles`
- * mapping is empty is `disabled`. Both mean "generate tasks without
- * execution metadata", the pre-routing behavior.
+ * Loads and validates the `execution_routing` section of the workspace's
+ * generic `config/config.yaml`. An absent file is `no-config`; an absent or
+ * empty section (or empty `profiles`) is `disabled`. Both mean "generate
+ * tasks without execution metadata", the pre-routing behavior. Top-level
+ * keys other than the routing section belong to other features and are
+ * ignored here.
  */
 export const loadRoutingConfig = (
   strikethrooRoot: string,
   supportedHarnesses: readonly string[]
 ): RoutingConfigResult => {
-  const configPath = path.join(strikethrooRoot, ROUTING_CONFIG_RELPATH);
+  const configPath = path.join(strikethrooRoot, WORKSPACE_CONFIG_RELPATH);
   let contents: string;
   try {
     contents = fs.readFileSync(configPath, 'utf8');
@@ -144,34 +152,51 @@ export const loadRoutingConfig = (
     return { kind: 'no-config' };
   }
 
-  let data: unknown;
+  // js-yaml v5 throws on an empty document, and a config.yaml reduced to
+  // comments/blank lines is legitimately "nothing configured".
+  const hasContent = contents.split(/\r?\n/).some(line => {
+    const trimmed = line.trim();
+    return trimmed !== '' && !trimmed.startsWith('#');
+  });
+  if (!hasContent) return { kind: 'disabled' };
+
+  let document: unknown;
   try {
-    data = yaml.load(contents);
+    document = yaml.load(contents);
   } catch (error) {
     return {
       kind: 'invalid',
       errors: [
-        `execution-routing.yaml is not valid YAML: ${error instanceof Error ? error.message : String(error)}`,
+        `config.yaml is not valid YAML: ${error instanceof Error ? error.message : String(error)}`,
       ],
     };
   }
 
-  if (data === null || data === undefined) return { kind: 'disabled' };
+  if (document === null || document === undefined) return { kind: 'disabled' };
+  if (!isPlainObject(document)) {
+    return { kind: 'invalid', errors: ['config.yaml must be a YAML mapping.'] };
+  }
+
+  const section = document[EXECUTION_ROUTING_SECTION];
+  if (section === null || section === undefined) return { kind: 'disabled' };
 
   const errors: string[] = [];
-  if (!isPlainObject(data)) {
-    return { kind: 'invalid', errors: ['execution-routing.yaml must be a YAML mapping.'] };
+  if (!isPlainObject(section)) {
+    return {
+      kind: 'invalid',
+      errors: [`config.yaml "${EXECUTION_ROUTING_SECTION}" must be a YAML mapping.`],
+    };
   }
-  for (const key of Object.keys(data)) {
+  for (const key of Object.keys(section)) {
     if (key !== 'profiles' && key !== 'resolver') {
-      errors.push(`execution-routing.yaml has unknown top-level key "${key}".`);
+      errors.push(`${EXECUTION_ROUTING_SECTION} has unknown key "${key}".`);
     }
   }
   // A bare `profiles:` key (everything commented out) reads as null; treat it
   // like the shipped `profiles: {}` template — routing configured off.
-  const rawProfiles = 'profiles' in data && data.profiles == null ? {} : data.profiles;
-  if (!('profiles' in data) || !isPlainObject(rawProfiles)) {
-    errors.push('execution-routing.yaml requires a "profiles" mapping.');
+  const rawProfiles = 'profiles' in section && section.profiles == null ? {} : section.profiles;
+  if (!('profiles' in section) || !isPlainObject(rawProfiles)) {
+    errors.push(`${EXECUTION_ROUTING_SECTION} requires a "profiles" mapping.`);
     return { kind: 'invalid', errors };
   }
 
@@ -182,8 +207,8 @@ export const loadRoutingConfig = (
   }
 
   let resolverScript: string | undefined;
-  if ('resolver' in data) {
-    const resolver = data.resolver;
+  if ('resolver' in section) {
+    const resolver = section.resolver;
     if (!isPlainObject(resolver) || !isNonEmptyString(resolver.script)) {
       errors.push('resolver must be a mapping with a non-empty "script" path.');
     } else {

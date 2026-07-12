@@ -5,8 +5,8 @@ before the execution blueprint is generated.
 
 ## Classification contract
 
-- Execution profiles are defined in
-  `.ai/strikethroo/config/execution-routing.yaml`. Their descriptions are the
+- Execution profiles are defined in the `execution_routing` section of
+  `.ai/strikethroo/config/config.yaml`. Their descriptions are the
   routing contract: match each newly generated task against them using the
   full task content already in your context — `skills`, `complexity_score`,
   objective, acceptance criteria, technical requirements, and integration

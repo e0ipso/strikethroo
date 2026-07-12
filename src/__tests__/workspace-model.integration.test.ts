@@ -66,12 +66,16 @@ describe('workspace-model against the committed fixture workspace', () => {
     }
   });
 
-  it('keeps execution-routing.yaml off the editable config surface (filesystem-only)', () => {
-    // The structured routing configuration deliberately does not appear in
-    // the Customize UI: getConfig exposes only Markdown hooks and templates.
+  it('exposes the workspace config.yaml as its own config slice', () => {
+    // config.yaml backs the Customize section's Config form; it is a single
+    // structured file, not a member of the hooks/templates card grids.
     const config = getConfig(FIXTURE_ROOT);
-    const files = [...config.hooks, ...config.templates].map(e => e.relPath);
-    expect(files.some(f => f.includes('execution-routing'))).toBe(false);
+    expect(config.workspace).not.toBeNull();
+    expect(config.workspace?.id).toBe('config');
+    expect(config.workspace?.relPath).toBe(path.join('config', 'config.yaml'));
+    expect(config.workspace?.content).toContain('execution_routing');
+    const gridFiles = [...config.hooks, ...config.templates].map(e => e.relPath);
+    expect(gridFiles.some(f => f.endsWith('.yaml'))).toBe(false);
   });
 });
 

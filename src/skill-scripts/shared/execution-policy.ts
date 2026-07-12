@@ -46,7 +46,10 @@ export const readTaskExecutionPolicy = (
 ): ExecutionPolicy => {
   let data: Record<string, unknown>;
   try {
-    const parsed = matter(taskMarkdown);
+    // The empty options object bypasses gray-matter's content-keyed cache,
+    // whose cached copies drop the non-enumerable `matter` property and make
+    // a repeated parse of identical content misread as "no frontmatter".
+    const parsed = matter(taskMarkdown, {});
     if (!parsed.matter) return { kind: 'native-default' };
     data = parsed.data;
   } catch (error) {

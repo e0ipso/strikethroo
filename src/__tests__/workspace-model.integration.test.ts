@@ -54,15 +54,28 @@ describe('workspace-model against the committed fixture workspace', () => {
     expect(archived.length).toBeGreaterThan(0);
   });
 
-  it('enumerates 9 config hooks and 4 config templates with id, file, and content', () => {
+  it('enumerates 10 config hooks and 4 config templates with id, file, and content', () => {
     const config = getConfig(FIXTURE_ROOT);
-    expect(config.hooks).toHaveLength(9);
+    expect(config.hooks).toHaveLength(10);
     expect(config.templates).toHaveLength(4);
+    expect(config.hooks.map(h => h.id)).toContain('TASK_EXECUTION_ROUTING');
     for (const entry of [...config.hooks, ...config.templates]) {
       expect(entry.id.length).toBeGreaterThan(0);
       expect(entry.file.length).toBeGreaterThan(0);
       expect(typeof entry.content).toBe('string');
     }
+  });
+
+  it('exposes the workspace config.yaml as its own config slice', () => {
+    // config.yaml backs the Customize section's Config form; it is a single
+    // structured file, not a member of the hooks/templates card grids.
+    const config = getConfig(FIXTURE_ROOT);
+    expect(config.workspace).not.toBeNull();
+    expect(config.workspace?.id).toBe('config');
+    expect(config.workspace?.relPath).toBe(path.join('config', 'config.yaml'));
+    expect(config.workspace?.content).toContain('execution_routing');
+    const gridFiles = [...config.hooks, ...config.templates].map(e => e.relPath);
+    expect(gridFiles.some(f => f.endsWith('.yaml'))).toBe(false);
   });
 });
 
@@ -72,7 +85,7 @@ describe('workspace-model against synthetic fixtures', () => {
   const writeMetadata = (root: string): void => {
     fs.writeFileSync(
       path.join(root, '.init-metadata.json'),
-      JSON.stringify({ version: '0.0.0', workspaceSchemaVersion: 3 }),
+      JSON.stringify({ version: '0.0.0', workspaceSchemaVersion: 4 }),
       'utf8'
     );
   };

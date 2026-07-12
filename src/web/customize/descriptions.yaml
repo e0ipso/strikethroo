@@ -15,6 +15,7 @@ PRE_PHASE: "Pre-phase setup before a phase runs — identifies the current phase
 POST_PHASE: "Post-phase gate — optional project-specific lint/format checks, a conventional commit, and blueprint task status updates."
 PRE_TASK_ASSIGNMENT: "Guidance for matching each task's required skills against available sub-agents and engaging relevant harness skills before assignment."
 PRE_TASK_EXECUTION: "Pre-task discipline run before implementation — ships a RED-GREEN-REFACTOR test-first cycle scoped to meaningful tests; edit to add pre-flight checks or replace the default."
+TASK_EXECUTION_ROUTING: "Runs during task generation, after task files exist and before the blueprint — classifies each task into an execution profile from config.yaml's execution_routing section so the routing helper can write exact execution frontmatter; edit to add project-specific classification guidance."
 POST_TASK_GENERATION_ALL: "After all tasks are generated, appends the dependency diagram and execution phases to the plan, verifies there are no circular dependencies, and uses BLUEPRINT_TEMPLATE.md."
 POST_EXECUTION: "Validation gates run before a blueprint is marked complete — linting, tests, task-status checks, documentation accuracy, and the plan's Self Validation steps — plus tech-debt cleanup."
 POST_ERROR_DETECTION: "Error-handling hook that marks a task's frontmatter status as failed when its execution fails."

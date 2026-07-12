@@ -49,6 +49,11 @@ const SKILL_ENTRYPOINTS = [
     out: 'get-next-task-id.cjs',
   },
   {
+    src: 'src/skill-scripts/route-task-execution.ts',
+    skill: 'st-generate-tasks',
+    out: 'route-task-execution.cjs',
+  },
+  {
     src: 'src/skill-scripts/find-strikethroo-root.ts',
     skill: 'st-execute-blueprint',
     out: 'find-strikethroo-root.cjs',
@@ -122,6 +127,11 @@ const SKILL_ENTRYPOINTS = [
     src: 'src/skill-scripts/get-next-task-id.ts',
     skill: 'st-full-workflow',
     out: 'get-next-task-id.cjs',
+  },
+  {
+    src: 'src/skill-scripts/route-task-execution.ts',
+    skill: 'st-full-workflow',
+    out: 'route-task-execution.cjs',
   },
   {
     src: 'src/skill-scripts/create-feature-branch.ts',

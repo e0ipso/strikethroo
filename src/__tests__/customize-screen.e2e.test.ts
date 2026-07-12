@@ -47,7 +47,7 @@ const buildFixture = (): string => {
   fs.mkdirSync(path.join(root, 'archive'), { recursive: true });
   fs.writeFileSync(
     path.join(root, '.init-metadata.json'),
-    JSON.stringify({ version: '0.0.0', workspaceSchemaVersion: 3 }),
+    JSON.stringify({ version: '0.0.0', workspaceSchemaVersion: 4 }),
     'utf8'
   );
   fs.cpSync(SHARED_CONFIG, path.join(root, 'config'), { recursive: true });
@@ -176,6 +176,46 @@ test.describe('Customize section (Playwright, fixture)', () => {
     await page.locator('.cm-editor .cm-content').click();
     await page.keyboard.press('Control+End');
     await expect(page.locator('.cm-editor .cm-content')).toContainText('e2e-marker-');
+  });
+
+  test('Config tab: the routing form populates config.yaml and preserves foreign sections', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
+    // Seed a foreign top-level section a form save must not destroy.
+    fs.writeFileSync(
+      path.join(root, 'config', 'config.yaml'),
+      'other_feature:\n  flag: true\nexecution_routing:\n  profiles: {}\n',
+      'utf8'
+    );
+
+    await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
+    await page.getByTestId('config-card').first().waitFor();
+
+    // Third tab is the generic workspace configuration form.
+    await page.getByRole('tab').nth(2).click();
+    await page.getByTestId('workspace-config-form').waitFor();
+
+    // Manually populate one profile with one exact target.
+    await page.getByRole('button', { name: 'Add profile' }).click();
+    await page.getByTestId('routing-profile-name').fill('routine');
+    await page
+      .getByTestId('routing-profile-description')
+      .fill('Localized, low-risk work with a low complexity score.');
+    await page.getByTestId('routing-target-model').fill('exact-model-id');
+
+    await page.getByRole('button', { name: 'Save configuration' }).click();
+    await expect(page.getByTestId('workspace-config-status')).toContainText('Saved', {
+      timeout: 5_000,
+    });
+
+    // The exact section landed on disk and the foreign section survived.
+    const onDisk = fs.readFileSync(path.join(root, 'config', 'config.yaml'), 'utf8');
+    expect(onDisk).toContain('execution_routing:');
+    expect(onDisk).toContain('routine:');
+    expect(onDisk).toContain('model: exact-model-id');
+    expect(onDisk).toContain('other_feature:');
+    expect(onDisk).toContain('flag: true');
   });
 
   test('an unknown config id renders the designed not-found surface', async ({ page }) => {

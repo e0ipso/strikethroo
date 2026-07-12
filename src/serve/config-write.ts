@@ -7,14 +7,16 @@
  * module is that mutation's authoritative guard: a single, HTTP-free function
  * the route handler and the tests both call.
  *
- * It enforces a strict allowlist: the `kind` must be `hooks` or `templates`;
- * the `id` must resolve to a single flat filename `config/<kind>/<id>.md` that
- * stays inside the intended directory (no path separators, no `..`, no
- * traversal); and the target file must ALREADY exist (this never creates a new
- * file). When the guards pass it overwrites the file content verbatim. It never
- * deletes or renames. Expected guard failures are returned as a typed result,
- * not thrown; only an unexpected filesystem error surfaces as `fs-error`.
- * Node built-ins only.
+ * It enforces a strict allowlist: the `kind` must be `hooks` or `templates`
+ * (resolving to a single flat filename `config/<kind>/<id>.md` that stays
+ * inside the intended directory — no path separators, no `..`, no traversal),
+ * or the special `workspace` kind whose only valid `id` is `config`, mapping
+ * to the workspace's structured configuration file `config/config.yaml` (the
+ * file behind the Customize section's Config form). In every case the target
+ * file must ALREADY exist (this never creates a new file). When the guards
+ * pass it overwrites the file content verbatim. It never deletes or renames.
+ * Expected guard failures are returned as a typed result, not thrown; only an
+ * unexpected filesystem error surfaces as `fs-error`. Node built-ins only.
  */
 
 import * as fs from 'fs';
@@ -33,14 +35,15 @@ export type ConfigWriteResult =
       message: string;
     };
 
-/** The only config kinds that may be written. */
+/** The directory-backed config kinds that may be written. */
 const KINDS = new Set(['hooks', 'templates']);
 
 /**
- * Overwrites the existing config file `config/<kind>/<id>.md` under `root` (the
- * absolute `.ai/strikethroo` directory) with `content`, after validating the
- * strict allowlist. Returns a typed result; performs zero filesystem changes on
- * any guard failure.
+ * Overwrites an existing config file under `root` (the absolute
+ * `.ai/strikethroo` directory) with `content`, after validating the strict
+ * allowlist: `config/<kind>/<id>.md` for the `hooks`/`templates` kinds, or
+ * `config/config.yaml` for `workspace`/`config`. Returns a typed result;
+ * performs zero filesystem changes on any guard failure.
  */
 export const writeConfigFile = async (
   root: string,
@@ -48,23 +51,33 @@ export const writeConfigFile = async (
   id: string,
   content: string
 ): Promise<ConfigWriteResult> => {
-  if (!KINDS.has(kind)) {
-    return { ok: false, reason: 'invalid-kind', message: `Unknown config kind: ${kind}.` };
-  }
+  let target: string;
+  if (kind === 'workspace') {
+    // The workspace's single structured config file. No id namespace exists
+    // here — `config` is the only valid id, fixed to config/config.yaml.
+    if (id !== 'config') {
+      return { ok: false, reason: 'invalid-id', message: 'Invalid config file id.' };
+    }
+    target = path.resolve(root, 'config', 'config.yaml');
+  } else {
+    if (!KINDS.has(kind)) {
+      return { ok: false, reason: 'invalid-kind', message: `Unknown config kind: ${kind}.` };
+    }
 
-  // Reject obvious traversal/nesting attempts early before any resolution.
-  if (id === '' || id.includes('/') || id.includes('\\') || id.includes('..')) {
-    return { ok: false, reason: 'invalid-id', message: 'Invalid config file id.' };
-  }
+    // Reject obvious traversal/nesting attempts early before any resolution.
+    if (id === '' || id.includes('/') || id.includes('\\') || id.includes('..')) {
+      return { ok: false, reason: 'invalid-id', message: 'Invalid config file id.' };
+    }
 
-  const dir = path.resolve(root, 'config', kind);
-  const target = path.resolve(dir, `${id}.md`);
+    const dir = path.resolve(root, 'config', kind);
+    target = path.resolve(dir, `${id}.md`);
 
-  // Containment: the resolved target must be a direct, flat child of `dir`.
-  const withinDir = target.startsWith(dir + path.sep);
-  const isFlatChild = path.dirname(target) === dir;
-  if (!withinDir || !isFlatChild) {
-    return { ok: false, reason: 'invalid-id', message: 'Invalid config file id.' };
+    // Containment: the resolved target must be a direct, flat child of `dir`.
+    const withinDir = target.startsWith(dir + path.sep);
+    const isFlatChild = path.dirname(target) === dir;
+    if (!withinDir || !isFlatChild) {
+      return { ok: false, reason: 'invalid-id', message: 'Invalid config file id.' };
+    }
   }
 
   try {

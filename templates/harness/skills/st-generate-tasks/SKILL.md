@@ -270,10 +270,47 @@ Before declaring task generation complete, verify:
 - Add `complexity_notes` only when a score needs explanation (typically atomic
   tasks scoring greater than 4).
 
-### 12. Run the POST_TASK_GENERATION_ALL hook
+### 12. Route task execution
+
+Read `<root>/config/hooks/TASK_EXECUTION_ROUTING.md` and follow its
+instructions together with this procedure:
+
+1. Run `scripts/route-task-execution.cjs profiles <plan-id>` and interpret
+   its JSON result. On `no-config` or `disabled`, routing is off: skip the
+   remaining routing steps and continue. On `invalid-config`, stop and
+   surface the errors to the user — do not generate the blueprint.
+2. Classify every task in the plan's `tasks/` directory against the
+   configured profile descriptions. For tasks generated in this run, use the
+   task content already in your context — objective, acceptance criteria,
+   technical requirements, `skills`, and `complexity_score`; do not reread
+   the emitted task files to reconstruct information you already hold. If
+   the plan carried task files from an earlier generation run, read those
+   files (and only those) to classify them — the mapping must cover every
+   task in the plan. Assign each task ID exactly one configured profile
+   name. Never invent a profile name, model, or harness.
+3. Write the complete task-ID-to-profile mapping as a JSON object to a
+   temporary file, for example `{"1": "routine", "2": "demanding"}`.
+4. Run
+   `scripts/route-task-execution.cjs apply <plan-id> <mapping-file> <current-harness>`,
+   where `<current-harness>` is the exact supported harness identifier
+   running this skill. The helper validates the mapping (every task exactly
+   once, only configured profiles), deterministically selects each task's
+   execution target, writes the exact `execution` frontmatter, and verifies
+   the written files.
+5. On `routed`, delete the temporary mapping file and continue. On any
+   failure result (`invalid-assignments`, `invalid-tasks`,
+   `resolver-failure`, `routing-failure`, `infrastructure-failure`), stop
+   and surface the JSON errors to the user. Never proceed to blueprint
+   generation with partially routed tasks.
+
+Profile names are transient routing labels: never write them into task
+frontmatter or task bodies.
+
+### 13. Run the POST_TASK_GENERATION_ALL hook
 
 Read `<root>/config/hooks/POST_TASK_GENERATION_ALL.md` and follow its
-instructions. This typically requires:
+instructions. Run it only after routing succeeded or reported routing off.
+This typically requires:
 
 - Appending an Execution Blueprint section to the plan document, including a
   Mermaid dependency diagram and explicit phase groupings (Phase 1 contains
@@ -281,7 +318,7 @@ instructions. This typically requires:
   dependencies all live in earlier phases). Use
   `<root>/config/templates/BLUEPRINT_TEMPLATE.md` for structure.
 
-### 13. Emit the structured summary
+### 14. Emit the structured summary
 
 Conclude with exactly this block as the final output:
 
@@ -306,3 +343,7 @@ The summary is consumed by downstream automation; keep the format exact.
   task's "Implementation Notes". Do not invent answers.
 - **A helper script fails unexpectedly.** Surface stderr to the user and
   stop — do not fall back to manual ID allocation or path discovery.
+- **Execution routing fails.** Surface the routing helper's JSON errors and
+  stop before blueprint generation. Do not guess profile assignments, do not
+  hand-write `execution` frontmatter, and do not continue with partially
+  routed tasks.

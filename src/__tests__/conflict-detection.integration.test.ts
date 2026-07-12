@@ -88,7 +88,7 @@ describe('Conflict Detection Integration Tests', () => {
 
       expect(metadata).not.toBeNull();
       expect(metadata?.version).toBeDefined();
-      expect(metadata?.workspaceSchemaVersion).toBe(3);
+      expect(metadata?.workspaceSchemaVersion).toBe(4);
       expect(metadata?.timestamp).toBeDefined();
       expect(metadata?.files).toBeDefined();
       expect(Object.keys(metadata?.files || {}).length).toBeGreaterThan(0);
@@ -108,6 +108,8 @@ describe('Conflict Detection Integration Tests', () => {
       // Check that config files are tracked
       expect(metadata?.files['config/STRIKETHROO.md']).toBeDefined();
       expect(metadata?.files['config/hooks/POST_PHASE.md']).toBeDefined();
+      expect(metadata?.files['config/hooks/TASK_EXECUTION_ROUTING.md']).toBeDefined();
+      expect(metadata?.files['config/config.yaml']).toBeDefined();
     });
   });
 
@@ -160,6 +162,32 @@ describe('Conflict Detection Integration Tests', () => {
       const originalHash = metadata?.files['config/STRIKETHROO.md'];
       const currentHash = await calculateFileHash(configFile);
 
+      expect(currentHash).not.toBe(originalHash);
+    });
+
+    it('should detect user edits to the workspace config.yaml', async () => {
+      await init({
+        harnesses: 'claude',
+        destinationDirectory: testDir,
+      });
+
+      const routingFile = path.join(testDir, '.ai/strikethroo/config/config.yaml');
+      const originalContent = await fs.readFile(routingFile, 'utf-8');
+      await fs.writeFile(
+        routingFile,
+        originalContent.replace(
+          'profiles: {}',
+          'profiles:\n  routine:\n    description: custom\n    models:\n      - model: my-model\n'
+        ),
+        'utf-8'
+      );
+
+      const metadataPath = path.join(testDir, '.ai/strikethroo/.init-metadata.json');
+      const metadata = await loadMetadata(metadataPath);
+      const originalHash = metadata?.files['config/config.yaml'];
+      const currentHash = await calculateFileHash(routingFile);
+
+      expect(originalHash).toBeDefined();
       expect(currentHash).not.toBe(originalHash);
     });
   });

@@ -77,10 +77,12 @@ export interface ConfigFile {
   content: string;
 }
 
-/** The customizable config slice (hooks + templates). */
+/** The customizable config slice (hooks + templates + workspace config.yaml). */
 export interface WorkspaceConfig {
   hooks: ConfigFile[];
   templates: ConfigFile[];
+  /** The structured workspace configuration `config/config.yaml`, if present. */
+  workspace: ConfigFile | null;
 }
 
 /** The complete workspace model. */
@@ -187,12 +189,25 @@ const enumerateConfigDir = (root: string, dir: string): ConfigFile[] => {
     });
 };
 
-/** Returns the config slice: hooks and templates under `config/`. */
+/** Reads `config/config.yaml` into a ConfigFile, or null when absent. */
+const readWorkspaceConfigFile = (root: string): ConfigFile | null => {
+  const file = path.join(root, 'config', 'config.yaml');
+  let content: string;
+  try {
+    content = fs.readFileSync(file, 'utf8');
+  } catch {
+    return null;
+  }
+  return { id: 'config', file, relPath: path.relative(root, file), content };
+};
+
+/** Returns the config slice: hooks, templates, and config.yaml under `config/`. */
 export const getConfig = (root?: string): WorkspaceConfig => {
   const resolved = resolveRoot(root);
   return {
     hooks: enumerateConfigDir(resolved, path.join(resolved, 'config', 'hooks')),
     templates: enumerateConfigDir(resolved, path.join(resolved, 'config', 'templates')),
+    workspace: readWorkspaceConfigFile(resolved),
   };
 };
 

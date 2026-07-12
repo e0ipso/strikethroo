@@ -1,2 +1,17 @@
+# Generated skill bundles are built in CI: the release workflow rebuilds
+# them and @semantic-release/git force-adds them to the release commit
+# (which runs with HUSKY=0, so this guard never blocks the release).
+# Local rebuilds dirty the tracked copies and a broad `git add` sweeps
+# them in silently — reject that here.
+staged_bundles=$(git diff --cached --name-only -- 'templates/harness/skills/*/scripts/*.cjs')
+if [ -n "$staged_bundles" ]; then
+  echo "✗ Generated skill bundles are staged; they are compiled and committed by the release workflow:" >&2
+  echo "$staged_bundles" >&2
+  echo "Unstage and discard with:" >&2
+  echo "  git restore --staged 'templates/harness/skills/*/scripts/*.cjs'" >&2
+  echo "  git checkout -- 'templates/harness/skills/*/scripts/*.cjs'" >&2
+  exit 1
+fi
+
 npx lint-staged
 npm test

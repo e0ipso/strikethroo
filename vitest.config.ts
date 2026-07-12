@@ -16,6 +16,7 @@ export default defineConfig({
       'src/__tests__/execution-policy.test.ts',
       'src/__tests__/execution-routing.test.ts',
       'src/__tests__/external-dispatch.test.ts',
+      'src/__tests__/harness-registry.test.ts',
       'src/__tests__/route-task-execution.integration.test.ts',
       'src/__tests__/self-review.test.ts',
       'src/__tests__/serve-archive.integration.test.ts',
@@ -34,12 +35,7 @@ export default defineConfig({
       'src/web/plans/exec/__tests__/derive.test.ts',
       'src/web/theme/__tests__/theme.test.ts',
     ],
-    exclude: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/dist-web/**',
-      'src/__tests__/*.e2e.test.ts',
-    ],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/dist-web/**', 'src/__tests__/*.e2e.test.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json-summary'],

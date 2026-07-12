@@ -8,8 +8,8 @@
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import chalk from 'chalk';
-import { InitOptions, Harness, CommandResult, ConflictResolution, InitMetadata } from './types';
-import { parseHarnesses, validateHarnesses, getAgentFormat, convertAgentMdToToml } from './utils';
+import { InitOptions, CommandResult, ConflictResolution, InitMetadata } from './types';
+import { parseHarnesses, validateHarnesses } from './utils';
 import {
   calculateFileHash,
   loadMetadata,
@@ -19,6 +19,7 @@ import {
 } from './metadata';
 import { detectConflicts } from './conflict-detector';
 import { promptForConflicts } from './prompts';
+import { HarnessRegistry } from './harnesses';
 
 // Visual formatting constants
 const TERM_WIDTH = 80;
@@ -125,11 +126,15 @@ export async function init(options: InitOptions): Promise<CommandResult> {
     console.log(`  ${chalk.green('✓')} Copying common template files`);
     await copyCommonTemplates(baseDir, options.force || false);
 
-    // Create harness-specific directories and copy templates
+    // Create harness-specific directories and copy templates via the registry
     const allCreatedAgentFiles: Map<string, string[]> = new Map();
     for (const harness of harnesses) {
       console.log(`  ${chalk.green('✓')} Setting up ${harness} harness configuration`);
-      const created = await createHarnessStructure(harness, baseDir);
+      const adapter = HarnessRegistry.get(harness);
+      if (!adapter) {
+        throw new Error(`No registered harness adapter for: ${harness}`);
+      }
+      const created = await adapter.install(baseDir);
       if (created.length > 0) {
         allCreatedAgentFiles.set(harness, created);
       }
@@ -316,38 +321,6 @@ async function applyResolutions(
     }
     // If 'keep', do nothing - keep user's file
   }
-}
-
-async function createHarnessStructure(harness: Harness, baseDir: string): Promise<string[]> {
-  const sourceAgentsDir = getTemplatePath(path.join('harness', 'agents'));
-  const createdFiles: string[] = [];
-
-  if (!(await exists(sourceAgentsDir))) {
-    return createdFiles;
-  }
-
-  const agentFiles = (await fs.readdir(sourceAgentsDir)).filter(f => f.endsWith('.md'));
-  const formatInfo = getAgentFormat(harness);
-  const targetDir = resolvePath(baseDir, formatInfo.directory);
-  await fs.ensureDir(targetDir);
-
-  for (const agentFile of agentFiles) {
-    const sourcePath = path.join(sourceAgentsDir, agentFile);
-    const content = await fs.readFile(sourcePath, 'utf-8');
-    const baseName = path.basename(agentFile, '.md');
-    const targetName = baseName + formatInfo.extension;
-    const targetPath = path.join(targetDir, targetName);
-
-    if (formatInfo.format === 'toml') {
-      await fs.writeFile(targetPath, convertAgentMdToToml(content), 'utf-8');
-    } else {
-      await fs.writeFile(targetPath, content, 'utf-8');
-    }
-
-    createdFiles.push(targetPath);
-  }
-
-  return createdFiles;
 }
 
 /**

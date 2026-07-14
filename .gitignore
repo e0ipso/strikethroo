@@ -90,6 +90,7 @@ review.xml
 !.cursor/cloud-instructions.md
 .claude
 .agents/skills/
+.github/agents/
 skills-lock.json
 # >>> @e0ipso/ai-knowledge-base >>>
 .ai/knowledge-base/_sessions/

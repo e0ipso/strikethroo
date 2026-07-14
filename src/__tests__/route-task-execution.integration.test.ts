@@ -2,9 +2,8 @@
  * Integration tests for execution routing:
  *   1. The bundled route-task-execution.cjs shipped with st-generate-tasks
  *      and st-full-workflow, exercised end-to-end against a fixture
- *      workspace (profiles listing, apply, custom resolver, atomic failure).
- *   2. The generation workflow ordering: routed frontmatter is exactly what
- *      PR #53's dispatch resolver reads at execution time.
+ *      workspace (profiles listing, apply, and atomic failure).
+ *   2. Generation persists profiles without selecting concrete targets.
  *   3. The assembled SKILL.md artifacts: both task-generation skills carry
  *      the routing procedure at the right lifecycle point, with no
  *      unresolved template directives.
@@ -44,10 +43,6 @@ const runScript = (
     return { exitCode: e.status ?? 1, json: JSON.parse((e.stdout ?? '').trim()) };
   }
 };
-
-// A PATH with no harness CLIs on it: the default resolver then finds every
-// external target unavailable and deterministically selects the native one.
-const NO_HARNESS_ENV = (): Record<string, string | undefined> => ({ ...process.env, PATH: '' });
 
 const taskFile = (id: number, complexity: number): string =>
   [
@@ -139,7 +134,7 @@ describe('route-task-execution bundle integration', () => {
     const profiles = runScript(script, ['profiles', '12'], tempDir);
     expect(profiles).toEqual({ exitCode: 0, json: { kind: 'no-config' } });
 
-    const apply = runScript(script, ['apply', '12', writeMapping({}), 'claude'], tempDir);
+    const apply = runScript(script, ['apply', '12', writeMapping({})], tempDir);
     expect(apply).toEqual({ exitCode: 0, json: { kind: 'no-config' } });
     expect(fs.readFileSync(path.join(tasksDir, '01--first.md'), 'utf8')).toBe(taskFile(1, 2));
   });
@@ -158,67 +153,42 @@ describe('route-task-execution bundle integration', () => {
     });
   });
 
-  it('applies a valid mapping: exact frontmatter, availability-filtered default, dispatch-compatible', () => {
+  it('applies a valid mapping as durable profiles without selecting targets', () => {
     fs.writeFileSync(path.join(workspace, 'config', 'config.yaml'), ROUTING_CONFIG);
     const mapping = writeMapping({ '1': 'routine', '2': 'demanding' });
-    // No harness CLI on PATH => demanding's external codex target is filtered,
-    // leaving only its native opus-x, so the random default is deterministic.
-    const result = runScript(script, ['apply', '12', mapping, 'claude'], tempDir, NO_HARNESS_ENV());
+    const result = runScript(script, ['apply', '12', mapping], tempDir);
     expect(result.exitCode).toBe(0);
     expect(result.json.kind).toBe('routed');
 
     const first = fs.readFileSync(path.join(tasksDir, '01--first.md'), 'utf8');
-    expect(first).toContain('execution:\n  model: "haiku-x"\n---');
-    expect(first).not.toContain('routine'); // profile names are never persisted
+    expect(first).toContain('execution_profile: "routine"\n---');
+    expect(first).not.toContain('haiku-x');
     // Everything else is preserved losslessly.
-    expect(first.replace('execution:\n  model: "haiku-x"\n', '')).toBe(taskFile(1, 2));
+    expect(first.replace('execution_profile: "routine"\n', '')).toBe(taskFile(1, 2));
 
     const second = fs.readFileSync(path.join(tasksDir, '02--second.md'), 'utf8');
-    expect(second).toContain('execution:\n  model: "opus-x"\n  reasoning_effort: "high"\n---');
-
-    // The written contract is exactly what execution-time dispatch reads.
-    const dispatch = path.join(
-      SKILLS_ROOT,
-      'st-full-workflow',
-      'scripts',
-      'dispatch-task-execution.cjs'
-    );
-    const resolved = runScript(
-      dispatch,
-      ['resolve', path.join(tasksDir, '02--second.md'), 'claude', tempDir, '12', '2'],
-      tempDir
-    );
-    expect(resolved.json).toEqual({
-      kind: 'native-override',
-      model: 'opus-x',
-      reasoningEffort: 'high',
-    });
+    expect(second).toContain('execution_profile: "demanding"\n---');
+    expect(second).not.toContain('opus-x');
+    expect(second).not.toMatch(/^execution:/m);
   });
 
-  it('routes through a custom global resolver and honors its in-profile choice', () => {
+  it('does not execute the configured resolver during generation', () => {
     fs.writeFileSync(
       path.join(workspace, 'config', 'config.yaml'),
       `${ROUTING_CONFIG}${RESOLVER_SUFFIX}`
     );
     fs.writeFileSync(
       path.join(tempDir, 'pick.cjs'),
-      `let input = '';
-process.stdin.on('data', d => (input += d));
-process.stdin.on('end', () => {
-  const req = JSON.parse(input);
-  const selections = {};
-  for (const t of req.tasks) selections[t.id] = t.candidates.length - 1;
-  process.stdout.write(JSON.stringify({ selections }));
-});`
+      `require('fs').writeFileSync(${JSON.stringify(path.join(tempDir, 'resolver-ran'))}, 'yes');`
     );
     const mapping = writeMapping({ '1': 'routine', '2': 'demanding' });
-    const result = runScript(script, ['apply', '12', mapping, 'claude'], tempDir);
+    const result = runScript(script, ['apply', '12', mapping], tempDir);
     expect(result.exitCode).toBe(0);
     expect(result.json.kind).toBe('routed');
 
-    // demanding's second candidate is the external codex target.
     const second = fs.readFileSync(path.join(tasksDir, '02--second.md'), 'utf8');
-    expect(second).toContain('execution:\n  harness: "codex"\n  model: "codex-x"\n---');
+    expect(second).toContain('execution_profile: "demanding"\n---');
+    expect(fs.existsSync(path.join(tempDir, 'resolver-ran'))).toBe(false);
   });
 
   it.each([
@@ -231,23 +201,9 @@ process.stdin.on('end', () => {
     ],
   ])('rejects %s and leaves every task file untouched', (_label, mapping, kind) => {
     fs.writeFileSync(path.join(workspace, 'config', 'config.yaml'), ROUTING_CONFIG);
-    const result = runScript(script, ['apply', '12', writeMapping(mapping), 'claude'], tempDir);
+    const result = runScript(script, ['apply', '12', writeMapping(mapping)], tempDir);
     expect(result.exitCode).toBe(1);
     expect(result.json.kind).toBe(kind);
-    expect(fs.readFileSync(path.join(tasksDir, '01--first.md'), 'utf8')).toBe(taskFile(1, 2));
-    expect(fs.readFileSync(path.join(tasksDir, '02--second.md'), 'utf8')).toBe(taskFile(2, 8));
-  });
-
-  it('aborts atomically when the custom resolver fails', () => {
-    fs.writeFileSync(
-      path.join(workspace, 'config', 'config.yaml'),
-      `${ROUTING_CONFIG}${RESOLVER_SUFFIX}`
-    );
-    fs.writeFileSync(path.join(tempDir, 'pick.cjs'), 'process.exit(3);');
-    const mapping = writeMapping({ '1': 'routine', '2': 'demanding' });
-    const result = runScript(script, ['apply', '12', mapping, 'claude'], tempDir);
-    expect(result.exitCode).toBe(1);
-    expect(result.json.kind).toBe('resolver-failure');
     expect(fs.readFileSync(path.join(tasksDir, '01--first.md'), 'utf8')).toBe(taskFile(1, 2));
     expect(fs.readFileSync(path.join(tasksDir, '02--second.md'), 'utf8')).toBe(taskFile(2, 8));
   });
@@ -263,10 +219,10 @@ process.stdin.on('end', () => {
     expect((result.json.errors as string[]).join(' ')).toContain('broken');
   });
 
-  it('rejects an unsupported current harness as a usage error', () => {
+  it('rejects obsolete current-harness arguments as a usage error', () => {
     fs.writeFileSync(path.join(workspace, 'config', 'config.yaml'), ROUTING_CONFIG);
     const mapping = writeMapping({ '1': 'routine', '2': 'routine' });
-    const result = runScript(script, ['apply', '12', mapping, 'not-a-harness'], tempDir);
+    const result = runScript(script, ['apply', '12', mapping, 'claude'], tempDir);
     expect(result.exitCode).toBe(2);
     expect(result.json.kind).toBe('infrastructure-failure');
   });
@@ -283,6 +239,8 @@ describe('task-generation skill artifacts carry the routing procedure', () => {
       const content = fs.readFileSync(path.join(SKILLS_ROOT, skill, 'SKILL.md'), 'utf8');
       expect(content).toContain('route-task-execution.cjs profiles');
       expect(content).toContain('route-task-execution.cjs apply');
+      expect(content).toContain('execution_profile');
+      expect(content).toContain('never during generation');
       expect(content).toContain('TASK_EXECUTION_ROUTING.md');
       expect(content).not.toContain('{{include');
       expect(content).not.toContain('{{variable');

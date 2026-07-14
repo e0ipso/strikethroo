@@ -20,8 +20,14 @@ all `external-override` executions and all native Task-tool agents **together in
 parallel tool operation**. External execution uses:
 
 ```text
-scripts/dispatch-task-execution.cjs execute <task-file> <current-harness> <workspace> <plan-id> <task-id>
+scripts/dispatch-task-execution.cjs execute <handoff> <task-file> <current-harness> <workspace> <plan-id> <task-id>
 ```
+
+`<handoff>` is the exact opaque `handoff` string returned by that task's
+`external-override` resolver result. Never reconstruct it, reuse it for another
+task, or rerun resolution after launches begin. Execute validates the handoff
+and does not reread routing configuration, so configuration changes cannot
+alter an already selected target.
 
 This two-step protocol is mandatory: do not execute external tasks during route
 resolution, do not serialize external commands, and do not wait for external completion

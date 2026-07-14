@@ -192,7 +192,7 @@ function ProfileCard({
       />
       <div className="flex flex-col gap-2">
         <div className="font-sans text-xs font-medium text-ink-3">
-          Execution targets — ordered by priority; the first is the default choice
+          Dispatch targets — ordered by priority; the first non-avoided target is the default
         </div>
         {profile.targets.map((target, index) => (
           <TargetRow
@@ -278,9 +278,9 @@ function ConfigForm({
         <h2 className="font-display text-lg font-semibold text-ink">Execution routing</h2>
         <p className="max-w-3xl font-sans text-sm leading-relaxed text-ink-2">
           During task generation every task is classified into one of these profiles by its
-          description, and the selected target is written as the task&apos;s exact{' '}
-          <Chip>execution</Chip> frontmatter. With no profiles, routing is off and tasks carry no
-          execution metadata.
+          description. The profile is saved with the task; immediately before each delegation, one
+          complete target is selected from that profile. Rejected targets join the task&apos;s avoid
+          set before another selection attempt. With no profiles, routing is off.
         </p>
 
         {routing.profiles.map((profile, index) => (
@@ -316,7 +316,7 @@ function ConfigForm({
         </div>
 
         <label className="mt-2 flex max-w-3xl flex-col gap-1.5 font-sans text-sm text-ink-2">
-          <span className="font-medium text-ink">Custom resolver script (optional)</span>
+          <span className="font-medium text-ink">Custom dispatch selector script (optional)</span>
           <input
             data-testid="routing-resolver"
             className={cn(FIELD, 'w-full font-mono')}
@@ -326,9 +326,10 @@ function ConfigForm({
             onChange={e => update({ ...routing, resolverScript: e.target.value })}
           />
           <span className="text-xs text-ink-3">
-            One repository-relative script for the whole configuration. It picks between a
-            profile&apos;s ordered targets (price, quota, telemetry…); it never reclassifies tasks.
-            Leave empty to always use each profile&apos;s first target.
+            One repository-relative script for the whole configuration. At each selection attempt it
+            receives one task, all complete targets for its profile, and the accumulated avoid set,
+            then returns one non-avoided target identifier. It never reclassifies tasks. Leave empty
+            to use the first non-avoided target in configured order.
           </span>
         </label>
       </section>

@@ -138,5 +138,5 @@ The summary is consumed by downstream automation; keep the format exact.
   stop — do not fall back to manual ID allocation or path discovery.
 - **Execution routing fails.** Surface the routing helper's JSON errors and
   stop before blueprint generation. Do not guess profile assignments, do not
-  hand-write `execution` frontmatter, and do not continue with partially
+  hand-write `execution_profile` or `execution` frontmatter, and do not continue with partially
   routed tasks.

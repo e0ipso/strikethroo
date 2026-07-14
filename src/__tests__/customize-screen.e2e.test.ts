@@ -195,6 +195,12 @@ test.describe('Customize section (Playwright, fixture)', () => {
     // Third tab is the generic workspace configuration form.
     await page.getByRole('tab').nth(2).click();
     await page.getByTestId('workspace-config-form').waitFor();
+    await expect(page.getByText(/immediately before each delegation/i)).toBeVisible();
+    await expect(page.getByText(/rejected targets join the task's avoid set/i)).toBeVisible();
+    await expect(
+      page.getByText(/all complete targets for its profile, and the accumulated avoid set/i)
+    ).toBeVisible();
+    await expect(page.getByText(/selected target is written as the task's exact/i)).toHaveCount(0);
 
     // Manually populate one profile with one exact target.
     await page.getByRole('button', { name: 'Add profile' }).click();

@@ -98,7 +98,7 @@ The output must:
 - Contain the standard sections from the template body.
 - Use Markdown, not free-form prose.
 - Avoid time estimates, task lists, or code samples — those belong to the
-  later task-generation phase.
+  later task-generation step.
 
 The `<slug>` is derived from the plan summary: lowercase, alphanumeric and
 hyphens only, collapsed, trimmed.

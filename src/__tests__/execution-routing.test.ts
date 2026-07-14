@@ -1,7 +1,7 @@
 /**
  * Unit tests for the execution-routing shared module: configuration
- * parsing/validation, assignment-map validation, deterministic target
- * selection (default and custom resolver), and exact frontmatter mutation.
+ * parsing/validation, assignment-map validation, and durable profile
+ * frontmatter mutation.
  */
 
 import * as fs from 'fs';
@@ -12,13 +12,9 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   loadRoutingConfig,
   validateAssignments,
-  selectTargets,
-  toExecutionMapping,
-  writeExecutionFrontmatter,
+  writeExecutionProfileFrontmatter,
   WORKSPACE_CONFIG_RELPATH,
-  type RoutingConfig,
 } from '../skill-scripts/shared/execution-routing';
-import { readTaskExecutionPolicy } from '../skill-scripts/shared/execution-policy';
 import { SUPPORTED_HARNESSES } from '../types';
 
 const VALID_CONFIG = `
@@ -190,166 +186,7 @@ describe('validateAssignments', () => {
   });
 });
 
-describe('selectTargets', () => {
-  const config: RoutingConfig = {
-    profiles: [
-      { name: 'routine', description: 'd', targets: [{ model: 'first' }, { model: 'second' }] },
-    ],
-  };
-  const assignments = new Map([
-    [1, 'routine'],
-    [2, 'routine'],
-  ]);
-
-  let tempDir: string;
-
-  beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'routing-resolver-'));
-  });
-
-  afterEach(() => {
-    fs.rmSync(tempDir, { recursive: true, force: true });
-  });
-
-  it('by default picks randomly among available targets (native targets always available)', () => {
-    // Both configured targets are native (no harness) => always available;
-    // a stubbed RNG makes the otherwise-random pick deterministic.
-    const result = selectTargets(config, assignments, {
-      planId: 1,
-      projectRoot: tempDir,
-      random: () => 0.99, // -> last index of the available pool
-    });
-    expect(result.kind).toBe('selected');
-    if (result.kind !== 'selected') return;
-    expect(result.selections.get(1)).toEqual({ model: 'second' });
-    expect(result.selections.get(2)).toEqual({ model: 'second' });
-  });
-
-  it('filters out targets whose harness CLI is unavailable, then picks among survivors', () => {
-    const cfg: RoutingConfig = {
-      profiles: [
-        {
-          name: 'x',
-          description: 'd',
-          targets: [
-            { model: 'native' },
-            { model: 'cx', harness: 'codex' },
-            { model: 'oc', harness: 'opencode' },
-          ],
-        },
-      ],
-    };
-    const one = new Map([[1, 'x']]);
-    // Only opencode "installed" => available pool = [native (0), oc (2)].
-    const harnessAvailable = (h: string): boolean => h === 'opencode';
-    const low = selectTargets(cfg, one, {
-      planId: 1,
-      projectRoot: tempDir,
-      harnessAvailable,
-      random: () => 0,
-    });
-    const high = selectTargets(cfg, one, {
-      planId: 1,
-      projectRoot: tempDir,
-      harnessAvailable,
-      random: () => 0.99,
-    });
-    expect(low.kind === 'selected' && low.selections.get(1)).toEqual({ model: 'native' });
-    expect(high.kind === 'selected' && high.selections.get(1)).toEqual({
-      model: 'oc',
-      harness: 'opencode',
-    });
-  });
-
-  it('falls back to the first configured target when no candidate harness is available', () => {
-    const cfg: RoutingConfig = {
-      profiles: [
-        {
-          name: 'x',
-          description: 'd',
-          targets: [
-            { model: 'cx', harness: 'codex' },
-            { model: 'oc', harness: 'opencode' },
-          ],
-        },
-      ],
-    };
-    const one = new Map([[1, 'x']]);
-    const result = selectTargets(cfg, one, {
-      planId: 1,
-      projectRoot: tempDir,
-      harnessAvailable: () => false, // nothing installed
-      random: () => 0.99, // would pick the last target if it applied to the pool
-    });
-    expect(result.kind).toBe('selected');
-    if (result.kind !== 'selected') return;
-    expect(result.selections.get(1)).toEqual({ model: 'cx', harness: 'codex' });
-  });
-
-  it('lets a custom resolver pick a later candidate by index', () => {
-    const script = path.join(tempDir, 'pick.cjs');
-    fs.writeFileSync(
-      script,
-      `let input = '';
-process.stdin.on('data', d => (input += d));
-process.stdin.on('end', () => {
-  const req = JSON.parse(input);
-  const selections = {};
-  for (const t of req.tasks) selections[t.id] = 1;
-  process.stdout.write(JSON.stringify({ selections }));
-});`
-    );
-    const withResolver = { ...config, resolverScript: './pick.cjs' };
-    const result = selectTargets(withResolver, assignments, { planId: 1, projectRoot: tempDir });
-    expect(result.kind).toBe('selected');
-    if (result.kind !== 'selected') return;
-    expect(result.selections.get(1)).toEqual({ model: 'second' });
-  });
-
-  it.each([
-    ['a missing resolver script', null],
-    ['a crashing resolver', 'process.exit(3);'],
-    ['non-JSON resolver output', "process.stdout.write('nope');"],
-    [
-      'an out-of-range candidate index',
-      "process.stdout.write(JSON.stringify({ selections: { '1': 7, '2': 0 } }));",
-    ],
-    [
-      'a selection for an unknown task',
-      "process.stdout.write(JSON.stringify({ selections: { '1': 0, '2': 0, '9': 0 } }));",
-    ],
-    ['a missing selection', "process.stdout.write(JSON.stringify({ selections: { '1': 0 } }));"],
-  ])('fails clearly on %s', (_label, scriptBody) => {
-    if (scriptBody !== null) {
-      fs.writeFileSync(path.join(tempDir, 'pick.cjs'), scriptBody);
-    }
-    const withResolver = { ...config, resolverScript: './pick.cjs' };
-    const result = selectTargets(withResolver, assignments, { planId: 1, projectRoot: tempDir });
-    expect(result.kind).toBe('resolver-failure');
-    if (result.kind !== 'resolver-failure') return;
-    expect(result.detail.length).toBeGreaterThan(0);
-  });
-});
-
-describe('toExecutionMapping', () => {
-  it('omits the harness when it names the current orchestrator', () => {
-    expect(toExecutionMapping({ model: 'm', harness: 'claude' }, 'claude')).toEqual({
-      model: 'm',
-    });
-  });
-
-  it('keeps a different harness and the optional reasoning effort', () => {
-    expect(
-      toExecutionMapping({ model: 'm', harness: 'codex', reasoning_effort: 'high' }, 'claude')
-    ).toEqual({ model: 'm', harness: 'codex', reasoning_effort: 'high' });
-  });
-
-  it('adds no implicit reasoning_effort default', () => {
-    expect(toExecutionMapping({ model: 'm' }, 'claude')).toEqual({ model: 'm' });
-  });
-});
-
-describe('writeExecutionFrontmatter', () => {
+describe('writeExecutionProfileFrontmatter', () => {
   const task = [
     '---',
     'id: 3',
@@ -366,45 +203,28 @@ describe('writeExecutionFrontmatter', () => {
     '',
   ].join('\n');
 
-  it('appends an exact execution mapping and preserves all other content', () => {
-    const mutated = writeExecutionFrontmatter(task, {
-      harness: 'codex',
-      model: 'codex-x',
-      reasoning_effort: 'high',
-    });
-    expect(mutated).toContain(
-      'execution:\n  harness: "codex"\n  model: "codex-x"\n  reasoning_effort: "high"\n---'
-    );
+  it('appends the durable profile and preserves all other content', () => {
+    const mutated = writeExecutionProfileFrontmatter(task, 'demanding');
+    expect(mutated).toContain('execution_profile: "demanding"\n---');
     // Everything except the inserted block is byte-identical.
-    expect(
-      mutated.replace(
-        'execution:\n  harness: "codex"\n  model: "codex-x"\n  reasoning_effort: "high"\n',
-        ''
-      )
-    ).toBe(task);
-
-    const policy = readTaskExecutionPolicy(mutated, {
-      currentHarness: 'claude',
-      supportedHarnesses: SUPPORTED_HARNESSES,
-    });
-    expect(policy).toEqual({
-      kind: 'external-override',
-      harness: 'codex',
-      model: 'codex-x',
-      reasoningEffort: 'high',
-    });
+    expect(mutated.replace('execution_profile: "demanding"\n', '')).toBe(task);
   });
 
-  it('replaces an existing execution block instead of stacking a second one', () => {
-    const once = writeExecutionFrontmatter(task, { model: 'first-model' });
-    const twice = writeExecutionFrontmatter(once, { model: 'second-model' });
-    expect(twice.match(/^execution:/gm)).toHaveLength(1);
-    expect(twice).toContain('model: "second-model"');
-    expect(twice).not.toContain('first-model');
+  it('replaces an existing profile and removes unreleased concrete execution metadata', () => {
+    const legacy = task.replace(
+      '---\n## Objective',
+      'execution:\n  model: old-model\n---\n## Objective'
+    );
+    const once = writeExecutionProfileFrontmatter(legacy, 'routine');
+    const twice = writeExecutionProfileFrontmatter(once, 'demanding');
+    expect(twice.match(/^execution_profile:/gm)).toHaveLength(1);
+    expect(twice).toContain('execution_profile: "demanding"');
+    expect(twice).not.toContain('old-model');
+    expect(twice).not.toMatch(/^execution:/m);
   });
 
   it('throws on a document without frontmatter', () => {
-    expect(() => writeExecutionFrontmatter('# no frontmatter\n', { model: 'm' })).toThrow(
+    expect(() => writeExecutionProfileFrontmatter('# no frontmatter\n', 'routine')).toThrow(
       'missing frontmatter'
     );
   });

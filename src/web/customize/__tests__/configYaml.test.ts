@@ -76,6 +76,10 @@ describe('parseWorkspaceConfig', () => {
       'a target with unknown keys',
       'execution_routing:\n  profiles:\n    a:\n      description: d\n      models:\n        - model: m\n          temperature: 1\n',
     ],
+    [
+      'availability, probe, TTL, or provider settings',
+      'execution_routing:\n  profiles: {}\n  availability:\n    probe: true\n    ttl: 30\n    provider: codex\n',
+    ],
     ['a malformed resolver', 'execution_routing:\n  profiles: {}\n  resolver: nope\n'],
   ])('refuses a form save for %s', (_label, content) => {
     expect(parseWorkspaceConfig(content).kind).toBe('unsupported');
@@ -96,6 +100,16 @@ describe('serializeWorkspaceConfig round-trip', () => {
     expect(reparsed.kind).toBe('parsed');
     if (reparsed.kind !== 'parsed') return;
     expect(reparsed.routing).toEqual(parsed.routing);
+  });
+
+  it('preserves the complete representable routing structure without schema expansion', () => {
+    const parsed = parseWorkspaceConfig(FULL);
+    expect(parsed.kind).toBe('parsed');
+    if (parsed.kind !== 'parsed') return;
+
+    const output = load(serializeWorkspaceConfig(parsed.document, parsed.routing));
+    expect(output).toEqual(load(FULL));
+    expect(JSON.stringify(output)).not.toMatch(/availability|probe|ttl|provider/i);
   });
 
   it('emits exact targets: harness/effort only when set, values trimmed', () => {

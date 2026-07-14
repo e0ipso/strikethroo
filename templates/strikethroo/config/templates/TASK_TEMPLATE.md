@@ -8,12 +8,8 @@ skills: # Technical skills required for this task
   - [SKILL-1]
   - [SKILL-2]
 complexity_score: [1-10]  # Required on every newly generated task
-# Optional task-only execution override. `model` is required and passed unchanged.
-# execution:
-#   model: "exact-provider-model-id"
-#   reasoning_effort: high
-#   harness: copilot # Must differ from the current orchestrator.
-# No plan defaults, inheritance, aliases, model discovery, or name translation.
+# Optional configured routing profile, assigned atomically during task generation.
+# execution_profile: "profile-name"
 ---
 # [TASK-TITLE]
 

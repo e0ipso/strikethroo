@@ -63,7 +63,7 @@ The LLM generates the execution blueprint with dependency diagrams and phase gro
 
 **When:** During task generation, after all task files exist and before the execution blueprint is generated.
 
-The LLM classifies every freshly generated task into one of the execution profiles configured in the `execution_routing` section of `config/config.yaml`, using the task content still in its context (`skills`, `complexity_score`, objective, acceptance criteria). A bundled deterministic helper then writes each task's exact `execution` frontmatter — the LLM never chooses model identifiers directly, and profile names are never persisted. Add project-specific classification guidance here ("treat anything touching billing as demanding"). See [Execution routing](#execution-routing) below for the configuration itself.
+The LLM classifies every freshly generated task into one of the execution profiles configured in the `execution_routing` section of `config/config.yaml`, using the task content still in its context (`skills`, `complexity_score`, objective, acceptance criteria). A bundled deterministic helper validates the complete mapping and persists each selected profile as `execution_profile`; concrete targets are selected at dispatch. Add project-specific classification guidance here ("treat anything touching billing as demanding"). See [Execution routing](#execution-routing) below for the configuration itself.
 
 #### PRE_TASK_ASSIGNMENT
 
@@ -128,7 +128,7 @@ Edit these files to tune project discipline. Empty a file to disable that shared
 
 ### Execution routing
 
-The `execution_routing` section defines named **execution profiles** that automatically assign a model (and optionally a harness and reasoning effort) to every generated task. It ships with `profiles: {}`, which disables routing: tasks are generated without `execution` metadata, exactly as before the section existed.
+The `execution_routing` section defines named **execution profiles**. Task generation persists the selected profile, and dispatch chooses a configured model target immediately before delegation. It ships with `profiles: {}`, which disables routing; tasks with no `execution_profile` use the current harness and its normal defaults.
 
 The following configuration is **an example** — profile names, descriptions, and model identifiers are placeholders to adapt, not defaults Strikethroo recognizes:
 
@@ -158,11 +158,14 @@ How the pieces divide responsibility:
 
 - **Profile names are yours.** They are arbitrary routing concepts — nothing in Strikethroo depends on particular names.
 - **Descriptions are the contract.** During task generation the LLM matches each task against them, so describe *when* a profile applies (kind of work, risk, complexity) rather than restating a model name. Weak: "Uses the big model." Strong: "Cross-cutting refactors, security-sensitive code, or tasks scoring 7+ complexity."
-- **`models` order is priority.** The bundled default resolver always picks the **first** target of the assigned profile. Later entries exist only for a custom resolver to choose between.
-- **Targets are exact.** `model` is required and copied verbatim into the task's `execution` frontmatter ([PR #53](https://github.com/e0ipso/strikethroo/pull/53) semantics); `harness` and `reasoning_effort` are optional, with no aliases, defaults, discovery, or translation. Only configured targets can ever be written.
-- **One optional global resolver.** Advanced policies (price, quota, usage, telemetry) go in a single script referenced by `resolver.script` (repository-relative; `.js`/`.cjs`/`.mjs` runs under node, anything else executes directly). It receives `{"planId": …, "tasks": [{"id", "profile", "candidates"}]}` on stdin and must print `{"selections": {"<taskId>": <candidateIndex>}}`. It selects *within* the LLM-assigned profile — it never reclassifies tasks, and per-profile resolvers are rejected. Any resolver failure aborts task generation; no partially routed tasks are left behind.
+- **`models` order is priority.** The built-in selector picks the first target not present in the task's avoid set.
+- **Targets are exact.** `model` is required; `harness` and `reasoning_effort` are optional. The selected values are passed verbatim to dispatch, with no aliases or translation.
+- **One optional global selector.** Advanced policies go in one repository-relative script under `resolver.script` (`.js`/`.cjs`/`.mjs` runs under Node; anything else executes directly). For one task it receives `{"version":1,"task":{"id":6,"profile":"demanding"},"candidates":[{"id":"…","target":{"model":"…"}}],"avoid":["…"]}` on stdin and must print exactly `{"target":"<candidate id>"}`. Candidate IDs identify the complete configured target. It may select only a supplied, non-avoided candidate. Missing scripts, timeouts, non-zero exits, malformed output, and unknown or avoided targets cause a visible fallback to current-harness defaults; a configured selector is authoritative and is not replaced by the built-in policy on failure.
+- **Availability is harness-level.** Native targets (no `harness`) and targets for the current harness bypass probing. Other supported harnesses run a built-in, versioned cheap-request probe that covers CLI installation, authentication, request access, and credits. A successful probe establishes harness availability, not availability of every configured model.
+- **Probe results are cached.** `.ai/strikethroo/runtime/harness-availability.json` caches available results for 30 minutes and unavailable results for 5 minutes. The runtime directory is gitignored, tolerant of missing or malformed cache data, and excluded from workspace content.
+- **Unavailable targets retry safely.** Dispatch adds a rejected target's complete ID to the avoid set and invokes selection again. Exhausting the profile, losing the configured profile, or failing the selector falls back to the current harness without model or reasoning overrides.
 
-Routing runs inside `st-generate-tasks` (and the task-generation phase of `st-full-workflow`) after task files are emitted and before `POST_TASK_GENERATION_ALL` assembles the blueprint. The transient task-to-profile mapping is never persisted — the durable contract is each task's exact `execution` mapping.
+Classification runs inside `st-generate-tasks` (and the task-generation step of `st-full-workflow`) after task files are emitted and before `POST_TASK_GENERATION_ALL` assembles the blueprint. The durable task metadata is `execution_profile`; selection, availability checking, retries, and fallback happen immediately before delegation.
 
 ## Templates
 

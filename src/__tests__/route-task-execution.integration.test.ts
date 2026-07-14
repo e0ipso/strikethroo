@@ -24,15 +24,30 @@ interface ScriptResult {
   json: Record<string, unknown>;
 }
 
-const runScript = (script: string, args: string[], cwd: string): ScriptResult => {
+const runScript = (
+  script: string,
+  args: string[],
+  cwd: string,
+  env?: Record<string, string | undefined>
+): ScriptResult => {
   try {
-    const stdout = execFileSync('node', [script, ...args], { cwd, encoding: 'utf8' });
+    // Invoke node by absolute path so a caller-restricted PATH (used to control
+    // which harnesses count as "available") still finds the interpreter.
+    const stdout = execFileSync(process.execPath, [script, ...args], {
+      cwd,
+      encoding: 'utf8',
+      env: env ?? process.env,
+    });
     return { exitCode: 0, json: JSON.parse(stdout.trim()) };
   } catch (error) {
     const e = error as { status?: number; stdout?: string };
     return { exitCode: e.status ?? 1, json: JSON.parse((e.stdout ?? '').trim()) };
   }
 };
+
+// A PATH with no harness CLIs on it: the default resolver then finds every
+// external target unavailable and deterministically selects the native one.
+const NO_HARNESS_ENV = (): Record<string, string | undefined> => ({ ...process.env, PATH: '' });
 
 const taskFile = (id: number, complexity: number): string =>
   [
@@ -143,10 +158,12 @@ describe('route-task-execution bundle integration', () => {
     });
   });
 
-  it('applies a valid mapping: exact frontmatter, first-target default, dispatch-compatible', () => {
+  it('applies a valid mapping: exact frontmatter, availability-filtered default, dispatch-compatible', () => {
     fs.writeFileSync(path.join(workspace, 'config', 'config.yaml'), ROUTING_CONFIG);
     const mapping = writeMapping({ '1': 'routine', '2': 'demanding' });
-    const result = runScript(script, ['apply', '12', mapping, 'claude'], tempDir);
+    // No harness CLI on PATH => demanding's external codex target is filtered,
+    // leaving only its native opus-x, so the random default is deterministic.
+    const result = runScript(script, ['apply', '12', mapping, 'claude'], tempDir, NO_HARNESS_ENV());
     expect(result.exitCode).toBe(0);
     expect(result.json.kind).toBe('routed');
 

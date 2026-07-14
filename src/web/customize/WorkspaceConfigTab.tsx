@@ -31,8 +31,13 @@ import {
   type RoutingTargetForm,
 } from './configYaml';
 
+// Shared field styling WITHOUT a width — width is context-dependent, so each
+// usage supplies its own (`w-full`, a fixed `w-*`, or `flex-1`). Baking a width
+// into this constant collides with the per-field width classes (clsx merely
+// concatenates; it does not resolve Tailwind conflicts), letting the wrong one
+// win in the generated CSS.
 const FIELD =
-  'w-full rounded-md bg-cream-mid px-2.5 py-1.5 font-sans text-sm text-ink ring-1 ring-inset ring-border-soft outline-none focus:bg-cream focus:ring-2 focus:ring-ink placeholder:text-ink-3';
+  'rounded-md bg-cream-mid px-2.5 py-1.5 font-sans text-sm text-ink ring-1 ring-inset ring-border-soft outline-none focus:bg-cream focus:ring-2 focus:ring-ink placeholder:text-ink-3';
 
 const EMPTY_TARGET: RoutingTargetForm = { model: '', harness: '', reasoningEffort: '' };
 
@@ -95,7 +100,7 @@ function TargetRow({
       <input
         data-testid="routing-target-model"
         aria-label="Exact model identifier"
-        className={cn(FIELD, 'font-mono')}
+        className={cn(FIELD, 'min-w-0 flex-1 font-mono')}
         type="text"
         placeholder="exact-model-id (copied verbatim)"
         value={target.model}
@@ -161,7 +166,7 @@ function ProfileCard({
         <input
           data-testid="routing-profile-name"
           aria-label="Profile name"
-          className={cn(FIELD, 'max-w-60 font-mono font-medium')}
+          className={cn(FIELD, 'w-full max-w-60 font-mono font-medium')}
           type="text"
           placeholder="profile-name"
           value={profile.name}
@@ -180,7 +185,7 @@ function ProfileCard({
       <textarea
         data-testid="routing-profile-description"
         aria-label="Profile description"
-        className={cn(FIELD, 'min-h-16 resize-y leading-relaxed')}
+        className={cn(FIELD, 'w-full min-h-16 resize-y leading-relaxed')}
         placeholder="When does this profile apply? Describe the kind of work, its risk, and its complexity — the task-generation LLM classifies tasks against this text."
         value={profile.description}
         onChange={e => onChange({ ...profile, description: e.target.value })}
@@ -314,7 +319,7 @@ function ConfigForm({
           <span className="font-medium text-ink">Custom resolver script (optional)</span>
           <input
             data-testid="routing-resolver"
-            className={cn(FIELD, 'font-mono')}
+            className={cn(FIELD, 'w-full font-mono')}
             type="text"
             placeholder="./scripts/select-execution-target.cjs"
             value={routing.resolverScript}

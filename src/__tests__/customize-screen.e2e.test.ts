@@ -202,6 +202,15 @@ test.describe('Customize section (Playwright, fixture)', () => {
     await page
       .getByTestId('routing-profile-description')
       .fill('Localized, low-risk work with a low complexity score.');
+
+    // Regression guard: the target row's three fields must all be usably wide.
+    // A `w-full` baked into the shared field styling collides with the fixed
+    // widths on the harness/effort controls (clsx concatenates, it does not
+    // resolve Tailwind conflicts); the wrong class winning collapses the model
+    // input to near-zero width so the user cannot see or use it.
+    const modelBox = await page.getByTestId('routing-target-model').boundingBox();
+    expect(modelBox?.width ?? 0).toBeGreaterThan(120);
+
     await page.getByTestId('routing-target-model').fill('exact-model-id');
 
     await page.getByRole('button', { name: 'Save configuration' }).click();

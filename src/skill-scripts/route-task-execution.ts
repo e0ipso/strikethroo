@@ -25,8 +25,8 @@ import {
  *
  *   route-task-execution.cjs apply <plan-id> <assignment-json-file> <current-harness>
  *     Validates the task-to-profile mapping, selects one exact target per
- *     task (first configured target, or the single optional custom
- *     resolver), writes the exact `execution` frontmatter into every task,
+ *     task (a random available target by default, or the single optional
+ *     custom resolver), writes the exact `execution` frontmatter into every task,
  *     and verifies the written files. All-or-nothing: any failure aborts
  *     before or rolls back after writing.
  *

@@ -171,6 +171,18 @@ const executableOnPath = (executable: string): boolean =>
     }
   });
 
+/**
+ * Whether the CLI for a harness is installed on this machine, keyed by the
+ * canonical adapter executable (e.g. `cursor` resolves to `cursor-agent`). An
+ * unknown harness is treated as unavailable. Shared so execution-routing's
+ * default resolver can filter unavailable external targets without duplicating
+ * the executable-name knowledge held here.
+ */
+export const harnessExecutableAvailable = (harness: string): boolean => {
+  const adapter = EXTERNAL_HARNESS_ADAPTERS[harness as Harness];
+  return adapter ? executableOnPath(adapter.executable) : false;
+};
+
 const runProcess = (
   executable: string,
   argv: string[],

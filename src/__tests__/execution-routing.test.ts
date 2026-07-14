@@ -211,12 +211,79 @@ describe('selectTargets', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('defaults to the first configured target', () => {
-    const result = selectTargets(config, assignments, { planId: 1, projectRoot: tempDir });
+  it('by default picks randomly among available targets (native targets always available)', () => {
+    // Both configured targets are native (no harness) => always available;
+    // a stubbed RNG makes the otherwise-random pick deterministic.
+    const result = selectTargets(config, assignments, {
+      planId: 1,
+      projectRoot: tempDir,
+      random: () => 0.99, // -> last index of the available pool
+    });
     expect(result.kind).toBe('selected');
     if (result.kind !== 'selected') return;
-    expect(result.selections.get(1)).toEqual({ model: 'first' });
-    expect(result.selections.get(2)).toEqual({ model: 'first' });
+    expect(result.selections.get(1)).toEqual({ model: 'second' });
+    expect(result.selections.get(2)).toEqual({ model: 'second' });
+  });
+
+  it('filters out targets whose harness CLI is unavailable, then picks among survivors', () => {
+    const cfg: RoutingConfig = {
+      profiles: [
+        {
+          name: 'x',
+          description: 'd',
+          targets: [
+            { model: 'native' },
+            { model: 'cx', harness: 'codex' },
+            { model: 'oc', harness: 'opencode' },
+          ],
+        },
+      ],
+    };
+    const one = new Map([[1, 'x']]);
+    // Only opencode "installed" => available pool = [native (0), oc (2)].
+    const harnessAvailable = (h: string): boolean => h === 'opencode';
+    const low = selectTargets(cfg, one, {
+      planId: 1,
+      projectRoot: tempDir,
+      harnessAvailable,
+      random: () => 0,
+    });
+    const high = selectTargets(cfg, one, {
+      planId: 1,
+      projectRoot: tempDir,
+      harnessAvailable,
+      random: () => 0.99,
+    });
+    expect(low.kind === 'selected' && low.selections.get(1)).toEqual({ model: 'native' });
+    expect(high.kind === 'selected' && high.selections.get(1)).toEqual({
+      model: 'oc',
+      harness: 'opencode',
+    });
+  });
+
+  it('falls back to the first configured target when no candidate harness is available', () => {
+    const cfg: RoutingConfig = {
+      profiles: [
+        {
+          name: 'x',
+          description: 'd',
+          targets: [
+            { model: 'cx', harness: 'codex' },
+            { model: 'oc', harness: 'opencode' },
+          ],
+        },
+      ],
+    };
+    const one = new Map([[1, 'x']]);
+    const result = selectTargets(cfg, one, {
+      planId: 1,
+      projectRoot: tempDir,
+      harnessAvailable: () => false, // nothing installed
+      random: () => 0.99, // would pick the last target if it applied to the pool
+    });
+    expect(result.kind).toBe('selected');
+    if (result.kind !== 'selected') return;
+    expect(result.selections.get(1)).toEqual({ model: 'cx', harness: 'codex' });
   });
 
   it('lets a custom resolver pick a later candidate by index', () => {

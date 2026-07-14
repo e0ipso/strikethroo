@@ -232,10 +232,9 @@ Optional frontmatter:
 - `complexity_notes` (string) — include when the score needs justification,
   such as "Decomposed from a cross-cutting parent task" or "Ambiguous API
   contract".
-- `execution` (mapping) — a task-only execution override. When present,
-  `model` is required and must be an exact string. `reasoning_effort` and a
-  different external `harness` are optional. Do not create plan defaults,
-  inheritance, aliases, model discovery, or model-name translation.
+- `execution_profile` (string) — optional durable routing profile metadata.
+  Omit it during initial task emission; the routing helper writes it only
+  after validating the complete task-to-profile mapping.
 
 The body sections (Objective, Skills Required, Acceptance Criteria, Technical
 Requirements, Input Dependencies, Output Artifacts, Implementation Notes)
@@ -291,20 +290,20 @@ instructions together with this procedure:
 3. Write the complete task-ID-to-profile mapping as a JSON object to a
    temporary file, for example `{"1": "routine", "2": "demanding"}`.
 4. Run
-   `scripts/route-task-execution.cjs apply <plan-id> <mapping-file> <current-harness>`,
-   where `<current-harness>` is the exact supported harness identifier
-   running this skill. The helper validates the mapping (every task exactly
-   once, only configured profiles), deterministically selects each task's
-   execution target, writes the exact `execution` frontmatter, and verifies
-   the written files.
+   `scripts/route-task-execution.cjs apply <plan-id> <mapping-file>`. The
+   helper validates the mapping (every task exactly once, only configured
+   profiles), writes one `execution_profile` frontmatter field per task, and
+   verifies the written files. Target selection and resolver execution happen
+   later at task dispatch, never during generation.
 5. On `routed`, delete the temporary mapping file and continue. On any
    failure result (`invalid-assignments`, `invalid-tasks`,
-   `resolver-failure`, `routing-failure`, `infrastructure-failure`), stop
+   `routing-failure`, `infrastructure-failure`), stop
    and surface the JSON errors to the user. Never proceed to blueprint
    generation with partially routed tasks.
 
-Profile names are transient routing labels: never write them into task
-frontmatter or task bodies.
+Profile names are durable routing labels. Persist them only through the
+helper's `execution_profile` field; never hand-write a concrete `execution`
+target into task frontmatter or task bodies.
 
 ### 13. Run the POST_TASK_GENERATION_ALL hook
 
@@ -345,5 +344,5 @@ The summary is consumed by downstream automation; keep the format exact.
   stop — do not fall back to manual ID allocation or path discovery.
 - **Execution routing fails.** Surface the routing helper's JSON errors and
   stop before blueprint generation. Do not guess profile assignments, do not
-  hand-write `execution` frontmatter, and do not continue with partially
+  hand-write `execution_profile` or `execution` frontmatter, and do not continue with partially
   routed tasks.

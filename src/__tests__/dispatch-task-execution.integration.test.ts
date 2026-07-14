@@ -25,7 +25,14 @@ describe('dispatch task execution entrypoint', () => {
   it('emits one infrastructure JSON line for an unreadable task file', () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'st-dispatch-'));
     const bundle = makeBundle(directory);
-    const result = run(bundle, [path.join(directory, 'missing.md'), 'codex', directory, '12', '3']);
+    const result = run(bundle, [
+      'resolve',
+      path.join(directory, 'missing.md'),
+      'codex',
+      directory,
+      '12',
+      '3',
+    ]);
 
     expect(result.status).toBe(2);
     expect(result.stderr).toBe('');
@@ -36,55 +43,86 @@ describe('dispatch task execution entrypoint', () => {
     });
   });
 
-  it('resolves an external route without checking or launching its executable', () => {
+  it('keeps released tasks without routing metadata on native defaults', () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'st-dispatch-'));
     const bundle = makeBundle(directory);
     const taskFile = path.join(directory, 'task.md');
-    fs.writeFileSync(
-      taskFile,
-      '---\nid: 3\nstatus: pending\nexecution:\n  harness: claude\n  model: exact/model\n---\n# Task\n'
-    );
+    fs.writeFileSync(taskFile, '---\nid: 3\nstatus: pending\n---\n# Task\n');
     const result = run(bundle, ['resolve', taskFile, 'codex', directory, '12', '3'], {
       ...process.env,
       PATH: '',
     });
 
     expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({ kind: 'native-default' });
+  });
+
+  it('retries an unavailable external target and selects a current-harness target', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'st-dispatch-'));
+    const bundle = makeBundle(directory);
+    fs.mkdirSync(path.join(directory, '.ai/strikethroo/config'), { recursive: true });
+    fs.writeFileSync(
+      path.join(directory, '.ai/strikethroo/config/config.yaml'),
+      'execution_routing:\n  profiles:\n    mixed:\n      description: Mixed route.\n      models:\n        - model: external/model\n          harness: claude\n        - model: native/model\n          harness: codex\n          reasoning_effort: high\n'
+    );
+    const executable = path.join(directory, 'claude');
+    fs.writeFileSync(executable, '#!/bin/sh\nexit 1\n', { mode: 0o700 });
+    const taskFile = path.join(directory, 'task.md');
+    fs.writeFileSync(
+      taskFile,
+      '---\nid: 3\nstatus: pending\nexecution_profile: mixed\n---\n# Task\n'
+    );
+    const result = run(bundle, ['resolve', taskFile, 'codex', directory, '12', '3'], {
+      ...process.env,
+      PATH: directory,
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
     expect(JSON.parse(result.stdout)).toEqual({
-      kind: 'external-override',
-      harness: 'claude',
-      model: 'exact/model',
+      kind: 'native-override',
+      model: 'native/model',
+      reasoningEffort: 'high',
     });
   });
 
-  it('emits infrastructure failure when the executable disappears after preflight', () => {
+  it('executes the resolved external handoff after configuration drift', () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'st-dispatch-'));
     const bundle = makeBundle(directory);
-    const executable = path.join(directory, 'claude');
-    // /bin/rm is absolute because the constrained PATH below contains only the
-    // temp directory; the constraint keeps a real `claude` elsewhere on the
-    // host PATH from being found once this fake deletes itself.
+    const configDir = path.join(directory, '.ai/strikethroo/config');
+    fs.mkdirSync(configDir, { recursive: true });
+    const config = path.join(configDir, 'config.yaml');
     fs.writeFileSync(
-      executable,
-      '#!/bin/sh\nif [ "$1" = "auth" ]; then /bin/rm -- "$0"; exit 0; fi\nexit 0\n',
+      config,
+      'execution_routing:\n  profiles:\n    remote:\n      description: Remote route.\n      models:\n        - model: exact/model\n          harness: claude\n'
+    );
+    fs.writeFileSync(
+      path.join(directory, 'claude'),
+      '#!/bin/sh\nwhile IFS= read -r line; do :; done\nexit 0\n',
       { mode: 0o700 }
     );
     const taskFile = path.join(directory, 'task.md');
     fs.writeFileSync(
       taskFile,
-      '---\nid: 3\nstatus: pending\nexecution:\n  harness: claude\n  model: exact/model\n---\n# Task\n'
+      '---\nid: 3\nstatus: pending\nexecution_profile: remote\n---\n# Task\n'
     );
-    const result = run(bundle, [taskFile, 'codex', directory, '12', '3'], {
-      ...process.env,
-      PATH: directory,
+    const env = { ...process.env, PATH: directory };
+    const resolved = run(bundle, ['resolve', taskFile, 'codex', directory, '12', '3'], env);
+    const route = JSON.parse(resolved.stdout) as { kind: string; handoff: string };
+    expect(route).toMatchObject({
+      kind: 'external-override',
+      harness: 'claude',
+      model: 'exact/model',
+      handoff: expect.any(String),
     });
 
-    expect(result.status).toBe(2);
-    expect(result.stderr).toBe('');
-    expect(result.stdout.trim().split('\n')).toHaveLength(1);
-    expect(JSON.parse(result.stdout)).toMatchObject({
-      kind: 'infrastructure-failure',
-      detail: expect.stringContaining('ENOENT'),
-    });
+    fs.writeFileSync(config, 'execution_routing:\n  profiles: {}\n');
+    const executed = run(
+      bundle,
+      ['execute', route.handoff, taskFile, 'codex', directory, '12', '3'],
+      env
+    );
+    expect(executed.status, executed.stdout).toBe(0);
+    expect(JSON.parse(executed.stdout)).toEqual({ kind: 'launched-success', exitCode: 0 });
   });
 });

@@ -4,14 +4,10 @@ import * as path from 'path';
 import { SUPPORTED_HARNESSES } from '../types';
 import { resolvePlan } from './shared/plan-resolve';
 import { extractPlanId } from './shared/frontmatter';
-import { readTaskExecutionPolicy, type ExecutionPolicy } from './shared/execution-policy';
 import {
   loadRoutingConfig,
   validateAssignments,
-  selectTargets,
-  toExecutionMapping,
-  writeExecutionFrontmatter,
-  type ResolvedExecution,
+  writeExecutionProfileFrontmatter,
 } from './shared/execution-routing';
 
 /**
@@ -23,11 +19,9 @@ import {
  *     Prints the configured profiles (names + LLM-facing descriptions) for
  *     in-context classification, or no-config/disabled when routing is off.
  *
- *   route-task-execution.cjs apply <plan-id> <assignment-json-file> <current-harness>
- *     Validates the task-to-profile mapping, selects one exact target per
- *     task (a random available target by default, or the single optional
- *     custom resolver), writes the exact `execution` frontmatter into every task,
- *     and verifies the written files. All-or-nothing: any failure aborts
+ *   route-task-execution.cjs apply <plan-id> <assignment-json-file>
+ *     Validates the task-to-profile mapping and writes the durable
+ *     `execution_profile` frontmatter into every task. All-or-nothing: any failure aborts
  *     before or rolls back after writing.
  *
  * Exit codes: 0 success (including no-config/disabled), 1 routing/validation
@@ -45,7 +39,7 @@ const usage = (): never =>
       kind: 'infrastructure-failure',
       detail:
         'Usage: route-task-execution.cjs profiles <plan-id> | ' +
-        'route-task-execution.cjs apply <plan-id> <assignment-json-file> <current-harness>',
+        'route-task-execution.cjs apply <plan-id> <assignment-json-file>',
     },
     2
   );
@@ -96,28 +90,6 @@ const readTaskDocuments = (
   return { kind: 'tasks', tasks };
 };
 
-/**
- * A routed task must parse back (through PR #53's exact policy parser) to
- * precisely the execution the routing selected: the right override kind, the
- * exact model, the same harness for external targets, and the same optional
- * reasoning effort — nothing weakened, defaulted, or reinterpreted.
- */
-const policyMatchesExecution = (policy: ExecutionPolicy, execution: ResolvedExecution): boolean => {
-  if (execution.harness !== undefined) {
-    return (
-      policy.kind === 'external-override' &&
-      policy.harness === execution.harness &&
-      policy.model === execution.model &&
-      policy.reasoningEffort === execution.reasoning_effort
-    );
-  }
-  return (
-    policy.kind === 'native-override' &&
-    policy.model === execution.model &&
-    policy.reasoningEffort === execution.reasoning_effort
-  );
-};
-
 const main = (): void => {
   const [mode, planIdArg, ...rest] = process.argv.slice(2);
   if ((mode !== 'profiles' && mode !== 'apply') || !planIdArg) usage();
@@ -155,17 +127,8 @@ const main = (): void => {
     );
   }
 
-  const [assignmentFile, currentHarness] = rest;
-  if (!assignmentFile || !currentHarness) usage();
-  if (!SUPPORTED_HARNESSES.includes(currentHarness as (typeof SUPPORTED_HARNESSES)[number])) {
-    emit(
-      {
-        kind: 'infrastructure-failure',
-        detail: `current harness "${currentHarness}" is not a supported harness.`,
-      },
-      2
-    );
-  }
+  const [assignmentFile, ...extraArgs] = rest;
+  if (!assignmentFile || extraArgs.length > 0) usage();
 
   const documents = readTaskDocuments(resolved.planDir);
   if (documents.kind === 'invalid') {
@@ -199,33 +162,17 @@ const main = (): void => {
     return;
   }
 
-  const projectRoot = path.dirname(path.dirname(resolved.strikethrooRoot));
-  const selection = selectTargets(config, assignmentResult.assignments, {
-    planId: resolved.planId,
-    projectRoot,
-  });
-  if (selection.kind === 'resolver-failure') {
-    emit({ kind: 'resolver-failure', detail: selection.detail }, 1);
-    return;
-  }
-
-  // Stage every mutation in memory and verify each staged document parses
-  // back to the intended execution policy before any file is touched.
-  const policyContext = {
-    currentHarness: currentHarness as string,
-    supportedHarnesses: SUPPORTED_HARNESSES,
-  };
-  const staged: { task: TaskDocument; next: string; execution: ResolvedExecution }[] = [];
+  // Stage and verify every mutation in memory before any file is touched.
+  const staged: { task: TaskDocument; next: string; profile: string }[] = [];
   for (const task of documents.tasks) {
-    const target = selection.selections.get(task.id);
-    if (!target) {
-      emit({ kind: 'routing-failure', detail: `no target selected for task ${task.id}.` }, 1);
+    const profile = assignmentResult.assignments.get(task.id);
+    if (!profile) {
+      emit({ kind: 'routing-failure', detail: `no profile assigned for task ${task.id}.` }, 1);
       return;
     }
-    const execution = toExecutionMapping(target, currentHarness as string);
     let next: string;
     try {
-      next = writeExecutionFrontmatter(task.content, execution);
+      next = writeExecutionProfileFrontmatter(task.content, profile);
     } catch (error) {
       emit(
         {
@@ -238,20 +185,14 @@ const main = (): void => {
       );
       return;
     }
-    const policy = readTaskExecutionPolicy(next, policyContext);
-    if (!policyMatchesExecution(policy, execution)) {
+    if (!next.includes(`execution_profile: ${JSON.stringify(profile)}`)) {
       emit(
-        {
-          kind: 'routing-failure',
-          detail:
-            `task ${task.id} would not verify after routing ` +
-            `(${policy.kind}${'detail' in policy ? `: ${policy.detail}` : ''}).`,
-        },
+        { kind: 'routing-failure', detail: `task ${task.id} would not verify after routing.` },
         1
       );
       return;
     }
-    staged.push({ task, next, execution });
+    staged.push({ task, next, profile });
   }
 
   // Write all staged documents; restore originals on any mid-flight failure
@@ -262,10 +203,9 @@ const main = (): void => {
       fs.writeFileSync(task.file, next);
       written.push(task);
     }
-    for (const { task, execution } of staged) {
+    for (const { task, next } of staged) {
       const reread = fs.readFileSync(task.file, 'utf8');
-      const policy = readTaskExecutionPolicy(reread, policyContext);
-      if (!policyMatchesExecution(policy, execution)) {
+      if (reread !== next) {
         throw new Error(`task ${task.id} failed post-write verification.`);
       }
     }
@@ -292,10 +232,10 @@ const main = (): void => {
   emit(
     {
       kind: 'routed',
-      tasks: staged.map(({ task, execution }) => ({
+      tasks: staged.map(({ task, profile }) => ({
         id: task.id,
         file: task.file,
-        execution,
+        executionProfile: profile,
       })),
     },
     0

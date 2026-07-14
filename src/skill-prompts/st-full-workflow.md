@@ -17,36 +17,36 @@ Drive the complete end-to-end Strikethroo workflow from initial plan creation th
 
 ## Critical Rule
 
-Execute all three phases sequentially without waiting for user input between steps. This is a fully automated orchestration workflow. Progress indicators are for user visibility only and do not pause execution.
+Execute all three steps sequentially without waiting for user input between them. This is a fully automated orchestration workflow. Progress indicators are for user visibility only and do not pause execution.
 
 ## Inputs
 
 The user supplies the work order conversationally. Treat it as the only authoritative source of intent. Do not invent answers to clarifying questions — prompt the user instead.
 
-## Context Passing Between Phases
+## Context Passing Between Steps
 
 Information flows through the workflow via structured output parsing:
 
-1. **Phase 1 → Phase 2**: Extract the numeric `Plan ID` from the Phase 1 structured summary output. Use this exact ID to drive Phase 2.
-2. **Phase 2 → Phase 3**: Extract the `Tasks` count from the Phase 2 structured summary output. Use this count for progress tracking during Phase 3.
+1. **Step 1 → Step 2**: Extract the numeric `Plan ID` from the Step 1 structured summary output. Use this exact ID to drive Step 2.
+2. **Step 2 → Step 3**: Extract the `Tasks` count from the Step 2 structured summary output. Use this count for progress tracking during Step 3.
 
-Do not proceed to the next phase until the structured output from the current phase has been successfully parsed.
+Do not proceed to the next step until the structured output from the current step has been successfully parsed.
 
 ## Progress Indicators
 
 Display progress indicators at key transition points to provide visual feedback without interrupting execution:
 
-- `⬛⬜⬜ 33%` — Phase 1: Plan Creation Complete
-- `⬛⬛⬜ 66%` — Phase 2: Task Generation Complete
-- `⬛⬛⬛ 100%` — Phase 3: Blueprint Execution Complete
+- `⬛⬜⬜ 33%` — Step 1: Plan Creation Complete
+- `⬛⬛⬜ 66%` — Step 2: Task Generation Complete
+- `⬛⬛⬛ 100%` — Step 3: Blueprint Execution Complete
 
 These indicators are purely informational. Do not pause or wait for user input when displaying them.
 
 ## Operating Procedure
 
-### Phase 1: Plan Creation
+### Step 1: Plan Creation
 
-**Progress**: `⬛⬜⬜ 33% - Phase 1/3: Starting Plan Creation`
+**Progress**: `⬛⬜⬜ 33% - Step 1/3: Starting Plan Creation`
 
 #### 1. Locate the strikethroo root
 
@@ -86,7 +86,7 @@ Write the plan to:
 <root>/plans/{padded-id}--{slug}/plan-{padded-id}--{slug}.md
 ```
 
-The output must conform to `<root>/config/templates/PLAN_TEMPLATE.md`, including required YAML frontmatter fields (`id`, `summary`, `created`). Avoid time estimates, task lists, or code samples — those belong to the later task-generation phase.
+The output must conform to `<root>/config/templates/PLAN_TEMPLATE.md`, including required YAML frontmatter fields (`id`, `summary`, `created`). Avoid time estimates, task lists, or code samples — those belong to the later task-generation step.
 
 The `<slug>` is derived from the plan summary: lowercase, alphanumeric and hyphens only, collapsed, trimmed.
 
@@ -94,9 +94,9 @@ The `<slug>` is derived from the plan summary: lowercase, alphanumeric and hyphe
 
 Execute `<root>/config/hooks/POST_PLAN.md` after the plan file is written.
 
-#### 8. Emit the Phase 1 structured summary
+#### 8. Emit the Step 1 structured summary
 
-Conclude Phase 1 with exactly this block:
+Conclude Step 1 with exactly this block:
 
 ```
 ---
@@ -106,17 +106,17 @@ Plan Summary:
 - Plan File: [absolute-path-to-plan-file]
 ```
 
-Parse the `Plan ID` value from this output and pass it to Phase 2.
+Parse the `Plan ID` value from this output and pass it to Step 2.
 
-**Progress**: `⬛⬜⬜ 33% - Phase 1/3: Plan Creation Complete`
+**Progress**: `⬛⬜⬜ 33% - Step 1/3: Plan Creation Complete`
 
 ---
 
-### Phase 2: Task Generation
+### Step 2: Task Generation
 
-**Progress**: `⬛⬜⬜ 33% - Phase 2/3: Starting Task Generation`
+**Progress**: `⬛⬜⬜ 33% - Step 2/3: Starting Task Generation`
 
-Using the Plan ID extracted from Phase 1:
+Using the Plan ID extracted from Step 1:
 
 #### 1. Resolve the plan
 
@@ -180,9 +180,9 @@ Read `<root>/config/hooks/POST_TASK_GENERATION_ALL.md` and follow its instructio
 - Appending an Execution Blueprint section to the plan document, including a Mermaid dependency diagram and explicit phase groupings.
 - Use `<root>/config/templates/BLUEPRINT_TEMPLATE.md` for structure.
 
-#### 13. Emit the Phase 2 structured summary
+#### 13. Emit the Step 2 structured summary
 
-Conclude Phase 2 with exactly this block:
+Conclude Step 2 with exactly this block:
 
 ```
 ---
@@ -192,15 +192,15 @@ Task Generation Summary:
 - Status: Ready for execution
 ```
 
-Parse the `Tasks` count from this output and pass it to Phase 3 for progress tracking.
+Parse the `Tasks` count from this output and pass it to Step 3 for progress tracking.
 
-**Progress**: `⬛⬛⬜ 66% - Phase 2/3: Task Generation Complete`
+**Progress**: `⬛⬛⬜ 66% - Step 2/3: Task Generation Complete`
 
 ---
 
-### Phase 3: Blueprint Execution
+### Step 3: Blueprint Execution
 
-**Progress**: `⬛⬛⬜ 66% - Phase 3/3: Starting Blueprint Execution`
+**Progress**: `⬛⬛⬜ 66% - Step 3/3: Starting Blueprint Execution`
 
 Using the Plan ID from the previous phases:
 
@@ -219,7 +219,7 @@ If the script exits non-zero, stop and report the error.
 If `taskCount` is 0 or `blueprintExists` is `no`:
 
 - Notify the user: "Tasks or execution blueprint not found. Generating tasks automatically..."
-- Execute the full task generation procedure from Phase 2 for this plan ID.
+- Execute the full task generation procedure from Step 2 for this plan ID.
 - After generation completes, re-run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` (and the other fields) to refresh the resolved paths and counts.
 - If generation still leaves the plan without tasks or a blueprint, stop and report failure. Do not attempt execution without a valid blueprint.
 
@@ -244,17 +244,17 @@ Read these files in order:
 
 {{include sections/post-execution-archive.md}}
 
-**Progress**: `⬛⬛⬛ 100% - Phase 3/3: Blueprint Execution Complete`
+**Progress**: `⬛⬛⬛ 100% - Step 3/3: Blueprint Execution Complete`
 
 ## Failure Modes
 
 - **No strikethroo root found.** Stop and instruct the user to initialize the project. Do not write any files or execute any tasks.
-- **User refuses to answer a clarifying question that blocks planning in Phase 1.** Report `needs-clarification` and stop. Do not produce a partial plan.
+- **User refuses to answer a clarifying question that blocks planning in Step 1.** Report `needs-clarification` and stop. Do not produce a partial plan.
 - **Plan ID script fails.** Re-check the resolved root and re-run. If it continues to fail, surface stderr to the user and stop — do not guess an ID.
-- **Plan directory already exists for the allocated ID in Phase 1.** Re-run the next-plan-id script and retry once. If the conflict persists, stop and report.
-- **Plan ID does not resolve in Phase 2 or 3.** Stop and surface the script's stderr. Do not guess a different ID.
-- **Execution routing fails in Phase 2.** Surface the routing helper's JSON errors and stop before blueprint generation. Do not guess profile assignments, hand-write `execution` frontmatter, or continue with partially routed tasks.
-- **Missing blueprint after auto-generation in Phase 3.** If automatic task generation fails to produce tasks or a blueprint, stop and report failure. Do not attempt execution without a blueprint.
+- **Plan directory already exists for the allocated ID in Step 1.** Re-run the next-plan-id script and retry once. If the conflict persists, stop and report.
+- **Plan ID does not resolve in Step 2 or 3.** Stop and surface the script's stderr. Do not guess a different ID.
+- **Execution routing fails in Step 2.** Surface the routing helper's JSON errors and stop before blueprint generation. Do not guess profile assignments, hand-write `execution_profile`, or continue with partially routed tasks.
+- **Missing blueprint after auto-generation in Step 3.** If automatic task generation fails to produce tasks or a blueprint, stop and report failure. Do not attempt execution without a blueprint.
 - **Hook failure during execution.** If `PRE_PHASE.md`, `POST_PHASE.md`, or `POST_EXECUTION.md` fails, halt execution. The plan remains in `plans/` for debugging and potential re-execution.
 - **Execution errors.** If a task fails, read `<root>/config/hooks/POST_ERROR_DETECTION.md`, document the error in Noteworthy Events, halt the phase, and request user direction before continuing.
 

@@ -136,10 +136,10 @@ Preserve all other frontmatter fields exactly.
 
 ### 8. Execute the task
 
-Before deploying a native agent, consult the bundled policy/dispatch runtime:
+Before deploying an agent, resolve the route without launching task work:
 
 ```text
-scripts/dispatch-task-execution.cjs <task-file> <current-harness> <workspace> <plan-id> <task-id>
+scripts/dispatch-task-execution.cjs resolve <task-file> <current-harness> <workspace> <plan-id> <task-id>
 ```
 
 `<current-harness>` is the exact supported harness identifier running this
@@ -151,6 +151,15 @@ result and act exactly once:
 - `native-override`: use native dispatch and explicitly require the subagent
   to use the exact returned `model`. Mention `reasoningEffort` only when that
   property is present.
+- `external-override`: invoke the execute operation below with the exact opaque
+  `handoff` returned by resolution. Do not reconstruct the handoff or rerun
+  resolution; execute validates it and does not reread routing configuration.
+
+  ```text
+  scripts/dispatch-task-execution.cjs execute <handoff> <task-file> <current-harness> <workspace> <plan-id> <task-id>
+  ```
+
+  Interpret that result using the remaining outcomes below.
 - `fallback`: visibly record the returned reason and detail, then use ordinary
   native dispatch with no execution-setting prose. This is a pre-launch
   fallback only.

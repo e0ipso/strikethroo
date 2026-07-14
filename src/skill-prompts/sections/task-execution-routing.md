@@ -17,17 +17,17 @@ instructions together with this procedure:
 3. Write the complete task-ID-to-profile mapping as a JSON object to a
    temporary file, for example `{"1": "routine", "2": "demanding"}`.
 4. Run
-   `scripts/route-task-execution.cjs apply <plan-id> <mapping-file> <current-harness>`,
-   where `<current-harness>` is the exact supported harness identifier
-   running this skill. The helper validates the mapping (every task exactly
-   once, only configured profiles), deterministically selects each task's
-   execution target, writes the exact `execution` frontmatter, and verifies
-   the written files.
+   `scripts/route-task-execution.cjs apply <plan-id> <mapping-file>`. The
+   helper validates the mapping (every task exactly once, only configured
+   profiles), writes one `execution_profile` frontmatter field per task, and
+   verifies the written files. Target selection and resolver execution happen
+   later at task dispatch, never during generation.
 5. On `routed`, delete the temporary mapping file and continue. On any
    failure result (`invalid-assignments`, `invalid-tasks`,
-   `resolver-failure`, `routing-failure`, `infrastructure-failure`), stop
+   `routing-failure`, `infrastructure-failure`), stop
    and surface the JSON errors to the user. Never proceed to blueprint
    generation with partially routed tasks.
 
-Profile names are transient routing labels: never write them into task
-frontmatter or task bodies.
+Profile names are durable routing labels. Persist them only through the
+helper's `execution_profile` field; never hand-write a concrete `execution`
+target into task frontmatter or task bodies.

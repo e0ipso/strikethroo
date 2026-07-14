@@ -1,3 +1,7 @@
+## 3.14.0 (2026-07-14)
+
+* feat: route targets at task dispatch (#59) ([72104d3](https://github.com/e0ipso/strikethroo/commit/72104d3)), closes [#59](https://github.com/e0ipso/strikethroo/issues/59) [#60](https://github.com/e0ipso/strikethroo/issues/60)
+
 ## 3.13.0 (2026-07-14)
 
 * feat: randomize available execution targets (#57) ([63b3677](https://github.com/e0ipso/strikethroo/commit/63b3677)), closes [#57](https://github.com/e0ipso/strikethroo/issues/57) [#58](https://github.com/e0ipso/strikethroo/issues/58)

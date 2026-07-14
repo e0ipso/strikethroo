@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
 import * as yaml from 'js-yaml';
+import { harnessExecutableAvailable } from './external-dispatch';
 
 /**
  * Execution routing: turns a transient LLM task-to-profile classification
@@ -298,17 +299,33 @@ const runCustomResolver = (
   }
 };
 
+export interface SelectTargetsOptions {
+  planId: number;
+  projectRoot: string;
+  /**
+   * Availability probe for an external target's harness. Defaults to a PATH
+   * scan for the harness's CLI; injectable so tests stay deterministic.
+   */
+  harnessAvailable?: (harness: string) => boolean;
+  /** RNG in [0, 1); defaults to `Math.random`. Injectable for tests. */
+  random?: () => number;
+}
+
 /**
  * Selects one exact target per task within its LLM-assigned profile. The
- * default resolver takes the first configured target (array order is
- * priority order). One optional global custom resolver may replace that
- * choice, but only by index into the assigned profile's configured
- * candidates — it can never introduce an unconfigured target.
+ * default resolver filters the profile's candidate targets to those whose
+ * harness is available on this machine — a native target (no `harness`) runs
+ * on the orchestrating harness and is always available — then picks one of the
+ * survivors uniformly at random. If none are available it falls back to the
+ * first configured target, so selection never fails on availability alone. One
+ * optional global custom resolver may replace that choice, but only by index
+ * into the assigned profile's configured candidates — it can never introduce
+ * an unconfigured target.
  */
 export const selectTargets = (
   config: RoutingConfig,
   assignments: ReadonlyMap<number, string>,
-  options: { planId: number; projectRoot: string }
+  options: SelectTargetsOptions
 ): TargetSelectionResult => {
   const profilesByName = new Map(config.profiles.map(p => [p.name, p]));
   const tasks = [...assignments.entries()]
@@ -320,11 +337,22 @@ export const selectTargets = (
     });
 
   if (!config.resolverScript) {
+    const isHarnessAvailable = options.harnessAvailable ?? harnessExecutableAvailable;
+    const random = options.random ?? Math.random;
     const selections = new Map<number, RoutingTarget>();
     for (const task of tasks) {
-      const first = task.candidates[0];
-      if (!first) throw new Error(`profile "${task.profile}" has no targets`);
-      selections.set(task.id, first);
+      const fallback = task.candidates[0];
+      if (!fallback) throw new Error(`profile "${task.profile}" has no targets`);
+      // Native targets (no harness) run on the orchestrating harness and are
+      // always available; external targets require their CLI to be installed.
+      // Pick uniformly among the available survivors, or fall back to strict
+      // priority order when nothing is available.
+      const available = task.candidates.filter(
+        candidate => candidate.harness === undefined || isHarnessAvailable(candidate.harness)
+      );
+      const pool = available.length > 0 ? available : [fallback];
+      const chosen = pool[Math.floor(random() * pool.length)] ?? fallback;
+      selections.set(task.id, chosen);
     }
     return { kind: 'selected', selections };
   }

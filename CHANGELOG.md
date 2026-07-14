@@ -1,3 +1,7 @@
+## 3.13.0 (2026-07-14)
+
+* feat: randomize available execution targets (#57) ([63b3677](https://github.com/e0ipso/strikethroo/commit/63b3677)), closes [#57](https://github.com/e0ipso/strikethroo/issues/57) [#58](https://github.com/e0ipso/strikethroo/issues/58)
+
 ## 3.12.0 (2026-07-12)
 
 * feat: automate task execution routing during generation (#55) ([4cfb813](https://github.com/e0ipso/strikethroo/commit/4cfb813)), closes [#55](https://github.com/e0ipso/strikethroo/issues/55) [#53-compatible](https://github.com/e0ipso/strikethroo/issues/53-compatible) [#53](https://github.com/e0ipso/strikethroo/issues/53)

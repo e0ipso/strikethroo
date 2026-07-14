@@ -3337,8 +3337,8 @@ var require_excerpt = __commonJS({
       if (sep == null && (opts.excerpt === false || opts.excerpt == null)) {
         return file;
       }
-      const delimiter = typeof opts.excerpt === "string" ? opts.excerpt : sep || opts.delimiters[0];
-      const idx = file.content.indexOf(delimiter);
+      const delimiter2 = typeof opts.excerpt === "string" ? opts.excerpt : sep || opts.delimiters[0];
+      const idx = file.content.indexOf(delimiter2);
       if (idx !== -1) {
         file.excerpt = file.content.slice(0, idx);
       }
@@ -3402,7 +3402,7 @@ var require_parse = __commonJS({
 var require_gray_matter = __commonJS({
   "node_modules/gray-matter/index.js"(exports2, module2) {
     "use strict";
-    var fs6 = require("fs");
+    var fs7 = require("fs");
     var sections = require_section_matter();
     var defaults = require_defaults();
     var stringify = require_stringify();
@@ -3486,7 +3486,7 @@ var require_gray_matter = __commonJS({
       return stringify(file, data, options2);
     };
     matter2.read = function(filepath, options2) {
-      const str2 = fs6.readFileSync(filepath, "utf8");
+      const str2 = fs7.readFileSync(filepath, "utf8");
       const file = matter2(str2, options2);
       file.path = filepath;
       return file;
@@ -3515,8 +3515,8 @@ var require_gray_matter = __commonJS({
 });
 
 // src/skill-scripts/route-task-execution.ts
-var fs5 = __toESM(require("fs"));
-var path5 = __toESM(require("path"));
+var fs6 = __toESM(require("fs"));
+var path6 = __toESM(require("path"));
 
 // src/types.ts
 var SUPPORTED_HARNESSES = [
@@ -3797,8 +3797,8 @@ var readTaskExecutionPolicy = (taskMarkdown, context) => {
 };
 
 // src/skill-scripts/shared/execution-routing.ts
-var fs4 = __toESM(require("fs"));
-var path4 = __toESM(require("path"));
+var fs5 = __toESM(require("fs"));
+var path5 = __toESM(require("path"));
 var import_child_process = require("child_process");
 
 // node_modules/js-yaml/dist/js-yaml.mjs
@@ -6023,8 +6023,108 @@ var DEFAULT_DUMP_OPTIONS = {
   }
 };
 
+// src/skill-scripts/shared/external-dispatch.ts
+var fs4 = __toESM(require("fs"));
+var path4 = __toESM(require("path"));
+var taskPrompt = (request) => `Strikethroo external task dispatch \u2014 Plan ${request.planId}, Task ${request.taskId}.
+Workspace: ${request.workspace}
+Task file: ${request.taskFile}
+Before implementation, read and execute ${path4.join(
+  request.workspace,
+  ".ai/strikethroo/config/hooks/PRE_TASK_EXECUTION.md"
+)}. Halt if that hook fails.
+
+Read and implement this task. Preserve dependency validation, status transitions, evidence reporting, and error-hook handling. Report failures clearly.
+
+${request.taskMarkdown}`;
+var command = (executable, argv, request) => ({
+  executable,
+  argv,
+  cwd: request.workspace,
+  stdin: taskPrompt(request)
+});
+var EXTERNAL_HARNESS_ADAPTERS = {
+  claude: {
+    executable: "claude",
+    buildCommand: (request) => command(
+      "claude",
+      [
+        "-p",
+        "--model",
+        request.model,
+        ...request.reasoningEffort === void 0 ? [] : ["--effort", request.reasoningEffort]
+      ],
+      request
+    ),
+    authenticationArgv: () => ["auth", "status"]
+  },
+  codex: {
+    executable: "codex",
+    buildCommand: (request) => command(
+      "codex",
+      [
+        "exec",
+        "--model",
+        request.model,
+        ...request.reasoningEffort === void 0 ? [] : ["--config", `model_reasoning_effort=${request.reasoningEffort}`],
+        "-"
+      ],
+      request
+    ),
+    authenticationArgv: () => ["login", "status"]
+  },
+  cursor: {
+    executable: "cursor-agent",
+    buildCommand: (request) => command("cursor-agent", ["--print", "--model", request.model], request),
+    authenticationArgv: () => ["status"]
+  },
+  gemini: {
+    executable: "gemini",
+    buildCommand: (request) => command("gemini", ["--prompt", "", "--model", request.model], request),
+    authenticationArgv: () => ["auth", "status"]
+  },
+  copilot: {
+    executable: "copilot",
+    buildCommand: (request) => command("copilot", ["-p", "", "--model", request.model], request),
+    authenticationArgv: () => ["auth", "status"]
+  },
+  opencode: {
+    executable: "opencode",
+    buildCommand: (request) => command(
+      "opencode",
+      [
+        "run",
+        "--model",
+        request.model,
+        ...request.reasoningEffort === void 0 ? [] : ["--variant", request.reasoningEffort],
+        "-"
+      ],
+      request
+    ),
+    authenticationArgv: () => ["auth", "list"]
+  }
+};
+var adapterKeys = Object.keys(EXTERNAL_HARNESS_ADAPTERS).sort();
+var harnessKeys = [...SUPPORTED_HARNESSES].sort();
+if (adapterKeys.join("\0") !== harnessKeys.join("\0")) {
+  throw new Error("External harness adapter registry does not cover SUPPORTED_HARNESSES exactly.");
+}
+var executableOnPath = (executable) => (process.env.PATH ?? "").split(path4.delimiter).some((directory) => {
+  if (!directory) return false;
+  const candidate = path4.join(directory, executable);
+  try {
+    return fs4.statSync(candidate).isFile();
+  } catch {
+    return false;
+  }
+});
+var harnessExecutableAvailable = (harness) => {
+  const adapter = EXTERNAL_HARNESS_ADAPTERS[harness];
+  return adapter ? executableOnPath(adapter.executable) : false;
+};
+
 // src/skill-scripts/shared/execution-routing.ts
-var WORKSPACE_CONFIG_RELPATH = path4.join("config", "config.yaml");
+var WORKSPACE_CONFIG_RELPATH = path5.join("config", "config.yaml");
 var EXECUTION_ROUTING_SECTION = "execution_routing";
 var isPlainObject2 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 var isNonEmptyString = (value) => typeof value === "string" && value.trim().length > 0;
@@ -6099,10 +6199,10 @@ var validateProfile = (name, raw, supportedHarnesses, errors) => {
   return { name, description: raw.description.trim(), targets };
 };
 var loadRoutingConfig = (strikethrooRoot, supportedHarnesses) => {
-  const configPath = path4.join(strikethrooRoot, WORKSPACE_CONFIG_RELPATH);
+  const configPath = path5.join(strikethrooRoot, WORKSPACE_CONFIG_RELPATH);
   let contents;
   try {
-    contents = fs4.readFileSync(configPath, "utf8");
+    contents = fs5.readFileSync(configPath, "utf8");
   } catch {
     return { kind: "no-config" };
   }
@@ -6221,16 +6321,23 @@ var selectTargets = (config, assignments, options2) => {
     return { id, profile: profileName, candidates: profile.targets };
   });
   if (!config.resolverScript) {
+    const isHarnessAvailable = options2.harnessAvailable ?? harnessExecutableAvailable;
+    const random = options2.random ?? Math.random;
     const selections2 = /* @__PURE__ */ new Map();
     for (const task of tasks) {
-      const first = task.candidates[0];
-      if (!first) throw new Error(`profile "${task.profile}" has no targets`);
-      selections2.set(task.id, first);
+      const fallback2 = task.candidates[0];
+      if (!fallback2) throw new Error(`profile "${task.profile}" has no targets`);
+      const available = task.candidates.filter(
+        (candidate) => candidate.harness === void 0 || isHarnessAvailable(candidate.harness)
+      );
+      const pool = available.length > 0 ? available : [fallback2];
+      const chosen = pool[Math.floor(random() * pool.length)] ?? fallback2;
+      selections2.set(task.id, chosen);
     }
     return { kind: "selected", selections: selections2 };
   }
-  const scriptPath = path4.resolve(options2.projectRoot, config.resolverScript);
-  if (!fs4.existsSync(scriptPath)) {
+  const scriptPath = path5.resolve(options2.projectRoot, config.resolverScript);
+  if (!fs5.existsSync(scriptPath)) {
     return {
       kind: "resolver-failure",
       detail: `custom resolver script not found: ${scriptPath}`
@@ -6344,10 +6451,10 @@ var usage = () => emit(
   2
 );
 var readTaskDocuments = (planDir) => {
-  const tasksDir = path5.join(planDir, "tasks");
+  const tasksDir = path6.join(planDir, "tasks");
   let entries;
   try {
-    entries = fs5.readdirSync(tasksDir, { withFileTypes: true });
+    entries = fs6.readdirSync(tasksDir, { withFileTypes: true });
   } catch {
     return { kind: "invalid", errors: [`no tasks directory at ${tasksDir}.`] };
   }
@@ -6357,8 +6464,8 @@ var readTaskDocuments = (planDir) => {
   const taskFiles = entries.filter((e) => e.isFile() && e.name.endsWith(".md")).map((e) => e.name).sort();
   for (const name of taskFiles) {
     const entry = { name };
-    const file = path5.join(tasksDir, entry.name);
-    const content = fs5.readFileSync(file, "utf8");
+    const file = path6.join(tasksDir, entry.name);
+    const content = fs6.readFileSync(file, "utf8");
     const id = extractPlanId(content, file);
     if (id === null) {
       errors.push(`task file ${entry.name} has no integer id in its frontmatter.`);
@@ -6431,7 +6538,7 @@ var main = () => {
   }
   let rawMap;
   try {
-    rawMap = JSON.parse(fs5.readFileSync(assignmentFile, "utf8"));
+    rawMap = JSON.parse(fs6.readFileSync(assignmentFile, "utf8"));
   } catch (error) {
     emit(
       {
@@ -6453,7 +6560,7 @@ var main = () => {
     emit({ kind: "invalid-assignments", errors: assignmentResult.errors }, 1);
     return;
   }
-  const projectRoot = path5.dirname(path5.dirname(resolved.strikethrooRoot));
+  const projectRoot = path6.dirname(path6.dirname(resolved.strikethrooRoot));
   const selection = selectTargets(config, assignmentResult.assignments, {
     planId: resolved.planId,
     projectRoot
@@ -6481,7 +6588,7 @@ var main = () => {
       emit(
         {
           kind: "routing-failure",
-          detail: `task ${task.id} (${path5.basename(task.file)}): ${error instanceof Error ? error.message : String(error)}`
+          detail: `task ${task.id} (${path6.basename(task.file)}): ${error instanceof Error ? error.message : String(error)}`
         },
         1
       );
@@ -6503,11 +6610,11 @@ var main = () => {
   const written = [];
   try {
     for (const { task, next } of staged) {
-      fs5.writeFileSync(task.file, next);
+      fs6.writeFileSync(task.file, next);
       written.push(task);
     }
     for (const { task, execution } of staged) {
-      const reread = fs5.readFileSync(task.file, "utf8");
+      const reread = fs6.readFileSync(task.file, "utf8");
       const policy = readTaskExecutionPolicy(reread, policyContext);
       if (!policyMatchesExecution(policy, execution)) {
         throw new Error(`task ${task.id} failed post-write verification.`);
@@ -6516,7 +6623,7 @@ var main = () => {
   } catch (error) {
     for (const task of written) {
       try {
-        fs5.writeFileSync(task.file, task.content);
+        fs6.writeFileSync(task.file, task.content);
       } catch {
       }
     }

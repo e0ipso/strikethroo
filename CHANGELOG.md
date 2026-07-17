@@ -1,3 +1,8 @@
+## <small>3.14.1 (2026-07-17)</small>
+
+* fix: probe harness availability with default model (#64) ([1aa98a1](https://github.com/e0ipso/strikethroo/commit/1aa98a1)), closes [#64](https://github.com/e0ipso/strikethroo/issues/64) [#62](https://github.com/e0ipso/strikethroo/issues/62)
+* chore: update gitignore ([fbfdd99](https://github.com/e0ipso/strikethroo/commit/fbfdd99))
+
 ## 3.14.0 (2026-07-14)
 
 * feat: route targets at task dispatch (#59) ([72104d3](https://github.com/e0ipso/strikethroo/commit/72104d3)), closes [#59](https://github.com/e0ipso/strikethroo/issues/59) [#60](https://github.com/e0ipso/strikethroo/issues/60)

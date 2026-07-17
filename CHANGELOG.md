@@ -1,3 +1,7 @@
+## <small>3.14.3 (2026-07-17)</small>
+
+* fix: allow workspace-only branch creation (#65) ([543f5bd](https://github.com/e0ipso/strikethroo/commit/543f5bd)), closes [#65](https://github.com/e0ipso/strikethroo/issues/65) [#63](https://github.com/e0ipso/strikethroo/issues/63)
+
 ## <small>3.14.2 (2026-07-17)</small>
 
 * fix: delete leftover files ([61bb1f9](https://github.com/e0ipso/strikethroo/commit/61bb1f9))

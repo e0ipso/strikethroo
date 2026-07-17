@@ -275,10 +275,7 @@ var _isGitRepo = () => {
 var _getCurrentBranch = () => {
   return execGit("git rev-parse --abbrev-ref HEAD");
 };
-var _hasUncommittedChanges = () => {
-  const status = execGit("git status --porcelain");
-  return status !== null && status.length > 0;
-};
+var _getUncommittedChangesOutsideWorkspace = () => execGit("git status --porcelain -- ':(top)' ':(top,exclude).ai/strikethroo'");
 var _branchExists = (branchName) => {
   const localMatch = execGit(`git branch --list "${branchName}"`);
   if (localMatch) {
@@ -326,9 +323,14 @@ var main = (startPath = process.cwd()) => {
     _printInfo("Proceeding without creating a new branch");
     process.exit(0);
   }
-  if (_hasUncommittedChanges()) {
-    _printError("Uncommitted changes detected in working tree");
-    _printInfo("Please commit or stash your changes before creating a feature branch");
+  const outsideWorkspaceStatus = _getUncommittedChangesOutsideWorkspace();
+  if (outsideWorkspaceStatus === null) {
+    _printError("Could not inspect git status; branch creation has been blocked");
+    process.exit(1);
+  }
+  if (outsideWorkspaceStatus.length > 0) {
+    _printError("Uncommitted changes detected outside .ai/strikethroo");
+    _printInfo("Commit or stash changes outside .ai/strikethroo before creating a feature branch");
     process.exit(1);
   }
   const planName = _extractPlanName(planDir);

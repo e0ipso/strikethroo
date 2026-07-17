@@ -211,9 +211,7 @@ export function getAgentFormat(harness: Harness): AgentFormatInfo {
 export function convertAgentMdToKiroJson(mdContent: string): string {
   const { frontmatter, body } = parseFrontmatter(mdContent);
   const name = (frontmatter.name ?? '').trim();
-  // Guard: description must be a string; coerce unexpected types to empty string
-  const rawDescription = frontmatter.description;
-  const description = (typeof rawDescription === 'string' ? rawDescription : '').trim();
+  const description = (frontmatter.description ?? '').trim();
   const agent: Record<string, unknown> = {
     name,
     description,
@@ -222,6 +220,8 @@ export function convertAgentMdToKiroJson(mdContent: string): string {
     tools: ['read_file', 'write_file', 'list_directory', 'search_files', 'web_search'],
     mcpServers: {},
     toolAliases: {},
+    // Note: these resource glob paths are inferred from a local Kiro installation;
+    // no public schema confirms the `skill://` protocol or these directory paths yet.
     resources: ['skill://.kiro/skills/*/SKILL.md', 'skill://~/.kiro/skills/*/SKILL.md'],
     hooks: {},
     toolsSettings: {},

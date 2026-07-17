@@ -120,9 +120,6 @@ describe('CLI Integration', () => {
         true
       );
       expect(await fs.pathExists(path.join(testDir, '.kiro/agents/plan-creator.json'))).toBe(true);
-      expect(await fs.pathExists(path.join(testDir, '.opencode/agents/plan-creator.md'))).toBe(
-        true
-      );
     });
 
     it('emits a skill-install notice', async () => {

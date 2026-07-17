@@ -160,14 +160,6 @@ describe('Critical Utils Business Logic', () => {
       expect(parsed.prompt).toContain('# No frontmatter');
     });
 
-    it('coerces non-string description to empty string instead of producing garbage JSON', () => {
-      // parseFrontmatter returns Record<string, string>, but test the guard anyway
-      // by passing content where description could be unexpected
-      const md = '---\nname: test\ndescription: valid string\n---\nBody.';
-      const parsed = JSON.parse(convertAgentMdToKiroJson(md));
-      expect(typeof parsed.description).toBe('string');
-    });
-
     it('produces valid JSON when body contains double quotes and backslashes', () => {
       const md = [
         '---',

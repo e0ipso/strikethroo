@@ -22,7 +22,9 @@ describe('harness availability', () => {
 
   afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
-  it('has one versioned probe matching every external adapter', () => {
+  const MODEL_FLAGS = ['--model', '-m', '--model-name'];
+
+  it('has one versioned probe matching every external adapter without a pinned model', () => {
     expect(Object.keys(HARNESS_AVAILABILITY_REGISTRY).sort()).toEqual(
       [...SUPPORTED_HARNESSES].sort()
     );
@@ -30,8 +32,28 @@ describe('harness availability', () => {
       const probe = HARNESS_AVAILABILITY_REGISTRY[harness];
       expect(probe.version).toBe(AVAILABILITY_REGISTRY_VERSION);
       expect(probe.executable).toBe(EXTERNAL_HARNESS_ADAPTERS[harness].executable);
-      expect(probe.model.length).toBeGreaterThan(0);
-      expect(probe.buildCommand(root)).toMatchObject({ executable: probe.executable, cwd: root });
+      expect(probe).not.toHaveProperty('model');
+      const command = probe.buildCommand(root);
+      expect(command).toMatchObject({ executable: probe.executable, cwd: root });
+      // The probe must let the CLI use its own default model: no model-selection flag.
+      for (const flag of MODEL_FLAGS) expect(command.argv).not.toContain(flag);
+    }
+  });
+
+  it('builds the expected non-interactive probe command for each harness', () => {
+    const expected: Record<string, { argv: string[]; stdin: string }> = {
+      claude: { argv: ['-p'], stdin: 'Reply with OK.' },
+      codex: { argv: ['exec', '-'], stdin: 'Reply with OK.' },
+      cursor: { argv: ['--print'], stdin: 'Reply with OK.' },
+      gemini: { argv: ['--prompt', 'Reply with OK.'], stdin: '' },
+      copilot: { argv: ['-p', 'Reply with OK.'], stdin: '' },
+      opencode: { argv: ['run', '-'], stdin: 'Reply with OK.' },
+    };
+    for (const harness of SUPPORTED_HARNESSES) {
+      const command = HARNESS_AVAILABILITY_REGISTRY[harness].buildCommand(root);
+      expect({ argv: command.argv, stdin: command.stdin }).toEqual(expected[harness]);
+      expect(command.executable).toBe(EXTERNAL_HARNESS_ADAPTERS[harness].executable);
+      expect(command.cwd).toBe(root);
     }
   });
 

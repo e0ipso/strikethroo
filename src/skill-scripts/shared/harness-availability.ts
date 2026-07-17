@@ -15,7 +15,6 @@ const PROBE_PROMPT = 'Reply with OK.';
 export interface HarnessAvailabilityDefinition {
   version: number;
   executable: string;
-  model: string;
   buildCommand: (cwd: string) => StructuredCommand;
 }
 
@@ -26,53 +25,43 @@ const probeCommand = (
   stdin = PROBE_PROMPT
 ): StructuredCommand => ({ executable, argv, cwd, stdin });
 
-/** Maintained release data. A probe proves harness access, not selected-model access. */
+/**
+ * Maintained release data. A probe proves harness access, not selected-model
+ * access, so each probe invokes the harness non-interactively with no explicit
+ * model override and lets the CLI use its own configured/default model.
+ */
 export const HARNESS_AVAILABILITY_REGISTRY: Readonly<
   Record<Harness, HarnessAvailabilityDefinition>
 > = {
   claude: {
     version: AVAILABILITY_REGISTRY_VERSION,
     executable: 'claude',
-    model: 'claude-3-5-haiku-latest',
-    buildCommand: cwd => probeCommand('claude', ['-p', '--model', 'claude-3-5-haiku-latest'], cwd),
+    buildCommand: cwd => probeCommand('claude', ['-p'], cwd),
   },
   codex: {
     version: AVAILABILITY_REGISTRY_VERSION,
     executable: 'codex',
-    model: 'gpt-5.1-codex-mini',
-    buildCommand: cwd => probeCommand('codex', ['exec', '--model', 'gpt-5.1-codex-mini', '-'], cwd),
+    buildCommand: cwd => probeCommand('codex', ['exec', '-'], cwd),
   },
   cursor: {
     version: AVAILABILITY_REGISTRY_VERSION,
     executable: 'cursor-agent',
-    model: 'cursor-small',
-    buildCommand: cwd => probeCommand('cursor-agent', ['--print', '--model', 'cursor-small'], cwd),
+    buildCommand: cwd => probeCommand('cursor-agent', ['--print'], cwd),
   },
   gemini: {
     version: AVAILABILITY_REGISTRY_VERSION,
     executable: 'gemini',
-    model: 'gemini-2.5-flash-lite',
-    buildCommand: cwd =>
-      probeCommand(
-        'gemini',
-        ['--prompt', PROBE_PROMPT, '--model', 'gemini-2.5-flash-lite'],
-        cwd,
-        ''
-      ),
+    buildCommand: cwd => probeCommand('gemini', ['--prompt', PROBE_PROMPT], cwd, ''),
   },
   copilot: {
     version: AVAILABILITY_REGISTRY_VERSION,
     executable: 'copilot',
-    model: 'gpt-4.1',
-    buildCommand: cwd =>
-      probeCommand('copilot', ['-p', PROBE_PROMPT, '--model', 'gpt-4.1'], cwd, ''),
+    buildCommand: cwd => probeCommand('copilot', ['-p', PROBE_PROMPT], cwd, ''),
   },
   opencode: {
     version: AVAILABILITY_REGISTRY_VERSION,
     executable: 'opencode',
-    model: 'openai/gpt-5-nano',
-    buildCommand: cwd =>
-      probeCommand('opencode', ['run', '--model', 'openai/gpt-5-nano', '-'], cwd),
+    buildCommand: cwd => probeCommand('opencode', ['run', '-'], cwd),
   },
 };
 

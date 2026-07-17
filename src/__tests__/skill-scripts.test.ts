@@ -362,7 +362,29 @@ describe('create-feature-branch integration', () => {
     expect(result).toContain('Proceeding without creating a new branch');
   });
 
-  test('errors when uncommitted changes exist on main', () => {
+  test('creates a feature branch when changes are confined to .ai/strikethroo', () => {
+    const planFile = buildGitFixture(tempDir, 'my-test-plan', 42);
+    writeFile(
+      path.join(tempDir, '.ai', 'strikethroo', 'plans', '42--my-test-plan', 'tasks', '01--task.md'),
+      'generated task'
+    );
+    const bundledScript = path.join(
+      REPO_ROOT,
+      'templates',
+      'harness',
+      'skills',
+      'st-execute-blueprint',
+      'scripts',
+      'create-feature-branch.cjs'
+    );
+    const result = execFileSync('node', [bundledScript, planFile], {
+      cwd: tempDir,
+      encoding: 'utf8',
+    });
+    expect(result).toContain('Created and switched to branch: feature/42--my-test-plan');
+  });
+
+  test('errors when uncommitted changes outside .ai/strikethroo exist on main', () => {
     const planFile = buildGitFixture(tempDir, 'my-test-plan', 42);
     fs.writeFileSync(path.join(tempDir, 'dirty.txt'), 'dirty');
     const bundledScript = path.join(

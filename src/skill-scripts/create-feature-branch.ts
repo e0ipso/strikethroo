@@ -27,8 +27,8 @@ const _getCurrentBranch = (): string | null => {
   return execGit('git rev-parse --abbrev-ref HEAD');
 };
 
-const _hasUncommittedChanges = (): boolean => {
-  const status = execGit('git status --porcelain');
+const _hasUncommittedChangesOutsideWorkspace = (): boolean => {
+  const status = execGit("git status --porcelain -- . ':(exclude).ai/strikethroo'");
   return status !== null && status.length > 0;
 };
 
@@ -101,9 +101,9 @@ const main = (startPath: string = process.cwd()): void => {
     process.exit(0);
   }
 
-  if (_hasUncommittedChanges()) {
-    _printError('Uncommitted changes detected in working tree');
-    _printInfo('Please commit or stash your changes before creating a feature branch');
+  if (_hasUncommittedChangesOutsideWorkspace()) {
+    _printError('Uncommitted changes detected outside .ai/strikethroo');
+    _printInfo('Commit or stash changes outside .ai/strikethroo before creating a feature branch');
     process.exit(1);
   }
 

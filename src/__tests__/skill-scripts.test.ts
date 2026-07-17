@@ -12,7 +12,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { execFileSync } from 'child_process';
+import { execFileSync, spawnSync } from 'child_process';
 
 import { findStrikethrooRoot } from '../skill-scripts/shared/root';
 import { getAllPlans, computeNextPlanId } from '../skill-scripts/shared/plan-scan';
@@ -276,6 +276,16 @@ describe('create-feature-branch helpers', () => {
 describe('create-feature-branch integration', () => {
   let tempDir: string;
 
+  const bundledScript = path.join(
+    REPO_ROOT,
+    'templates',
+    'harness',
+    'skills',
+    'st-execute-blueprint',
+    'scripts',
+    'create-feature-branch.cjs'
+  );
+
   const buildGitFixture = (root: string, planName: string, planId: number): string => {
     const tm = path.join(root, '.ai', 'strikethroo');
     fs.mkdirSync(tm, { recursive: true });
@@ -290,18 +300,12 @@ describe('create-feature-branch integration', () => {
       planFile,
       `---\nid: ${planId}\nsummary: "${planName}"\ncreated: 2026-01-01\n---\n`
     );
-    execFileSync('git', ['init', '-b', 'main'], {
-      cwd: root,
-      stdio: 'pipe',
-    });
+    execFileSync('git', ['init', '-b', 'main'], { cwd: root, stdio: 'pipe' });
     execFileSync('git', ['config', 'user.email', 'test@test.com'], {
       cwd: root,
       stdio: 'pipe',
     });
-    execFileSync('git', ['config', 'user.name', 'Test'], {
-      cwd: root,
-      stdio: 'pipe',
-    });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: root, stdio: 'pipe' });
     fs.writeFileSync(path.join(root, 'init.txt'), 'init');
     execFileSync('git', ['add', '.'], { cwd: root, stdio: 'pipe' });
     execFileSync('git', ['commit', '-m', 'init'], { cwd: root, stdio: 'pipe' });
@@ -316,27 +320,34 @@ describe('create-feature-branch integration', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
+  const runScript = (
+    planFile: string,
+    cwd: string = tempDir,
+    env: Record<string, string | undefined> = process.env
+  ) => {
+    const result = spawnSync('node', [bundledScript, planFile], {
+      cwd,
+      encoding: 'utf8',
+      env,
+    });
+    return {
+      status: result.status,
+      output: `${result.stdout ?? ''}${result.stderr ?? ''}`,
+    };
+  };
+
+  const currentBranch = (): string =>
+    execFileSync('git', ['branch', '--show-current'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+    }).trim();
+
   test('creates feature branch from clean main', () => {
     const planFile = buildGitFixture(tempDir, 'my-test-plan', 42);
-    const bundledScript = path.join(
-      REPO_ROOT,
-      'templates',
-      'harness',
-      'skills',
-      'st-execute-blueprint',
-      'scripts',
-      'create-feature-branch.cjs'
-    );
-    const result = execFileSync('node', [bundledScript, planFile], {
-      cwd: tempDir,
-      encoding: 'utf8',
-    });
-    expect(result).toContain('Created and switched to branch: feature/42--my-test-plan');
-    const branches = execFileSync('git', ['branch', '--list'], {
-      cwd: tempDir,
-      encoding: 'utf8',
-    });
-    expect(branches).toContain('feature/42--my-test-plan');
+    const result = runScript(planFile);
+    expect(result.status).toBe(0);
+    expect(result.output).toContain('Created and switched to branch: feature/42--my-test-plan');
+    expect(currentBranch()).toBe('feature/42--my-test-plan');
   });
 
   test('skips branch creation when not on main', () => {
@@ -345,67 +356,117 @@ describe('create-feature-branch integration', () => {
       cwd: tempDir,
       stdio: 'pipe',
     });
-    const bundledScript = path.join(
-      REPO_ROOT,
-      'templates',
-      'harness',
-      'skills',
-      'st-execute-blueprint',
-      'scripts',
-      'create-feature-branch.cjs'
-    );
-    const result = execFileSync('node', [bundledScript, planFile], {
+    const result = runScript(planFile);
+    expect(result.status).toBe(0);
+    expect(result.output).toContain('Not on main/master branch');
+    expect(result.output).toContain('Proceeding without creating a new branch');
+  });
+
+  test('creates a feature branch without modifying staged or unstaged workspace state', () => {
+    const planFile = buildGitFixture(tempDir, 'my-test-plan', 42);
+    fs.appendFileSync(planFile, 'workspace edit\n');
+    execFileSync('git', ['add', planFile], { cwd: tempDir, stdio: 'pipe' });
+    const taskFile = path.join(path.dirname(planFile), 'tasks', '01--task.md');
+    writeFile(taskFile, 'generated task');
+    const statusBefore = execFileSync('git', ['status', '--porcelain'], {
       cwd: tempDir,
       encoding: 'utf8',
     });
-    expect(result).toContain('Not on main/master branch');
-    expect(result).toContain('Proceeding without creating a new branch');
+    const planBefore = fs.readFileSync(planFile, 'utf8');
+
+    const result = runScript(planFile);
+
+    expect(result.status).toBe(0);
+    expect(result.output).toContain('Created and switched to branch: feature/42--my-test-plan');
+    expect(currentBranch()).toBe('feature/42--my-test-plan');
+    expect(execFileSync('git', ['status', '--porcelain'], { cwd: tempDir, encoding: 'utf8' })).toBe(
+      statusBefore
+    );
+    expect(fs.readFileSync(planFile, 'utf8')).toBe(planBefore);
+    expect(fs.readFileSync(taskFile, 'utf8')).toBe('generated task');
   });
 
-  test('creates a feature branch when changes are confined to .ai/strikethroo', () => {
+  test.each([
+    [
+      'tracked modification',
+      (root: string) => fs.writeFileSync(path.join(root, 'init.txt'), 'changed'),
+    ],
+    ['tracked deletion', (root: string) => fs.rmSync(path.join(root, 'init.txt'))],
+    [
+      'staged modification',
+      (root: string) => {
+        fs.writeFileSync(path.join(root, 'init.txt'), 'staged');
+        execFileSync('git', ['add', 'init.txt'], { cwd: root, stdio: 'pipe' });
+      },
+    ],
+    [
+      'rename',
+      (root: string) =>
+        execFileSync('git', ['mv', 'init.txt', 'renamed.txt'], { cwd: root, stdio: 'pipe' }),
+    ],
+    ['untracked file', (root: string) => fs.writeFileSync(path.join(root, 'dirty.txt'), 'dirty')],
+  ])('blocks an outside-workspace %s on main', (_state, makeDirty) => {
     const planFile = buildGitFixture(tempDir, 'my-test-plan', 42);
+    makeDirty(tempDir);
+
+    const result = runScript(planFile);
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('Uncommitted changes detected outside .ai/strikethroo');
+    expect(result.output).toContain('Commit or stash changes outside .ai/strikethroo');
+    expect(currentBranch()).toBe('main');
+  });
+
+  test('blocks repository-root dirt when invoked from a nested workspace directory', () => {
+    const planFile = buildGitFixture(tempDir, 'my-test-plan', 42);
+    fs.writeFileSync(path.join(tempDir, 'dirty.txt'), 'outside workspace');
+
+    const result = runScript(planFile, path.dirname(planFile));
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('Uncommitted changes detected outside .ai/strikethroo');
+    expect(currentBranch()).toBe('main');
+  });
+
+  test('allows root-workspace-only dirt when invoked from a nested workspace directory', () => {
+    const planFile = buildGitFixture(tempDir, 'my-test-plan', 42);
+    const taskFile = path.join(path.dirname(planFile), 'tasks', '01--task.md');
+    writeFile(taskFile, 'generated task');
+    const statusBefore = execFileSync('git', ['status', '--porcelain'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+    });
+
+    const result = runScript(planFile, path.dirname(planFile));
+
+    expect(result.status).toBe(0);
+    expect(result.output).toContain('Created and switched to branch: feature/42--my-test-plan');
+    expect(currentBranch()).toBe('feature/42--my-test-plan');
+    expect(execFileSync('git', ['status', '--porcelain'], { cwd: tempDir, encoding: 'utf8' })).toBe(
+      statusBefore
+    );
+    expect(fs.readFileSync(taskFile, 'utf8')).toBe('generated task');
+  });
+
+  test('fails closed and leaves main unchanged when Git status inspection fails', () => {
+    const planFile = buildGitFixture(tempDir, 'my-test-plan', 42);
+    const realGit = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+    const fakeBin = path.join(tempDir, 'fake-bin');
+    const fakeGit = path.join(fakeBin, 'git');
     writeFile(
-      path.join(tempDir, '.ai', 'strikethroo', 'plans', '42--my-test-plan', 'tasks', '01--task.md'),
-      'generated task'
+      fakeGit,
+      `#!/bin/sh\nif [ "$1" = "status" ]; then\n  echo "simulated status failure" >&2\n  exit 2\nfi\nexec "${realGit}" "$@"\n`
     );
-    const bundledScript = path.join(
-      REPO_ROOT,
-      'templates',
-      'harness',
-      'skills',
-      'st-execute-blueprint',
-      'scripts',
-      'create-feature-branch.cjs'
-    );
-    const result = execFileSync('node', [bundledScript, planFile], {
-      cwd: tempDir,
-      encoding: 'utf8',
-    });
-    expect(result).toContain('Created and switched to branch: feature/42--my-test-plan');
-  });
+    fs.chmodSync(fakeGit, 0o755);
 
-  test('errors when uncommitted changes outside .ai/strikethroo exist on main', () => {
-    const planFile = buildGitFixture(tempDir, 'my-test-plan', 42);
-    fs.writeFileSync(path.join(tempDir, 'dirty.txt'), 'dirty');
-    const bundledScript = path.join(
-      REPO_ROOT,
-      'templates',
-      'harness',
-      'skills',
-      'st-execute-blueprint',
-      'scripts',
-      'create-feature-branch.cjs'
-    );
-    let exitCode: number | null = null;
-    try {
-      execFileSync('node', [bundledScript, planFile], {
-        cwd: tempDir,
-        encoding: 'utf8',
-      });
-    } catch (e: any) {
-      exitCode = e.status ?? null;
-    }
-    expect(exitCode).toBe(1);
+    const result = runScript(planFile, tempDir, {
+      ...process.env,
+      PATH: `${fakeBin}${path.delimiter}${process.env.PATH ?? ''}`,
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('Could not inspect git status');
+    expect(currentBranch()).toBe('main');
   });
 
   test('checks out existing branch when on main', () => {
@@ -415,26 +476,11 @@ describe('create-feature-branch integration', () => {
       stdio: 'pipe',
     });
     execFileSync('git', ['checkout', 'main'], { cwd: tempDir, stdio: 'pipe' });
-    const bundledScript = path.join(
-      REPO_ROOT,
-      'templates',
-      'harness',
-      'skills',
-      'st-execute-blueprint',
-      'scripts',
-      'create-feature-branch.cjs'
-    );
-    const result = execFileSync('node', [bundledScript, planFile], {
-      cwd: tempDir,
-      encoding: 'utf8',
-    });
-    expect(result).toContain('already exists');
-    expect(result).toContain('Switched to existing branch: feature/42--my-test-plan');
-    const currentBranch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
-      cwd: tempDir,
-      encoding: 'utf8',
-    }).trim();
-    expect(currentBranch).toBe('feature/42--my-test-plan');
+    const result = runScript(planFile);
+    expect(result.status).toBe(0);
+    expect(result.output).toContain('already exists');
+    expect(result.output).toContain('Switched to existing branch: feature/42--my-test-plan');
+    expect(currentBranch()).toBe('feature/42--my-test-plan');
   });
 });
 

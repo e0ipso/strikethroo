@@ -27,10 +27,8 @@ const _getCurrentBranch = (): string | null => {
   return execGit('git rev-parse --abbrev-ref HEAD');
 };
 
-const _hasUncommittedChangesOutsideWorkspace = (): boolean => {
-  const status = execGit("git status --porcelain -- . ':(exclude).ai/strikethroo'");
-  return status !== null && status.length > 0;
-};
+const _getUncommittedChangesOutsideWorkspace = (): string | null =>
+  execGit("git status --porcelain -- ':(top)' ':(top,exclude).ai/strikethroo'");
 
 const _branchExists = (branchName: string): boolean => {
   const localMatch = execGit(`git branch --list "${branchName}"`);
@@ -101,7 +99,13 @@ const main = (startPath: string = process.cwd()): void => {
     process.exit(0);
   }
 
-  if (_hasUncommittedChangesOutsideWorkspace()) {
+  const outsideWorkspaceStatus = _getUncommittedChangesOutsideWorkspace();
+  if (outsideWorkspaceStatus === null) {
+    _printError('Could not inspect git status; branch creation has been blocked');
+    process.exit(1);
+  }
+
+  if (outsideWorkspaceStatus.length > 0) {
     _printError('Uncommitted changes detected outside .ai/strikethroo');
     _printInfo('Commit or stash changes outside .ai/strikethroo before creating a feature branch');
     process.exit(1);

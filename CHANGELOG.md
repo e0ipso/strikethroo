@@ -1,3 +1,7 @@
+## <small>3.14.2 (2026-07-17)</small>
+
+* fix: delete leftover files ([61bb1f9](https://github.com/e0ipso/strikethroo/commit/61bb1f9))
+
 ## <small>3.14.1 (2026-07-17)</small>
 
 * fix: probe harness availability with default model (#64) ([1aa98a1](https://github.com/e0ipso/strikethroo/commit/1aa98a1)), closes [#64](https://github.com/e0ipso/strikethroo/issues/64) [#62](https://github.com/e0ipso/strikethroo/issues/62)

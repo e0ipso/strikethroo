@@ -3536,7 +3536,8 @@ var SUPPORTED_HARNESSES = [
   "cursor",
   "gemini",
   "copilot",
-  "opencode"
+  "opencode",
+  "kiro"
 ];
 
 // src/skill-scripts/shared/dispatch-target-selector.ts
@@ -3715,6 +3716,18 @@ var EXTERNAL_HARNESS_ADAPTERS = {
       request
     ),
     authenticationArgv: () => ["auth", "list"]
+  },
+  kiro: {
+    // Kiro's documented headless CLI: kiro-cli chat --no-interactive "prompt"
+    // No --model flag: Kiro does not expose a generic model-override argument.
+    // Reference: https://kiro.dev/docs/cli/headless/
+    executable: "kiro-cli",
+    buildCommand: (request) => command(
+      "kiro-cli",
+      ["chat", "--no-interactive", "--trust-tools=read,write,glob,grep,shell"],
+      request
+    ),
+    authenticationArgv: () => ["--version"]
   }
 };
 var adapterKeys = Object.keys(EXTERNAL_HARNESS_ADAPTERS).sort();
@@ -3792,7 +3805,7 @@ var dispatchExternalTask = async (request, overrides = {}) => {
     };
   }
   const active = { ...dependencies, ...overrides };
-  if (request.reasoningEffort !== void 0 && (request.harness === "cursor" || request.harness === "gemini" || request.harness === "copilot")) {
+  if (request.reasoningEffort !== void 0 && (request.harness === "cursor" || request.harness === "gemini" || request.harness === "copilot" || request.harness === "kiro")) {
     return {
       kind: "fallback",
       reason: "unsupported-reasoning-effort",
@@ -3867,6 +3880,12 @@ var HARNESS_AVAILABILITY_REGISTRY = {
     version: AVAILABILITY_REGISTRY_VERSION,
     executable: "opencode",
     buildCommand: (cwd) => probeCommand("opencode", ["run", "-"], cwd)
+  },
+  kiro: {
+    version: AVAILABILITY_REGISTRY_VERSION,
+    executable: "kiro-cli",
+    // Probe with --version: lightweight, no API key required, exits 0 when installed.
+    buildCommand: (cwd) => probeCommand("kiro-cli", ["--version"], cwd)
   }
 };
 var registryKeys = Object.keys(HARNESS_AVAILABILITY_REGISTRY).sort();

@@ -5,7 +5,13 @@
  * or cause data corruption. Skips simple wrappers and obvious functionality.
  */
 
-import { parseHarnesses, validateHarnesses, convertAgentMdToToml, getAgentFormat } from '../utils';
+import {
+  parseHarnesses,
+  validateHarnesses,
+  convertAgentMdToToml,
+  convertAgentMdToKiroJson,
+  getAgentFormat,
+} from '../utils';
 import { Harness } from '../types';
 
 describe('Critical Utils Business Logic', () => {
@@ -34,10 +40,10 @@ describe('Critical Utils Business Logic', () => {
 
     it('should reject invalid harnesses', () => {
       expect(() => parseHarnesses('invalid')).toThrow(
-        'Invalid harness(es): invalid. Valid options are: claude, codex, cursor, gemini, copilot, opencode'
+        'Invalid harness(es): invalid. Valid options are: claude, codex, cursor, gemini, copilot, opencode, kiro'
       );
       expect(() => parseHarnesses('claude,invalid,unknown')).toThrow(
-        'Invalid harness(es): invalid, unknown. Valid options are: claude, codex, cursor, gemini, copilot, opencode'
+        'Invalid harness(es): invalid, unknown. Valid options are: claude, codex, cursor, gemini, copilot, opencode, kiro'
       );
     });
   });
@@ -48,6 +54,7 @@ describe('Critical Utils Business Logic', () => {
       expect(() => validateHarnesses(['claude', 'gemini'])).not.toThrow();
       expect(() => validateHarnesses(['copilot'])).not.toThrow();
       expect(() => validateHarnesses(['claude', 'gemini', 'opencode'])).not.toThrow();
+      expect(() => validateHarnesses(['kiro'])).not.toThrow();
     });
 
     it('should reject empty array', () => {
@@ -56,7 +63,7 @@ describe('Critical Utils Business Logic', () => {
 
     it('should reject invalid harnesses', () => {
       expect(() => validateHarnesses(['invalid' as Harness])).toThrow(
-        'Invalid harness: invalid. Supported harnesses: claude, codex, cursor, gemini, copilot, opencode'
+        'Invalid harness: invalid. Supported harnesses: claude, codex, cursor, gemini, copilot, opencode, kiro'
       );
     });
   });
@@ -114,6 +121,63 @@ describe('Critical Utils Business Logic', () => {
         extension: '.md',
         directory: '.claude/agents',
       });
+    });
+
+    it('returns JSON format for kiro', () => {
+      expect(getAgentFormat('kiro')).toEqual({
+        format: 'json',
+        extension: '.json',
+        directory: '.kiro/agents',
+      });
+    });
+  });
+
+  describe('convertAgentMdToKiroJson', () => {
+    it('converts markdown with YAML frontmatter to valid Kiro JSON', () => {
+      const md = [
+        '---',
+        'name: plan-creator',
+        'description: Creates strategic plans',
+        '---',
+        '# Instructions',
+        '',
+        'Do the thing.',
+      ].join('\n');
+
+      const parsed = JSON.parse(convertAgentMdToKiroJson(md));
+      expect(parsed.name).toBe('plan-creator');
+      expect(parsed.description).toBe('Creates strategic plans');
+      expect(parsed.prompt).toContain('# Instructions');
+    });
+
+    it('uses documented Kiro built-in tool identifiers, not Hermes-style names', () => {
+      const md = '---\nname: test\ndescription: d\n---\nBody.';
+      const parsed = JSON.parse(convertAgentMdToKiroJson(md));
+      // Documented Kiro identifiers must be present
+      expect(parsed.tools).toContain('read');
+      expect(parsed.tools).toContain('write');
+      expect(parsed.tools).toContain('shell');
+      // Hermes-style names must not be used
+      expect(parsed.tools).not.toContain('read_file');
+      expect(parsed.tools).not.toContain('write_file');
+    });
+
+    it('omits the model key so Kiro uses its session default', () => {
+      const md = '---\nname: test\ndescription: d\n---\nBody.';
+      const parsed = JSON.parse(convertAgentMdToKiroJson(md));
+      expect(Object.prototype.hasOwnProperty.call(parsed, 'model')).toBe(false);
+    });
+
+    it('defaults name and description to empty string when frontmatter is absent', () => {
+      const md = '# No frontmatter\n\nJust a body.';
+      const parsed = JSON.parse(convertAgentMdToKiroJson(md));
+      expect(parsed.name).toBe('');
+      expect(parsed.description).toBe('');
+    });
+
+    it('produces valid JSON when body contains special characters', () => {
+      const md = '---\nname: test\ndescription: d\n---\nUse "quotes" and C:\\paths.';
+      expect(() => JSON.parse(convertAgentMdToKiroJson(md))).not.toThrow();
     });
   });
 });

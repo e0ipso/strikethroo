@@ -48,6 +48,7 @@ describe('harness availability', () => {
       gemini: { argv: ['--prompt', 'Reply with OK.'], stdin: '' },
       copilot: { argv: ['-p', 'Reply with OK.'], stdin: '' },
       opencode: { argv: ['run', '-'], stdin: 'Reply with OK.' },
+      kiro: { argv: ['--version'], stdin: 'Reply with OK.' },
     };
     for (const harness of SUPPORTED_HARNESSES) {
       const command = HARNESS_AVAILABILITY_REGISTRY[harness].buildCommand(root);

@@ -51,6 +51,20 @@ describe('external harness adapter registry', () => {
     }
   );
 
+  it('kiro sends task via stdin without model or reasoning-effort flags', () => {
+    const command = buildExternalCommand(request('kiro'));
+    expect(command).toMatchObject({
+      executable: 'kiro-cli',
+      argv: ['chat', '--no-interactive', '--trust-tools=read,write,glob,grep,shell'],
+      cwd: '/workspace/project',
+    });
+    expect(command.stdin).toContain('Plan 12, Task 3');
+    expect(command.stdin).toContain('PRE_TASK_EXECUTION.md');
+    expect(command.stdin).toContain('# Implement the task');
+    expect(command.argv.join(' ')).not.toContain('model');
+    expect(command.argv.join(' ')).not.toContain('Implement the task');
+  });
+
   it('keeps a large task payload exclusively on stdin', () => {
     const payload = `# Task\n${'sensitive context '.repeat(100_000)}`;
     const command = buildExternalCommand(request('codex', undefined, payload));
@@ -71,7 +85,7 @@ describe('external harness adapter registry', () => {
       'model_reasoning_effort=high'
     );
     expect(buildExternalCommand(request('opencode', 'high')).argv).toContain('--variant');
-    for (const harness of ['cursor', 'gemini', 'copilot'] as const) {
+    for (const harness of ['cursor', 'gemini', 'copilot', 'kiro'] as const) {
       expect(buildExternalCommand(request(harness, 'high')).argv.join(' ')).not.toContain('high');
     }
   });

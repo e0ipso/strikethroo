@@ -156,7 +156,7 @@ export function convertAgentMdToToml(mdContent: string): string {
 }
 
 export interface AgentFormatInfo {
-  format: 'md' | 'toml';
+  format: 'md' | 'toml' | 'json';
   extension: string;
   directory: string;
 }
@@ -178,5 +178,44 @@ export function getAgentFormat(harness: Harness): AgentFormatInfo {
       return { format: 'md', extension: '.md', directory: '.cursor/agents' };
     case 'opencode':
       return { format: 'md', extension: '.md', directory: '.opencode/agents' };
+    case 'kiro':
+      return { format: 'json', extension: '.json', directory: '.kiro/agents' };
   }
+}
+
+/**
+ * Convert a canonical agent markdown template (with YAML frontmatter
+ * containing `name` and `description`) into Kiro's JSON agent format.
+ *
+ * Tool identifiers use Kiro's documented built-in names:
+ * https://kiro.dev/docs/cli/custom-agents/configuration-reference/
+ *
+ * The `model` key is omitted entirely so Kiro uses its session default.
+ * `allowedTools` is omitted; `tools` governs access exclusively.
+ */
+export function convertAgentMdToKiroJson(mdContent: string): string {
+  const { frontmatter, body } = parseFrontmatter(mdContent);
+  const name = (frontmatter.name ?? '').trim();
+  const rawDescription = frontmatter.description;
+  const description = (typeof rawDescription === 'string' ? rawDescription : '').trim();
+  const agent: Record<string, unknown> = {
+    name,
+    description,
+    prompt: body.trim(),
+    // Documented Kiro built-in tool identifiers (configuration-reference).
+    // 'shell' is required so the agent can execute PRE/POST hook commands.
+    tools: ['read', 'write', 'glob', 'grep', 'shell', 'web_search'],
+    mcpServers: {},
+    toolAliases: {},
+    // NOTE: the skill:// protocol and glob patterns below are derived from
+    // inspecting a Kiro installation and are not formally documented in Kiro's
+    // public schema. They are best-effort; if Kiro changes its skill-discovery
+    // URI format these paths may silently stop working.
+    resources: ['skill://.kiro/skills/*/SKILL.md', 'skill://~/.kiro/skills/*/SKILL.md'],
+    hooks: {},
+    toolsSettings: {},
+    includeMcpJson: true,
+    // `model` key intentionally omitted — absent key tells Kiro to use its default.
+  };
+  return JSON.stringify(agent, null, 2);
 }

@@ -63,6 +63,12 @@ export const HARNESS_AVAILABILITY_REGISTRY: Readonly<
     executable: 'opencode',
     buildCommand: cwd => probeCommand('opencode', ['run', '-'], cwd),
   },
+  kiro: {
+    version: AVAILABILITY_REGISTRY_VERSION,
+    executable: 'kiro-cli',
+    // Probe with --version: lightweight, no API key required, exits 0 when installed.
+    buildCommand: cwd => probeCommand('kiro-cli', ['--version'], cwd),
+  },
 };
 
 const registryKeys = Object.keys(HARNESS_AVAILABILITY_REGISTRY).sort();

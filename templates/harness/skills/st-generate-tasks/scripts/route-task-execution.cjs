@@ -34,7 +34,8 @@ var SUPPORTED_HARNESSES = [
   "cursor",
   "gemini",
   "copilot",
-  "opencode"
+  "opencode",
+  "kiro"
 ];
 
 // src/skill-scripts/shared/plan-resolve.ts

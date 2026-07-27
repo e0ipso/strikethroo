@@ -18,11 +18,34 @@ const SKILLS_ROOT = path.join(REPO_ROOT, 'templates', 'harness', 'skills');
 
 // Read the schema-version constant from the freshly compiled metadata module.
 // `npm run build` runs `tsc` before this script, so `dist/metadata.js` exists.
-const { CURRENT_WORKSPACE_SCHEMA_VERSION } = require(
-  path.join(REPO_ROOT, 'dist', 'metadata.js')
-);
+const { CURRENT_WORKSPACE_SCHEMA_VERSION } = require(path.join(REPO_ROOT, 'dist', 'metadata.js'));
 
 const SKILL_ENTRYPOINTS = [
+  {
+    src: 'src/skill-scripts/find-strikethroo-root.ts',
+    skill: 'st-code-review',
+    out: 'find-strikethroo-root.cjs',
+  },
+  {
+    src: 'src/skill-scripts/validate-plan-blueprint.ts',
+    skill: 'st-code-review',
+    out: 'validate-plan-blueprint.cjs',
+  },
+  {
+    // The only entry carrying a banner. Attribution belongs on the review
+    // mechanism alone: esbuild strips ordinary source comments, and a globally
+    // applied banner would stamp unrelated bundles with a notice that does not
+    // describe them.
+    src: 'src/skill-scripts/code-review.ts',
+    skill: 'st-code-review',
+    out: 'code-review.cjs',
+    banner: {
+      js:
+        '// Review-category modelling and false-positive suppression heuristics in\n' +
+        '// this skill draw on PR-Agent (https://github.com/The-PR-Agent/pr-agent),\n' +
+        '// used under its permissive licence. No PR-Agent code is vendored.',
+    },
+  },
   {
     src: 'src/skill-scripts/find-strikethroo-root.ts',
     skill: 'st-create-plan',
@@ -176,10 +199,10 @@ const buildAll = async () => {
       bundle: true,
       target: nodeTarget,
       logLevel: 'warning',
+      // Opt-in per entry: only entries that declare a banner get one.
+      ...(entry.banner ? { banner: entry.banner } : {}),
       define: {
-        EXPECTED_WORKSPACE_SCHEMA_VERSION: JSON.stringify(
-          CURRENT_WORKSPACE_SCHEMA_VERSION
-        ),
+        EXPECTED_WORKSPACE_SCHEMA_VERSION: JSON.stringify(CURRENT_WORKSPACE_SCHEMA_VERSION),
       },
     });
     builtFiles.push(outfile);
@@ -201,7 +224,7 @@ const buildAll = async () => {
   }
 };
 
-buildAll().catch((err) => {
+buildAll().catch(err => {
   console.error(err);
   process.exit(1);
 });

@@ -1,6 +1,6 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:2e4212eac8959e2f190177a9bc0d31991a7bffb8aa4a1cdbc4a4807c5767b28b'
+nodes_hash: 'sha256:175a749fd9d29d147df281bc09e854a1cbfd68026d542e42b05e42360cb34d49'
 node_count: 74
 ---
 # kenkeep
@@ -9,11 +9,9 @@ node_count: 74
 
 ## Branches
 - Load [`capture/`](nodes/capture/index.md) for more information on the documentation-visual capture harness — its committed fixture workspace and Playwright SPA-driving technique.
-- Load [`cli/`](nodes/cli/index.md) for more information on CLI command surface and command-routing boundaries; read when changing src/cli.ts or documenting available commands.
 - Load [`conventions/`](nodes/conventions/index.md) for more information on documentation and terminology conventions — current-state-only docs and the reserved meaning of phase.
 - Load [`dev/`](nodes/dev/index.md) for more information on the local development loop — dev:serve hot reload, the three concurrent processes, and rebuilding the SPA for serve.
 - Load [`devcontainer/`](nodes/devcontainer/index.md) for more information on devcontainer environment and t3 agent sandbox setup — Docker networking, port configuration, and t3 desktop connection; read when configuring or troubleshooting the devcontainer.
-- Load [`docs/`](nodes/docs/index.md) for more information on documentation site configuration and docs-publishing conventions; read when changing docs/ or GitHub Pages settings.
 - Load [`git/`](nodes/git/index.md) for more information on Git workflow constraints — commit-message hooks, the pre-commit test gate, attribution rules, and gitignored workspace state.
 - Load [`release/`](nodes/release/index.md) for more information on releasing and distribution — semantic-release, the npm-tarball vs GitHub-git-tree channels, and skill-artifact force-adding.
 - Load [`serve/`](nodes/serve/index.md) for more information on the read-only serve backend — HTTP/JSON API routes, the workspace data model and derivation, and the archive and self-review operations.

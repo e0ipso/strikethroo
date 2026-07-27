@@ -6,7 +6,7 @@ import { execGit } from './shared/git-utils';
 import { findStrikethrooRoot } from './shared/root';
 import { resolvePlan } from './shared/plan-resolve';
 import { discoverHarnesses } from './shared/harness-discovery';
-import { dispatchReview } from './shared/external-dispatch';
+import { dispatchReview, executableOnPath } from './shared/external-dispatch';
 import {
   MAX_REVIEW_ROUNDS,
   parseReviewFindings,
@@ -56,6 +56,7 @@ export type ReviewSkipReason =
   | 'hook-absent'
   | 'hook-empty'
   | 'xsd-absent'
+  | 'validator-absent'
   | 'base-commit-absent'
   | 'no-reviewer-candidate';
 
@@ -286,6 +287,12 @@ export interface ReviewRoundDependencies {
   readDiff: (workspace: string, baseCommit: string) => string | null;
   /** SEAM FOR TASK 7 — absent means the round reports `not-evaluated`. */
   evaluateFindings?: FindingsGate;
+  /**
+   * Whether the findings validator is usable. Injectable so a test can exercise
+   * the soft-dependency skip without mutating the process `PATH`, which leaks
+   * into anything else sharing the process.
+   */
+  validatorAvailable: () => boolean;
 }
 
 /**
@@ -370,6 +377,7 @@ const defaultDependencies: ReviewRoundDependencies = {
   discover: discoverHarnesses,
   dispatch: dispatchReview,
   readDiff: _readCumulativeDiff,
+  validatorAvailable: () => executableOnPath('xmllint'),
 };
 
 /**
@@ -553,7 +561,8 @@ interface ReviewContext {
  * fail-safe branches.
  */
 const resolveReviewContext = (
-  startPath: string
+  startPath: string,
+  validatorAvailable: () => boolean = () => executableOnPath('xmllint')
 ): { kind: 'resolved'; context: ReviewContext } | { kind: 'ended'; result: ReviewRoundResult } => {
   // findStrikethrooRoot owns the workspace schema check; never bypass it.
   const strikethrooRoot = findStrikethrooRoot(startPath);
@@ -602,6 +611,27 @@ const resolveReviewContext = (
     };
   }
 
+  // `xmllint` is a soft dependency. Findings are validated by shelling out to
+  // it, so without it no round can be certified — but a missing system package
+  // must never turn an otherwise successful plan into a failure. Absence joins
+  // the clean-skip set rather than halting, and is checked here, before a
+  // reviewer is dispatched, so no external harness is spent on a round that
+  // could not have been certified anyway.
+  //
+  // A skip is not a pass. It records that the gate did not run, and the
+  // distinct reason says why, so this cannot be misread as a clean review.
+  if (!validatorAvailable()) {
+    return {
+      kind: 'ended',
+      result: skip(
+        'validator-absent',
+        'No `xmllint` on PATH, so emitted findings could not be validated against the vendored ' +
+          'schema and the review gate was skipped. Install libxml2-utils (Debian/Ubuntu), ' +
+          'libxml2 (Homebrew), or your platform equivalent to enable the gate.'
+      ),
+    };
+  }
+
   return {
     kind: 'resolved',
     context: {
@@ -627,7 +657,7 @@ export const runReviewRound = async (
   const dependencies = { ...defaultDependencies, ...overrides };
   const startPath = request.startPath ?? process.cwd();
 
-  const resolution = resolveReviewContext(startPath);
+  const resolution = resolveReviewContext(startPath, dependencies.validatorAvailable);
   if (resolution.kind === 'ended') return resolution.result;
   const { strikethrooRoot, workspace, hookFile, hookContent, xsdFile, mandate } =
     resolution.context;
@@ -811,7 +841,10 @@ export const runBoundedReviewRound = async (
   overrides: Partial<ReviewRoundDependencies> = {}
 ): Promise<ReviewRoundResult> => {
   const startPath = request.startPath ?? process.cwd();
-  const resolution = resolveReviewContext(startPath);
+  const resolution = resolveReviewContext(
+    startPath,
+    { ...defaultDependencies, ...overrides }.validatorAvailable
+  );
   if (resolution.kind === 'ended') return resolution.result;
   const { mandate } = resolution.context;
 

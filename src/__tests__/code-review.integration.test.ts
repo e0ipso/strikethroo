@@ -31,6 +31,7 @@ const stubDeps = (overrides: Partial<ReviewRoundDependencies> = {}): ReviewRound
   discover: async () => ({ outcomes: [], reviewerCandidates: ['codex'] }),
   dispatch: async () => ({ kind: 'launched-success', exitCode: 0 }),
   readDiff: () => 'diff --git a/x.ts b/x.ts\n+something changed\n',
+  validatorAvailable: () => true,
   ...overrides,
 });
 
@@ -325,5 +326,56 @@ describe('cumulative diff scope: generated and vendored files', () => {
 
     expect(diff).toContain('export const a = 1;');
     expect(diff).toContain('export const b = 2;');
+  });
+});
+
+/**
+ * `xmllint` is a soft dependency. Without it no round can be certified, but a
+ * missing system package must never turn an otherwise successful plan into a
+ * failure — so absence skips cleanly, before any reviewer is dispatched, and is
+ * never reported as a review that passed.
+ */
+describe('code review gate — xmllint is a soft dependency', () => {
+  it('skips with validator-absent: exit 0, empty stderr, no reviewer dispatched', async () => {
+    const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    const dispatch = vi.fn(async () => ({ kind: 'launched-success', exitCode: 0 }) as const);
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      const result = await runReviewRound(
+        { plan: '1', currentHarness: 'claude', round: 1, startPath: ws.root },
+        stubDeps({ dispatch, validatorAvailable: () => false })
+      );
+      expect(result).toMatchObject({ kind: 'skipped', reason: 'validator-absent' });
+      expect(_exitCodeFor(result)).toBe(0);
+      expect(stderrSpy).not.toHaveBeenCalled();
+      // The point of checking before dispatch: no external harness is spent on
+      // a round that could not have been certified.
+      expect(dispatch).not.toHaveBeenCalled();
+    } finally {
+      stderrSpy.mockRestore();
+    }
+  });
+
+  it('names an actionable fix rather than failing opaquely', async () => {
+    const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    const result = await runReviewRound(
+      { plan: '1', currentHarness: 'claude', round: 1, startPath: ws.root },
+      stubDeps({ validatorAvailable: () => false })
+    );
+    expect(result).toMatchObject({ kind: 'skipped' });
+    const detail = (result as { detail: string }).detail;
+    expect(detail).toContain('xmllint');
+    expect(detail).toContain('libxml2');
+  });
+
+  it('runs the round normally when the validator is available', async () => {
+    const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    const dispatch = vi.fn(async () => ({ kind: 'launched-success', exitCode: 0 }) as const);
+    const result = await runReviewRound(
+      { plan: '1', currentHarness: 'claude', round: 1, startPath: ws.root },
+      stubDeps({ dispatch, validatorAvailable: () => true })
+    );
+    expect(result).not.toMatchObject({ reason: 'validator-absent' });
+    expect(dispatch).toHaveBeenCalled();
   });
 });

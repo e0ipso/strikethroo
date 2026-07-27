@@ -230,7 +230,9 @@ export const buildExternalCommand = (request: ExternalDispatchRequest): Structur
 export const buildReviewCommand = (request: ReviewDispatchRequest): StructuredCommand =>
   EXTERNAL_HARNESS_ADAPTERS[request.harness].buildCommand(reviewCommandRequest(request));
 
-const executableOnPath = (executable: string): boolean =>
+/** Whether a bare executable name resolves on `PATH`. Shared so callers do not
+ * each reimplement PATH scanning. */
+export const executableOnPath = (executable: string): boolean =>
   (process.env.PATH ?? '').split(path.delimiter).some(directory => {
     if (!directory) return false;
     const candidate = path.join(directory, executable);

@@ -89,6 +89,8 @@ After `POST_EXECUTION` reports green, an optional review loop runs before the ex
 
 **Disabling**: Emptying or deleting `CODE_REVIEW.md` skips the gate cleanly with a note in the execution summary. No error.
 
+**`xmllint` is a soft dependency**: findings are validated against the vendored XSD by shelling out to it, so without it no round can be certified. Absence is checked before a reviewer is dispatched and joins the clean-skip set as `validator-absent` — a missing system package must never turn an otherwise successful plan into a failure, and no external harness is spent on a round that could not have been certified. A skip is not a pass: it records that the gate did not run, and its reason says why. Both CI workflows install `libxml2-utils` so the validation path is exercised there.
+
 **Schema version**: `CURRENT_WORKSPACE_SCHEMA_VERSION` deliberately remains `4`. Both new files (`CODE_REVIEW.md` and `self-review-v2.xsd`) are optional by absence — existing v4 workspaces continue without re-running `init`, with the feature dormant until the workspace is updated.
 
 **Source**: `src/skill-scripts/code-review.ts` (entrypoint, the five clean-skip branches, diff scoping, reviewer dispatch), `src/skill-scripts/shared/review-findings.ts` (`xmllint` validation, the severity/confidence partition, `MAX_REVIEW_ROUNDS`), `src/skill-scripts/shared/harness-discovery.ts` (reachable harnesses, current one excluded), and `src/skill-scripts/capture-base-commit.ts` (records `<plan-dir>/review/base-commit.json` before phase execution). Reviewer dispatch reaches the harness through the model-optional path in `src/skill-scripts/shared/external-dispatch.ts`; `execution_routing` still requires an exact model on its own path.

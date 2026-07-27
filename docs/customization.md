@@ -93,6 +93,8 @@ Terminal review gate, terminal only — runs once per plan, creates no task file
 
 **To disable**: Empty or delete this file. The gate skips cleanly and notes it in the execution summary. No error. `init` preserves your edits on re-run unless you pass `--force`.
 
+**Uses `xmllint` when available**: findings are validated against the vendored schema by shelling out to it. It is a soft dependency — without it the gate skips cleanly and says so in the execution summary, exactly as it does when the hook is missing. Your plan still completes. Install `libxml2-utils` (Debian/Ubuntu), `libxml2` (Homebrew), or your platform's equivalent to turn the gate on. A skip is never reported as a review that passed.
+
 **Limitations** — the complete list:
 - Harness diversity is not model diversity — discovery operates at harness level, so a second CLI on the same model family looks independent while sharing blind spots.
 - The reviewer model is unknown at dispatch — the gate records the harness, not the model.

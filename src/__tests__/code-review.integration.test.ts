@@ -11,8 +11,14 @@
  * what `resolveReviewContext` reads.
  */
 
+import { execSync } from 'child_process';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+
 import {
   _exitCodeFor,
+  _readCumulativeDiff,
   MAX_REVIEW_ROUNDS,
   runBoundedReviewRound,
   runReviewRound,
@@ -232,5 +238,92 @@ describe('code review gate — round budget bounding', () => {
     } finally {
       ws.cleanup();
     }
+  });
+});
+
+/**
+ * The reviewed diff must exclude build output and vendored files.
+ *
+ * A finding against generated code is unfixable by construction: the suggestion
+ * is applied as a text replacement, the mandatory full `POST_EXECUTION` re-run
+ * regenerates the file, the fix vanishes, and the next round raises the same
+ * finding because the source was never touched. That loop spends the whole
+ * round budget and halts. These tests use a real git repository because the
+ * exclusion is resolved by `git check-attr` against real `.gitattributes`.
+ */
+describe('cumulative diff scope: generated and vendored files', () => {
+  let repo: string;
+
+  const git = (args: string) =>
+    execSync(`git ${args}`, { cwd: repo, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+
+  beforeEach(() => {
+    repo = fs.mkdtempSync(path.join(os.tmpdir(), 'st-diff-scope-'));
+    git('init -q');
+    git('config user.email test@example.com');
+    git('config user.name Test');
+    fs.writeFileSync(path.join(repo, 'seed.txt'), 'seed\n');
+    git('add -A');
+    git('commit -q -m seed');
+  });
+
+  afterEach(() => fs.rmSync(repo, { recursive: true, force: true }));
+
+  const baseSha = () => git('rev-parse HEAD').trim();
+
+  it('drops generated and vendored paths while keeping real source', () => {
+    const base = baseSha();
+    fs.writeFileSync(
+      path.join(repo, '.gitattributes'),
+      'out/*.cjs linguist-generated=true\nvendor/*.xsd linguist-vendored=true\n'
+    );
+    fs.mkdirSync(path.join(repo, 'out'));
+    fs.mkdirSync(path.join(repo, 'vendor'));
+    fs.writeFileSync(path.join(repo, 'src.ts'), 'export const real = 1;\n');
+    fs.writeFileSync(path.join(repo, 'out/bundle.cjs'), 'GENERATED_BUNDLE_CONTENT\n');
+    fs.writeFileSync(path.join(repo, 'vendor/schema.xsd'), 'VENDORED_SCHEMA_CONTENT\n');
+    git('add -A');
+    git('commit -q -m change');
+
+    const diff = _readCumulativeDiff(repo, base);
+
+    expect(diff).toContain('src.ts');
+    expect(diff).toContain('export const real = 1;');
+    expect(diff).not.toContain('GENERATED_BUNDLE_CONTENT');
+    expect(diff).not.toContain('VENDORED_SCHEMA_CONTENT');
+    expect(diff).not.toContain('out/bundle.cjs');
+    expect(diff).not.toContain('vendor/schema.xsd');
+  });
+
+  it('excludes an uncommitted edit to a generated file, which never reaches the index', () => {
+    fs.writeFileSync(path.join(repo, '.gitattributes'), 'out/*.cjs linguist-generated=true\n');
+    fs.mkdirSync(path.join(repo, 'out'));
+    fs.writeFileSync(path.join(repo, 'out/bundle.cjs'), 'first\n');
+    git('add -A');
+    git('commit -q -m add-bundle');
+    const base = baseSha();
+
+    // The steady state of a local rebuild: tracked build output dirtied, never committed.
+    fs.writeFileSync(path.join(repo, 'out/bundle.cjs'), 'REBUILT_OUTPUT\n');
+    fs.writeFileSync(path.join(repo, 'src.ts'), 'export const real = 2;\n');
+    git('add src.ts');
+
+    const diff = _readCumulativeDiff(repo, base);
+
+    expect(diff).toContain('export const real = 2;');
+    expect(diff).not.toContain('REBUILT_OUTPUT');
+  });
+
+  it('keeps everything when the repository marks nothing generated', () => {
+    const base = baseSha();
+    fs.writeFileSync(path.join(repo, 'a.ts'), 'export const a = 1;\n');
+    fs.writeFileSync(path.join(repo, 'b.cjs'), 'export const b = 2;\n');
+    git('add -A');
+    git('commit -q -m plain');
+
+    const diff = _readCumulativeDiff(repo, base);
+
+    expect(diff).toContain('export const a = 1;');
+    expect(diff).toContain('export const b = 2;');
   });
 });

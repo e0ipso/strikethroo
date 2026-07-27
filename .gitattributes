@@ -1,0 +1,26 @@
+# Build output and vendored files that must stay tracked.
+#
+# These cannot be gitignored: `@semantic-release/git` force-adds them into the
+# release commit, because `npx skills add e0ipso/strikethroo@<tag>` reads
+# `templates/` straight from the tagged ref. Marking them here instead gives
+# the two behaviours we actually want while they stay committable by CI:
+#
+#   - GitHub collapses them in pull requests, so a reviewer sees source rather
+#     than generated churn.
+#   - The code review gate excludes them from the reviewed diff. Applying a fix
+#     to build output would be erased by the next `npm run build`, and the
+#     re-review would raise the same finding again until the round budget ran
+#     out.
+#
+# Change the source, never these files. `.husky/pre-commit` rejects them when
+# staged by hand.
+
+# Assembled by scripts/build-skill-prompts.cjs from src/skill-prompts/.
+templates/harness/skills/*/SKILL.md linguist-generated=true
+
+# Bundled by scripts/build-skills.cjs (esbuild) from src/skill-scripts/.
+templates/harness/skills/*/scripts/*.cjs linguist-generated=true
+
+# Vendored verbatim from e0ipso/self-review (MIT). Must stay byte-identical to
+# upstream, so it is never a legitimate target for a review finding.
+templates/strikethroo/config/schemas/*.xsd linguist-vendored=true

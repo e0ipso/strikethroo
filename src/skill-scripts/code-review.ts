@@ -318,14 +318,58 @@ export const _readBaseCommit = (filePath: string): string | null => {
  * that modifies a tracked file is visible uncommitted; one that adds a brand-new
  * file is visible only once something stages or commits it. Widening this would
  * require writing to the index (`git add -N`), which the gate must not do.
+ *
+ * Build output and vendored files are removed from the scope. A finding against
+ * generated code is unfixable by construction: the suggestion is applied as a
+ * text replacement, the mandatory full `POST_EXECUTION` re-run rebuilds the
+ * file, the fix disappears, and the next round raises the identical finding
+ * because its source was never touched — a fix/erase/re-find loop that spends
+ * the whole round budget and halts. Vendored files carry the same problem for a
+ * different reason: they must stay byte-identical to upstream.
+ *
+ * The exclusion is driven by `.gitattributes` rather than a hard-coded list,
+ * because this gate runs inside the user's project and knows nothing about
+ * which paths that project generates. Any repository already marking build
+ * output `linguist-generated` — the same marker GitHub uses to collapse those
+ * files in pull requests — gets the right scope with no extra configuration.
  */
-const readCumulativeDiff = (workspace: string, baseCommit: string): string | null =>
-  execGit(`git -C ${JSON.stringify(workspace)} diff ${baseCommit} --`);
+const GENERATED_ATTRIBUTES = ['linguist-generated', 'linguist-vendored'] as const;
+
+/** Paths in the diff that `.gitattributes` marks as generated or vendored. */
+const excludedPaths = (workspace: string, baseCommit: string): string[] => {
+  const changed = execGit(`git -C ${JSON.stringify(workspace)} diff --name-only ${baseCommit} --`);
+  if (changed === null || changed.trim() === '') return [];
+  const files = changed.split('\n').filter(line => line.trim() !== '');
+  const report = execGit(
+    `git -C ${JSON.stringify(workspace)} check-attr ${GENERATED_ATTRIBUTES.join(' ')} -- ` +
+      files.map(file => JSON.stringify(file)).join(' ')
+  );
+  if (report === null) return [];
+  // Each line is `<path>: <attribute>: <value>`; a path may appear once per
+  // attribute. Split from the right so a path containing ": " stays intact.
+  const excluded = new Set<string>();
+  for (const line of report.split('\n')) {
+    const marker = line.lastIndexOf(': ');
+    if (marker === -1 || line.slice(marker + 2).trim() !== 'true') continue;
+    const withoutValue = line.slice(0, marker);
+    const attribute = withoutValue.lastIndexOf(': ');
+    if (attribute === -1) continue;
+    excluded.add(withoutValue.slice(0, attribute));
+  }
+  return [...excluded];
+};
+
+export const _readCumulativeDiff = (workspace: string, baseCommit: string): string | null => {
+  const exclusions = excludedPaths(workspace, baseCommit)
+    .map(file => ` ${JSON.stringify(`:(exclude,literal)${file}`)}`)
+    .join('');
+  return execGit(`git -C ${JSON.stringify(workspace)} diff ${baseCommit} -- .${exclusions}`);
+};
 
 const defaultDependencies: ReviewRoundDependencies = {
   discover: discoverHarnesses,
   dispatch: dispatchReview,
-  readDiff: readCumulativeDiff,
+  readDiff: _readCumulativeDiff,
 };
 
 /**

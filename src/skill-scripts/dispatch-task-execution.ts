@@ -4,7 +4,7 @@ import * as path from 'path';
 import matter from 'gray-matter';
 import { SUPPORTED_HARNESSES, type Harness } from '../types';
 import { selectDispatchTarget } from './shared/dispatch-target-selector';
-import { dispatchExternalTask } from './shared/external-dispatch';
+import { dispatchExternalTask, type RoutedDispatchRequest } from './shared/external-dispatch';
 import { checkHarnessAvailability } from './shared/harness-availability';
 import { loadRoutingConfig } from './shared/execution-routing';
 
@@ -202,7 +202,10 @@ const main = async (): Promise<void> => {
   }
 
   const handoff = decodeHandoff(handoffArg!);
-  const result = await dispatchExternalTask({
+  // Routing always resolves an exact model. The narrowed type keeps the compiler
+  // enforcing that here even though dispatch itself allows omission for the
+  // discovery-driven review path.
+  const routed: RoutedDispatchRequest = {
     harness: handoff.harness,
     model: handoff.model,
     ...(handoff.reasoningEffort === undefined ? {} : { reasoningEffort: handoff.reasoningEffort }),
@@ -211,7 +214,8 @@ const main = async (): Promise<void> => {
     taskId: validTaskId,
     taskFile: taskPath,
     taskMarkdown,
-  });
+  };
+  const result = await dispatchExternalTask(routed);
   emit(
     result,
     result.kind === 'infrastructure-failure' ? 2 : result.kind === 'launched-failure' ? 1 : 0

@@ -17,13 +17,54 @@ import { SUPPORTED_HARNESSES, type Harness } from '../../types';
  */
 export interface ExternalDispatchRequest {
   harness: Harness;
-  model: string;
+  /**
+   * An exact model identifier, or absent to let the harness CLI use its own
+   * configured default. Absence exists for discovery-driven dispatch, which
+   * knows a harness is reachable and knows nothing about which model ids that
+   * harness still accepts — the same reasoning `harness-availability.ts`
+   * applies to its probes. `execution_routing` never omits it; see
+   * {@link RoutedDispatchRequest}.
+   */
+  model?: string;
   reasoningEffort?: string;
   workspace: string;
   planId: string;
   taskId: string;
   taskFile: string;
   taskMarkdown: string;
+}
+
+/**
+ * The `execution_routing` dispatch contract. Routing validates an exact `model`
+ * per configured target, so its call site annotates this narrowed type and the
+ * compiler keeps rejecting a missing model there. Model optionality serves the
+ * discovery-driven review path only and must not leak into routing.
+ */
+export type RoutedDispatchRequest = ExternalDispatchRequest & { model: string };
+
+/**
+ * A reviewer dispatch. Discovery yields a harness and nothing else: no model
+ * (the CLI uses its own default) and no reasoning effort (there is no basis to
+ * infer one). The prompt is supplied whole by the caller — a review is not a
+ * task-file dispatch, so it never goes through `taskPrompt`.
+ */
+export interface ReviewDispatchRequest {
+  harness: Harness;
+  workspace: string;
+  prompt: string;
+}
+
+/**
+ * The minimal shape an adapter needs to emit a launchable command: which model
+ * and reasoning effort to request (if any), where to run, and what to send on
+ * stdin. Both the task and the review path reduce to this, so the adapter table
+ * is written once.
+ */
+export interface DispatchCommandRequest {
+  model?: string;
+  reasoningEffort?: string;
+  workspace: string;
+  prompt: string;
 }
 
 export interface StructuredCommand {
@@ -58,7 +99,7 @@ export interface ExternalDispatchDependencies {
 
 export interface ExternalHarnessAdapter {
   executable: string;
-  buildCommand: (request: ExternalDispatchRequest) => StructuredCommand;
+  buildCommand: (request: DispatchCommandRequest) => StructuredCommand;
   authenticationArgv: () => string[];
 }
 
@@ -75,13 +116,21 @@ const taskPrompt = (request: ExternalDispatchRequest): string =>
 const command = (
   executable: string,
   argv: string[],
-  request: ExternalDispatchRequest
+  request: DispatchCommandRequest
 ): StructuredCommand => ({
   executable,
   argv,
   cwd: request.workspace,
-  stdin: taskPrompt(request),
+  stdin: request.prompt,
 });
+
+/**
+ * The model flag and its value, or nothing at all. Omission drops both tokens —
+ * `--model ''` is rejected by most of these CLIs. Splicing this in at the exact
+ * position `--model` already occupied keeps every with-model argv identical.
+ */
+const modelArgv = (model: string | undefined): string[] =>
+  model === undefined ? [] : ['--model', model];
 
 export const EXTERNAL_HARNESS_ADAPTERS: Readonly<Record<Harness, ExternalHarnessAdapter>> = {
   claude: {
@@ -91,8 +140,7 @@ export const EXTERNAL_HARNESS_ADAPTERS: Readonly<Record<Harness, ExternalHarness
         'claude',
         [
           '-p',
-          '--model',
-          request.model,
+          ...modelArgv(request.model),
           ...(request.reasoningEffort === undefined ? [] : ['--effort', request.reasoningEffort]),
         ],
         request
@@ -106,8 +154,7 @@ export const EXTERNAL_HARNESS_ADAPTERS: Readonly<Record<Harness, ExternalHarness
         'codex',
         [
           'exec',
-          '--model',
-          request.model,
+          ...modelArgv(request.model),
           ...(request.reasoningEffort === undefined
             ? []
             : ['--config', `model_reasoning_effort=${request.reasoningEffort}`]),
@@ -120,17 +167,20 @@ export const EXTERNAL_HARNESS_ADAPTERS: Readonly<Record<Harness, ExternalHarness
   cursor: {
     executable: 'cursor-agent',
     buildCommand: request =>
-      command('cursor-agent', ['--print', '--model', request.model], request),
+      command('cursor-agent', ['--print', ...modelArgv(request.model)], request),
     authenticationArgv: () => ['status'],
   },
   gemini: {
     executable: 'gemini',
-    buildCommand: request => command('gemini', ['--prompt', '', '--model', request.model], request),
+    // The empty positional prompt is the existing contract — content travels on
+    // stdin. It stays even when the model pair is dropped.
+    buildCommand: request =>
+      command('gemini', ['--prompt', '', ...modelArgv(request.model)], request),
     authenticationArgv: () => ['auth', 'status'],
   },
   copilot: {
     executable: 'copilot',
-    buildCommand: request => command('copilot', ['-p', '', '--model', request.model], request),
+    buildCommand: request => command('copilot', ['-p', '', ...modelArgv(request.model)], request),
     authenticationArgv: () => ['auth', 'status'],
   },
   opencode: {
@@ -140,8 +190,7 @@ export const EXTERNAL_HARNESS_ADAPTERS: Readonly<Record<Harness, ExternalHarness
         'opencode',
         [
           'run',
-          '--model',
-          request.model,
+          ...modelArgv(request.model),
           ...(request.reasoningEffort === undefined ? [] : ['--variant', request.reasoningEffort]),
           '-',
         ],
@@ -157,8 +206,29 @@ if (adapterKeys.join('\0') !== harnessKeys.join('\0')) {
   throw new Error('External harness adapter registry does not cover SUPPORTED_HARNESSES exactly.');
 }
 
+const taskCommandRequest = (request: ExternalDispatchRequest): DispatchCommandRequest => ({
+  model: request.model,
+  reasoningEffort: request.reasoningEffort,
+  workspace: request.workspace,
+  prompt: taskPrompt(request),
+});
+
+const reviewCommandRequest = (request: ReviewDispatchRequest): DispatchCommandRequest => ({
+  workspace: request.workspace,
+  prompt: request.prompt,
+});
+
 export const buildExternalCommand = (request: ExternalDispatchRequest): StructuredCommand =>
-  EXTERNAL_HARNESS_ADAPTERS[request.harness].buildCommand(request);
+  EXTERNAL_HARNESS_ADAPTERS[request.harness].buildCommand(taskCommandRequest(request));
+
+/**
+ * A reviewer command for a discovered harness: the caller's prompt verbatim on
+ * stdin, no model, no reasoning effort. Deliberately does not reach
+ * `taskPrompt`, which hard-codes a task file and a `PRE_TASK_EXECUTION.md`
+ * instruction that a review must not inherit.
+ */
+export const buildReviewCommand = (request: ReviewDispatchRequest): StructuredCommand =>
+  EXTERNAL_HARNESS_ADAPTERS[request.harness].buildCommand(reviewCommandRequest(request));
 
 const executableOnPath = (executable: string): boolean =>
   (process.env.PATH ?? '').split(path.delimiter).some(directory => {
@@ -248,30 +318,32 @@ const dependencies: ExternalDispatchDependencies = {
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
-/** Only pre-launch failures return fallback. A launched process is always committed. */
-export const dispatchExternalTask = async (
-  request: ExternalDispatchRequest,
-  overrides: Partial<ExternalDispatchDependencies> = {}
-): Promise<ExternalDispatchResult> => {
-  const adapter = EXTERNAL_HARNESS_ADAPTERS[request.harness];
+type DispatchFallback = Extract<ExternalDispatchResult, { kind: 'fallback' }>;
+
+type PreparedLaunch = { kind: 'ready'; command: StructuredCommand } | DispatchFallback;
+
+/**
+ * The pre-launch gate shared by every dispatch path: adapter lookup, an optional
+ * path-specific guard, executable presence, command construction, and
+ * authentication. Kept in one place so the authentication gate cannot drift
+ * between the task and the review path.
+ */
+const prepareLaunch = async (
+  harness: Harness,
+  input: DispatchCommandRequest,
+  active: ExternalDispatchDependencies,
+  guard?: () => DispatchFallback | undefined
+): Promise<PreparedLaunch> => {
+  const adapter = EXTERNAL_HARNESS_ADAPTERS[harness];
   if (!adapter) {
     return {
       kind: 'fallback',
       reason: 'adapter-unavailable',
-      detail: `No adapter is registered for ${request.harness}.`,
+      detail: `No adapter is registered for ${harness}.`,
     };
   }
-  const active = { ...dependencies, ...overrides };
-  if (
-    request.reasoningEffort !== undefined &&
-    (request.harness === 'cursor' || request.harness === 'gemini' || request.harness === 'copilot')
-  ) {
-    return {
-      kind: 'fallback',
-      reason: 'unsupported-reasoning-effort',
-      detail: `${request.harness} does not support a generic reasoning_effort override.`,
-    };
-  }
+  const blocked = guard?.();
+  if (blocked) return blocked;
   if (!active.executableExists(adapter.executable)) {
     return {
       kind: 'fallback',
@@ -279,7 +351,7 @@ export const dispatchExternalTask = async (
       detail: `${adapter.executable} is unavailable.`,
     };
   }
-  const commandSpec = adapter.buildCommand(request);
+  const commandSpec = adapter.buildCommand(input);
   const authentication = await active.authenticate(commandSpec, adapter);
   if (!authentication.ok) {
     return {
@@ -288,15 +360,62 @@ export const dispatchExternalTask = async (
       detail: authentication.detail ?? `${adapter.executable} authentication check failed.`,
     };
   }
+  return { kind: 'ready', command: commandSpec };
+};
+
+const launchPrepared = async (
+  prepared: PreparedLaunch,
+  active: ExternalDispatchDependencies,
+  label: string
+): Promise<ExternalDispatchResult> => {
+  if (prepared.kind === 'fallback') return prepared;
   try {
-    const launched = await active.launch(commandSpec);
+    const launched = await active.launch(prepared.command);
     return launched.exitCode === 0
       ? { kind: 'launched-success', exitCode: 0 }
       : { kind: 'launched-failure', exitCode: launched.exitCode };
   } catch (error) {
     return {
       kind: 'infrastructure-failure',
-      detail: `External task process failed: ${errorMessage(error)}`,
+      detail: `External ${label} process failed: ${errorMessage(error)}`,
     };
   }
+};
+
+const unsupportedReasoningEffort = (
+  request: ExternalDispatchRequest
+): DispatchFallback | undefined =>
+  request.reasoningEffort !== undefined &&
+  (request.harness === 'cursor' || request.harness === 'gemini' || request.harness === 'copilot')
+    ? {
+        kind: 'fallback',
+        reason: 'unsupported-reasoning-effort',
+        detail: `${request.harness} does not support a generic reasoning_effort override.`,
+      }
+    : undefined;
+
+/** Only pre-launch failures return fallback. A launched process is always committed. */
+export const dispatchExternalTask = async (
+  request: ExternalDispatchRequest,
+  overrides: Partial<ExternalDispatchDependencies> = {}
+): Promise<ExternalDispatchResult> => {
+  const active = { ...dependencies, ...overrides };
+  const prepared = await prepareLaunch(request.harness, taskCommandRequest(request), active, () =>
+    unsupportedReasoningEffort(request)
+  );
+  return launchPrepared(prepared, active, 'task');
+};
+
+/**
+ * Dispatch a reviewer to a discovered harness. Same pre-launch gate and same
+ * result union as task dispatch; no model, no reasoning effort, and therefore no
+ * `unsupported-reasoning-effort` guard — that branch is unreachable here.
+ */
+export const dispatchReview = async (
+  request: ReviewDispatchRequest,
+  overrides: Partial<ExternalDispatchDependencies> = {}
+): Promise<ExternalDispatchResult> => {
+  const active = { ...dependencies, ...overrides };
+  const prepared = await prepareLaunch(request.harness, reviewCommandRequest(request), active);
+  return launchPrepared(prepared, active, 'review');
 };

@@ -1,0 +1,437 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:sr="urn:self-review:v2"
+  targetNamespace="urn:self-review:v2"
+  elementFormDefault="qualified"
+>
+
+  <!--
+    self-review XML Schema v2
+    =========================
+    Defines the output format for the self-review application.
+    This schema is designed to be both machine-validated and
+    fed to an LLM so it can understand the structure of review feedback.
+
+    Key concepts:
+    - A <review> contains one <file> per file in the diff.
+    - A <file> contains zero or more <comment> elements.
+    - A <comment> with no line attributes is a file-level comment.
+    - A <comment> with old-line-start/old-line-end refers to lines
+      in the pre-change version of the file (typically deleted lines).
+    - A <comment> with new-line-start/new-line-end refers to lines
+      in the post-change version of the file (added or context lines).
+    - Exactly one pair (old-line-* or new-line-*) should be present
+      for line-level comments. This constraint cannot be expressed in
+      XSD 1.0 and is enforced by the application.
+
+    Changes from v1:
+    - <comment> gained two optional attributes, severity and confidence,
+      so an automated consumer can threshold on findings instead of
+      applying all of them or none of them. See CommentType.
+  -->
+
+  <!-- ===== Root element ===== -->
+
+  <xs:element name="review" type="sr:ReviewType">
+    <xs:annotation>
+      <xs:documentation>
+        Root element of a self-review output file. Contains one file element
+        per file in the git diff, including files with no comments.
+      </xs:documentation>
+    </xs:annotation>
+  </xs:element>
+
+  <!-- ===== Complex types ===== -->
+
+  <xs:complexType name="ReviewType">
+    <xs:sequence>
+      <xs:element name="file" type="sr:FileType" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+    <xs:attribute name="timestamp" type="xs:dateTime" use="required">
+      <xs:annotation>
+        <xs:documentation>
+          ISO 8601 timestamp of when the review was completed (window closed).
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="git-diff-args" type="xs:string" use="optional">
+      <xs:annotation>
+        <xs:documentation>
+          The git diff arguments that were passed to self-review on the CLI.
+          Example: "--staged", "main..feature-branch", "HEAD~3".
+          Present only when reviewing a git diff.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="repository" type="xs:string" use="optional">
+      <xs:annotation>
+        <xs:documentation>
+          Absolute path to the repository root where self-review was invoked.
+          Present only when reviewing a git diff.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="source-path" type="xs:string" use="optional">
+      <xs:annotation>
+        <xs:documentation>
+          Absolute path to the directory being reviewed.
+          Present only when reviewing a directory (non-git mode).
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="FileType">
+    <xs:annotation>
+      <xs:documentation>
+        Represents a single file in the diff. Files with no comments
+        appear as empty elements. The path is relative to the repository root.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="comment" type="sr:CommentType" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+    <xs:attribute name="path" type="xs:string" use="required">
+      <xs:annotation>
+        <xs:documentation>
+          File path relative to the repository root. For renamed files,
+          this is the new path.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="change-type" type="sr:ChangeTypeEnum" use="required">
+      <xs:annotation>
+        <xs:documentation>
+          The type of change: added, modified, deleted, or renamed.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="viewed" type="xs:boolean" use="required">
+      <xs:annotation>
+        <xs:documentation>
+          Whether the reviewer marked this file as reviewed.
+          true = the reviewer looked at this file.
+          false = the reviewer did not mark this file as viewed.
+          This helps an AI agent distinguish "reviewed with no comments"
+          from "not yet reviewed."
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="CommentType">
+    <xs:annotation>
+      <xs:documentation>
+        A review comment. Three forms:
+
+        1. File-level comment: no line attributes present.
+           Applies to the file as a whole.
+
+        2. Comment on new/added/context lines: new-line-start and
+           new-line-end are present. These reference line numbers in the
+           post-change version of the file.
+
+        3. Comment on old/deleted lines: old-line-start and old-line-end
+           are present. These reference line numbers in the pre-change
+           version of the file.
+
+        For single-line comments, start and end are equal.
+        Exactly one pair (old or new) should be present for line-level
+        comments. Both pairs absent = file-level comment.
+
+        The category child says what kind of finding this is. The severity
+        and confidence attributes say how much weight to put on it: severity
+        is how consequential the finding is if it is real, confidence is how
+        sure the author is that it is real. They are independent, and an
+        automated consumer is expected to threshold on both.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="body" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+            The comment text. May contain markdown formatting.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="category" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+            Required category tag for this comment (e.g., "bug", "style",
+            "nit", "question", "security"). Categories are defined in the
+            project-level .self-review.yaml configuration. Every comment
+            must have a category to help AI agents prioritize and triage
+            feedback.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="suggestion" type="sr:SuggestionType" minOccurs="0">
+        <xs:annotation>
+          <xs:documentation>
+            Optional code replacement proposal. When present, the AI agent
+            should replace the original-code with the proposed-code at the
+            referenced line range.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="attachment" type="sr:AttachmentType" minOccurs="0" maxOccurs="unbounded">
+        <xs:annotation>
+          <xs:documentation>
+            Optional image attachment. The path attribute references an image file
+            stored in the .self-review-assets/ directory alongside the XML output.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="old-line-start" type="xs:positiveInteger" use="optional">
+      <xs:annotation>
+        <xs:documentation>
+          Start line number in the pre-change (old) version of the file.
+          Use for comments on deleted lines.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="old-line-end" type="xs:positiveInteger" use="optional">
+      <xs:annotation>
+        <xs:documentation>
+          End line number (inclusive) in the pre-change (old) version.
+          Must be >= old-line-start when both are present.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="new-line-start" type="xs:positiveInteger" use="optional">
+      <xs:annotation>
+        <xs:documentation>
+          Start line number in the post-change (new) version of the file.
+          Use for comments on added or context (unchanged) lines.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="new-line-end" type="xs:positiveInteger" use="optional">
+      <xs:annotation>
+        <xs:documentation>
+          End line number (inclusive) in the post-change (new) version.
+          Must be >= new-line-start when both are present.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="author" type="xs:string" use="optional">
+      <xs:annotation>
+        <xs:documentation>
+          The author of this comment. When present, indicates the comment
+          was generated by a bot or LLM (e.g., "Claude Sonnet 4.6").
+          When absent, the comment is assumed to be authored by the human
+          reviewer.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="severity" type="sr:SeverityEnum" use="optional">
+      <xs:annotation>
+        <xs:documentation>
+          How consequential this finding is if it turns out to be real.
+          Judge the impact of the problem, not how confident you are that
+          the problem exists, and not how much work the fix is.
+
+          This attribute has no schema default on purpose. When it is
+          absent, a consumer must treat the comment as falling below any
+          severity floor it applies, i.e. absent never satisfies a
+          threshold. Comments written by a human in the self-review UI
+          normally carry no severity.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="confidence" type="sr:ConfidenceEnum" use="optional">
+      <xs:annotation>
+        <xs:documentation>
+          How sure the author is that this finding is real, i.e. that it
+          describes an actual defect in the code as written rather than a
+          hypothetical one.
+
+          Confidence is about the evidence, not about how strongly the
+          comment is worded. A finding whose argument depends on a
+          constraint that is not visible in the diff, on a caller that was
+          not read, or on a failure scenario that was imagined rather than
+          traced, is low confidence however plausible its prose sounds.
+          LLM reviewers systematically overstate certainty here; a
+          consumer thresholding on this attribute is relying on it being
+          lowered honestly.
+
+          This attribute has no schema default on purpose. When it is
+          absent, a consumer must treat the comment as falling below any
+          confidence floor it applies, i.e. absent never satisfies a
+          threshold.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="SuggestionType">
+    <xs:annotation>
+      <xs:documentation>
+        A code replacement proposal. The original-code is the literal text
+        currently at the referenced lines. The proposed-code is what the
+        reviewer suggests it should be replaced with. The AI agent can apply
+        this by performing a text substitution.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="original-code" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+            The existing code at the referenced line range, copied verbatim
+            from the diff. Used by the AI agent to locate the replacement
+            target via text matching.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="proposed-code" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+            The replacement code proposed by the reviewer. The AI agent
+            should substitute original-code with this text.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="AttachmentType">
+    <xs:annotation>
+      <xs:documentation>
+        Reference to an image file attached to a review comment. The file is stored
+        alongside the XML output in the .self-review-assets/ directory.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="path" type="xs:string" use="required">
+      <xs:annotation>
+        <xs:documentation>Relative path from the XML file to the image file.</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="media-type" type="xs:string" use="required">
+      <xs:annotation>
+        <xs:documentation>MIME type of the image (e.g., image/png, image/jpeg).</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <!-- ===== Simple types ===== -->
+
+  <xs:simpleType name="ChangeTypeEnum">
+    <xs:annotation>
+      <xs:documentation>
+        The type of change a file underwent in the diff.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="added">
+        <xs:annotation>
+          <xs:documentation>New file that did not exist before.</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="modified">
+        <xs:annotation>
+          <xs:documentation>Existing file with content changes.</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="deleted">
+        <xs:annotation>
+          <xs:documentation>File was removed.</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="renamed">
+        <xs:annotation>
+          <xs:documentation>File was moved or renamed, with or without content changes.</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="SeverityEnum">
+    <xs:annotation>
+      <xs:documentation>
+        How consequential a finding is if it is real. Ordered from most to
+        least consequential: critical, major, minor, info.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="critical">
+        <xs:annotation>
+          <xs:documentation>
+            Causes data loss, a security hole, or a crash or corruption on a
+            path that real usage reaches. Shipping this is not acceptable.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="major">
+        <xs:annotation>
+          <xs:documentation>
+            Produces wrong behaviour, or breaks a documented contract, on a
+            path that real usage reaches. The code does not do what it is
+            supposed to do, but nothing is destroyed and there is no security
+            impact.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="minor">
+        <xs:annotation>
+          <xs:documentation>
+            Real but bounded: a mishandled edge case that is unlikely to be
+            hit, a missing test, a leak of something cheap, or a maintenance
+            hazard that will cost time later. Behaviour is correct today.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="info">
+        <xs:annotation>
+          <xs:documentation>
+            No defect. Style, naming, phrasing, a question for the author, or
+            a note recorded for context. Nothing is wrong if this is never
+            acted on.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="ConfidenceEnum">
+    <xs:annotation>
+      <xs:documentation>
+        How sure the author is that a finding is real. Ordered from most to
+        least sure: high, medium, low.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="high">
+        <xs:annotation>
+          <xs:documentation>
+            The evidence is in the code that was read. The failure can be
+            traced from the diff itself, and no assumption about unseen code,
+            unseen callers, or unstated requirements is needed to reach it.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="medium">
+        <xs:annotation>
+          <xs:documentation>
+            Likely real, but it rests on one assumption that was not verified,
+            such as how a caller behaves, what a dependency guarantees, or
+            what the intended requirement was. Stating that assumption in the
+            body is expected at this level.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="low">
+        <xs:annotation>
+          <xs:documentation>
+            Speculative. The failure scenario was imagined rather than traced,
+            or the finding depends on a constraint the author invented, or the
+            author could not tell intent from the code. Worth a human's eyes,
+            not worth acting on unattended.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+    </xs:restriction>
+  </xs:simpleType>
+
+</xs:schema>

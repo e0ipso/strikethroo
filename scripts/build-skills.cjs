@@ -69,6 +69,11 @@ const SKILL_ENTRYPOINTS = [
     out: 'create-feature-branch.cjs',
   },
   {
+    src: 'src/skill-scripts/capture-base-commit.ts',
+    skill: 'st-execute-blueprint',
+    out: 'capture-base-commit.cjs',
+  },
+  {
     src: 'src/skill-scripts/check-phase-readiness.ts',
     skill: 'st-execute-blueprint',
     out: 'check-phase-readiness.cjs',
@@ -137,6 +142,11 @@ const SKILL_ENTRYPOINTS = [
     src: 'src/skill-scripts/create-feature-branch.ts',
     skill: 'st-full-workflow',
     out: 'create-feature-branch.cjs',
+  },
+  {
+    src: 'src/skill-scripts/capture-base-commit.ts',
+    skill: 'st-full-workflow',
+    out: 'capture-base-commit.cjs',
   },
   {
     src: 'src/skill-scripts/check-phase-readiness.ts',

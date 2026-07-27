@@ -51,6 +51,7 @@ Each step is an Agent Skill that auto-loads when the user's request matches its 
 - `st-refine-plan` — plan refinement loop: a second assistant "red teams" an existing plan, asks questions, and applies refinements. Bridges plan creation and task generation.
 - `st-execute-task` — single-task execution.
 - `st-full-workflow` — end-to-end chaining of plan → tasks → blueprint for hands-off runs.
+- `st-code-review` — terminal review gate that runs after blueprint execution, critiques the cumulative diff on a discovered second harness, and drives bounded automatic remediation.
 
 ### Key Design Principles
 
@@ -64,7 +65,7 @@ Each step is an Agent Skill that auto-loads when the user's request matches its 
 
 Skills live under `templates/harness/skills/<name>/` (no top-level `skills/` dir; flat, no nesting). Each skill's `SKILL.md` and its compiled `.cjs` bundle under `scripts/` are assembled/bundled at build time — source and output share the same per-skill tree.
 
-The six shipping skills are the workflow skills listed above (`st-create-plan`, `st-generate-tasks`, `st-execute-blueprint`, `st-refine-plan`, `st-execute-task`, `st-full-workflow`).
+The seven shipping skills are the workflow skills listed above (`st-create-plan`, `st-generate-tasks`, `st-execute-blueprint`, `st-refine-plan`, `st-execute-task`, `st-full-workflow`, `st-code-review`).
 
 ### TypeScript source of truth
 
@@ -80,7 +81,15 @@ Enforcement disciplines shared **across** skills are not baked into each `SKILL.
 
 During task generation (`st-generate-tasks` and the task-generation step of `st-full-workflow`), each task is classified in-context into a named **execution profile** from the `execution_routing` section of `config/config.yaml` (guided by the `TASK_EXECUTION_ROUTING.md` hook). The bundled `route-task-execution.cjs` helper validates the complete assignment atomically and persists only `execution_profile`; tasks created without routing metadata continue to use the current harness defaults. Profiles carry arbitrary user-defined names, mandatory LLM-facing descriptions, and ordered exact targets.
 
-Immediately before delegation, `dispatch-task-execution.cjs` selects one target from the persisted profile. The built-in selector chooses the first non-avoided target in configuration order. An optional repository-relative selector receives one task's complete candidates and accumulated avoid-set identifiers and returns one candidate identifier; override failures visibly fall back to current-harness defaults. Native/current-harness targets bypass probes. External targets use a maintained harness-level cheap-request registry; each probe invokes the harness non-interactively with no explicit model override (the CLI uses its own default model, so probes never fail on a retired pinned model), with outcomes cached under the gitignored `.ai/strikethroo/runtime/` directory for 30 minutes when available and 5 minutes when unavailable. An unavailable target is added to the avoid set and selection retries; exhaustion falls back to the current harness without model or reasoning overrides. The shipped `profiles: {}` disables routing. Source: `execution-routing.ts`, `dispatch-target-selector.ts`, `harness-availability.ts`, and `dispatch-task-execution.ts` under `src/skill-scripts/`.
+Immediately before delegation, `dispatch-task-execution.cjs` selects one target from the persisted profile. The built-in selector chooses the first non-avoided target in configuration order. An optional repository-relative selector receives one task's complete candidates and accumulated avoid-set identifiers and returns one candidate identifier; override failures visibly fall back to current-harness defaults. Native/current-harness targets bypass probes. External targets use a maintained harness-level cheap-request registry; each probe invokes the harness non-interactively with no explicit model override (the CLI uses its own default model, so probes never fail on a retired pinned model), with outcomes cached under the gitignored `.ai/strikethroo/runtime/` directory for 30 minutes when available and 5 minutes when unavailable. An unavailable target is added to the avoid set and selection retries; exhaustion falls back to the current harness without model or reasoning overrides. The shipped `profiles: {}` disables routing. Source: `src/skill-scripts/shared/execution-routing.ts`, `src/skill-scripts/shared/dispatch-target-selector.ts`, `src/skill-scripts/shared/harness-availability.ts`, and `src/skill-scripts/dispatch-task-execution.ts` (only the last at top level).
+
+### Code Review Gate (terminal, bounded, optional-by-absence)
+
+After `POST_EXECUTION` reports green, an optional review loop runs before the execution summary and archival. When a second harness is discovered and the `CODE_REVIEW.md` hook is present and non-empty, `st-code-review` critiques the cumulative diff (`base...worktree`) on the discovered harness and emits findings as schema-validated `review.xml`. Findings at or above configured severity and confidence floors are dispatched to the implementer route for remediation; any applied fix invalidates the prior green build, forcing a full re-run of lint, tests, and Self Validation before re-verification on the reviewer harness. Rounds are bounded and enforced in code — a user editing the hook cannot disable termination. The gate creates no task files and never mutates the execution blueprint.
+
+**Disabling**: Emptying or deleting `CODE_REVIEW.md` skips the gate cleanly with a note in the execution summary. No error.
+
+**Schema version**: `CURRENT_WORKSPACE_SCHEMA_VERSION` deliberately remains `4`. Both new files (`CODE_REVIEW.md` and `self-review-v2.xsd`) are optional by absence — existing v4 workspaces continue without re-running `init`, with the feature dormant until the workspace is updated.
 
 ---
 
@@ -141,7 +150,7 @@ React + Vite + Tailwind v4 SPA built by `npm run build:web` (`vite.config.mts`) 
 3. `build:skills` (`scripts/build-skills.cjs`, esbuild) bundles each registered entrypoint into a self-contained `.cjs` emitted directly into `templates/harness/skills/<skill>/scripts/`.
 4. `build:skill-prompts` (`scripts/build-skill-prompts.cjs`) resolves `{{include}}`/`{{variable}}` directives, writing assembled `SKILL.md` files. Post-build validation fails on unresolved directives, missing frontmatter, or absent `## Operating Procedure` headings.
 
-**Adding a skill:** drop a TS entrypoint under `src/skill-scripts/`, add it to `SKILL_ENTRYPOINTS` (top of `build-skills.cjs`), add the path to `.claude-plugin/plugin.json`, create a source template in `src/skill-prompts/`. No other plumbing needed.
+**Adding a skill:** drop a TS entrypoint under `src/skill-scripts/`, add it to `SKILL_ENTRYPOINTS` (top of `build-skills.cjs`) as a four-element entry or (optionally) a five-element entry with a `banner` field to inject a header comment into the compiled bundle, add the path to `.claude-plugin/plugin.json`, create a source template in `src/skill-prompts/`. No other plumbing needed.
 
 **Generated artifacts force-added into the release commit** by `@semantic-release/git` (via `git add --force`, since they are git-ignored on `main`): the `.cjs` bundles under `templates/harness/skills/*/scripts/` and the assembled `SKILL.md` files under `templates/harness/skills/*/`. These must live at the tagged ref because `npx skills add e0ipso/strikethroo@<tag>` reads `templates/` directly from it. The prebuilt SPA `dist-web/` is **not** committed to git — it ships only via the npm package's `files: ["dist-web/"]` entry, built fresh by `prepublishOnly`/CI. Skill bundles/prompts also ship via `files: ["templates/"]`.
 
@@ -191,9 +200,11 @@ project/
 │   ├── plans/                     # Active plans
 │   │   └── 28--plan-name/
 │   │       ├── plan-28--plan-name.md
-│   │       └── tasks/
-│   │           ├── 01--task-one.md
-│   │           └── 02--task-two.md
+│   │       ├── tasks/
+│   │       │   ├── 01--task-one.md
+│   │       │   └── 02--task-two.md
+│   │       └── review/            # Code review artifacts (base-commit.json, round-<n>/{review.xml,findings.json})
+│   │           └── round-1/
 │   ├── archive/                   # Completed plans
 │   ├── config/
 │   │   ├── STRIKETHROO.md         # Project context
@@ -205,7 +216,10 @@ project/
 │   │   │                          #   discipline that defers to the test philosophy), TASK_EXECUTION_ROUTING
 │   │   │                          #   (in-context profile classification during task generation;
 │   │   │                          #   dispatch-time selection/probing follows the persisted profile),
-│   │   │                          #   POST_TASK_GENERATION_ALL, POST_EXECUTION, POST_ERROR_DETECTION
+│   │   │                          #   POST_TASK_GENERATION_ALL, POST_EXECUTION, CODE_REVIEW
+│   │   │                          #   (terminal review gate), POST_ERROR_DETECTION
+│   │   ├── schemas/               # vendored self-review-v2.xsd (XSD 1.0, namespace urn:self-review:v2,
+│   │   │                          #   copied by init with hash tracking)
 │   │   ├── shared/                # Cross-skill disciplines read at runtime: verification-gate.md,
 │   │   │                          #   clarification-gate.md, anti-rationalization.md
 │   │   └── templates/             # PLAN_TEMPLATE.md, TASK_TEMPLATE.md

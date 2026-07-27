@@ -83,6 +83,24 @@ The LLM diagnoses the failure, updates task status, documents what went wrong, a
 
 The LLM verifies all tasks reached `completed` status, checks that documentation (including AGENTS.md) is still accurate, executes the plan's self-validation steps, and assesses whether the plan left behind tech debt or dead code. If any validation gate fails, the plan stays in `plans/` for debugging.
 
+#### CODE_REVIEW
+
+**When:** After `POST_EXECUTION` reports green, before execution summary and archival.
+
+Terminal review gate, terminal only — runs once per plan, creates no task files, never mutates the blueprint. When a second harness is discovered and this hook is present and non-empty, a reviewer harness critiques the cumulative diff and emits schema-validated findings (`review.xml`). Findings at or above configured severity and confidence floors are dispatched to the implementer route for remediation; any applied fix forces a full `POST_EXECUTION` re-run before re-verification. Rounds are bounded and enforced in code; a user editing the hook cannot disable termination.
+
+**Configuration**: The hook body specifies the mandate — which finding categories (correctness, design, security, etc.) are in scope, the minimum severity floor (`critical`, `major`, `minor`, `info`), the minimum confidence floor (`high`, `medium`, `low`), and the maximum round budget (default 3, clamped in code to a hardcoded `MAX_REVIEW_ROUNDS`). Any findings below either floor are recorded but never auto-fixed.
+
+**To disable**: Empty or delete this file. The gate skips cleanly and notes it in the execution summary. No error. `init` preserves your edits on re-run unless you pass `--force`.
+
+**Limitations** — the complete list:
+- Harness diversity is not model diversity — discovery operates at harness level, so a second CLI on the same model family looks independent while sharing blind spots.
+- The reviewer model is unknown at dispatch — the gate records the harness, not the model.
+- Findings do not survive a fresh clone — artifacts live in `.ai/strikethroo/`, which is gitignored.
+- Conformance-only scope has a blind spot — correct code matching the plan but badly abstracted passes.
+- Blast-radius checking is partial — the full `POST_EXECUTION` re-run is the real catcher.
+- Untracked files are outside the review scope — the diff runs from the recorded base commit against the working tree, so an uncommitted change to a tracked file is reviewed, while a brand-new file nothing has staged is invisible. Widening this would mean writing to the git index, which the gate deliberately does not do.
+
 ### Workflow Control Hooks
 
 These hooks execute deterministic actions -- committing, status updates, validation gates -- where the LLM acts as executor rather than reasoner. Bundled validation scripts (`create-feature-branch.cjs`, `check-phase-readiness.cjs`, etc.) live in the skill's `scripts/` directory and are invoked by the skill prompt, not by workspace hooks.

@@ -98,7 +98,7 @@ Terminal review gate, terminal only — runs once per plan, creates no task file
 **Limitations** — the complete list:
 - Harness diversity is not model diversity — discovery operates at harness level, so a second CLI on the same model family looks independent while sharing blind spots.
 - The reviewer model is unknown at dispatch — the gate records the harness, not the model.
-- Findings do not survive a fresh clone — artifacts live in `.ai/strikethroo/`, which is gitignored.
+- Findings do not survive a fresh clone — `init` ships a workspace `.gitignore` that excludes `plans/*/review/` and `archive/*/review/`, so the gate never sees its own output as changed content. That exclusion covers review artifacts only; whether you track the rest of `.ai/strikethroo/` is your project's call.
 - Conformance-only scope has a blind spot — correct code matching the plan but badly abstracted passes.
 - Blast-radius checking is partial — the full `POST_EXECUTION` re-run is the real catcher.
 - Untracked files are outside the review scope — the diff runs from the recorded base commit against the working tree, so an uncommitted change to a tracked file is reviewed, while a brand-new file nothing has staged is invisible. Widening this would mean writing to the git index, which the gate deliberately does not do.

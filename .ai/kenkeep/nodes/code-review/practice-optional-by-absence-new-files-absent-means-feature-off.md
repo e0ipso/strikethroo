@@ -27,15 +27,19 @@ The code review gate adds two workspace files:
 
 ```
 const skipReasons = [
-  'hook-absent',       // CODE_REVIEW.md does not exist
-  'hook-empty',        // CODE_REVIEW.md exists but is empty
-  'xsd-absent',        // self-review-v2.xsd does not exist
+  'hook-absent',        // CODE_REVIEW.md does not exist
+  'hook-empty',         // CODE_REVIEW.md exists but is empty
+  'xsd-absent',         // self-review-v2.xsd does not exist
+  'validator-absent',   // xmllint not on PATH, so no round can be certified
   'base-commit-absent', // Not a git repo or no commits
-  'no-reviewer-candidate' // Only current harness reachable
+  'no-reviewer-candidate', // Only current harness reachable
+  'empty-diff'          // Nothing changed between base and working tree
 ];
 ```
 
-All five route to: skip cleanly, note it in the execution summary, exit 0, produce no error.
+All of them route to: skip cleanly, note it in the execution summary, exit 0, produce no error.
+
+`empty-diff` is not an absence of workspace shape like the others — it is the detector for a collapsed review scope. A reviewer dispatched with nothing to read returns no findings, which is indistinguishable from a clean review, so an empty scope would otherwise surface as a pass.
 
 **`CURRENT_WORKSPACE_SCHEMA_VERSION` deliberately remains 4.** Adding an optional file is not an incompatible workspace-shape change. v4 workspaces continue to function unchanged; the feature is dormant until the user runs `init` again and receives the new files. This approach:
 

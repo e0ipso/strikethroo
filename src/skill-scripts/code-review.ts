@@ -2,7 +2,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { SUPPORTED_HARNESSES, type Harness } from '../types';
-import { execGit } from './shared/git-utils';
+import { execGit, execGitDiffAllowingChanges } from './shared/git-utils';
 import { findStrikethrooRoot } from './shared/root';
 import { resolvePlan } from './shared/plan-resolve';
 import { discoverHarnesses } from './shared/harness-discovery';
@@ -58,7 +58,8 @@ export type ReviewSkipReason =
   | 'xsd-absent'
   | 'validator-absent'
   | 'base-commit-absent'
-  | 'no-reviewer-candidate';
+  | 'no-reviewer-candidate'
+  | 'empty-diff';
 
 /**
  * A finding from an earlier round, already ruled on. Carried forward so the
@@ -321,10 +322,27 @@ export const _readBaseCommit = (filePath: string): string | null => {
  * and any fix an earlier round applied are uncommitted when the gate runs, and
  * `<base>...HEAD` would see none of them.
  *
- * Limitation, inherent to `git diff`: untracked files are not in the diff. A fix
- * that modifies a tracked file is visible uncommitted; one that adds a brand-new
- * file is visible only once something stages or commits it. Widening this would
- * require writing to the index (`git add -N`), which the gate must not do.
+ * Untracked files are in scope, and the gate does not write to the index to get
+ * them there. Plain `git diff` sees only what git already tracks, which made the
+ * reviewed scope depend on something having committed — in practice the
+ * `POST_PHASE.md` hook, which is user-editable, which this gate does not own,
+ * and whose absence would have shrunk the diff silently rather than failing.
+ * A repository whose pre-commit hook runs the test suite cannot commit between
+ * phases at all, because the tree is intentionally partial there; every file the
+ * plan created would have been invisible to the reviewer. So the scope is the
+ * working tree against the base commit, in the plain sense: tracked changes from
+ * `git diff`, plus a synthesized add-diff per untracked path via `git diff
+ * --no-index` against `/dev/null`. Both are reads.
+ *
+ * `--exclude-standard` applies the project's ignore rules, so ignored paths stay
+ * out — including this gate's own `review/` output, which the workspace
+ * `.gitignore` covers. What remains is untracked *and* unignored: files the
+ * project intends to track and has not yet. Those are precisely the plan's new
+ * work. There is deliberately no size cap on them; a cap would reintroduce the
+ * silent scope collapse this scoping exists to remove, and a project with
+ * genuinely unreviewable bulk has two declarative ways to say so — `.gitignore`
+ * and the generated/vendored markers below. Binary files cost nothing either
+ * way: git emits a one-line "Binary files differ" instead of their contents.
  *
  * Build output and vendored files are removed from the scope. A finding against
  * generated code is unfixable by construction: the suggestion is applied as a
@@ -342,19 +360,17 @@ export const _readBaseCommit = (filePath: string): string | null => {
  */
 const GENERATED_ATTRIBUTES = ['linguist-generated', 'linguist-vendored'] as const;
 
-/** Paths in the diff that `.gitattributes` marks as generated or vendored. */
-const excludedPaths = (workspace: string, baseCommit: string): string[] => {
-  const changed = execGit(`git -C ${JSON.stringify(workspace)} diff --name-only ${baseCommit} --`);
-  if (changed === null || changed.trim() === '') return [];
-  const files = changed.split('\n').filter(line => line.trim() !== '');
+/** The subset of `files` that `.gitattributes` marks generated or vendored. */
+const attributeExcluded = (workspace: string, files: readonly string[]): Set<string> => {
+  const excluded = new Set<string>();
+  if (files.length === 0) return excluded;
   const report = execGit(
     `git -C ${JSON.stringify(workspace)} check-attr ${GENERATED_ATTRIBUTES.join(' ')} -- ` +
       files.map(file => JSON.stringify(file)).join(' ')
   );
-  if (report === null) return [];
+  if (report === null) return excluded;
   // Each line is `<path>: <attribute>: <value>`; a path may appear once per
   // attribute. Split from the right so a path containing ": " stays intact.
-  const excluded = new Set<string>();
   for (const line of report.split('\n')) {
     const marker = line.lastIndexOf(': ');
     if (marker === -1 || line.slice(marker + 2).trim() !== 'true') continue;
@@ -363,14 +379,64 @@ const excludedPaths = (workspace: string, baseCommit: string): string[] => {
     if (attribute === -1) continue;
     excluded.add(withoutValue.slice(0, attribute));
   }
-  return [...excluded];
+  return excluded;
 };
+
+/** Paths in the tracked diff that `.gitattributes` marks as generated or vendored. */
+const excludedPaths = (workspace: string, baseCommit: string): string[] => {
+  const changed = execGit(`git -C ${JSON.stringify(workspace)} diff --name-only ${baseCommit} --`);
+  if (changed === null || changed.trim() === '') return [];
+  const files = changed.split('\n').filter(line => line.trim() !== '');
+  return [...attributeExcluded(workspace, files)];
+};
+
+/**
+ * Untracked, unignored paths, minus the generated and vendored ones.
+ *
+ * `core.quotePath=false` matters: git otherwise escapes non-ASCII paths, and a
+ * quoted name would not resolve when handed back to `git diff --no-index` — the
+ * file would drop out of the review with nothing said. Fail-open is fine for the
+ * exclusion lookup, where a miss only means more gets reviewed; here a miss
+ * means less does.
+ */
+const untrackedPaths = (workspace: string): string[] => {
+  const listed = execGit(
+    `git -c core.quotePath=false -C ${JSON.stringify(workspace)} ls-files --others --exclude-standard`
+  );
+  if (listed === null || listed.trim() === '') return [];
+  const files = listed.split('\n').filter(line => line.trim() !== '');
+  const excluded = attributeExcluded(workspace, files);
+  return files.filter(file => !excluded.has(file));
+};
+
+/**
+ * A synthesized add-diff for one untracked file: the file against `/dev/null`.
+ * The prefixes are forced back to `a/` and `b/` because `--no-index` otherwise
+ * numbers them (`1/`, `2/`), which would hand the reviewer a diff that no longer
+ * looks like the rest of the scope.
+ */
+const untrackedDiff = (workspace: string, file: string): string | null =>
+  execGitDiffAllowingChanges(
+    `git -C ${JSON.stringify(workspace)} diff --no-index --src-prefix=a/ --dst-prefix=b/ ` +
+      `-- /dev/null ${JSON.stringify(file)}`
+  );
 
 export const _readCumulativeDiff = (workspace: string, baseCommit: string): string | null => {
   const exclusions = excludedPaths(workspace, baseCommit)
     .map(file => ` ${JSON.stringify(`:(exclude,literal)${file}`)}`)
     .join('');
-  return execGit(`git -C ${JSON.stringify(workspace)} diff ${baseCommit} -- .${exclusions}`);
+  const tracked = execGit(
+    `git -C ${JSON.stringify(workspace)} diff ${baseCommit} -- .${exclusions}`
+  );
+  // Only the tracked read proves the repository is readable at all; a failure
+  // there is the infrastructure failure the caller reports. An untracked path
+  // that fails to diff is dropped rather than escalated, so one unreadable file
+  // cannot sink a round.
+  if (tracked === null) return null;
+  const added = untrackedPaths(workspace)
+    .map(file => untrackedDiff(workspace, file))
+    .filter((diff): diff is string => diff !== null && diff.trim() !== '');
+  return [tracked, ...added].filter(part => part.trim() !== '').join('\n');
 };
 
 const defaultDependencies: ReviewRoundDependencies = {
@@ -703,6 +769,18 @@ export const runReviewRound = async (
         `git diff ${baseCommit} failed in ${workspace}. The base commit was recorded, so this ` +
         'is a real failure rather than an absent-scope skip.',
     };
+  }
+
+  // An empty scope is reported, never certified. A round dispatched with nothing
+  // to read comes back with no findings, which is indistinguishable from a clean
+  // review — so the one observable symptom of a collapsed scope would be a pass.
+  // Whatever the cause, saying so is the only honest outcome.
+  if (diff.trim() === '') {
+    return skip(
+      'empty-diff',
+      `The diff from ${baseCommit} to the working tree in ${workspace} is empty, so there was ` +
+        'nothing to review. No reviewer was dispatched, and no round was certified.'
+    );
   }
 
   const roundDir = path.join(planDir, REVIEW_DIR_NAME, `round-${request.round}`);

@@ -1,6 +1,6 @@
 /**
  * Integration tests for the review round mechanism (`code-review.ts`): the
- * five fail-safe skip reasons and the round-budget bounding.
+ * fail-safe skip reasons, the diff scoping, and the round-budget bounding.
  *
  * Every dependency the round would otherwise use to reach a real harness
  * (`discover`, `dispatch`) or a real diff (`readDiff`) is injected here — a
@@ -84,6 +84,36 @@ describe('code review gate — fail-safe skips', () => {
       );
       expect(result).toMatchObject({ kind: 'skipped', reason: 'no-reviewer-candidate' });
       expect(_exitCodeFor(result)).toBe(0);
+      expect(stderrSpy).not.toHaveBeenCalled();
+    } finally {
+      stderrSpy.mockRestore();
+      ws.cleanup();
+    }
+  });
+
+  /**
+   * A round dispatched with an empty diff returns no findings, which reads
+   * exactly like a clean review — so an empty scope would surface as a pass. It
+   * has to be reported instead, and no reviewer spent on it.
+   */
+  it('skips on empty-diff without dispatching a reviewer', async () => {
+    const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    let dispatched = false;
+    try {
+      const result = await runReviewRound(
+        { plan: '1', currentHarness: 'claude', round: 1, startPath: ws.root },
+        stubDeps({
+          readDiff: () => '   \n',
+          dispatch: async () => {
+            dispatched = true;
+            return { kind: 'launched-success', exitCode: 0 };
+          },
+        })
+      );
+      expect(result).toMatchObject({ kind: 'skipped', reason: 'empty-diff' });
+      expect(_exitCodeFor(result)).toBe(0);
+      expect(dispatched).toBe(false);
       expect(stderrSpy).not.toHaveBeenCalled();
     } finally {
       stderrSpy.mockRestore();
@@ -313,6 +343,86 @@ describe('cumulative diff scope: generated and vendored files', () => {
 
     expect(diff).toContain('export const real = 2;');
     expect(diff).not.toContain('REBUILT_OUTPUT');
+  });
+
+  /**
+   * The scope must not depend on anything having committed. `POST_PHASE.md` is a
+   * user-editable hook the gate does not own, and a repository whose pre-commit
+   * hook runs the test suite cannot commit between phases at all — so a scope
+   * that only sees tracked files would silently shrink to nothing on exactly the
+   * plans that add the most new code.
+   */
+  it('includes an untracked file the plan added but nothing committed', () => {
+    const base = baseSha();
+    fs.writeFileSync(path.join(repo, 'brand-new.ts'), 'export const NEW_MODULE = 1;\n');
+
+    const diff = _readCumulativeDiff(repo, base);
+
+    expect(diff).toContain('brand-new.ts');
+    expect(diff).toContain('export const NEW_MODULE = 1;');
+    // Rendered as a conventional add-diff, not with `--no-index`'s 1/ 2/ prefixes.
+    expect(diff).toContain('diff --git a/brand-new.ts b/brand-new.ts');
+    expect(diff).toContain('new file mode');
+    expect(diff).not.toContain('1/brand-new.ts');
+  });
+
+  it('reports tracked and untracked changes in one diff', () => {
+    fs.writeFileSync(path.join(repo, 'existing.ts'), 'export const existing = 1;\n');
+    git('add -A');
+    git('commit -q -m existing');
+    const base = baseSha();
+
+    fs.writeFileSync(path.join(repo, 'existing.ts'), 'export const existing = 2;\n');
+    fs.writeFileSync(path.join(repo, 'added.ts'), 'export const ADDED = 3;\n');
+
+    const diff = _readCumulativeDiff(repo, base);
+
+    expect(diff).toContain('export const existing = 2;');
+    expect(diff).toContain('export const ADDED = 3;');
+  });
+
+  it('leaves ignored files out, so the gate never reviews its own output', () => {
+    fs.writeFileSync(path.join(repo, '.gitignore'), 'review/\n');
+    git('add -A');
+    git('commit -q -m ignore');
+    const base = baseSha();
+    fs.mkdirSync(path.join(repo, 'review'));
+    fs.writeFileSync(path.join(repo, 'review/round-1.xml'), 'PRIOR_ROUND_FINDINGS\n');
+    fs.writeFileSync(path.join(repo, 'real.ts'), 'export const real = 1;\n');
+
+    const diff = _readCumulativeDiff(repo, base);
+
+    expect(diff).toContain('export const real = 1;');
+    expect(diff).not.toContain('PRIOR_ROUND_FINDINGS');
+  });
+
+  it('drops untracked paths marked generated, as it does tracked ones', () => {
+    fs.writeFileSync(path.join(repo, '.gitattributes'), 'out/*.cjs linguist-generated=true\n');
+    git('add -A');
+    git('commit -q -m attrs');
+    const base = baseSha();
+    fs.mkdirSync(path.join(repo, 'out'));
+    fs.writeFileSync(path.join(repo, 'out/bundle.cjs'), 'GENERATED_BUNDLE_CONTENT\n');
+    fs.writeFileSync(path.join(repo, 'src.ts'), 'export const real = 1;\n');
+
+    const diff = _readCumulativeDiff(repo, base);
+
+    expect(diff).toContain('export const real = 1;');
+    expect(diff).not.toContain('GENERATED_BUNDLE_CONTENT');
+  });
+
+  it('summarizes an untracked binary instead of inlining it', () => {
+    const base = baseSha();
+    fs.writeFileSync(path.join(repo, 'blob.bin'), Buffer.from([0, 1, 2, 0, 3]));
+
+    const diff = _readCumulativeDiff(repo, base);
+
+    expect(diff).toContain('blob.bin');
+    expect(diff).toContain('Binary files');
+  });
+
+  it('returns an empty diff when nothing changed at all', () => {
+    expect(_readCumulativeDiff(repo, baseSha())?.trim()).toBe('');
   });
 
   it('keeps everything when the repository marks nothing generated', () => {

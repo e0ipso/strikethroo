@@ -16,7 +16,12 @@ description: "Frequently asked questions about Strikethroo"
 <a class="st-card" href="#workflow">
 <span class="st-card__icon st-card__icon--workflow" aria-hidden="true"></span>
 <p class="st-card__title">Workflow</p>
-<p>The three steps, automation, and plan mode.</p>
+<p>The four steps, automation, and plan mode.</p>
+</a>
+<a class="st-card" href="#code-review">
+<span class="st-card__icon st-card__icon--check-circle" aria-hidden="true"></span>
+<p class="st-card__title">Code Review</p>
+<p>Optional automated review gate, disabling, and limitations.</p>
 </a>
 <a class="st-card" href="#customization">
 <span class="st-card__icon st-card__icon--sliders-horizontal" aria-hidden="true"></span>
@@ -74,6 +79,40 @@ The `st-full-workflow` skill chains all three steps in a single invocation. It i
 **How does Strikethroo relate to plan mode?**
 
 It augments plan mode rather than replacing it. The output of your assistant's built-in plan mode is often a useful starting point -- feed it into the `st-create-plan` skill for structured refinement.
+
+## Code Review
+
+**Does a passing review mean my code is correct?**
+
+No. A green review gate reduces the same class of error a human PR approval reduces, and leaves the same class of error behind. The gate is useful for catching conformance violations and real defects, but it is not a correctness guarantee. Always run the test suite and read the diff yourself.
+
+**Why didn't the review gate run?**
+
+Five reasons it may skip cleanly:
+
+- **Hook file missing** — code review is optional. `init` copies the default hook; older workspaces don't have it until they update.
+- **Hook file empty** — if you delete the contents, the gate skips.
+- **XSD schema absent** — the vendored XSD is copied by `init`; older workspaces don't have it.
+- **No base commit** — the workspace is not a git repository, or has no commits yet.
+- **No second harness discovered** — only one AI assistant is installed and responsive, or all candidates are the current harness. That is expected, not a failure.
+
+Any of these routes to a clean skip with a note in the execution summary. No error.
+
+**How do I disable code review?**
+
+Edit or delete `.ai/strikethroo/config/hooks/CODE_REVIEW.md`. The gate skips cleanly on next run. No error.
+
+**Can I configure the thresholds?**
+
+Yes. Edit `CODE_REVIEW.md` to set the minimum severity (`critical`, `major`, `minor`, `info`), minimum confidence (`high`, `medium`, `low`), and maximum rounds (default 3). The round budget is enforced in code and cannot be disabled by editing the file — you can only tighten it.
+
+**What if the review keeps finding issues?**
+
+Rounds are bounded (default 3 rounds, enforced in code). If exhausted, the plan stays in `plans/` with all findings recorded for your review. You can then edit the plan files and re-run execution, or disable the gate if you believe it is over-rejecting.
+
+**Can the review fix security issues?**
+
+The conformance-only scope emphasizes traces back to explicit plan requirements. A real security defect counts; a speculative "this could be exploited if..." does not. The gate is conservative to avoid injecting speculative changes.
 
 ## Customization
 

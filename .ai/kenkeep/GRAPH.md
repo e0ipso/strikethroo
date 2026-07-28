@@ -1,6 +1,6 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:2e4212eac8959e2f190177a9bc0d31991a7bffb8aa4a1cdbc4a4807c5767b28b'
+nodes_hash: 'sha256:175a749fd9d29d147df281bc09e854a1cbfd68026d542e42b05e42360cb34d49'
 node_count: 74
 ---
 # kenkeep Graph
@@ -27,7 +27,7 @@ Total nodes: 74
 
 - **kind:** map
 - **title:** CLI exposes only init and serve commands
-- **path:** cli/map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md
+- **path:** skills/map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md
 - **tags:** cli, architecture
 - **relates_to:** map-skills-are-auto-loaded-by-intent-matching-not-slash-command-prefix
 
@@ -58,7 +58,7 @@ Total nodes: 74
 
 - **kind:** map
 - **title:** docs/_config.yml controls GitHub Pages baseurl for the Jekyll docs site
-- **path:** docs/map-docs-config-yml-controls-github-pages-baseurl-for-the-jekyll-docs-site.md
+- **path:** release/map-docs-config-yml-controls-github-pages-baseurl-for-the-jekyll-docs-site.md
 - **tags:** docs, github-pages, jekyll
 - **relates_to:** map-releaserc-json-repositoryurl-must-match-current-github-repo-slug
 

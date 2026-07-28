@@ -1,9 +1,12 @@
 import { SUPPORTED_HARNESSES } from '../types';
 import {
   buildExternalCommand,
+  buildReviewCommand,
   dispatchExternalTask,
+  dispatchReview,
   EXTERNAL_HARNESS_ADAPTERS,
   type ExternalDispatchDependencies,
+  type RoutedDispatchRequest,
 } from '../skill-scripts/shared/external-dispatch';
 
 const request = (
@@ -153,5 +156,98 @@ describe('external harness adapter registry', () => {
       kind: 'infrastructure-failure',
       detail: 'External task process failed: spawn EACCES',
     });
+  });
+});
+
+describe('model-optional review dispatch (buildReviewCommand / dispatchReview)', () => {
+  // The with-model column locks today's execution_routing/task-dispatch argv —
+  // identical to the table above, restated here so the with/without pairing is
+  // visible in one place. The without-model column is what a discovered
+  // reviewer harness actually receives: same adapter, same positional
+  // placeholders, no model pair at all.
+  const WITH_MODEL: Record<(typeof SUPPORTED_HARNESSES)[number], string[]> = {
+    claude: ['-p', '--model', 'vendor/model-X:preview'],
+    codex: ['exec', '--model', 'vendor/model-X:preview', '-'],
+    cursor: ['--print', '--model', 'vendor/model-X:preview'],
+    gemini: ['--prompt', '', '--model', 'vendor/model-X:preview'],
+    copilot: ['-p', '', '--model', 'vendor/model-X:preview'],
+    opencode: ['run', '--model', 'vendor/model-X:preview', '-'],
+  };
+  const WITHOUT_MODEL: Record<(typeof SUPPORTED_HARNESSES)[number], string[]> = {
+    claude: ['-p'],
+    codex: ['exec', '-'],
+    cursor: ['--print'],
+    gemini: ['--prompt', ''],
+    copilot: ['-p', ''],
+    opencode: ['run', '-'],
+  };
+
+  it.each(SUPPORTED_HARNESSES)(
+    '%s: a model produces --model with the exact value, an absent model produces neither token, and the rest of argv is unchanged',
+    harness => {
+      const withModel = buildExternalCommand(request(harness));
+      const without = buildReviewCommand({ harness, workspace: '/w', prompt: 'p' });
+
+      expect(withModel.argv).toEqual(WITH_MODEL[harness]);
+      expect(without.argv).toEqual(WITHOUT_MODEL[harness]);
+      expect(withModel.argv).toContain('--model');
+      expect(without.argv).not.toContain('--model');
+      // gemini/copilot keep their empty-string positional placeholder even
+      // with the model pair dropped.
+      if (harness === 'gemini' || harness === 'copilot') {
+        expect(without.argv).toContain('');
+      }
+      // Every token in the without-model argv also appears, in order, in the
+      // with-model argv — the model pair is a pure splice, not a rewrite.
+      const withoutModelTokens = withModel.argv.filter(
+        token => token !== '--model' && token !== 'vendor/model-X:preview'
+      );
+      expect(withoutModelTokens).toEqual(without.argv);
+    }
+  );
+
+  it('keeps the execution_routing dispatch path (a required model) emitting --model unchanged', () => {
+    const routed: RoutedDispatchRequest = { ...request('claude'), model: 'routed/model-Z' };
+    expect(buildExternalCommand(routed).argv).toEqual(['-p', '--model', 'routed/model-Z']);
+  });
+
+  it('dispatchReview never includes a model token, and sends the prompt verbatim on stdin', async () => {
+    let launchedArgv: string[] | undefined;
+    let launchedStdin: string | undefined;
+    const result = await dispatchReview(
+      { harness: 'codex', workspace: '/w', prompt: 'Review this diff for defects.' },
+      {
+        ...readyDependencies(),
+        launch: async command => {
+          launchedArgv = command.argv;
+          launchedStdin = command.stdin;
+          return { exitCode: 0 };
+        },
+      }
+    );
+    expect(result).toEqual({ kind: 'launched-success', exitCode: 0 });
+    expect(launchedArgv).not.toContain('--model');
+    expect(launchedStdin).toBe('Review this diff for defects.');
+  });
+
+  it('falls back before launch when the reviewer executable is unavailable, without launching', async () => {
+    let launches = 0;
+    const result = await dispatchReview(
+      { harness: 'gemini', workspace: '/w', prompt: 'p' },
+      {
+        ...readyDependencies(),
+        executableExists: () => false,
+        launch: async () => {
+          launches += 1;
+          return { exitCode: 0 };
+        },
+      }
+    );
+    expect(result).toEqual({
+      kind: 'fallback',
+      reason: 'executable-unavailable',
+      detail: 'gemini is unavailable.',
+    });
+    expect(launches).toBe(0);
   });
 });

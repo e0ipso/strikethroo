@@ -19,6 +19,7 @@ _None._
 ## Components (what exists)
 - Open [**.releaserc.json repositoryUrl must match current GitHub repo slug**](map-releaserc-json-repositoryurl-must-match-current-github-repo-slug.md) to learn about: .releaserc.json's repositoryUrl feeds @semantic-release/github; it must match the current GitHub repo slug or releases fail. #releaserc #semantic-release #config
 - Open [**vercel-labs/skills installer scans standard dirs before plugin.json**](map-vercel-labs-skills-installer-scans-standard-dirs-before-plugin-json.md) to learn about: The installer checks \`.agents/skills/\`, \`.claude/skills/\`, etc. in priority order before falling back to \`.claude-plugin/plugin.json\` manifest paths. #distribution #skills #installer
+- Open [**docs/_config.yml controls GitHub Pages baseurl for the Jekyll docs site**](map-docs-config-yml-controls-github-pages-baseurl-for-the-jekyll-docs-site.md) to learn about: docs/_config.yml sets baseurl and the aux_links GitHub URL; both must match the current repo slug for the Jekyll docs site to serve correctly. #docs #github-pages #jekyll
 - Open [**Installed skills in .claude/skills/ are decoupled from repo builds**](map-installed-skills-in-claude-skills-are-decoupled-from-repo-builds.md) to learn about: Skills installed via npx skills add are separate from repo-built artifacts; a rebuild does not update the installed copies. Restart required after reinstall. #skills #installation #harness
 
 ## By topic
@@ -56,6 +57,10 @@ _None._
 ### #config
 - Open [**.releaserc.json repositoryUrl must match current GitHub repo slug**](map-releaserc-json-repositoryurl-must-match-current-github-repo-slug.md) — .releaserc.json's repositoryUrl feeds @semantic-release/github; it must match the current GitHub repo slug or releases fail.
 - Open [**ESLint config: eslint.config.mjs (flat config, ESLint 9)**](../tooling/map-eslint-config-eslint-config-mjs-flat-config-eslint-9.md) — The active ESLint config is eslint.config.mjs (flat config, ESLint 9). A legacy .eslintrc.js at the repo root is dead cruft ignored by ESLint 9.
+### #docs
+- Open [**docs/_config.yml controls GitHub Pages baseurl for the Jekyll docs site**](map-docs-config-yml-controls-github-pages-baseurl-for-the-jekyll-docs-site.md) — docs/_config.yml sets baseurl and the aux_links GitHub URL; both must match the current repo slug for the Jekyll docs site to serve correctly.
+### #github-pages
+- Open [**docs/_config.yml controls GitHub Pages baseurl for the Jekyll docs site**](map-docs-config-yml-controls-github-pages-baseurl-for-the-jekyll-docs-site.md) — docs/_config.yml sets baseurl and the aux_links GitHub URL; both must match the current repo slug for the Jekyll docs site to serve correctly.
 ### #gitignore
 - Open [**Keep .ai/strikethroo (dogfood workspace) explicitly ignored in .gitignore**](../git/practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore.md) — The /.ai/strikethroo path must stay in .gitignore to prevent accidentally committing dogfood workspace state.
 - Open [**Do not commit .agents/skills/ or skills-lock.json — they are local installation artifacts**](practice-do-not-commit-agents-skills-or-skills-lock-json-they-are-local-installation-artifacts.md) — \`.agents/skills/\` and \`skills-lock.json\` are produced by running \`npx skills add\` locally and must be gitignored, not committed.
@@ -68,6 +73,8 @@ _None._
 - Open [**Installed skills in .claude/skills/ are decoupled from repo builds**](map-installed-skills-in-claude-skills-are-decoupled-from-repo-builds.md) — Skills installed via npx skills add are separate from repo-built artifacts; a rebuild does not update the installed copies. Restart required after reinstall.
 ### #installer
 - Open [**vercel-labs/skills installer scans standard dirs before plugin.json**](map-vercel-labs-skills-installer-scans-standard-dirs-before-plugin-json.md) — The installer checks \`.agents/skills/\`, \`.claude/skills/\`, etc. in priority order before falling back to \`.claude-plugin/plugin.json\` manifest paths.
+### #jekyll
+- Open [**docs/_config.yml controls GitHub Pages baseurl for the Jekyll docs site**](map-docs-config-yml-controls-github-pages-baseurl-for-the-jekyll-docs-site.md) — docs/_config.yml sets baseurl and the aux_links GitHub URL; both must match the current repo slug for the Jekyll docs site to serve correctly.
 ### #releaserc
 - Open [**.releaserc.json repositoryUrl must match current GitHub repo slug**](map-releaserc-json-repositoryurl-must-match-current-github-repo-slug.md) — .releaserc.json's repositoryUrl feeds @semantic-release/github; it must match the current GitHub repo slug or releases fail.
 ### #serve

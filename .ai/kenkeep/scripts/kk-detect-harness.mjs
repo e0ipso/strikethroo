@@ -6,11 +6,14 @@
 // drift against the TS adapters via scripts/lint-detect-harness.mjs.
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-const REGISTERED = ['claude', 'codex', 'copilot', 'cursor', 'opencode'];
+const REGISTERED = ['claude', 'codex', 'copilot', 'cursor', 'kiro', 'opencode'];
 const ENV_DETECTORS = [
   { env: 'CURSOR_AGENT', value: '1', harness: 'cursor' },
   { env: 'CURSOR_VERSION', value: '*nonempty*', harness: 'cursor' },
   { env: 'CLAUDECODE', value: '1', harness: 'claude' },
+  // KIRO_API_KEY is set for headless/CI mode. No documented session-indicator
+  // env var exists for interactive mode, so filesystem detection fills that gap.
+  { env: 'KIRO_API_KEY', value: '*nonempty*', harness: 'kiro' },
 ];
 function findHint(argv) {
   for (let i = 0; i < argv.length; i++) {

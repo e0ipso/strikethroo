@@ -63,6 +63,15 @@ export const HARNESS_AVAILABILITY_REGISTRY: Readonly<
     executable: 'opencode',
     buildCommand: cwd => probeCommand('opencode', ['run', '-'], cwd),
   },
+  kiro: {
+    version: AVAILABILITY_REGISTRY_VERSION,
+    executable: 'kiro-cli',
+    // Probe with a headless chat: proves both installation AND authentication.
+    // `--version` only proves the binary is installed; a real prompt verifies
+    // the user has a valid session. Kiro has no dedicated `auth status` command.
+    buildCommand: cwd =>
+      probeCommand('kiro-cli', ['chat', '--no-interactive', '--trust-tools=read'], cwd),
+  },
 };
 
 const registryKeys = Object.keys(HARNESS_AVAILABILITY_REGISTRY).sort();

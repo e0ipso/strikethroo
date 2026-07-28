@@ -1,7 +1,15 @@
 import { readTaskExecutionPolicy } from '../skill-scripts/shared/execution-policy';
 import { rewriteTaskStatus } from '../skill-scripts/shared/task-file';
 
-const supportedHarnesses = ['claude', 'codex', 'cursor', 'gemini', 'copilot', 'opencode'] as const;
+const supportedHarnesses = [
+  'claude',
+  'codex',
+  'cursor',
+  'gemini',
+  'copilot',
+  'opencode',
+  'kiro',
+] as const;
 
 const task = (execution = '') => `---
 id: 1

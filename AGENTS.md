@@ -215,7 +215,7 @@ project/
 │   │       │   ├── 01--task-one.md
 │   │       │   └── 02--task-two.md
 │   │       └── review/            # Code review artifacts (base-commit.json, round-<n>/{review.xml,findings.json})
-│   │           └── round-1/
+│   │           └── round-1/       #   git-ignored by .ai/strikethroo/.gitignore — see below
 │   ├── archive/                   # Completed plans
 │   ├── config/
 │   │   ├── STRIKETHROO.md         # Project context

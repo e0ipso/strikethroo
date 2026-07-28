@@ -109,20 +109,21 @@ flowchart LR
     C -->|Approve| D[Tasks]
     D --> E{Verify}
     E --> G[Execute]
-    G --> H{Review}
-    H -->|Edit| G
-    H -->|Approve| J[Done]
+    G --> H["Code Review<br/>(optional)"]
+    H -->|Fix| G
+    H -->|Pass| J[Done]
 ```
 
-Three steps, each delivered as an Agent Skill that loads when you describe what you need:
+Four steps, three delivered as Agent Skills that load when you describe what you need:
 
 | Step        | Skill                           | Output                                            |
 |-------------|---------------------------------|---------------------------------------------------|
 | **Plan**    | `/st-create-plan <your prompt>` | `.ai/strikethroo/plans/64--auth/plan-64--auth.md` |
 | **Tasks**   | `/st-generate-tasks 64`         | `.ai/strikethroo/plans/64--auth/tasks/*.md`       |
 | **Execute** | `/st-execute-blueprint 64`      | Working code, one commit per phase                |
+| **Review**  | Automatic (optional)            | Findings validated against schema; bounded fixes  |
 
-Human review gates between steps catch scope creep before any code is written. Each step runs with clean context -- the planning agent sees only the work order, the task agent sees only the approved plan, and each execution sub-agent receives only its specific task.
+Human review gates between steps catch scope creep before any code is written. Each step runs with clean context -- the planning agent sees only the work order, the task agent sees only the approved plan, and each execution sub-agent receives only its specific task. After execution, an optional automated review gate runs on a discovered second harness, critiques the cumulative diff, and drives bounded remediation if findings exceed configured thresholds.
 
 See the [Workflow Guide](https://strikethroo.canpicasoft.com/workflow.html) for the full step-by-step with advanced patterns. Once a plan exists, visualize its plans, tasks, and dependency graph in [Visualizations](https://strikethroo.canpicasoft.com/visualizations.html).
 
@@ -139,10 +140,18 @@ This will open a web page that will help you navigate your plans and their tasks
 |-------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------|
 | [![img](docs/assets/plans-board.png)](docs/assets/plans-board.png) | [![img](docs/assets/plan-detail-graph.png)](docs/assets/plan-detail-graph.png) | [![img](docs/assets/archive-all.png)](docs/assets/archive-all.png) |
 
+## Optional Code Review Gate
+
+After blueprint execution, an optional automated code review gate runs when a second harness is discovered. The reviewer critiques the cumulative diff against the plan's requirements, emits findings validated against a schema, and hands high-confidence findings to the implementer for remediation. Any applied fix forces a full re-run of tests and validation before re-verification.
+
+**To disable:** Edit `.ai/strikethroo/config/hooks/CODE_REVIEW.md` to empty or delete it. The gate skips cleanly with a note in the execution summary.
+
+**Important:** A green review gate is not a correctness guarantee. The gate reduces exposure to the same class of error a human PR approval reduces, and leaves the same class of error behind. See [Customization](https://strikethroo.canpicasoft.com/customization.html) for limitations and configuration.
+
 ## Documentation
 
 - [Workflow Guide](https://strikethroo.canpicasoft.com/workflow.html) -- Step-by-step workflow with visual guides
-- [Customization Guide](https://strikethroo.canpicasoft.com/customization.html) -- Hooks, templates, and project context
+- [Customization Guide](https://strikethroo.canpicasoft.com/customization.html) -- Hooks, templates, project context, and code review configuration
 - [Reference](https://strikethroo.canpicasoft.com/reference.html) -- Glossary and CLI reference
 - [FAQ](https://strikethroo.canpicasoft.com/faq.html) -- Answers to common questions
 - [Visualizations](https://strikethroo.canpicasoft.com/visualizations.html) -- See plans, tasks, and the dependency graph

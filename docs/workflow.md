@@ -7,7 +7,7 @@ description: "Step-by-step workflow with commands and visual guides"
 
 # Workflow Guide
 
-Strikethroo breaks complex work into three steps -- planning, task generation, and execution -- each delivered as an Agent Skill that loads automatically when you describe what you need.
+Strikethroo breaks complex work into three steps -- planning, task generation, and execution -- each delivered as an Agent Skill that loads automatically when you describe what you need. An optional fourth step, automated code review, runs at the end.
 
 ## The Workflow
 
@@ -19,18 +19,19 @@ flowchart LR
     C -->|Approve| D[Tasks]
     D --> E{Verify}
     E --> G[Execute]
-    G --> H{Review}
-    H -->|Edit| G
-    H -->|Approve| J[Done]
+    G --> H["Code Review<br/>(optional)"]
+    H -->|Fix| G
+    H -->|Pass| J[Done]
 
     style A fill:#ffebee
     style B fill:#e3f2fd
     style D fill:#f3e5f5
     style G fill:#e8f5e8
+    style H fill:#fff3cd
     style J fill:#c8e6c9
 ```
 
-Human gates wrap each step: you **review** the plan, **verify** the blueprint, and **review** the executed result -- looping back to edit whenever something is off. The plan and the result get a careful read; the blueprint just gets a quick validation pass before execution.
+Human gates wrap the first three steps: you **review** the plan, **verify** the blueprint, and **review** the executed result -- looping back to edit whenever something is off. The plan and the result get a careful read; the blueprint just gets a quick validation pass before execution. An optional automated review gate runs after execution: a discovered second harness critiques the cumulative diff and drives remediation for high-confidence findings.
 
 {% include callout.html variant="warning" content="The review gates are where you catch scope creep and wrong turns. Do not skip them." %}
 
@@ -111,6 +112,26 @@ If something is off, adjust the relevant task or plan files and re-run execution
 Each task's implementation notes capture what actually happened during execution -- a quick read on the work and any noteworthy events:
 
 [![Task Detail, Implementation Notes]({{ '/assets/task-detail-implementation-notes.png' | relative_url }})]({{ '/assets/task-detail-implementation-notes.png' | relative_url }})
+
+### 7. Automated Code Review (Optional)
+
+After `POST_EXECUTION` reports green, an optional code review gate runs if a second harness is discovered and the [`CODE_REVIEW`](customization.html#code_review) hook is present and non-empty. A discovered reviewer harness critiques the cumulative diff against the plan's requirements and emits schema-validated findings.
+
+**How it works:**
+
+1. **Detect** — Reviewer harness examines the base commit through working tree, emitting findings as XML
+2. **Threshold** — Findings below configured severity and confidence floors are recorded but not auto-fixed
+3. **Fix** — High-confidence findings are dispatched to the implementer route for local text replacements
+4. **Re-verify** — Full `POST_EXECUTION` re-runs (lint, tests, validation) before the reviewer re-checks
+5. **Bounded** — Rounds are limited (default 3); exhaustion halts and leaves the plan with findings recorded
+
+The review never creates task files and never mutates the execution blueprint. Findings are written to the plan directory under `review/` and are visible via `serve`.
+
+The reviewed scope runs from a base commit recorded before phase execution against the working tree, so committed phase work and uncommitted fixes are both in scope. Untracked files are not — see [Customization](customization.html#code_review) for the complete list of limitations.
+
+**To disable:** Edit or delete `.ai/strikethroo/config/hooks/CODE_REVIEW.md`. The gate skips cleanly with a note in the execution summary.
+
+**Important:** A passing review is not a correctness guarantee. The gate reduces exposure to the same class of error a human PR approval reduces, and leaves the same exposure behind. See [Customization](customization.html#code_review) for limitations.
 
 ## File Structure
 

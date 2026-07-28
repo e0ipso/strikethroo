@@ -1,6 +1,7 @@
 {
   "name": "strikethroo",
   "skills": [
+    "./templates/harness/skills/st-code-review",
     "./templates/harness/skills/st-create-plan",
     "./templates/harness/skills/st-execute-blueprint",
     "./templates/harness/skills/st-execute-task",

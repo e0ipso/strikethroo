@@ -243,6 +243,33 @@ describe('CLI Integration', () => {
     });
   });
 
+  describe('init — review-artifact gitignore', () => {
+    /**
+     * The review gate writes machine-generated per-round output into the plan
+     * it reviews. `init` ships a workspace-root .gitignore covering it, so a
+     * project that tracks its .ai/strikethroo/ workspace still keeps plans and
+     * config under version control while the reviewer's output stays out —
+     * including out of the gate's own next-round diff.
+     */
+    it('ships a workspace .gitignore covering plan and archive review output', async () => {
+      expect(executeCommand(`node "${cliPath}" init --harnesses claude`).exitCode).toBe(0);
+
+      const ignoreFile = path.join(testDir, '.ai/strikethroo/.gitignore');
+      expect(await fs.pathExists(ignoreFile)).toBe(true);
+      const contents = await fs.readFile(ignoreFile, 'utf8');
+      expect(contents).toContain('plans/*/review/');
+      expect(contents).toContain('archive/*/review/');
+    });
+
+    it('survives a --force re-run', async () => {
+      expect(executeCommand(`node "${cliPath}" init --harnesses claude`).exitCode).toBe(0);
+      expect(executeCommand(`node "${cliPath}" init --harnesses claude --force`).exitCode).toBe(0);
+
+      const contents = await fs.readFile(path.join(testDir, '.ai/strikethroo/.gitignore'), 'utf8');
+      expect(contents).toContain('plans/*/review/');
+    });
+  });
+
   describe('init — re-run handling', () => {
     it('succeeds when run twice in the same directory', async () => {
       const first = executeCommand(`node "${cliPath}" init --harnesses claude`);

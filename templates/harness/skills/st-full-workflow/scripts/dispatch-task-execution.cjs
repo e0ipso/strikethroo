@@ -3654,8 +3654,9 @@ var command = (executable, argv, request) => ({
   executable,
   argv,
   cwd: request.workspace,
-  stdin: taskPrompt(request)
+  stdin: request.prompt
 });
+var modelArgv = (model) => model === void 0 ? [] : ["--model", model];
 var EXTERNAL_HARNESS_ADAPTERS = {
   claude: {
     executable: "claude",
@@ -3663,8 +3664,7 @@ var EXTERNAL_HARNESS_ADAPTERS = {
       "claude",
       [
         "-p",
-        "--model",
-        request.model,
+        ...modelArgv(request.model),
         ...request.reasoningEffort === void 0 ? [] : ["--effort", request.reasoningEffort]
       ],
       request
@@ -3677,8 +3677,7 @@ var EXTERNAL_HARNESS_ADAPTERS = {
       "codex",
       [
         "exec",
-        "--model",
-        request.model,
+        ...modelArgv(request.model),
         ...request.reasoningEffort === void 0 ? [] : ["--config", `model_reasoning_effort=${request.reasoningEffort}`],
         "-"
       ],
@@ -3688,17 +3687,19 @@ var EXTERNAL_HARNESS_ADAPTERS = {
   },
   cursor: {
     executable: "cursor-agent",
-    buildCommand: (request) => command("cursor-agent", ["--print", "--model", request.model], request),
+    buildCommand: (request) => command("cursor-agent", ["--print", ...modelArgv(request.model)], request),
     authenticationArgv: () => ["status"]
   },
   gemini: {
     executable: "gemini",
-    buildCommand: (request) => command("gemini", ["--prompt", "", "--model", request.model], request),
+    // The empty positional prompt is the existing contract — content travels on
+    // stdin. It stays even when the model pair is dropped.
+    buildCommand: (request) => command("gemini", ["--prompt", "", ...modelArgv(request.model)], request),
     authenticationArgv: () => ["auth", "status"]
   },
   copilot: {
     executable: "copilot",
-    buildCommand: (request) => command("copilot", ["-p", "", "--model", request.model], request),
+    buildCommand: (request) => command("copilot", ["-p", "", ...modelArgv(request.model)], request),
     authenticationArgv: () => ["auth", "status"]
   },
   opencode: {
@@ -3707,8 +3708,7 @@ var EXTERNAL_HARNESS_ADAPTERS = {
       "opencode",
       [
         "run",
-        "--model",
-        request.model,
+        ...modelArgv(request.model),
         ...request.reasoningEffort === void 0 ? [] : ["--variant", request.reasoningEffort],
         "-"
       ],
@@ -3722,6 +3722,12 @@ var harnessKeys = [...SUPPORTED_HARNESSES].sort();
 if (adapterKeys.join("\0") !== harnessKeys.join("\0")) {
   throw new Error("External harness adapter registry does not cover SUPPORTED_HARNESSES exactly.");
 }
+var taskCommandRequest = (request) => ({
+  model: request.model,
+  reasoningEffort: request.reasoningEffort,
+  workspace: request.workspace,
+  prompt: taskPrompt(request)
+});
 var executableOnPath = (executable) => (process.env.PATH ?? "").split(path2.delimiter).some((directory) => {
   if (!directory) return false;
   const candidate = path2.join(directory, executable);
@@ -3782,23 +3788,17 @@ var dependencies = {
   launch: (commandSpec) => runProcess(commandSpec.executable, commandSpec.argv, commandSpec.cwd, commandSpec.stdin, true)
 };
 var errorMessage = (error) => error instanceof Error ? error.message : String(error);
-var dispatchExternalTask = async (request, overrides = {}) => {
-  const adapter = EXTERNAL_HARNESS_ADAPTERS[request.harness];
+var prepareLaunch = async (harness, input, active, guard) => {
+  const adapter = EXTERNAL_HARNESS_ADAPTERS[harness];
   if (!adapter) {
     return {
       kind: "fallback",
       reason: "adapter-unavailable",
-      detail: `No adapter is registered for ${request.harness}.`
+      detail: `No adapter is registered for ${harness}.`
     };
   }
-  const active = { ...dependencies, ...overrides };
-  if (request.reasoningEffort !== void 0 && (request.harness === "cursor" || request.harness === "gemini" || request.harness === "copilot")) {
-    return {
-      kind: "fallback",
-      reason: "unsupported-reasoning-effort",
-      detail: `${request.harness} does not support a generic reasoning_effort override.`
-    };
-  }
+  const blocked = guard?.();
+  if (blocked) return blocked;
   if (!active.executableExists(adapter.executable)) {
     return {
       kind: "fallback",
@@ -3806,7 +3806,7 @@ var dispatchExternalTask = async (request, overrides = {}) => {
       detail: `${adapter.executable} is unavailable.`
     };
   }
-  const commandSpec = adapter.buildCommand(request);
+  const commandSpec = adapter.buildCommand(input);
   const authentication = await active.authenticate(commandSpec, adapter);
   if (!authentication.ok) {
     return {
@@ -3815,15 +3815,34 @@ var dispatchExternalTask = async (request, overrides = {}) => {
       detail: authentication.detail ?? `${adapter.executable} authentication check failed.`
     };
   }
+  return { kind: "ready", command: commandSpec };
+};
+var launchPrepared = async (prepared, active, label) => {
+  if (prepared.kind === "fallback") return prepared;
   try {
-    const launched = await active.launch(commandSpec);
+    const launched = await active.launch(prepared.command);
     return launched.exitCode === 0 ? { kind: "launched-success", exitCode: 0 } : { kind: "launched-failure", exitCode: launched.exitCode };
   } catch (error) {
     return {
       kind: "infrastructure-failure",
-      detail: `External task process failed: ${errorMessage(error)}`
+      detail: `External ${label} process failed: ${errorMessage(error)}`
     };
   }
+};
+var unsupportedReasoningEffort = (request) => request.reasoningEffort !== void 0 && (request.harness === "cursor" || request.harness === "gemini" || request.harness === "copilot") ? {
+  kind: "fallback",
+  reason: "unsupported-reasoning-effort",
+  detail: `${request.harness} does not support a generic reasoning_effort override.`
+} : void 0;
+var dispatchExternalTask = async (request, overrides = {}) => {
+  const active = { ...dependencies, ...overrides };
+  const prepared = await prepareLaunch(
+    request.harness,
+    taskCommandRequest(request),
+    active,
+    () => unsupportedReasoningEffort(request)
+  );
+  return launchPrepared(prepared, active, "task");
 };
 
 // src/skill-scripts/shared/harness-availability.ts
@@ -6509,7 +6528,7 @@ var main = async () => {
     );
   }
   const handoff = decodeHandoff(handoffArg);
-  const result = await dispatchExternalTask({
+  const routed = {
     harness: handoff.harness,
     model: handoff.model,
     ...handoff.reasoningEffort === void 0 ? {} : { reasoningEffort: handoff.reasoningEffort },
@@ -6518,7 +6537,8 @@ var main = async () => {
     taskId: validTaskId,
     taskFile: taskPath,
     taskMarkdown
-  });
+  };
+  const result = await dispatchExternalTask(routed);
   emit(
     result,
     result.kind === "infrastructure-failure" ? 2 : result.kind === "launched-failure" ? 1 : 0

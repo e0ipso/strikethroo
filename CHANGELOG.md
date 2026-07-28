@@ -1,3 +1,7 @@
+## 3.15.0 (2026-07-28)
+
+* feat: add an unattended second-harness code review gate (#70) ([75bbdb5](https://github.com/e0ipso/strikethroo/commit/75bbdb5)), closes [#70](https://github.com/e0ipso/strikethroo/issues/70)
+
 ## <small>3.14.3 (2026-07-17)</small>
 
 * fix: allow workspace-only branch creation (#65) ([543f5bd](https://github.com/e0ipso/strikethroo/commit/543f5bd)), closes [#65](https://github.com/e0ipso/strikethroo/issues/65) [#63](https://github.com/e0ipso/strikethroo/issues/63)

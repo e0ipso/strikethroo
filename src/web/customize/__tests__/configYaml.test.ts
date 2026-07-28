@@ -235,6 +235,7 @@ describe('serializeWorkspaceConfig round-trip', () => {
       gemini: { cli_args: [] },
       copilot: { cli_args: [] },
       opencode: { cli_args: [] },
+      kiro: { cli_args: [] },
     });
 
     const reparsed = parseWorkspaceConfig(output);

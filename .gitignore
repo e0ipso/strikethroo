@@ -111,3 +111,6 @@ _site/
 Gemfile.lock
 /.devcontainer/devcontainer-lock.json
 review.guide.xml
+
+# Kiro CLI workspace — generated on init, not source
+.kiro/

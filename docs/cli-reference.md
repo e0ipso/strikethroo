@@ -22,7 +22,7 @@ Creates the shared `.ai/strikethroo/` directory (plans, archive, config, hooks, 
 
 | Flag | Description |
 |------|-------------|
-| `--harnesses <list>` | Comma-separated harness names. Controls which per-harness artifacts are copied. Accepted values: `claude`, `gemini`, `opencode`, `codex`, `copilot`, `cursor`. **Optional on re-init** — omission reuses the saved `harnesses` array from `.ai/strikethroo/.init-metadata.json`. **Required on first init** and on legacy workspaces whose metadata has no saved selection. Empty or invalid explicit values error and do not fall back to the saved list. There is no filesystem or executable auto-detection. |
+| `--harnesses <list>` | Comma-separated harness names. Controls which per-harness artifacts are copied. Accepted values: `claude`, `gemini`, `opencode`, `codex`, `copilot`, `cursor`, `kiro`. **Optional on re-init** — omission reuses the saved `harnesses` array from `.ai/strikethroo/.init-metadata.json`. **Required on first init** and on legacy workspaces whose metadata has no saved selection. Empty or invalid explicit values error and do not fall back to the saved list. There is no filesystem or executable auto-detection. |
 
 **Optional flags:**
 

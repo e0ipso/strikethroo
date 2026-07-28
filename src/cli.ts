@@ -25,7 +25,7 @@ program
   .description('Initialize a new Strikethroo project')
   .option(
     '--harnesses <value>',
-    'Comma-separated list of harnesses to configure (claude,codex,cursor,gemini,copilot,opencode). Omitted on re-init reuses the saved selection.'
+    'Comma-separated list of harnesses to configure (claude,codex,cursor,gemini,copilot,opencode,kiro). Omitted on re-init reuses the saved selection.'
   )
   .option(
     '--destination-directory <path>',
@@ -58,7 +58,7 @@ program
   .description('Refresh an initialized workspace and update installed Strikethroo workflow skills')
   .option(
     '--harnesses <value>',
-    'Comma-separated list of harnesses to configure (claude,codex,cursor,gemini,copilot,opencode). Omitted reuses the saved selection.'
+    'Comma-separated list of harnesses to configure (claude,codex,cursor,gemini,copilot,opencode,kiro). Omitted reuses the saved selection.'
   )
   .option(
     '--destination-directory <path>',

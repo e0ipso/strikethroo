@@ -14,7 +14,7 @@
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import { Harness, SUPPORTED_HARNESSES } from '../types';
-import { getAgentFormat, convertAgentMdToToml } from '../utils';
+import { getAgentFormat, convertAgentMdToToml, convertAgentMdToKiroJson } from '../utils';
 import { HarnessAdapter, registerHarnessAdapter } from './registry';
 
 /**
@@ -57,6 +57,8 @@ async function writeAgentFiles(harness: Harness, projectRoot: string): Promise<s
 
     if (formatInfo.format === 'toml') {
       await fs.writeFile(targetPath, convertAgentMdToToml(content), 'utf-8');
+    } else if (formatInfo.format === 'json') {
+      await fs.writeFile(targetPath, convertAgentMdToKiroJson(content), 'utf-8');
     } else {
       await fs.writeFile(targetPath, content, 'utf-8');
     }

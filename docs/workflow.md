@@ -7,7 +7,7 @@ description: "Step-by-step workflow with commands and visual guides"
 
 # Workflow Guide
 
-Strikethroo breaks complex work into three steps -- planning, task generation, and execution -- each delivered as an Agent Skill that loads automatically when you describe what you need. An optional fourth step, automated code review, runs at the end.
+Strikethroo runs on **two commands**: `st-create-plan` to draft the work, and `st-execute-blueprint` to build it. Each is an Agent Skill that loads automatically when you describe what you need. Task decomposition happens inside execution, and an optional automated code review runs at the end.
 
 ## The Workflow
 
@@ -16,26 +16,23 @@ flowchart LR
     A[Work Order] --> B[Plan]
     B --> C{Review}
     C -->|Edit| B
-    C -->|Approve| D[Tasks]
-    D --> E{Verify}
-    E --> G[Execute]
+    C -->|Approve| G["Execute<br/>(generates tasks)"]
     G --> H["Code Review<br/>(optional)"]
     H -->|Fix| G
     H -->|Pass| J[Done]
 
     style A fill:#ffebee
     style B fill:#e3f2fd
-    style D fill:#f3e5f5
     style G fill:#e8f5e8
     style H fill:#fff3cd
     style J fill:#c8e6c9
 ```
 
-Human gates wrap the first three steps: you **review** the plan, **verify** the blueprint, and **review** the executed result -- looping back to edit whenever something is off. The plan and the result get a careful read; the blueprint just gets a quick validation pass before execution. An optional automated review gate runs after execution: a discovered second harness critiques the cumulative diff and drives remediation for high-confidence findings.
+One human gate sits before any code exists: you **review** the plan, looping back to edit until it is right. Then you run it, and **review** the result. An optional automated review gate runs in between: a discovered second harness critiques the cumulative diff and drives remediation for high-confidence findings, before your read of the result.
 
-That distribution of effort is deliberate, not incidental. Attention is **rationed toward the point where a correction is cheapest** -- a misunderstanding costs one sentence to fix in the plan and a full review cycle to fix in the diff. The automated gate is a filter that runs *before* your read of the result, so that read lands on "this doesn't do what I asked" rather than "you forgot the null check." See [Why Strikethroo](why.html) for the reasoning in full.
+That distribution of effort is deliberate, not incidental. Attention is **rationed toward the point where a correction is cheapest** -- a misunderstanding costs one sentence to fix in the plan and a full review cycle to fix in the diff. So the plan gets your careful read, and the task blueprint gets generated for you rather than reviewed by you. See [Why Strikethroo](why.html) for the reasoning in full.
 
-{% include callout.html variant="warning" content="The review gates are where you catch scope creep and wrong turns. Do not skip them." %}
+{% include callout.html variant="warning" content="The plan review is where you catch scope creep and wrong turns, for a fraction of what catching them later costs. Do not skip it." %}
 
 ## Step-by-Step
 
@@ -62,7 +59,10 @@ Prefer reading it rendered? `npx strikethroo serve` shows the plan document with
 
 [![Plan Detail, Plan tab]({{ '/assets/plan-detail-plan.png' | relative_url }})]({{ '/assets/plan-detail-plan.png' | relative_url }})
 
-### 3. Generate Tasks
+<details markdown="1">
+<summary><strong>Optional detour: build the blueprint separately</strong></summary>
+
+Most runs go straight from the approved plan to execution, which generates the blueprint itself. Run task generation on its own only when you want to inspect or hand-tune the decomposition first -- an unusually large plan, or one whose phase ordering you want to see before committing to it.
 
 > /st-generate-tasks 1
 
@@ -70,37 +70,29 @@ The `st-generate-tasks` skill breaks the plan into atomic tasks (1-2 skills each
 
 **Output**: `.ai/strikethroo/plans/01--user-authentication/tasks/*.md`
 
-The blueprint's phases -- groups of tasks that run in parallel -- render as swimlanes in the web app:
+If you do look, skim rather than read line by line: check that nothing outside the original scope slipped in, that no task carries 3+ skills, and that the dependency order is sane. Fix a task file directly if something is off. Save the careful reading for the plan and the result.
+
+The blueprint's phases -- groups of tasks that run in parallel -- render as swimlanes in the web app, and a wrong ordering is easiest to spot on the dependency graph:
 
 [![Plan Detail, Tasks swimlanes]({{ '/assets/plan-detail-tasks-swimlanes.png' | relative_url }})]({{ '/assets/plan-detail-tasks-swimlanes.png' | relative_url }})
 
-### 4. Validate the Tasks
-
-The task documents don't need a line-by-line review -- just a quick validation pass before you let it run. Skim the `tasks/` directory and confirm:
-- Nothing obviously outside the original scope slipped in
-- No task is overloaded (3+ skills signals it should be split)
-- Each task has a `complexity_score` between 1 and 10
-- The dependency order is sane
-
-If something looks wrong, fix the task file directly; otherwise move straight to execution. Save the careful reading for the plan (step 2) and the result (step 6).
-
-A wrong ordering is easiest to spot on the dependency graph -- a live mermaid render of the same task files:
-
 [![Plan Detail, Graph tab]({{ '/assets/plan-detail-graph.png' | relative_url }})]({{ '/assets/plan-detail-graph.png' | relative_url }})
 
-### 5. Execute the Blueprint
+</details>
+
+### 3. Execute the Blueprint
 
 > /st-execute-blueprint 1
 
 The `st-execute-blueprint` skill runs tasks grouped into phases. Before phases begin, it runs `create-feature-branch.cjs` to create a plan feature branch when appropriate (skipped when not on `main`/`master` — that is expected, not a failure). Before each phase, the skill runs `check-phase-readiness.cjs`, then the [`PRE_PHASE`](customization.html#pre_phase) hook. Independent tasks run in parallel within the phase. For routed tasks, dispatch selects a target from the persisted profile immediately before delegation; native/current-harness targets skip availability probes, while external harnesses are checked and unavailable targets are avoided on retry. For every task, [`PRE_TASK_ASSIGNMENT`](customization.html#pre_task_assignment) runs before dispatch and [`PRE_TASK_EXECUTION`](customization.html#pre_task_execution) runs on the task agent before implementation. [`POST_ERROR_DETECTION`](customization.html#post_error_detection) runs if a task fails, and [`POST_PHASE`](customization.html#post_phase) runs after each phase completes.
 
-{% include callout.html variant="note" content="If you skipped step 3, `st-execute-blueprint` auto-generates the tasks and the blueprint before starting." %}
+Before any of that, if the plan has no tasks yet, the skill generates them: it breaks the plan into atomic tasks (1-2 skills each), maps dependencies, assigns every task a `complexity_score`, and assembles the phase-grouped blueprint. That is the normal path -- you do not run a separate task-generation command.
 
 The `st-execute-blueprint` skill drives progress end to end: it updates task statuses as phases complete, and you can inspect plan and task files directly under `.ai/strikethroo/plans/` at any point. Prefer a visual view? Run `npx strikethroo serve` to watch progress in [Visualizations](visualizations.html), the web app that renders plans, tasks, and the dependency graph live from those same files. From the board you can drill straight down into any task:
 
 <video class="wide-video" controls preload="metadata" src="{{ '/assets/nav-plans-to-task-detail.webm' | relative_url }}"></video>
 
-### 6. Review the Results
+### 4. Review the Results
 
 When the last phase finishes, the [`POST_EXECUTION`](customization.html#post_execution) hook runs before the summary is written and the plan is archived.
 
@@ -115,7 +107,7 @@ Each task's implementation notes capture what actually happened during execution
 
 [![Task Detail, Implementation Notes]({{ '/assets/task-detail-implementation-notes.png' | relative_url }})]({{ '/assets/task-detail-implementation-notes.png' | relative_url }})
 
-### 7. Automated Code Review (Optional)
+### 5. Automated Code Review (Optional)
 
 After `POST_EXECUTION` reports green, an optional code review gate runs if a second harness is discovered and the [`CODE_REVIEW`](customization.html#code_review) hook is present and non-empty. A discovered reviewer harness critiques the cumulative diff against the plan's requirements and emits schema-validated findings.
 
@@ -156,7 +148,7 @@ The reviewed scope runs from a base commit recorded before phase execution again
 
 ## Alternative: Automated Workflow
 
-For clear requirements with minimal ambiguity, the `st-full-workflow` skill chains all three steps end-to-end. Ask your assistant to run the full Strikethroo workflow and it handles plan creation, task generation, and execution in one pass.
+For clear requirements with minimal ambiguity, the `st-full-workflow` skill runs the whole thing end-to-end, skipping the plan-approval gate. Ask your assistant to run the full Strikethroo workflow and it handles plan creation, task generation, and execution in one pass.
 
 ## Advanced Patterns
 

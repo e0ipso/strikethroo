@@ -76,7 +76,7 @@ The viewer is **read-only except for one permitted mutation: the archive action.
 npx skills add e0ipso/strikethroo
 ```
 
-Installs the Agent Skills that implement the three-step workflow. Skills are fetched from the repository's tagged release via the `.claude-plugin/plugin.json` manifest.
+Installs the Agent Skills that implement the workflow. Skills are fetched from the repository's tagged release via the `.claude-plugin/plugin.json` manifest.
 
 **Pin a specific version:**
 
@@ -105,4 +105,4 @@ Removes the installed Agent Skills. The `.ai/strikethroo/` workspace, plans, and
 | `st-execute-blueprint` | Execution orchestration across all tasks in a plan. |
 | `st-refine-plan` | Plan refinement loop with interactive and autonomous clarification modes. |
 | `st-execute-task` | Single-task execution with dependency and status checks. |
-| `st-full-workflow` | End-to-end orchestration chaining all three steps. |
+| `st-full-workflow` | End-to-end orchestration: plan, tasks, and execution in one pass, with no approval gate. |

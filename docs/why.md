@@ -29,7 +29,7 @@ So attention is rationed, not maximized:
 | Stage | Your involvement | Why |
 | --- | --- | --- |
 | **Plan** | Careful read, explicit approval gate | Corrections cost a sentence here. One question asked at a time, so it never gets skim-answered |
-| **Blueprint** | Quick verification pass | Structure, not substance |
+| **Blueprint** | None | Generated inside execution. It is machinery, not a decision — inspect it separately only to hand-tune |
 | **Execution** | None | Tasks carry runnable acceptance criteria |
 | **Result** | Careful read | "Does this do what I asked?" — the one question a machine can't answer |
 

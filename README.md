@@ -114,24 +114,23 @@ flowchart LR
     A[Work Order] --> B[Plan]
     B --> C{Review}
     C -->|Edit| B
-    C -->|Approve| D[Tasks]
-    D --> E{Verify}
-    E --> G[Execute]
+    C -->|Approve| G["Execute<br/>(generates tasks)"]
     G --> H["Code Review<br/>(optional)"]
     H -->|Fix| G
     H -->|Pass| J[Done]
 ```
 
-Four steps, three delivered as Agent Skills that load when you describe what you need:
+**Two commands.** Read the plan, approve it, run it:
 
-| Step        | Skill                           | Output                                            |
-|-------------|---------------------------------|---------------------------------------------------|
-| **Plan**    | `/st-create-plan <your prompt>` | `.ai/strikethroo/plans/64--auth/plan-64--auth.md` |
-| **Tasks**   | `/st-generate-tasks 64`         | `.ai/strikethroo/plans/64--auth/tasks/*.md`       |
-| **Execute** | `/st-execute-blueprint 64`      | Working code, one commit per phase                |
-| **Review**  | Automatic (optional)            | Findings validated against schema; bounded fixes  |
+| Step        | Command                         | Output                                                  |
+|-------------|---------------------------------|---------------------------------------------------------|
+| **Plan**    | `/st-create-plan <your prompt>` | `.ai/strikethroo/plans/64--auth/plan-64--auth.md`       |
+| **Execute** | `/st-execute-blueprint 64`      | Task blueprint, then working code, one commit per phase |
+| **Review**  | Automatic (optional)            | Findings validated against schema; bounded fixes        |
 
-Human review gates between steps catch scope creep before any code is written. Each step runs with clean context -- the planning agent sees only the work order, the task agent sees only the approved plan, and each execution sub-agent receives only its specific task. After execution, an optional automated review gate runs on a discovered second harness, critiques the cumulative diff, and drives bounded remediation if findings exceed configured thresholds.
+`st-execute-blueprint` decomposes the plan into atomic tasks and builds the dependency-mapped blueprint itself when one does not exist yet. Run `/st-generate-tasks 64` on its own only when you want to inspect or hand-tune the blueprint before execution starts.
+
+Your review lands on the plan, before any code exists -- that is where a correction costs a sentence. Each step runs with clean context: the planning agent sees only the work order, and each execution sub-agent receives only its specific task. After execution, an optional automated review gate runs on a discovered second harness, critiques the cumulative diff, and drives bounded remediation if findings exceed configured thresholds.
 
 See the [Workflow Guide](https://strikethroo.canpicasoft.com/workflow.html) for the full step-by-step with advanced patterns. Once a plan exists, visualize its plans, tasks, and dependency graph in [Visualizations](https://strikethroo.canpicasoft.com/visualizations.html).
 

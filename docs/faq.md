@@ -16,7 +16,7 @@ description: "Frequently asked questions about Strikethroo"
 <a class="st-card" href="#workflow">
 <span class="st-card__icon st-card__icon--workflow" aria-hidden="true"></span>
 <p class="st-card__title">Workflow</p>
-<p>The four steps, automation, and plan mode.</p>
+<p>The two commands, automation, and plan mode.</p>
 </a>
 <a class="st-card" href="#code-review">
 <span class="st-card__icon st-card__icon--shield-check" aria-hidden="true"></span>
@@ -60,21 +60,24 @@ Yes. Initialize with multiple harnesses (`--harnesses claude,gemini,codex`). All
 
 ## Workflow
 
-**What is the three-step workflow?**
+**What is the workflow?**
 
-1. **Planning**: The `st-create-plan` skill refines your work order into a comprehensive plan.
-2. **Task generation**: The `st-generate-tasks` skill decomposes the plan into an execution blueprint -- atomic tasks organized into dependency-mapped phases.
-3. **Execution**: The `st-execute-blueprint` skill implements each task using sub-agents with focused context.
+Two commands:
 
-Each step produces files in `.ai/strikethroo/plans/` for human review before the next step begins.
+1. **Planning**: `/st-create-plan <your request>` refines your work order into a comprehensive plan. You read it and approve it.
+2. **Execution**: `/st-execute-blueprint <plan-id>` decomposes the plan into an execution blueprint -- atomic tasks in dependency-mapped phases -- and then implements each task using sub-agents with focused context.
 
-**Do I have to use all three steps?**
+Everything lands in `.ai/strikethroo/plans/`, so you can inspect any of it at any point.
 
-No. You can use only plan creation without task generation, generate tasks without executing, execute specific tasks manually, or skip steps that do not apply. The three-step workflow is recommended but not mandatory.
+**Why is there no separate task-generation step?**
+
+There is one -- `st-generate-tasks` -- but you rarely need to run it. `st-execute-blueprint` generates the tasks and blueprint itself when the plan does not have them yet, so the normal path is plan, review, execute.
+
+Running it separately is worth it when you want to see or hand-tune the decomposition before execution starts: an unusually large plan, or one whose phase ordering you want to check. It is a detour, not a step. Your careful reading is better spent on the plan, where a correction costs a sentence.
 
 **What if I want fully automated execution?**
 
-The `st-full-workflow` skill chains all three steps in a single invocation. It is best suited for well-defined features with clear scope. For complex features that need review between steps, use the manual step-by-step workflow.
+The `st-full-workflow` skill runs planning and execution in a single invocation, with no stop for your approval of the plan. It is best suited for well-defined features with clear scope. For anything where the plan is worth a read first, use the two-command workflow.
 
 **How does Strikethroo relate to plan mode?**
 
@@ -118,7 +121,7 @@ The conformance-only scope emphasizes traces back to explicit plan requirements.
 
 **Can I customize the workflow?**
 
-Yes. Nine lifecycle hooks, four templates, and project-context files are all editable Markdown. See the [Customization Guide](customization.html) for examples.
+Yes. Eleven lifecycle hooks, four templates, and project-context files are all editable Markdown. See the [Customization Guide](customization.html) for examples.
 
 **What file formats does it use?**
 

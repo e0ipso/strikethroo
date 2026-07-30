@@ -1,12 +1,14 @@
 {
   "name": "${localWorkspaceFolderBasename}",
-  "initializeCommand": "docker network inspect ${localWorkspaceFolderBasename}-devcontainer >/dev/null 2>&1 || docker network create ${localWorkspaceFolderBasename}-devcontainer",
+  "initializeCommand": "docker network inspect ${localWorkspaceFolderBasename}-devcontainer >/dev/null 2>&1 || docker network create ${localWorkspaceFolderBasename}-devcontainer; touch ${localWorkspaceFolder}/.env",
   "runArgs": [
     "--network",
     "${localWorkspaceFolderBasename}-devcontainer",
     "--hostname=${localWorkspaceFolderBasename}-dev",
     "--publish",
-    "127.0.0.1:24649:34489"
+    "127.0.0.1:24649:34489",
+    "--env-file",
+    "${localWorkspaceFolder}/.env"
   ],
   "image": "node:24",
   "features": {
@@ -25,7 +27,6 @@
     },
     "ghcr.io/e0ipso/devcontainer-feature-ai-assistant/claude:1": {},
     "ghcr.io/e0ipso/devcontainer-feature-ai-assistant/codex:1": {},
-    "ghcr.io/e0ipso/devcontainer-feature-ai-assistant/copilot:1": {},
     "ghcr.io/e0ipso/devcontainer-feature-ai-assistant/cursor:1": {},
     "ghcr.io/e0ipso/devcontainer-feature-ai-assistant/opencode:1": {},
     "ghcr.io/e0ipso/devcontainer-feature-ai-assistant/t3:1": {
@@ -90,21 +91,21 @@
     "source=${localEnv:HOME}/.codex/prompts,target=/home/node/.codex/prompts,readonly,type=bind,consistency=cached",
     "source=${localEnv:HOME}/.codex/auth.json,target=/home/node/.cred-seed/codex/auth.json,readonly,type=bind,consistency=cached",
 
-    "source=${localEnv:HOME}/.copilot/config.json,target=/home/node/.copilot/config.json,readonly,type=bind,consistency=cached",
-    "source=${localEnv:HOME}/.copilot/hooks,target=/home/node/.copilot/hooks,readonly,type=bind,consistency=cached",
-
     "source=${localEnv:HOME}/.cursor/cli-config.json,target=/home/node/.cred-seed/cursor/cli-config.json,readonly,type=bind,consistency=cached",
     "source=${localEnv:HOME}/.config/cursor/auth.json,target=/home/node/.cred-seed/cursor/auth.json,readonly,type=bind,consistency=cached",
 
     "source=t3code-home-${devcontainerId},target=/home/node/.t3,type=volume",
 
-    "source=${localEnv:HOME}/.config/gh/hosts.yml,target=/home/node/.config/gh/hosts.yml,type=bind,consistency=cached",
-    "source=${localEnv:HOME}/.gitconfig,target=/home/node/.gitconfig,type=bind,consistency=cached"
+    "source=${localEnv:HOME}/.gitconfig,target=/home/node/.gitconfig,readonly,type=bind,consistency=cached"
   ],
   "containerEnv": {
     "NODE_OPTIONS": "--max-old-space-size=4096",
     "POWERLEVEL9K_DISABLE_GITSTATUS": "true",
-    "SSH_AUTH_SOCK": "/ssh-agent",
+    "GIT_CONFIG_COUNT": "2",
+    "GIT_CONFIG_KEY_0": "credential.https://github.com.helper",
+    "GIT_CONFIG_VALUE_0": "!gh auth git-credential",
+    "GIT_CONFIG_KEY_1": "url.https://github.com/.insteadOf",
+    "GIT_CONFIG_VALUE_1": "git@github.com:",
     "LC_ALL": "C.UTF-8",
     "TZ": "${localEnv:TZ:Europe/Madrid}",
     "DEVCONTAINER": "true",
@@ -124,8 +125,5 @@
   "postCreateCommand": {
     "fix-perms": "sudo mkdir -p /commandhistory /usr/local/share/npm-global && sudo touch /commandhistory/.bash_history && sudo chown -R node:node /home/node /commandhistory /usr/local/share/npm-global > /dev/null 2>&1 || true"
   },
-  "postStartCommand": {
-    "copilot-auth": "grep -q COPILOT_GITHUB_TOKEN /home/node/.bashrc 2>/dev/null || echo 'export COPILOT_GITHUB_TOKEN=\"$(gh auth token 2>/dev/null)\"' >> /home/node/.bashrc"
-  },
-  "waitFor": "postStartCommand"
+  "waitFor": "postCreateCommand"
 }

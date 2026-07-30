@@ -7,231 +7,113 @@ description: "The design thesis: where human attention gets spent, and which gua
 
 # Why Strikethroo
 
-Most spec-driven development frameworks optimize the same thing: the input. Write
-a better specification, get better code. They differ in artifact shape and
-ceremony — a constitution, a set of personas, WHEN/THEN scenarios — but they share
-one assumption: **that an agent handed a good spec will faithfully implement it,
-and that a human at the end will catch it when it doesn't.**
+Most spec-driven frameworks optimize the input: better spec in, better code out,
+human catches the rest at the end. Strikethroo starts from three different
+premises.
 
-Strikethroo starts somewhere else. It assumes the agent is an unreliable narrator
-of its own work, that a second agent asked to check the first is *also* an
-unreliable narrator, and that the scarce resource in the whole loop is not tokens
-but **your attention**. Nearly every design decision below follows from those
-three premises.
+1. **The agent is an unreliable narrator of its own work.** A success report is a
+   claim, not evidence.
+2. **A second agent reviewing the first is also unreliable.** It will overstate
+   confidence and manufacture findings to justify its round.
+3. **The scarce resource is your attention, not tokens.**
 
----
+Everything below follows from those.
 
 ## Speed is measured at the wrong checkpoint
 
-The industry clock starts when you type the prompt and stops when code appears.
-By that clock, a tool that generates a thousand lines in ninety seconds is fast.
+The usual clock starts at the prompt and stops when code appears. The clock that
+pays your salary stops when the code is **merged** — and on that clock,
+generation is a rounding error next to the review rounds a fast-but-wrong draft
+costs you.
 
-That is not the clock that pays your salary. The clock that matters starts when
-you pick up the work and stops **when the code is merged**. On that clock,
-generation is a rounding error. The cost is in what comes after:
+Strikethroo is built against the second clock. That is not quality traded for
+speed. On that clock they are the same number.
 
-- The review round where someone finds that a requirement was quietly dropped.
-- The second round, after the fix, because the fix broke something adjacent.
-- The re-read of a diff you have already read twice, because you no longer trust
-  your own earlier pass.
-- The judgment call you cannot make from the diff alone, so you go re-derive what
-  the feature was supposed to do.
+## Attention is the budget
 
-None of that appears in a demo. All of it appears in your week. A framework that
-generates quickly and lands slowly has not made you faster — it has moved the
-cost somewhere nobody is counting.
-
-Strikethroo is built against the time-to-merge clock. That is not a trade of
-speed for quality. On that clock, they are the same number.
-
----
-
-## Your attention is the budget
-
-If the bottleneck is human review, the design question is not *how do we reduce
-review* — it is **where in the process is a correction cheapest?**
-
-Correcting a plan costs one sentence. Correcting the same misunderstanding in a
-diff costs a review cycle, a rework cycle, and a re-review. The ratio is not
-close. So Strikethroo deliberately rations attention rather than maximizing it:
+A correction costs one sentence in the plan and a full review cycle in the diff.
+So attention is rationed, not maximized:
 
 | Stage | Your involvement | Why |
 | --- | --- | --- |
-| **Plan** | A careful read, with an explicit approval gate | Corrections are one sentence here. This is where your judgment is worth the most. |
-| **Blueprint** | A quick verification pass | Structure, not substance. A skim is the correct level of care. |
-| **Execution** | None | Every task carries concrete, runnable acceptance criteria. There is nothing here your attention improves. |
-| **Result** | A careful read | Does this do what you asked? The one question a machine cannot answer for you. |
+| **Plan** | Careful read, explicit approval gate | Corrections cost a sentence here |
+| **Blueprint** | Quick verification pass | Structure, not substance |
+| **Execution** | None | Tasks carry runnable acceptance criteria |
+| **Result** | Careful read | "Does this do what I asked?" — the one question a machine can't answer |
 
-The clarification gate exists to make the first row work. It asks **one question
-at a time**, offers multiple choice with a recommended default where it can, and
-requires explicit confirmation of scope before it writes anything. Batched
-questionnaires get skim-answered; that is a known failure mode, and it is
-designed against directly. If you decline to answer a blocking question, planning
-**stops** rather than proceeding on an invented answer.
+The clarification gate makes the first row work: **one question at a time**,
+multiple-choice where possible, explicit scope confirmation before anything is
+written. Decline a blocking question and planning *stops* rather than inventing
+an answer.
 
-This is why the automated review gate is not a replacement for you. It is a
-**filter that runs before you look**, so that your read lands on "this doesn't do
-what I asked" instead of "you forgot the null check." The gate is scoped to
-conformance and demonstrable defects and is explicitly forbidden from raising
-design opinions — because design judgment is precisely the thing your read is
-being preserved for. It is built to *not* do your job.
-
----
+The automated review gate is a **filter that runs before you look**, not a
+replacement for looking. It is scoped to requirement conformance and demonstrable
+defects, and explicitly forbidden from raising design opinions — because design
+judgment is what your read is being preserved for.
 
 ## Guarantees are compiled, not requested
 
-Here is the distinction that most cleanly separates Strikethroo from frameworks
-whose enforcement lives entirely in prompt text: **a rule written in Markdown is a
-request. A rule written in TypeScript is a guarantee.**
+**A rule in Markdown is a request. A rule in TypeScript is a guarantee.**
 
-Strikethroo draws that line deliberately and in the same place every time.
+- **Negotiable** — hooks at eleven workflow points, plan/task templates, project
+  context. Plain Markdown. Yours.
+- **Compiled** — termination bounds, severity/confidence floors, fail-safe
+  defaults, reviewer/implementer separation. Not read from a hook, so not
+  loosenable by editing one.
 
-**Negotiable — plain Markdown you own and edit.** Hooks at eleven points in the
-workflow, plan and task templates, and one project-context file. This is the
-adaptation surface. Change it freely; it is yours.
+Concretely: `MAX_REVIEW_ROUNDS` is a constant. A hook may state a round budget and
+it is honored — after clamping. **You can tighten the bound; nothing can raise
+it.** A finding that *omits* `severity` or `confidence` falls below every floor,
+so omission is never a route to auto-applying a change.
 
-**Non-negotiable — compiled into the runtime.** Termination bounds, safety floors,
-fail-safe defaults, and the separation between reviewer and implementer. You
-cannot loosen these by editing a hook, because they are not read from one.
-
-Concretely, in `src/skill-scripts/shared/review-findings.ts`:
-
-- `MAX_REVIEW_ROUNDS` is a compiled constant. The review hook may state a round
-  budget, and it is honored — but it is clamped to the ceiling first. **A user
-  editing the hook can tighten the bound. Nothing can raise it.** The parser is
-  documented as "forgiving in exactly one direction."
-- A finding that **omits** `severity` or `confidence` is treated as falling below
-  *every* floor. Omission is never a route to getting a change auto-applied. The
-  default is fail-safe, and there is exactly one place in the code where that
-  default lives.
-- Severity and confidence are independent axes with separate floors, because they
-  answer different questions — *how bad if real* versus *how sure it is real* —
-  and an automated consumer that conflates them will apply speculative changes to
-  working code.
-
-This is the property to check if you are evaluating Strikethroo against anything
-else: **find the guarantee, then find where it is enforced.** If the only thing
-standing between you and an unbounded loop is a sentence in a prompt file asking
+The question to ask of any framework: **find the guarantee, then find where it is
+enforced.** If the only thing between you and an unbounded loop is a prompt asking
 the model to stop, that is not a bound.
-
----
 
 ## Nobody marks their own homework
 
-When the optional review gate runs, the reviewer runs on a **different harness**
-than the one that wrote the code. This is not a preference or a default — the
-current harness is structurally removed from the candidate set in
-`src/skill-scripts/shared/harness-discovery.ts`, with the reason stated inline:
-*a reviewer on the same harness as the implementer defeats the point of the gate.*
+The reviewer runs on a **different harness** than the one that wrote the code —
+the current harness is structurally removed from the candidate set, not merely
+deprioritized. The reviewer **detects and never fixes**; remediation is dispatched
+separately.
 
-The same separation holds at the role level. The reviewer **detects and never
-fixes**. It may not edit files, run formatters, or commit. Remediation is
-dispatched separately, and the implementer receives the finding without the
-reviewer's reasoning about it.
+This also reframes execution routing. Sending tasks to different models looks like
+cost optimization. Here it is the review gate's idea in another hat: **models fail
+differently, so a second model is an independent sample, not a cheaper one.**
 
-This also reframes execution routing. Sending tasks to different models looks
-like a cost optimization, and elsewhere it is marketed as one. In Strikethroo it
-is the same idea as the review gate wearing a different hat: **models fail
-differently, so a second model is an independent sample, not merely a cheaper
-one.** Heterogeneity is a correctness mechanism here.
+Two more places the distrust is structural rather than requested:
 
----
+- **An empty diff is reported, never certified.** A reviewer handed nothing
+  returns no findings — indistinguishable from a clean review. Empty scope
+  short-circuits to a recorded skip before any reviewer is dispatched.
+- **A skip is not a pass.** No second harness, no validator, no base commit → the
+  gate records that it did not run, and why. It never degrades into silence that
+  reads as success.
 
-## The agent is not trusted, including about itself
+## The costs
 
-Two shared disciplines are loaded at runtime by the skills that need them. They
-are short on purpose.
-
-**The verification gate.** Before any claim that something is complete, passing,
-or working: identify the command that proves it, run it *now*, read the full
-output and exit code, then state the result. Its operative line, which the phase
-loop restates: *"Do not accept a subagent's report of success as proof."* A report
-is a claim. The words *should*, *probably*, *seems to*, and a premature *Done!*
-are named as red flags meaning the gate has not been run.
-
-**Anti-rationalization.** Every skill that enforces a discipline ships a table of
-**the specific excuses a model generates when it is about to skip that
-discipline**, each paired with a binding rule. Not general advice — enumerated
-failure modes. From the planner:
-
-> *"I can reasonably assume the answer."* → An assumption is not an answer. Ask the
-> question; never invent answers.
-
-And the reviewer's table points entirely at the reviewer:
-
-> *"I have found nothing above the floor; I should look harder so this round
-> produces something."* → A clean diff is a valid result. Manufacturing a finding
-> to justify the round **is** the defect this gate exists to prevent.
-
-> *"This is only minor, but it is real, so I will call it major so it gets
-> fixed."* → Severity is impact if real, never a lever for clearing the floor.
-
-There is no "unless it matters" exception, and that is stated explicitly, because
-a discipline with a judgment-call escape hatch is a discipline the model will
-negotiate its way out of under pressure.
-
-Two more places the same distrust shows up in code:
-
-- **An empty diff is reported, never certified.** A reviewer handed nothing to
-  read returns no findings — which is indistinguishable from a clean review. So
-  an empty scope short-circuits to a recorded skip *before* a reviewer is
-  dispatched. Without that branch, the one observable symptom of a collapsed
-  review scope would be a pass.
-- **A skip is not a pass.** When the gate cannot run — no second harness, no
-  schema validator, no recorded base commit — it records that it did not run and
-  says why. It never degrades into silence that reads as success.
-
----
-
-## The costs, stated plainly
-
-A framework that only lists its advantages is asking you to trust it. These are
-in the source with their reasoning attached.
-
-- **The reviewer will miss "this works, matches the plan, and the abstraction is
-  wrong."** That is a real category, and one a second model is unusually good at
-  spotting. It is excluded deliberately: the gate is unattended and auto-applies
-  fixes, so its false-positive rate matters more than its recall. The trade is
-  documented in the reviewer prompt as an accepted cost, not an oversight.
-- **A fix that cannot be expressed as a local text replacement is recorded and
-  not applied.** This is what structurally prevents an unattended reviewer from
-  landing broad speculative refactors — a constraint on shape rather than a
-  request for restraint.
-- **A green gate is not a correctness guarantee.** It reduces exposure to the same
-  class of error a human PR approval reduces, and leaves the same class behind.
-- **Blast-radius analysis is a partial mitigation**, not a complete one. The
-  reviewer reads callsites of changed symbols outside the diff; it does not read
-  your whole codebase.
-
----
+- **The reviewer will miss "works, matches the plan, wrong abstraction."** Real
+  category, deliberately excluded: the gate is unattended and auto-applies fixes,
+  so false-positive rate matters more than recall.
+- **A fix that isn't a local text replacement is recorded, not applied.** This is
+  what structurally prevents speculative refactors landing unattended.
+- **A green gate is not a correctness guarantee.** It reduces the same class of
+  error a human PR approval reduces, and leaves the same class behind.
+- **Blast-radius analysis is partial.** Callsites of changed symbols, not your
+  whole codebase.
 
 ## Check the claims
 
-Every claim above about Strikethroo is verifiable in this repository. That is
-intentional — you should not have to take positioning on faith.
-
-| Claim | Where to check |
+| Claim | Where |
 | --- | --- |
-| Round bound is compiled and cannot be raised by config | `MAX_REVIEW_ROUNDS` in `src/skill-scripts/shared/review-findings.ts` |
-| Missing attributes fail safe | `partitionFindings` in the same file |
-| Reviewer cannot be the implementer's harness | `discoverHarnesses` in `src/skill-scripts/shared/harness-discovery.ts` |
-| Subagent reports are not accepted as proof | `config/shared/verification-gate.md`, and the phase loop in `src/skill-prompts/sections/phase-execution-loop.md` |
-| Excuses are enumerated per skill | the rationalization tables in `src/skill-prompts/st-*.md` |
-| Reviewer detects and never fixes | the Role section of `src/skill-prompts/st-code-review.md` |
-| Empty scope skips instead of passing | the `empty-diff` branch in `src/skill-scripts/code-review.ts` |
-| Human approval gates the plan | `config/shared/clarification-gate.md` and [Workflow](workflow.html) |
+| Round bound compiled, not raisable by config | `MAX_REVIEW_ROUNDS` in `src/skill-scripts/shared/review-findings.ts` |
+| Missing attributes fail safe | `partitionFindings`, same file |
+| Reviewer can't be the implementer's harness | `discoverHarnesses` in `src/skill-scripts/shared/harness-discovery.ts` |
+| Subagent reports aren't proof | `config/shared/verification-gate.md` |
+| Excuses enumerated per skill | rationalization tables in `src/skill-prompts/st-*.md` |
+| Reviewer detects, never fixes | Role section, `src/skill-prompts/st-code-review.md` |
+| Empty scope skips instead of passing | `empty-diff` branch in `src/skill-scripts/code-review.ts` |
+| Human approval gates the plan | `config/shared/clarification-gate.md`, [Workflow](workflow.html) |
 
----
-
-## In one paragraph
-
-Strikethroo spends your attention at the plan, where a correction costs a
-sentence, and withholds it from the diff, where the same correction costs a review
-cycle. It treats the model — including a model reviewing another model — as a
-component with known failure modes rather than a colleague with good intentions,
-and it enforces the bounds that matter in compiled code rather than asking for
-them in prose. The result is not a trade of speed for quality. On a clock that
-starts at the idea and stops at the merge, it is the same thing.
-
-Next: the [Workflow Guide](workflow.html) for the step-by-step, or
-[Customization](customization.html) for the surfaces you own.
+Next: the [Workflow Guide](workflow.html), or [Customization](customization.html)
+for the surfaces you own.

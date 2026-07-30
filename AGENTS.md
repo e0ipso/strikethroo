@@ -37,6 +37,20 @@ The workflow itself ships as **Agent Skills** (harness-agnostic — one `SKILL.m
 
 This CLI tool initializes AI-assisted development environments with hierarchical task management. It transforms complex programming requests into atomic, validated implementations through staged refinement — managing AI context load, enforcing YAGNI scope control, and ensuring working code through integrity-focused testing.
 
+### Design thesis
+
+Read this before changing anything under `src/skill-prompts/` or `src/skill-scripts/`; most non-obvious decisions in those trees follow from it. User-facing version: [`docs/why.md`](docs/why.md).
+
+Three premises:
+
+1. **The agent is an unreliable narrator of its own work.** A subagent's success report is a claim, not evidence — hence `config/shared/verification-gate.md` and the per-skill anti-rationalization tables, which enumerate *the specific excuses a model generates when about to skip a discipline* rather than giving general advice.
+2. **A second agent reviewing the first is also unreliable.** Hence independent severity/confidence axes with independent floors, fail-safe treatment of absent attributes, the reviewer's own rationalization table, and the `<suggestion>` element's local-text-replacement constraint (a structural block on speculative refactors, not a request for restraint).
+3. **The scarce resource is the user's attention, not tokens.** It is rationed toward the plan, where a correction costs a sentence, and away from the diff, where the same correction costs a review cycle. The automated gate is a filter that runs *before* the user's read — which is why its mandate excludes design and abstraction opinions. Those are what the user's read is preserved for.
+
+The structural consequence, and the invariant to preserve: **negotiable configuration is Markdown; guarantees are compiled.** Hooks, templates, and project context are user-editable Markdown. Termination bounds (`MAX_REVIEW_ROUNDS`), severity/confidence floors, fail-safe defaults, and the reviewer/implementer harness separation live in TypeScript and cannot be loosened by editing a hook. When adding enforcement, decide which side of that line it belongs on and put it there — a bound that a user can raise from a hook is not a bound.
+
+Corollary for "speed": the target metric is **time-to-merge, not time-to-first-draft**. Do not introduce changes that trade merge-readiness for faster generation, and do not describe the project as trading speed for quality — on the time-to-merge clock they are the same number.
+
 ---
 
 ## Strikethroo Plan and Task Management System

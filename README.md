@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <strong>Spec-driven development that fits each codebase like a glove.</strong><br>
-  Plain-Markdown hooks teach the agent your conventions, so every plan, task, and run inherits them. No API keys, no extra tools to run.
+  <strong>Spec-driven development optimized for time-to-merge, not time-to-first-draft.</strong><br>
+  You review the plan, where a correction costs a sentence &mdash; not the diff, where it costs a review cycle.
 </p>
 
 <p align="center">
@@ -15,6 +15,7 @@
 </p>
 
 <p align="center">
+  <a href="https://strikethroo.canpicasoft.com/why.html">Why Strikethroo</a> &nbsp;·&nbsp;
   <a href="https://strikethroo.canpicasoft.com/workflow.html">Workflow</a> &nbsp;·&nbsp;
   <a href="https://strikethroo.canpicasoft.com/customization.html">Customization</a> &nbsp;·&nbsp;
   <a href="https://strikethroo.canpicasoft.com/visualizations.html">Visualizations</a> &nbsp;·&nbsp;
@@ -23,49 +24,56 @@
 
 ## Why Strikethroo?
 
+Most spec-driven tools optimize the input: better spec in, better code out, human catches the rest at the end. Strikethroo assumes the agent is an unreliable narrator of its own work -- including a second agent asked to review the first -- and that the scarce resource is your attention, not tokens.
+
 <table>
 <tr>
+<td width="50%" valign="top">
+
+<img src="docs/assets/icons/focus.svg" width="28" height="28" alt="" />
+
+### You review the plan, not the diff
+
+Correcting a plan costs a sentence. Correcting the same misunderstanding in a diff costs a review cycle, a rework cycle, and a re-review. An explicit approval gate puts your careful read where it is worth the most, and one question is asked at a time so it never gets skim-answered.
+
+</td>
+<td width="50%" valign="top">
+
+<img src="docs/assets/icons/shield-check.svg" width="28" height="28" alt="" />
+
+### Guarantees are compiled, not requested
+
+A rule in Markdown is a request; a rule in TypeScript is a guarantee. Hooks and templates are yours to edit. Termination bounds, safety floors, and fail-safe defaults are compiled -- `MAX_REVIEW_ROUNDS` can be tightened by config and raised by nothing.
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+<img src="docs/assets/icons/git-fork.svg" width="28" height="28" alt="" />
+
+### Nobody marks their own homework
+
+The optional review gate runs on a *different* harness than the one that wrote the code -- the current harness is structurally excluded from the candidate set, not merely deprioritized. The reviewer detects and never fixes; remediation is dispatched separately.
+
+</td>
 <td width="50%" valign="top">
 
 <img src="docs/assets/icons/sliders-horizontal.svg" width="28" height="28" alt="" />
 
 ### Bends to your conventions
 
-Plain-Markdown hooks fire at nine points across the workflow; inject your test commands, standards, and domain rules so every plan, task, and run inherits them. No plugins, no code.
+Plain-Markdown hooks fire at eleven points across the workflow; inject your test commands, standards, and domain rules so every plan, task, and run inherits them. No plugins, no code.
 
 </td>
-<td width="50%" valign="top">
-
-<img src="docs/assets/icons/focus.svg" width="28" height="28" alt="" />
-
-### Clean context per agent
-
-Every step runs with a fresh, focused context: the planner sees only your work order, the task generator only the approved plan, each execution sub-agent only its single task. No context bleed, no drift.
-
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
-
-<img src="docs/assets/icons/scissors.svg" width="28" height="28" alt="" />
-
-### No API keys
-
-Runs inside the assistant you already use -- Claude Code, Codex, Cursor, OpenCode, or Copilot -- on the subscription you already pay for. Nothing to provision, host, or rotate.
-
-</td>
-<td>
-
-<img src="docs/assets/icons/puzzle.svg" width="28" height="28" alt="" />
-
-### Harness-agnostic skills
-
-The workflow ships as Agent Skills: one `SKILL.md` works on any harness supporting the format. Install once; the right skill auto-loads when you describe what you need.
-
-</td>
-<td width="50%" valign="top"></td>
 </tr>
 </table>
+
+**Speed, measured honestly.** The industry clock starts at the prompt and stops when code appears. The clock that pays your salary stops when the code is **merged** -- and on that clock, generation is a rounding error next to the review rounds a fast-but-wrong draft costs you. Strikethroo is built against the second clock. That is not quality traded for speed; on that clock they are the same number.
+
+Read the full thesis, with the file-by-file claims to verify it yourself: **[Why Strikethroo](https://strikethroo.canpicasoft.com/why.html)**.
+
+<sub>Also true, and less interesting: no API keys (runs on the subscription you already pay for), harness-agnostic Agent Skills (one `SKILL.md` on any harness supporting the format), and clean per-agent context at every step.</sub>
 
 ## Adapts to every codebase
 
@@ -75,7 +83,7 @@ Every codebase has its own conventions, and Strikethroo bends to them instead of
 
 ### <img src="docs/assets/icons/waypoints.svg" width="28" height="28" alt="" /> Hooks
 
-Fire at nine points across the workflow (before planning, after each phase, on errors, and more). Drop in your test commands, coding standards, and domain rules; every plan, task, and execution run inherits them.
+Fire at eleven points across the workflow (before planning, after each phase, on errors, and more). Drop in your test commands, coding standards, and domain rules; every plan, task, and execution run inherits them.
 
 ### <img src="docs/assets/icons/file-text.svg" width="28" height="28" alt="" /> Templates
 
@@ -150,6 +158,7 @@ After blueprint execution, an optional automated code review gate runs when a se
 
 ## Documentation
 
+- [Why Strikethroo](https://strikethroo.canpicasoft.com/why.html) -- The design thesis, the trade-offs stated plainly, and how to verify the claims
 - [Workflow Guide](https://strikethroo.canpicasoft.com/workflow.html) -- Step-by-step workflow with visual guides
 - [Customization Guide](https://strikethroo.canpicasoft.com/customization.html) -- Hooks, templates, project context, and code review configuration
 - [Reference](https://strikethroo.canpicasoft.com/reference.html) -- Glossary and CLI reference

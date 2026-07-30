@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Workflow Guide
-nav_order: 2
+nav_order: 3
 description: "Step-by-step workflow with commands and visual guides"
 ---
 
@@ -32,6 +32,8 @@ flowchart LR
 ```
 
 Human gates wrap the first three steps: you **review** the plan, **verify** the blueprint, and **review** the executed result -- looping back to edit whenever something is off. The plan and the result get a careful read; the blueprint just gets a quick validation pass before execution. An optional automated review gate runs after execution: a discovered second harness critiques the cumulative diff and drives remediation for high-confidence findings.
+
+That distribution of effort is deliberate, not incidental. Attention is **rationed toward the point where a correction is cheapest** -- a misunderstanding costs one sentence to fix in the plan and a full review cycle to fix in the diff. The automated gate is a filter that runs *before* your read of the result, so that read lands on "this doesn't do what I asked" rather than "you forgot the null check." See [Why Strikethroo](why.html) for the reasoning in full.
 
 {% include callout.html variant="warning" content="The review gates are where you catch scope creep and wrong turns. Do not skip them." %}
 

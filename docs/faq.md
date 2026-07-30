@@ -1,7 +1,7 @@
 ---
 layout: default
 title: FAQ
-nav_order: 5
+nav_order: 6
 description: "Frequently asked questions about Strikethroo"
 ---
 
@@ -19,7 +19,7 @@ description: "Frequently asked questions about Strikethroo"
 <p>The four steps, automation, and plan mode.</p>
 </a>
 <a class="st-card" href="#code-review">
-<span class="st-card__icon st-card__icon--check-circle" aria-hidden="true"></span>
+<span class="st-card__icon st-card__icon--shield-check" aria-hidden="true"></span>
 <p class="st-card__title">Code Review</p>
 <p>Optional automated review gate, disabling, and limitations.</p>
 </a>
@@ -139,6 +139,24 @@ The `POST_ERROR_DETECTION` hook fires, enabling custom remediation logic. The ta
 Tasks within the same phase have no mutual dependencies and execute concurrently via sub-agents. Phases themselves run in sequence, so a phase starts only after all tasks in the previous phase have completed.
 
 ## Comparison with Other Tools
+
+**How does Strikethroo differ from other spec-driven development frameworks?**
+
+Most spec-driven frameworks optimize the input: write a better specification, get better code, and rely on a human at the end to catch what went wrong. They differ from each other mainly in artifact shape and ceremony. Strikethroo differs on three premises instead:
+
+1. **The agent is an unreliable narrator of its own work.** A subagent reporting success is making a claim, not supplying evidence. A shared verification gate requires identifying the proving command, running it fresh, and reading its exit code before any completion claim. Each skill also ships an anti-rationalization table enumerating the specific excuses a model produces when it is about to skip a discipline.
+2. **A second agent reviewing the first is also unreliable.** So the review gate grades severity and confidence on independent axes with independent floors, treats a missing attribute as below every floor, and explicitly names "manufacturing a finding to justify the round" as the failure it is built to resist.
+3. **The scarce resource is your attention, not tokens.** Your careful read is spent on the plan (where a correction costs a sentence) and on the result, not on the diff (where the same correction costs a review cycle).
+
+The structural consequence is that Strikethroo separates *negotiable* configuration from *compiled* guarantees. Hooks and templates are plain Markdown you own. Termination bounds, safety floors, fail-safe defaults, and the reviewer/implementer separation are compiled into the runtime and cannot be loosened by editing a hook. See [Why Strikethroo](why.html) for the full thesis and the list of claims you can verify in the source.
+
+**Is Strikethroo slower because of all the gates?**
+
+Not on the clock that matters. Measured from prompt to first draft, a tool with no gates is faster. Measured from picking up the work to merging it, the cost sits in the review rounds a fast-but-wrong draft generates -- the dropped requirement found in review, the fix that breaks something adjacent, the re-read of a diff you have already read twice. Strikethroo is designed against that second clock, and it runs tasks in parallel within each phase rather than serially.
+
+**Does the automated review gate replace human code review?**
+
+No. It is a filter that runs *before* you look, not a substitute for looking. Its mandate is deliberately narrow -- requirement conformance and demonstrable defects only -- and it is explicitly forbidden from raising design or abstraction opinions, because design judgment is what your read is being preserved for. A green gate is not a correctness guarantee; it reduces exposure to the same class of error a human PR approval reduces, and leaves the same class behind.
 
 **How does Strikethroo differ from API-based tools like Plandex or Claude Task Master?**
 

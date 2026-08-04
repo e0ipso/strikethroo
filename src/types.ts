@@ -35,6 +35,11 @@ export interface InitOptions {
    * Force overwrite all files without prompting
    */
   force?: boolean;
+  /**
+   * Optional strikethroo profile to import: local folder path,
+   * <user>/<repo> GitHub shorthand, or full git URL
+   */
+  profile?: string;
 }
 
 /**
@@ -263,6 +268,24 @@ export interface InitMetadata {
    * Map of relative file paths to SHA-256 hashes
    */
   files: Record<string, string>;
+  /**
+   * Provenance of the strikethroo profile imported at init time.
+   * Absent when no profile was used; display/forensics-only.
+   */
+  profile?: {
+    /**
+     * Profile name from its manifest
+     */
+    name: string;
+    /**
+     * Resolved source: clone URL or absolute local package path
+     */
+    source: string;
+    /**
+     * ISO timestamp of the import
+     */
+    importedAt: string;
+  };
 }
 
 /**

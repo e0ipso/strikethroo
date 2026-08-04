@@ -29,6 +29,10 @@ program
     'Directory to create project structure in (default: current directory)'
   )
   .option('--force', 'Force overwrite all files without prompting')
+  .option(
+    '--profile <value>',
+    'Strikethroo profile to import: local folder, <user>/<repo> GitHub shorthand, or full git URL'
+  )
   .action(async (options: InitOptions) => {
     try {
       // Execute the init command

@@ -20,6 +20,7 @@ import {
 import { detectConflicts } from './conflict-detector';
 import { promptForConflicts } from './prompts';
 import { HarnessRegistry } from './harnesses';
+import { prepareProfileImport, PreparedProfileImport, ProfileManifest } from './profiles';
 
 // Visual formatting constants
 const TERM_WIDTH = 80;
@@ -95,6 +96,7 @@ async function exists(filepath: string): Promise<boolean> {
  * @returns CommandResult indicating success or failure with details
  */
 export async function init(options: InitOptions): Promise<CommandResult> {
+  let preparedProfile: PreparedProfileImport | undefined;
   try {
     // Determine base directory
     const baseDir = options.destinationDirectory || '.';
@@ -104,6 +106,13 @@ export async function init(options: InitOptions): Promise<CommandResult> {
     const harnesses = parseHarnesses(options.harnesses);
     validateHarnesses(harnesses);
 
+    // Prepare the strikethroo profile import (resolve/clone/validate/stage)
+    // BEFORE any destination mutation, so a failed import leaves the
+    // destination untouched.
+    if (options.profile) {
+      preparedProfile = await prepareProfileImport(options.profile, getTemplatePath('strikethroo'));
+    }
+
     // ========== HEADER SECTION ==========
     console.log(chalk.bold.white('\nStrikethroo Initialization'));
     console.log(chalk.gray(DIVIDER));
@@ -112,6 +121,11 @@ export async function init(options: InitOptions): Promise<CommandResult> {
     console.log(formatSectionHeader('Configuration'));
     console.log(`  ${chalk.cyan('●')} Target Directory: ${resolvedBaseDir}`);
     console.log(`  ${chalk.cyan('●')} Harnesses: ${harnesses.join(', ')}`);
+
+    // ========== STRIKETHROO PROFILE SECTION (only when importing one) ==========
+    if (preparedProfile) {
+      displayProfileSection(preparedProfile.manifest, preparedProfile.source);
+    }
 
     // ========== SETUP PROGRESS SECTION ==========
     console.log(formatSectionHeader('Setup Progress'));
@@ -124,7 +138,16 @@ export async function init(options: InitOptions): Promise<CommandResult> {
 
     // Copy common templates to .ai/strikethroo with conflict detection
     console.log(`  ${chalk.green('✓')} Copying common template files`);
-    await copyCommonTemplates(baseDir, options.force || false);
+    await copyCommonTemplates(baseDir, options.force || false, preparedProfile?.stagingDir);
+
+    // Record strikethroo profile provenance in the freshly written metadata
+    if (preparedProfile) {
+      await recordProfileProvenance(
+        resolvePath(baseDir, '.ai/strikethroo/.init-metadata.json'),
+        preparedProfile.manifest.name,
+        preparedProfile.source
+      );
+    }
 
     // Create harness-specific directories and copy templates via the registry
     const allCreatedAgentFiles: Map<string, string[]> = new Map();
@@ -187,14 +210,77 @@ export async function init(options: InitOptions): Promise<CommandResult> {
       message: errorMessage,
       error: error instanceof Error ? error : new Error(String(error)),
     };
+  } finally {
+    // Remove the profile staging temp dirs once the copy machinery is done,
+    // on success and failure alike (cleanup is idempotent).
+    if (preparedProfile) {
+      await preparedProfile.cleanup();
+    }
   }
 }
 
 /**
- * Copy common template files to .ai/strikethroo directory with conflict detection
+ * Print the strikethroo profile section: identity, hard prerequisites
+ * (emphasized — never probed or installed), and soft pairings
  */
-async function copyCommonTemplates(baseDir: string, force: boolean): Promise<void> {
-  const sourceDir = getTemplatePath('strikethroo');
+function displayProfileSection(manifest: ProfileManifest, source: string): void {
+  console.log(formatSectionHeader('Strikethroo Profile'));
+  console.log(`  ${chalk.cyan('●')} Name: ${manifest.name}`);
+  console.log(`  ${chalk.cyan('●')} Description: ${manifest.description}`);
+  console.log(`  ${chalk.cyan('●')} Source: ${source}`);
+
+  if (manifest.requires && manifest.requires.length > 0) {
+    console.log(chalk.yellow.bold('\n  This strikethroo profile assumes you have:'));
+    for (const requirement of manifest.requires) {
+      const hint = requirement.install ? chalk.gray(` — install: ${requirement.install}`) : '';
+      console.log(
+        `    ${chalk.yellow('▲')} ${chalk.bold(`${requirement.name} (${requirement.kind})`)}${hint}`
+      );
+    }
+  }
+
+  if (manifest.recommends && manifest.recommends.length > 0) {
+    console.log(chalk.gray('\n  This strikethroo profile pairs well with:'));
+    for (const recommendation of manifest.recommends) {
+      const hint = recommendation.install ? ` — install: ${recommendation.install}` : '';
+      console.log(chalk.gray(`    ● ${recommendation.name} (${recommendation.kind})${hint}`));
+    }
+  }
+}
+
+/**
+ * Record strikethroo profile provenance in the just-written metadata file.
+ *
+ * Small wrapper around load/save so `createMetadata` and the no-profile
+ * metadata shape stay untouched: the `profile` field exists only when a
+ * profile was imported.
+ */
+async function recordProfileProvenance(
+  metadataPath: string,
+  name: string,
+  source: string
+): Promise<void> {
+  const metadata = await loadMetadata(metadataPath);
+  if (!metadata) {
+    throw new Error(
+      `Cannot record strikethroo profile provenance: metadata file missing or invalid at ${metadataPath}`
+    );
+  }
+  metadata.profile = { name, source, importedAt: new Date().toISOString() };
+  await saveMetadata(metadataPath, metadata);
+}
+
+/**
+ * Copy common template files to .ai/strikethroo directory with conflict detection
+ *
+ * @param sourceDir - Source template tree; defaults to the shipped
+ *   `templates/strikethroo/` path, overridden by a profile staging tree
+ */
+async function copyCommonTemplates(
+  baseDir: string,
+  force: boolean,
+  sourceDir: string = getTemplatePath('strikethroo')
+): Promise<void> {
   const destDir = resolvePath(baseDir, '.ai/strikethroo');
   const metadataPath = resolvePath(destDir, '.init-metadata.json');
 

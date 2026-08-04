@@ -1,17 +1,27 @@
 /**
- * Profile Package Contract
+ * Profile Package Contract and Import Preparation
  *
  * Defines the manifest schema (`profile.yaml`) and on-disk surface every
  * profile package — local folder or cloned repository — must satisfy, and
- * validates a package against that contract before any workspace mutation.
+ * owns the import steps that run before any workspace mutation: source
+ * resolution (local folder / GitHub shorthand / git URL), shallow-clone
+ * materialization of remote profiles, contract validation, and staging of
+ * the effective template tree (shipped defaults + profile overlay).
  *
  * Validation is side-effect-free: it only reads the package directory.
+ * Materialization and staging write only to temp directories under the OS
+ * temp root, and every temp directory is removed on every exit path.
  */
 
+import { execFile } from 'child_process';
 import * as fs from 'fs-extra';
+import * as os from 'os';
 import * as path from 'path';
+import { promisify } from 'util';
 import * as yaml from 'js-yaml';
 import { ProfileError } from './types';
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Manifest schema version this CLI build understands.
@@ -112,6 +122,261 @@ export async function validateProfilePackage(profileDir: string): Promise<Profil
   const manifest = await readManifest(profileDir);
   await validateConfigSurface(profileDir);
   return manifest;
+}
+
+/**
+ * GitHub `<user>/<repo-name>` shorthand, tested only after the existing-path
+ * check fails
+ */
+const GITHUB_SHORTHAND_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\/[A-Za-z0-9._-]+$/;
+
+/**
+ * Prefix for every temp directory this module creates under the OS temp root
+ */
+const PROFILE_TEMP_PREFIX = 'strikethroo-profile-';
+
+/**
+ * A `--profile` value resolved to its concrete source
+ */
+export interface ResolvedProfileSource {
+  /**
+   * Whether the profile is read in place ('local') or cloned via git ('git')
+   */
+  kind: 'local' | 'git';
+  /**
+   * Absolute local package path ('local') or git clone URL ('git')
+   */
+  location: string;
+}
+
+/**
+ * Result of preparing a profile import, ready for the init copy machinery
+ */
+export interface PreparedProfileImport {
+  /**
+   * Temp directory mirroring `templates/strikethroo/` with the profile's
+   * `config/` files overlaid — the effective source tree for init
+   */
+  stagingDir: string;
+  /**
+   * The profile's validated manifest
+   */
+  manifest: ProfileManifest;
+  /**
+   * Resolved provenance: the clone URL or the absolute local package path
+   */
+  source: string;
+  /**
+   * Removes every temp directory this import created; safe to call more
+   * than once and tolerant of already-removed paths
+   */
+  cleanup: () => Promise<void>;
+}
+
+/**
+ * Resolve a `--profile` value to its source.
+ *
+ * Resolution order is contractual: (a) the value names an existing directory
+ * on disk → local package folder; (b) the value matches the GitHub
+ * `<user>/<repo-name>` shorthand → expanded to the canonical GitHub clone
+ * URL; (c) otherwise → treated verbatim as a git URL (covers GitLab, ssh
+ * URLs, and any git host). The existing-path check runs first, so a relative
+ * local path that happens to look like `user/repo` resolves as the folder.
+ *
+ * @param value - The raw `--profile` argument
+ * @returns The resolved source kind and location
+ * @throws ProfileError when the value names an existing non-directory path
+ */
+export async function resolveProfileSource(value: string): Promise<ResolvedProfileSource> {
+  const localPath = path.resolve(value);
+
+  if (await fs.pathExists(localPath)) {
+    const stat = await fs.stat(localPath);
+    if (!stat.isDirectory()) {
+      throw new ProfileError(
+        `Profile path exists but is not a directory: ${localPath}. ` +
+          `A profile source must be a package folder, a <user>/<repo> GitHub shorthand, ` +
+          `or a git URL.`
+      );
+    }
+    // Bare-repo heuristic (minimal by design): an existing directory that
+    // carries no profile.yaml but does look like a git repository (a HEAD
+    // file or a .git entry) cannot be a usable local package, while git
+    // happily clones a local repo path as a URL. Treat it as a clone URL so
+    // `--profile /path/to/profile.git` (bare) materializes via clone instead
+    // of failing validation on the raw repository directory.
+    if (await isGitRepoWithoutManifest(localPath)) {
+      return { kind: 'git', location: localPath };
+    }
+    return { kind: 'local', location: localPath };
+  }
+
+  if (GITHUB_SHORTHAND_PATTERN.test(value)) {
+    return { kind: 'git', location: `https://github.com/${value}.git` };
+  }
+
+  return { kind: 'git', location: value };
+}
+
+/**
+ * Resolve, materialize, validate, and stage a profile for import.
+ *
+ * Steps, in order: resolve the source; shallow-clone remote profiles into a
+ * temp directory (local folders are read in place); validate the package
+ * against the contract BEFORE any staging, so an invalid profile never
+ * produces a staging tree; copy the shipped template tree into a temp
+ * staging directory and overlay the profile's `config/` files.
+ *
+ * Every temp directory is removed on every failure path before the error is
+ * rethrown. On success the caller receives `cleanup` and must invoke it once
+ * the copy machinery has consumed `stagingDir`.
+ *
+ * @param profileValue - The raw `--profile` argument
+ * @param shippedTemplateDir - Path to the shipped `templates/strikethroo/` tree
+ * @returns The staging directory, validated manifest, resolved source, and cleanup
+ * @throws ProfileError on resolution, clone, validation, or staging failure
+ */
+export async function prepareProfileImport(
+  profileValue: string,
+  shippedTemplateDir: string
+): Promise<PreparedProfileImport> {
+  const tempDirs: string[] = [];
+  const cleanup = async (): Promise<void> => {
+    // fs.remove is a no-op for already-gone paths, so cleanup is idempotent.
+    await Promise.all(tempDirs.map(dir => fs.remove(dir)));
+  };
+
+  try {
+    const source = await resolveProfileSource(profileValue);
+    const profileDir =
+      source.kind === 'local'
+        ? source.location
+        : await cloneRemoteProfile(source.location, tempDirs);
+
+    const manifest = await validateProfilePackage(profileDir);
+    const stagingDir = await stageEffectiveTemplates(shippedTemplateDir, profileDir, tempDirs);
+
+    return { stagingDir, manifest, source: source.location, cleanup };
+  } catch (error) {
+    await cleanup();
+    throw error;
+  }
+}
+
+/**
+ * Shallow-clone a remote profile into a fresh temp directory.
+ *
+ * The temp directory is registered in `tempDirs` before the clone starts so
+ * the caller's cleanup covers a half-written clone.
+ *
+ * @param url - Git clone URL (or local repo path git accepts as one)
+ * @param tempDirs - Accumulator of temp directories to clean up
+ * @returns Path to the cloned package root
+ * @throws ProfileError when git is missing from PATH or the clone fails
+ */
+async function cloneRemoteProfile(url: string, tempDirs: string[]): Promise<string> {
+  const cloneDir = await makeTempDir();
+  tempDirs.push(cloneDir);
+
+  try {
+    // git clones into an existing empty directory without complaint.
+    await execFileAsync('git', ['clone', '--depth', '1', url, cloneDir]);
+  } catch (error) {
+    if (isEnoentError(error)) {
+      throw new ProfileError(
+        `Cannot clone profile from ${url}: 'git' was not found on PATH. ` +
+          `Install git to import remote profiles, or import the profile from a ` +
+          `local folder — local-folder imports need no git.`,
+        error
+      );
+    }
+    throw new ProfileError(
+      `Failed to clone profile from ${url}: ${formatCause(error)}. ` +
+        `Check that the URL is correct and reachable; local-folder imports need no git.`,
+      error
+    );
+  }
+
+  return cloneDir;
+}
+
+/**
+ * Build the effective template tree: shipped defaults + profile overlay.
+ *
+ * Copies the shipped `templates/strikethroo/` tree into a fresh temp staging
+ * directory, then copies the profile's `config/` files over it. The staging
+ * directory mirrors the shipped tree exactly, so downstream copy machinery
+ * needs only a source-path parameter.
+ *
+ * @param shippedTemplateDir - Path to the shipped template tree
+ * @param profileDir - Path to the validated package root
+ * @param tempDirs - Accumulator of temp directories to clean up
+ * @returns Path to the staging directory
+ * @throws ProfileError when either copy fails
+ */
+async function stageEffectiveTemplates(
+  shippedTemplateDir: string,
+  profileDir: string,
+  tempDirs: string[]
+): Promise<string> {
+  const stagingDir = await makeTempDir();
+  tempDirs.push(stagingDir);
+
+  try {
+    await fs.copy(shippedTemplateDir, stagingDir);
+    await fs.copy(path.join(profileDir, 'config'), path.join(stagingDir, 'config'), {
+      overwrite: true,
+    });
+  } catch (error) {
+    throw new ProfileError(
+      `Failed to stage the effective template tree for the profile: ${formatCause(error)}`,
+      error
+    );
+  }
+
+  return stagingDir;
+}
+
+/**
+ * Create a temp directory under the OS temp root with this module's prefix
+ * @returns Absolute path to the new directory
+ * @throws ProfileError when the directory cannot be created
+ */
+async function makeTempDir(): Promise<string> {
+  try {
+    return await fs.mkdtemp(path.join(os.tmpdir(), PROFILE_TEMP_PREFIX));
+  } catch (error) {
+    throw new ProfileError(
+      `Failed to create a temporary directory under ${os.tmpdir()}: ${formatCause(error)}`,
+      error
+    );
+  }
+}
+
+/**
+ * Detect a directory that is a git repository but not a profile package
+ * @param dirPath - Absolute path to the existing directory
+ * @returns True when profile.yaml is absent and a HEAD file or .git entry exists
+ */
+async function isGitRepoWithoutManifest(dirPath: string): Promise<boolean> {
+  if (await fs.pathExists(path.join(dirPath, 'profile.yaml'))) {
+    return false;
+  }
+  return (
+    (await fs.pathExists(path.join(dirPath, 'HEAD'))) ||
+    (await fs.pathExists(path.join(dirPath, '.git')))
+  );
+}
+
+/**
+ * Type guard for an ENOENT spawn failure (binary missing from PATH)
+ * @param error - Caught value
+ * @returns True when the error carries code 'ENOENT'
+ */
+function isEnoentError(error: unknown): boolean {
+  return (
+    typeof error === 'object' && error !== null && (error as { code?: string }).code === 'ENOENT'
+  );
 }
 
 /**

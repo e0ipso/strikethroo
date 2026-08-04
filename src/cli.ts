@@ -11,6 +11,7 @@ import { init } from './index';
 import { InitOptions } from './types';
 import { resolveWorkspaceRoot, isResolveError } from './serve/root';
 import { startServer, defaultAssetsDir } from './serve/server';
+import { exportProfile } from './export-profile';
 
 const program = new Command();
 
@@ -39,6 +40,27 @@ program
       } else {
         process.exit(1);
       }
+    } catch (error) {
+      console.error(`Unexpected error: ${error instanceof Error ? error.message : String(error)}`);
+      process.exit(1);
+    }
+  });
+
+const exportCommand = program
+  .command('export')
+  .description('Export workspace artifacts for reuse elsewhere');
+
+exportCommand
+  .command('profile')
+  .description('Package the workspace configuration as a strikethroo profile')
+  .requiredOption(
+    '--destination-directory <dir>',
+    'Directory to write the strikethroo profile package into (must be missing or empty)'
+  )
+  .action(async (options: { destinationDirectory: string }) => {
+    try {
+      const result = await exportProfile({ destinationDirectory: options.destinationDirectory });
+      process.exit(result.success ? 0 : 1);
     } catch (error) {
       console.error(`Unexpected error: ${error instanceof Error ? error.message : String(error)}`);
       process.exit(1);

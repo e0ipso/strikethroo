@@ -17,7 +17,7 @@
  * rewriting content it would destroy.
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import { Button, Chip } from '../components/primitives';
 import { saveConfigFile, type ConfigFile } from '../data/api';
 import { cn } from '../vendor/utils/cn';
@@ -233,23 +233,31 @@ function ConfigForm({
   file,
   document,
   initial,
+  save,
+  setSave,
 }: {
   file: ConfigFile;
   document: Record<string, unknown>;
   initial: RoutingForm;
+  save: SaveState;
+  setSave: Dispatch<SetStateAction<SaveState>>;
 }) {
   const [routing, setRouting] = useState<RoutingForm>(initial);
-  const [save, setSave] = useState<SaveState>({ phase: 'idle' });
   const [baseline, setBaseline] = useState(initial);
 
   const dirty = JSON.stringify(routing) !== JSON.stringify(baseline);
   const errors = useMemo(() => validateRoutingForm(routing), [routing]);
   const saving = save.phase === 'saving';
 
-  const update = useCallback((next: RoutingForm) => {
-    setRouting(next);
-    setSave(prev => (prev.phase === 'idle' || prev.phase === 'saving' ? prev : { phase: 'idle' }));
-  }, []);
+  const update = useCallback(
+    (next: RoutingForm) => {
+      setRouting(next);
+      setSave(prev =>
+        prev.phase === 'idle' || prev.phase === 'saving' ? prev : { phase: 'idle' }
+      );
+    },
+    [setSave]
+  );
 
   const onSave = useCallback(async () => {
     if (errors.length > 0 || saving || !dirty) return;
@@ -261,7 +269,7 @@ function ConfigForm({
     } catch (err) {
       setSave({ phase: 'error', message: err instanceof Error ? err.message : String(err) });
     }
-  }, [errors.length, saving, dirty, file.id, document, routing]);
+  }, [errors.length, saving, dirty, file.id, document, routing, setSave]);
 
   return (
     <div data-testid="workspace-config-form" className="flex flex-col gap-5 p-7">
@@ -372,6 +380,12 @@ function ConfigForm({
 
 /** The Config tab body: resolves the file into the form or a designed state. */
 export function WorkspaceConfigTab({ workspace }: { workspace: ConfigFile | null }) {
+  // Save feedback lives here, above the content-keyed form: a successful save
+  // rewrites the file, the live revalidation changes `workspace.content`, and
+  // the form below re-mounts — re-seeding fields must not erase the "Saved."
+  // confirmation the user is looking at.
+  const [save, setSave] = useState<SaveState>({ phase: 'idle' });
+
   if (!workspace) {
     return (
       <div className="p-7 font-sans text-sm text-ink-3" role="alert">
@@ -404,6 +418,8 @@ export function WorkspaceConfigTab({ workspace }: { workspace: ConfigFile | null
       file={workspace}
       document={parsed.document}
       initial={parsed.routing}
+      save={save}
+      setSave={setSave}
     />
   );
 }

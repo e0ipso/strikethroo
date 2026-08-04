@@ -295,3 +295,23 @@ export interface FileConflict {
  * User's resolution choice for file conflicts
  */
 export type ConflictResolution = 'keep' | 'overwrite' | 'keep-all' | 'overwrite-all';
+
+/**
+ * Error raised when a profile package fails resolution, validation, or import.
+ *
+ * Thrown before any workspace mutation so a failed import never leaves a
+ * partially applied profile behind.
+ */
+export class ProfileError extends Error {
+  /**
+   * Underlying error that triggered this failure, when one exists
+   * (e.g. a YAML parse error or filesystem error being wrapped).
+   */
+  public readonly cause?: unknown;
+
+  constructor(message: string, cause?: unknown) {
+    super(message);
+    this.name = 'ProfileError';
+    this.cause = cause;
+  }
+}

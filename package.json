@@ -77,7 +77,8 @@
     "diff": "^5.2.0",
     "fs-extra": "^11.3.1",
     "gray-matter": "^4.0.3",
-    "inquirer": "^9.3.8"
+    "inquirer": "^9.3.8",
+    "js-yaml": "^5.2.1"
   },
   "devDependencies": {
     "@base-ui-components/react": "^1.0.0-beta.4",
@@ -116,7 +117,6 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
     "husky": "^9.1.7",
-    "js-yaml": "^5.2.1",
     "lint-staged": "^17.0.7",
     "lucide-react": "^0.460.0",
     "marked": "^15.0.12",

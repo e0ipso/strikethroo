@@ -1,1 +1,28 @@
-{"version":"0.0.0","workspaceSchemaVersion":1}
+{
+  "version": "0.0.0",
+  "workspaceSchemaVersion": 4,
+  "timestamp": "2026-08-05T22:05:07.351Z",
+  "files": {
+    "config/STRIKETHROO.md": "98331dd4834b916d0b603263ac8d8306a6591bfd5889ea83873b04c3b0437177",
+    "config/config.yaml": "98137854b0108ebae7f1a323cb427224724d3a8f336b619f242f263714e5ef30",
+    "config/hooks/CODE_REVIEW.md": "6b2bb13084a4cace99359ed6f1afbf9563222923f6e602af520ac700d941f489",
+    "config/hooks/POST_ERROR_DETECTION.md": "a8d17efccf8c88f539c22fa9d031d64ff106130280752896a67d4115471846c1",
+    "config/hooks/POST_EXECUTION.md": "5fa68acecf31546dfd4fa27d311ff48b1194f7207cc22639d302541ec3e6caf2",
+    "config/hooks/POST_PHASE.md": "bc93df1dd0c4569efbef262cb6391708272f554fcbcc874ece76787db2b2b2ff",
+    "config/hooks/POST_PLAN.md": "4aa55bab300db517f3a7712a1c6cdb6d4acf9098db6f128a64a1c0975627240e",
+    "config/hooks/POST_TASK_GENERATION_ALL.md": "dacf8bd3c5c53fbc6bc6bc1b3f48c951bfba0372de4405fe09322ef3b95b0659",
+    "config/hooks/PRE_PHASE.md": "18aa062a375a9446f9ba6ebb6e8bba3e5ccb96ce4eaa4abbb10f43b846de9032",
+    "config/hooks/PRE_PLAN.md": "821a4730ecf3a4fdaafcdca4e17c93f207db8bd68ee20210e5a2f3092b8beaab",
+    "config/hooks/PRE_TASK_ASSIGNMENT.md": "03f6c50926ccb7460c4849cff9297f35b569695ca634d31adb91ad96cf30a1c1",
+    "config/hooks/PRE_TASK_EXECUTION.md": "9641a1bdd70aea5a13ae53ecf01263a93a63727775dc86e26a54a52f34f1fca0",
+    "config/hooks/TASK_EXECUTION_ROUTING.md": "d4d335937a349bf22b3f623eccb4a899929f4c9f1956b0d7257da7f006e827a7",
+    "config/schemas/self-review-v2.xsd": "d4ea0def1fd0e45e3ab968e33149b4ed30a10f74a5d6aef8cc242e1305fa8fb8",
+    "config/shared/anti-rationalization.md": "0d2c1a5c5efc39acdf05fcd9578d64bf43cdf602693085e3cf33fe2e9f69edb5",
+    "config/shared/clarification-gate.md": "73f61cf5ea8b91c638dcb84a643af399c662014b1e05cd3b3a4a55aa7c773233",
+    "config/shared/verification-gate.md": "002c6c5265e9612e64521172d99c49c8968d78ac6df907cdb352cc2b5d794ffd",
+    "config/templates/BLUEPRINT_TEMPLATE.md": "22184bbf3fb78323526a1ca5f314c838cbcbf01341572cc280cf31db0884a40b",
+    "config/templates/EXECUTION_SUMMARY_TEMPLATE.md": "ffc5329f070b10088be0ad17c67b98468a6e850cbb9749755bbc6a275e78ab35",
+    "config/templates/PLAN_TEMPLATE.md": "714115b5c3c3d4f6ddc281cbc7ea3872f1e436654d4a2442ce64b051ceb83870",
+    "config/templates/TASK_TEMPLATE.md": "e671042b32ead3fb22d6b75a8fb88e6b432f3eb067512328aef3b920039e039e"
+  }
+}

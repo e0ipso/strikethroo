@@ -147,6 +147,14 @@ npx strikethroo serve
 
 This will open a web page that will help you navigate your plans and their tasks, present or archived.
 
+## Check the workspace
+
+```shell
+npx strikethroo validate
+```
+
+Reads your workspace and reports internal inconsistencies -- missing or malformed plan and task frontmatter, dependencies pointing at tasks that do not exist, dependency cycles, blueprint phases and task files that disagree, duplicate ids. It only reads: nothing is written or fixed for you. Every finding is an error, so the command exits non-zero as soon as it reports one, which makes it usable as a CI step. Add `--json` for a machine-readable report on stdout, or `--workspace <path>` to point it at a workspace other than the one discovered from the current directory.
+
 | Plans board                                                 | Plan detail page                                                                                                       | Archive                                                     |
 |-------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------|
 | [![img](docs/assets/plans-board.png)](docs/assets/plans-board.png) | [![img](docs/assets/plan-detail-graph.png)](docs/assets/plan-detail-graph.png) | [![img](docs/assets/archive-all.png)](docs/assets/archive-all.png) |

@@ -324,4 +324,60 @@ describe('CLI Integration', () => {
       expect(await fs.pathExists(path.join(testDir, '.claude/agents/plan-creator.md'))).toBe(true);
     });
   });
+
+  describe('validate', () => {
+    /**
+     * Writes `<testDir>/.ai/strikethroo/.init-metadata.json` verbatim so a
+     * workspace of a chosen health can be produced without running `init`.
+     */
+    const writeWorkspaceMetadata = async (metadata: unknown): Promise<void> => {
+      const strikethrooDir = path.join(testDir, '.ai', 'strikethroo');
+      await fs.ensureDir(strikethrooDir);
+      await fs.writeJson(path.join(strikethrooDir, '.init-metadata.json'), metadata);
+    };
+
+    it('exits 0 with a no-findings message on a healthy workspace', async () => {
+      await writeWorkspaceMetadata({ version: '0.1.0', workspaceSchemaVersion: 4, files: {} });
+
+      const result = executeCommand(`node "${cliPath}" validate --workspace "${testDir}"`);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('No findings');
+    });
+
+    it('exits 1 and names the failing check on an unhealthy workspace', async () => {
+      await writeWorkspaceMetadata({ version: '0.0.0', workspaceSchemaVersion: 1 });
+
+      const result = executeCommand(`node "${cliPath}" validate --workspace "${testDir}"`);
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toContain('metadata/schema-version-skew');
+      expect(result.stdout).toContain('metadata/files-map-absent');
+    });
+
+    // The CI job in issue #31 consumes this stream, so a banner or summary line
+    // printed alongside the JSON would break it. Parsing the whole of stdout is
+    // the assertion: it fails if anything decorative is emitted with it.
+    it('emits parseable JSON on stdout under --json in both health states', async () => {
+      await writeWorkspaceMetadata({ version: '0.1.0', workspaceSchemaVersion: 4, files: {} });
+      const healthy = executeCommand(`node "${cliPath}" validate --workspace "${testDir}" --json`);
+      expect(healthy.exitCode).toBe(0);
+      expect(JSON.parse(healthy.stdout)).toEqual({ findings: [] });
+
+      await writeWorkspaceMetadata({ version: '0.0.0', workspaceSchemaVersion: 1 });
+      const unhealthy = executeCommand(
+        `node "${cliPath}" validate --workspace "${testDir}" --json`
+      );
+      expect(unhealthy.exitCode).toBe(1);
+      const report = JSON.parse(unhealthy.stdout) as { findings: { check: string }[] };
+      expect(report.findings.map(f => f.check)).toContain('metadata/schema-version-skew');
+    });
+
+    it('exits 1 with the resolver message when the path is not a workspace', () => {
+      const result = executeCommand(`node "${cliPath}" validate --workspace "${testDir}"`);
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('not an initialized strikethroo workspace');
+    });
+  });
 });

@@ -23,6 +23,11 @@ summaries:
   git: >-
     Git workflow constraints — commit-message hooks, the pre-commit test gate,
     attribution rules, and gitignored workspace state
+  profiles: >-
+    strikethroo setup profiles — the importable package contract, its validation
+    surface, and the init-time overlay; not execution_routing.profiles; read
+    before authoring, importing, or exporting a profile, or before changing what
+    init accepts from one
   release: >-
     releasing and distribution — semantic-release, the npm-tarball vs
     GitHub-git-tree channels, and skill-artifact force-adding
@@ -64,6 +69,7 @@ summaries:
 - `devcontainer`: devcontainer environment and t3 agent sandbox setup — Docker networking, port configuration, and t3 desktop connection; read when configuring or troubleshooting the devcontainer
 - `docs`: documentation site configuration and docs-publishing conventions; read when changing docs/ or GitHub Pages settings
 - `git`: Git workflow constraints — commit-message hooks, the pre-commit test gate, attribution rules, and gitignored workspace state
+- `profiles`: strikethroo setup profiles — the importable package contract, its validation surface, and the init-time overlay; not execution_routing.profiles; read before authoring, importing, or exporting a profile, or before changing what init accepts from one
 - `release`: releasing and distribution — semantic-release, the npm-tarball vs GitHub-git-tree channels, and skill-artifact force-adding
 - `serve`: the read-only serve backend — HTTP/JSON API routes, the workspace data model and derivation, and the archive and self-review operations
 - `skills`: the harness-agnostic Agent Skills system — intent-based loading, the skill-scripts root utility, and cross-harness abstraction

@@ -5,10 +5,12 @@ Primary context source for AI-assisted work in this repository.
 ## Quick Start
 
 ```bash
-# Build, then run init or serve
+# Build, then run any of the four commands
 npm run build
 npm start init --harnesses claude --destination-directory /path/to/project   # --force to overwrite all
+node dist/cli.js export profile --destination-directory /path/to/package
 node dist/cli.js serve                                                       # or: npx strikethroo serve
+node dist/cli.js validate                                                    # --workspace <path>, --json
 
 # Development
 npm run dev           # Watch mode compilation
@@ -17,6 +19,8 @@ npm run lint:fix      # Auto-fix style
 ```
 
 `init` bootstraps the `.ai/strikethroo/` workspace (and copies Claude agents); it does **not** install skills. It uses SHA-256 hash tracking in `.ai/strikethroo/.init-metadata.json` to detect and protect user-modified files; `--force` bypasses the prompts for automation.
+
+The CLI registers four commands (`src/cli.ts`): `init`, the nested `export profile`, `serve`, and `validate`. Every action stays thin — it parses flags, delegates to a module, and owns only the reporting and the exit code.
 
 The workflow itself ships as **Agent Skills** (harness-agnostic — one `SKILL.md` works on any harness supporting the format). Install once with `npx skills add e0ipso/strikethroo` (append `@<tag>` to pin); the matching skill auto-loads on intent.
 
@@ -83,7 +87,9 @@ The seven shipping skills are the workflow skills listed above (`st-create-plan`
 
 ### TypeScript source of truth
 
-Runtime logic each skill needs is authored once in TypeScript under `src/skill-scripts/`, with shared helpers (frontmatter parsing, plan/archive scanning, root discovery) in `src/skill-scripts/shared/`. The subtree type-checks via `tsconfig.skill-scripts.json` and lints with `src/`, but its output is produced by the bundler — the main `tsconfig.json` excludes `src/skill-scripts/**` from emit so `dist/` stays the CLI's domain.
+Runtime logic each skill needs is authored once in TypeScript under `src/skill-scripts/`, with shared helpers (frontmatter parsing, plan/archive scanning, root discovery) in `src/skill-scripts/shared/`. The subtree type-checks via `tsconfig.skill-scripts.json` and lints with `src/`, and the artifacts the skills actually ship are the esbuild bundles, never `tsc` output.
+
+The main `tsconfig.json` lists `src/skill-scripts/**` under `exclude`, but read that precisely: `exclude` filters TypeScript's **root file set**, not the module graph. Anything the CLI domain imports is still compiled and emitted. `src/serve/` and `src/validation/` do import from `src/skill-scripts/shared/`, so `dist/skill-scripts/shared/` exists and holds exactly the transitive closure those imports reach — today `root`, `plan-scan`, `frontmatter`, and `complexity-score`, four of the subtree's nineteen files. Nothing else from `src/skill-scripts/` reaches `dist/`. Adding an import across that boundary widens the closure, so keep the crossings deliberate and few.
 
 ### Prompt source of truth
 
@@ -155,7 +161,7 @@ The `serve` command (registered thinly in `src/cli.ts`; flags `--port <n>` defau
 - `workspace-model.ts` — pure, synchronous, side-effect-free data layer scanning `.ai/strikethroo/` and returning the stable JSON model (plan summaries/details, derived lifecycle state, tasks, inferred phases, mermaid blocks, `config/` hooks and templates). Reads only; reuses `findStrikethrooRoot`/`getAllPlans` from `src/skill-scripts/shared/`.
 - `server.ts` — static SPA host (traversal protection, `index.html` fallback), the read-only JSON API, and platform-aware browser auto-open.
 - `events.ts` + `watcher.ts` — `GET /api/events` SSE change stream backed by a debounced recursive `fs.watch`.
-- `root.ts` — self-contained workspace resolver that deliberately does **not** import across the `src/skill-scripts/**` build boundary.
+- `root.ts` — self-contained workspace resolver, shared with `validate`, that deliberately does **not** import across the `src/skill-scripts/**` build boundary. `resolveWorkspaceRoot` returns the absolute path of the `.ai/strikethroo` directory itself, or a user-facing `{ error }` — never a throw for the not-found case. Given `--workspace <path>` it tries the value two ways, in order: first as a **project** directory, validating `<path>/.ai/strikethroo/.init-metadata.json`; then as an initialized **workspace** directory itself, validating `<path>/.init-metadata.json`. Project semantics come first so every path that already resolved keeps its meaning, and the direct form only rescues paths that would otherwise error — it is what lets a command be pointed at a bare workspace tree such as the committed fixtures `src/__tests__/fixtures/serve-workspace` and `src/capture/fixtures/capture-workspace`, which hold `config/`, `plans/`, and `.init-metadata.json` at their top level with no `.ai/` above them. Without the flag it walks upward from the cwd testing each ancestor for `.ai/strikethroo/.init-metadata.json`.
 
 ### Sanctioned writes (exactly two)
 
@@ -193,6 +199,26 @@ React + Vite + Tailwind v4 SPA built by `npm run build:web` (`vite.config.mts`) 
 ## Capture Harness (`src/capture/`)
 
 `src/capture/capture-web.ts` (run via `npm run capture:web`) produces the documentation visuals under `docs/assets/`. For repeatable output it serves the committed fixture workspace `src/capture/fixtures/capture-workspace/` through `serve`, drives the SPA with a real Chromium, and writes every asset. Override the workspace with `CAPTURE_WORKSPACE=<path>`. It is **not** part of `npm test` — a manual regeneration tool. To regenerate: `npm run build:web`, install Chromium (`npx playwright install --with-deps chromium`), then `npm run capture:web`.
+
+---
+
+## Workspace Validation (`src/validation/`)
+
+`npx strikethroo validate [--workspace <path>] [--json]` (registered thinly in `src/cli.ts`, resolving the root through `serve`'s `resolveWorkspaceRoot`) reads a workspace and reports every **proven** internal inconsistency. It is read-only. Default output is one line per finding — `check`, then the path when the finding carries one, then the message — followed by a count; `--json` replaces that entirely with `JSON.stringify(result, null, 2)` on stdout, so a CI job can parse the stream whole. Exit is `0` only on a clean run that produced no findings; a finding, an unresolvable workspace, and an unexpected error all exit `1`.
+
+**Purity contract.** `validateWorkspace(root)` in `workspace.ts` takes an *already-resolved* absolute path to the `.ai/strikethroo` directory and returns `{ findings }`. It performs no root discovery, writes nothing, prints nothing, and never calls `process.exit` — resolution, rendering, and the exit code belong to the CLI shell. That is what lets one implementation serve both the command and a CI job, and lets the core be exercised without spawning a process. `findStrikethrooRoot` from `src/skill-scripts/shared/root.ts` must never be used here: it terminates the process on a schema-version mismatch, which would kill the validator on precisely the workspace it is most useful against. Skew is reported as a finding instead.
+
+**No severity axis.** `Finding` (`types.ts`) is `{ check, message, path? }`. Every finding is an error, so the exit rule is `findings.length > 0` and nothing else; re-introducing a severity axis is a scope change, not an implementation detail. `check` is a stable short identifier (`metadata/file-deleted`, `graph/dependency-cycle`, `identity/duplicate-plan-id`, …) that tests and downstream tooling assert on — rename only together with its consumers. `workspace.ts` sorts findings by `check`, then `path` (absent first), then `message`, because directory enumeration order is filesystem-dependent and CI runs on Windows.
+
+**Scope: `plans/` only.** Content checks read `plans/`. An archived plan is immutable history, so a finding against one cannot be acted on and is noise by construction. `archive/` participates in exactly one check — `identity/duplicate-plan-id` — because continuous numbering across both trees is what stops a new plan from colliding with an archived one. `config/` templates are not swept either: the shipped task template carries literal placeholders (`status: "[STATUS]"`), so a workspace-wide Markdown pass would make a workspace report its own templates as broken.
+
+**Metadata gate reports deletions, never hash drift.** `metadata-gate.ts` derives findings from `<root>/.init-metadata.json`: an unreadable, unparsable, or non-object file; a `workspaceSchemaVersion` other than `CURRENT_WORKSPACE_SCHEMA_VERSION`; an absent `files` map (which short-circuits the scan, since without a map there is nothing to compare); and every path recorded in `files` that is gone from disk. A hash *mismatch* is deliberately not a finding — it is how the tool detects **user modification**, the first-class protected state the whole hash-tracking mechanism exists to preserve, so reporting it would fire on every customized or profiled workspace.
+
+**Check groups.** `strict-pass.ts` covers plan frontmatter (`id`, `summary`, `created`) and task frontmatter (`id`, `status` against its enum, `dependencies`, `skills`, and `complexity_score` when present, since it is required only on newly generated tasks), distinguishing an absent field from a present-but-malformed one. `graph-checks.ts` covers dangling dependency references, dependency cycles (DFS naming the participating ids, so the finding is actionable), blueprint/task consistency in both directions, disagreement between a task's frontmatter `id` and its filename prefix, task-id uniqueness within a plan, and plan-id uniqueness across `plans/` and `archive/`. `workspace.ts` only calls the groups and sorts — a new check goes inside its group's own file.
+
+**Two frontmatter readers, two tolerance contracts — do not merge them.** `strict-pass.ts` hand-rolls its own reader instead of reusing the viewer's in `src/serve/markdown.ts`. The viewer's is lenient on purpose so a malformed plan still renders: it runs `parseInt` and leaves the field `undefined` on failure, making `id: abc` and a file with no `id:` line at all produce byte-identical results. Recovering exactly that missing-versus-malformed distinction is the strict pass's reason to exist. Enumeration is hand-rolled for the same reason: the shared plan-scan helpers drop any plan whose `id` will not parse, and are therefore structurally incapable of reporting the plans most likely to be broken. Both readers are correct for their own consumer; neither is a deduplication candidate.
+
+**Import boundary.** Nothing under `src/skill-scripts/` may import `src/validation/` — the skill entrypoints are bundled whole by esbuild, so a single edge would land the validator in every skill `.cjs`. The dependency runs the other way and only that way: `src/validation/` reuses `validateComplexityScore` and `getAllPlans` from `src/skill-scripts/shared/`, and `extractBody`, `scanTasks`, and `parseBlueprintPhases` from `src/serve/`.
 
 ---
 
@@ -284,7 +310,8 @@ project/
 │   │   │                          #   copied by init with hash tracking)
 │   │   ├── shared/                # Cross-skill disciplines read at runtime: verification-gate.md,
 │   │   │                          #   clarification-gate.md, anti-rationalization.md
-│   │   └── templates/             # PLAN_TEMPLATE.md, TASK_TEMPLATE.md
+│   │   └── templates/             # PLAN_TEMPLATE.md, TASK_TEMPLATE.md, BLUEPRINT_TEMPLATE.md,
+│   │                              #   EXECUTION_SUMMARY_TEMPLATE.md
 │   ├── .gitignore                 # Covers plans/*/review/, archive/*/review/, and runtime/.
 │   │                              #   Shipped as templates/strikethroo/gitignore and renamed on
 │   │                              #   copy — npm drops or renames a literal .gitignore in transit,
@@ -307,11 +334,11 @@ Security/maintenance scripts: `npm run security:audit` (`-json`, `:fix`, `:fix-f
 
 ## Templates
 
-Base templates live at `templates/strikethroo/config/templates/{PLAN,TASK}_TEMPLATE.md`. When customizing: preserve the YAML frontmatter format and core metadata fields; use lowercase bash variables (`task_count`, `plan_id`) — `$ARGUMENTS` and `$1` are placeholder exceptions. Validate with `npm run build && node dist/cli.js init --harnesses claude --destination-directory /tmp/test`.
+Four base templates live at `templates/strikethroo/config/templates/`, and `init` copies all four into the workspace: `PLAN_TEMPLATE.md`, `TASK_TEMPLATE.md`, `BLUEPRINT_TEMPLATE.md`, and `EXECUTION_SUMMARY_TEMPLATE.md`. When customizing: preserve the YAML frontmatter format and core metadata fields; use lowercase bash variables (`task_count`, `plan_id`) — `$ARGUMENTS` and `$1` are placeholder exceptions. Validate with `npm run build && node dist/cli.js init --harnesses claude --destination-directory /tmp/test`.
 
-**Plan frontmatter:** `id`, `summary`, `created`. **Plan sections:** Original Work Order, Plan Clarifications, Executive Summary, Context and Background, Technical Implementation Approach, Risk Considerations, Success Criteria, Resource Requirements.
+**Plan frontmatter:** `id`, `summary`, `created`. **Plan sections**, in template order: Original Work Order, Plan Clarifications (present only when clarifications were necessary), Executive Summary, Context, Architectural Approach, Risk Considerations and Mitigation Strategies, Success Criteria, Self Validation, Documentation, Resource Requirements, Integration Strategy, Notes. The templates are user-editable and wholesale replaceable by a strikethroo profile, so this list describes the shipped default; nothing machine-readable asserts it.
 
-**Task frontmatter:** `id`, `group`, `dependencies`, `status`, `created`, `skills`, `complexity_score` (required on every newly generated task), and optionally `complexity_notes`. **Task sections:** Objective, Skills Required, Acceptance Criteria, Technical Requirements, Input Dependencies, Output Artifacts, Implementation Notes.
+**Task frontmatter:** `id`, `group`, `dependencies`, `status`, `created`, `skills`, `complexity_score` (required on every newly generated task), and optionally `complexity_notes` and `execution_profile`. The two optional fields reach a task from different places: `complexity_notes` is written by the task-generation skills when a score needs justifying, while `execution_profile` is written only by `route-task-execution.cjs` after it validates the whole task-to-profile mapping — never by hand. `TASK_TEMPLATE.md` carries `execution_profile` as a commented-out line for that reason, and does not mention `complexity_notes` at all. **Task sections:** Objective, Skills Required, Acceptance Criteria, Technical Requirements, Input Dependencies, Output Artifacts, Implementation Notes.
 
 ---
 

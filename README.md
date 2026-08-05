@@ -107,6 +107,10 @@ npx skills add e0ipso/strikethroo
 
 Requires Node.js 22+ and an assistant that supports the Agent Skills format.
 
+## Profiles: a tailored setup in one step
+
+A strikethroo profile packages a complete workspace configuration -- hooks, templates, project context -- so `init --profile <folder | user/repo | git URL>` starts from a setup tuned for your stack instead of the shipped defaults, and `export profile` packages yours to share. See [Strikethroo profiles](https://strikethroo.canpicasoft.com/customization.html#strikethroo-profiles) in the Customization Guide.
+
 ## In your coding assistant
 
 ```mermaid

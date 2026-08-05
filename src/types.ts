@@ -35,6 +35,11 @@ export interface InitOptions {
    * Force overwrite all files without prompting
    */
   force?: boolean;
+  /**
+   * Optional strikethroo profile to import: local folder path,
+   * <user>/<repo> GitHub shorthand, or full git URL
+   */
+  profile?: string;
 }
 
 /**
@@ -263,6 +268,24 @@ export interface InitMetadata {
    * Map of relative file paths to SHA-256 hashes
    */
   files: Record<string, string>;
+  /**
+   * Provenance of the strikethroo profile imported at init time.
+   * Absent when no profile was used; display/forensics-only.
+   */
+  profile?: {
+    /**
+     * Profile name from its manifest
+     */
+    name: string;
+    /**
+     * Resolved source: clone URL or absolute local package path
+     */
+    source: string;
+    /**
+     * ISO timestamp of the import
+     */
+    importedAt: string;
+  };
 }
 
 /**
@@ -295,3 +318,23 @@ export interface FileConflict {
  * User's resolution choice for file conflicts
  */
 export type ConflictResolution = 'keep' | 'overwrite' | 'keep-all' | 'overwrite-all';
+
+/**
+ * Error raised when a profile package fails resolution, validation, or import.
+ *
+ * Thrown before any workspace mutation so a failed import never leaves a
+ * partially applied profile behind.
+ */
+export class ProfileError extends Error {
+  /**
+   * Underlying error that triggered this failure, when one exists
+   * (e.g. a YAML parse error or filesystem error being wrapped).
+   */
+  public readonly cause?: unknown;
+
+  constructor(message: string, cause?: unknown) {
+    super(message);
+    this.name = 'ProfileError';
+    this.cause = cause;
+  }
+}

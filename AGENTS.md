@@ -113,6 +113,41 @@ After `POST_EXECUTION` reports green, an optional review loop runs before the ex
 
 ---
 
+## Strikethroo Profiles
+
+A **strikethroo profile** is a shareable setup package `init` can import via `--profile <value>`: a directory (local folder or git repository root) holding `profile.yaml` plus a sparse `config/` mirroring `.ai/strikethroo/config/`. Allowed `config/` contents: `hooks/*.md`, `templates/*.md`, `shared/*.md`, `config.yaml`, `STRIKETHROO.md` — flat `*.md` only inside the three subdirectories. The `schemas/` subtree is CLI-owned and forbidden surface, as are dotfiles and nested directories. Validation is all-or-nothing and runs before any workspace mutation; there is no partial import. Package-root entries other than `profile.yaml` and `config/` are deliberately tolerated and inert: a git-hosted profile inevitably carries `README.md`, `LICENSE`, `.git`, and the like, so validation scopes to the manifest plus `config/`, and staging copies only `config/` — root extras are never copied into the workspace, hash-tracked, or executed (integration-tested in `profiles.integration.test.ts`).
+
+**Manifest** (`profile.yaml`; `schema_version` must equal `PROFILE_MANIFEST_SCHEMA_VERSION` = `1` in `src/profiles.ts` — any other version is refused with a message naming both versions and the upgrade direction):
+
+| Field            | Required | Shape                                                     | Meaning                                             |
+| ---------------- | -------- | --------------------------------------------------------- | --------------------------------------------------- |
+| `schema_version` | yes      | integer, currently `1`                                    | Manifest format guard                               |
+| `name`           | yes      | kebab-case string                                         | Identity; echoed at import, recorded in provenance  |
+| `description`    | yes      | non-empty string                                          | One-line summary shown during init                  |
+| `purpose`        | no       | string                                                    | Long-form statement of what the profile is tuned for |
+| `tags`           | no       | list of strings                                           | Free-form discovery/labeling                        |
+| `requires`       | no       | list of `{kind, name, install?}`; `kind` ∈ `skill`, `tool` | Hard prerequisites the profile assumes              |
+| `recommends`     | no       | same entry shape as `requires`                            | Soft pairings                                       |
+| `author`         | no       | string                                                    | Attribution                                         |
+
+`requires` and `recommends` are strictly informational: printed in init's profile section ("this strikethroo profile assumes you have…" / "pairs well with"), never probed, executed, or installed.
+
+**Resolution order** (`resolveProfileSource`, contractual): (a) the value names an existing directory on disk → local package read in place — unless it carries no `profile.yaml` but looks like a git repository (a `HEAD` file or `.git` entry), in which case it is treated as a clone URL so a bare-repo path materializes via clone instead of failing validation on the raw repository directory; (b) the value matches the `<user>/<repo>` GitHub shorthand → expanded to `https://github.com/<user>/<repo>.git`; (c) otherwise → used verbatim as a git URL (GitLab, ssh, any git host). The existing-path check runs first, so a relative local path that happens to look like `user/repo` resolves as the folder. Remote profiles are shallow-cloned (`--depth 1`); `git` on PATH is required only for remote imports.
+
+**Overlay semantics.** Import stages an effective template tree in a temp directory: the shipped `templates/strikethroo/` tree copied whole, then the profile's `config/` files copied over it. That staging directory becomes the source for the unchanged `copyCommonTemplates` machinery, so conflict prompts, `--force`, and SHA-256 hash tracking treat profile-supplied files exactly like stock ones. Every temp directory is removed on every exit path, success or failure.
+
+**Fork-and-forget.** A profile is consumed once at import; nothing tracks the upstream afterward. Subsequent plain `init` runs use the shipped defaults again, and re-initializing with a different or no profile is the same conflict-mediated flow as any re-init. No update mechanism exists, by design.
+
+**Export.** `npx strikethroo export profile --destination-directory <dir>` (`src/export-profile.ts`) packages the current workspace: copies `config/` minus `schemas/` verbatim (full surface, not a diff against defaults), collects the manifest interactively (or via a programmatic `manifest` option), refuses a non-empty destination before any write, and validates the produced package against the same contract `init --profile` enforces — an export always round-trips.
+
+**Provenance.** When a profile was imported, `.init-metadata.json` carries an optional `profile` field — `{ name, source, importedAt }` (`InitMetadata` in `src/types.ts`), `source` being the clone URL or absolute local package path. Display/forensics-only: nothing reads it for behavior, and `CURRENT_WORKSPACE_SCHEMA_VERSION` stays at `4` — a profiled workspace has the same shape as a plain one.
+
+**Not `execution_routing.profiles`.** Strikethroo profiles are setup packages imported at `init`; `execution_routing.profiles` in `config/config.yaml` are task-routing execution profiles selected at dispatch time. Both exist, share nothing but the word, and must never blur — write "strikethroo profile" (or "setup profile") when meaning the former.
+
+**Source**: `src/profiles.ts` (contract, validation, resolution, clone, staging), `src/export-profile.ts` (export flow), `src/index.ts` (init integration, profile section output, provenance recording), `ProfileError` in `src/types.ts`.
+
+---
+
 ## Serve Feature (`src/serve/`)
 
 The `serve` command (registered thinly in `src/cli.ts`; flags `--port <n>` default `4317`, `--no-open`, `--workspace <path>`) hosts a read-only workspace viewer (SPA + JSON API + SSE). It uses Node built-ins only — no runtime frontend dependency — and compiles via the main `tsc` pipeline into `dist/`.

@@ -22,6 +22,7 @@ export default defineConfig({
       'src/__tests__/harness-availability.test.ts',
       'src/__tests__/harness-discovery.test.ts',
       'src/__tests__/harness-registry.test.ts',
+      'src/__tests__/profiles.integration.test.ts',
       'src/__tests__/review-findings.integration.test.ts',
       'src/__tests__/route-task-execution.integration.test.ts',
       'src/__tests__/self-review.test.ts',

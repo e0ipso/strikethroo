@@ -5,8 +5,10 @@
  * detected, installed, and updated. `init` iterates the registry instead of
  * branching over harnesses.
  *
- * Deliberately small: no profiles, no delivery-strategy abstraction, and no
- * per-tool config schema — just "one place to register a harness".
+ * Deliberately small: no delivery-strategy abstraction and no per-tool config
+ * schema — just "one place to register a harness". Strikethroo profiles
+ * (`src/profiles.ts`) operate on the workspace template tree and never touch
+ * this registry; it stays profile-agnostic.
  */
 
 import { Harness } from '../types';

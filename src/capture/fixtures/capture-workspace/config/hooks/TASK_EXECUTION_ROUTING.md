@@ -15,9 +15,9 @@ before the execution blueprint is generated.
 - Classify every generated task exactly once, using only configured profile
   names. Never guess or invent a model, harness, or profile name.
 - The task-to-profile mapping file is temporary. The selected profile name is
-  durable task metadata: the routing helper writes it to each task's
+  durable task metadata, persisted by the routing helper as exactly one
   `execution_profile` field. Concrete execution targets are selected later at
-  dispatch time.
+  task dispatch and are never persisted during generation.
 - Any routing failure aborts task generation before blueprint generation.
   Never continue with partially routed tasks.
 

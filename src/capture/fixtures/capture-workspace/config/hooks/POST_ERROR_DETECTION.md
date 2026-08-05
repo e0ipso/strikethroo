@@ -44,5 +44,3 @@ If validation gates fail:
 4. Re-execute affected tasks after fixes
 5. Re-run validation gates
 6. If errors persist, escalate to the user
-
-<!-- capture demo edit -->

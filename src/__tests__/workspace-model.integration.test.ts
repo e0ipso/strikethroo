@@ -14,7 +14,7 @@
  * CI). It carries the archived plan 38 (`38--fix-jekyll-link-baseurl`: two
  * completed tasks, a two-phase blueprint), the archived plan 83
  * (`83--workspace-data-layer`, whose body has an Architectural Approach mermaid
- * block), and the full set of 9 config hooks and 4 config templates. These
+ * block), and the full set of 11 config hooks and 4 config templates. These
  * tests assert that observable shape so they run identically on any checkout.
  */
 
@@ -54,9 +54,9 @@ describe('workspace-model against the committed fixture workspace', () => {
     expect(archived.length).toBeGreaterThan(0);
   });
 
-  it('enumerates 10 config hooks and 4 config templates with id, file, and content', () => {
+  it('enumerates 11 config hooks and 4 config templates with id, file, and content', () => {
     const config = getConfig(FIXTURE_ROOT);
-    expect(config.hooks).toHaveLength(10);
+    expect(config.hooks).toHaveLength(11);
     expect(config.templates).toHaveLength(4);
     expect(config.hooks.map(h => h.id)).toContain('TASK_EXECUTION_ROUTING');
     for (const entry of [...config.hooks, ...config.templates]) {

@@ -26,9 +26,13 @@
       "packages": "less,procps,fzf,man-db,unzip,gnupg2,gawk,jq,nano,vim,tree,python3-yaml,libxml2-utils"
     },
     "ghcr.io/e0ipso/devcontainer-feature-ai-assistant/claude:1": {},
+    "ghcr.io/e0ipso/devcontainer-feature-ai-assistant/claude-auth:1": {},
     "ghcr.io/e0ipso/devcontainer-feature-ai-assistant/codex:1": {},
+    "ghcr.io/e0ipso/devcontainer-feature-ai-assistant/codex-auth:1": {},
     "ghcr.io/e0ipso/devcontainer-feature-ai-assistant/cursor:1": {},
+    "ghcr.io/e0ipso/devcontainer-feature-ai-assistant/cursor-auth:1": {},
     "ghcr.io/e0ipso/devcontainer-feature-ai-assistant/opencode:1": {},
+    "ghcr.io/e0ipso/devcontainer-feature-ai-assistant/opencode-auth:1": {},
     "ghcr.io/e0ipso/devcontainer-feature-ai-assistant/t3:1": {
       "providersCursorEnabled": true
     }

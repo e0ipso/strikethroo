@@ -53,9 +53,18 @@ const isInitializedStrikethrooDir = (strikethrooDir: string): boolean => {
 /**
  * Resolves the `.ai/strikethroo` workspace directory to host.
  *
- * - When `options.workspace` is given, it is treated as a project directory; the
- *   resolver validates that `<workspace>/.ai/strikethroo/.init-metadata.json`
- *   exists and returns that `.ai/strikethroo` directory.
+ * - When `options.workspace` is given it is tried two ways, in this order:
+ *   first as a *project* directory, validating
+ *   `<workspace>/.ai/strikethroo/.init-metadata.json`; then as the workspace
+ *   directory *itself*, validating `<workspace>/.init-metadata.json`. Project
+ *   semantics come first so every path that already resolved keeps its meaning
+ *   — the direct form only rescues paths that previously errored.
+ *
+ *   The direct form exists because a workspace tree is not always nested under
+ *   a project: the committed fixtures (`src/__tests__/fixtures/serve-workspace`,
+ *   `src/capture/fixtures/capture-workspace`) hold `config/`, `plans/`, and
+ *   `.init-metadata.json` at their top level with no `.ai/` above them. Without
+ *   it, no CLI command can be pointed at a bare workspace directory.
  * - Otherwise it walks upward from `options.cwd` (default `process.cwd()`),
  *   testing each ancestor for `.ai/strikethroo/.init-metadata.json`.
  *
@@ -67,13 +76,18 @@ export const resolveWorkspaceRoot = (
   options: { workspace?: string; cwd?: string } = {}
 ): ResolveResult => {
   if (options.workspace) {
-    const projectDir = path.resolve(options.workspace);
-    const strikethrooDir = path.join(projectDir, '.ai', 'strikethroo');
-    if (isInitializedStrikethrooDir(strikethrooDir)) {
-      return { root: strikethrooDir };
+    const given = path.resolve(options.workspace);
+    const nested = path.join(given, '.ai', 'strikethroo');
+    if (isInitializedStrikethrooDir(nested)) {
+      return { root: nested };
+    }
+    if (isInitializedStrikethrooDir(given)) {
+      return { root: given };
     }
     return {
-      error: `Path ${projectDir} is not an initialized strikethroo workspace. ${INIT_MESSAGE}`,
+      error:
+        `Path ${given} is not an initialized strikethroo workspace: ` +
+        `neither it nor ${nested} holds .init-metadata.json. ${INIT_MESSAGE}`,
     };
   }
 

@@ -12,6 +12,8 @@ import { InitOptions } from './types';
 import { resolveWorkspaceRoot, isResolveError } from './serve/root';
 import { startServer, defaultAssetsDir } from './serve/server';
 import { exportProfile } from './export-profile';
+import { validateWorkspace } from './validation/workspace';
+import { Finding } from './validation/types';
 
 const program = new Command();
 
@@ -95,6 +97,49 @@ program
     } catch (error) {
       console.error(
         `Failed to start serve: ${error instanceof Error ? error.message : String(error)}`
+      );
+      process.exit(1);
+    }
+  });
+
+/** One human-readable line per finding: check, path when present, message. */
+const formatFinding = (finding: Finding): string =>
+  `${finding.check}  ${finding.path ? `${finding.path}: ` : ''}${finding.message}`;
+
+program
+  .command('validate')
+  .description('Check the workspace for internal inconsistencies (read-only)')
+  .option('--workspace <path>', 'override workspace root discovery')
+  .option('--json', 'emit the findings report as JSON on stdout')
+  .action((opts: { workspace?: string; json?: boolean }) => {
+    try {
+      const resolved = resolveWorkspaceRoot({ workspace: opts.workspace });
+      if (isResolveError(resolved)) {
+        console.error(resolved.error);
+        process.exit(1);
+      }
+
+      const result = validateWorkspace(resolved.root);
+
+      if (opts.json) {
+        // Nothing decorative may join this stream: CI parses stdout whole.
+        console.log(JSON.stringify(result, null, 2));
+      } else if (result.findings.length === 0) {
+        console.log('No findings. Workspace is consistent.');
+      } else {
+        for (const finding of result.findings) {
+          console.log(formatFinding(finding));
+        }
+        console.log(
+          `\n${result.findings.length} finding${result.findings.length === 1 ? '' : 's'}.`
+        );
+      }
+
+      // Every finding is an error, so emptiness is the whole exit rule.
+      process.exit(result.findings.length > 0 ? 1 : 0);
+    } catch (error) {
+      console.error(
+        `Failed to validate workspace: ${error instanceof Error ? error.message : String(error)}`
       );
       process.exit(1);
     }

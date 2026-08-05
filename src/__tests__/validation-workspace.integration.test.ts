@@ -530,6 +530,23 @@ describe('blueprint prose false positive (documented current behavior)', () => {
 
     expect(validateWorkspace(root).findings).toEqual([]);
   });
+
+  it('reports an id disagreement once, not also as a task in no phase', () => {
+    // `resolvableIds` states the invariant: a reference resolves if ANY notion
+    // matches, so `identity/task-id-mismatch` alone names the root cause. Both
+    // blueprint directions must honour it. A file `01--a.md` carrying `id: 7`
+    // IS scheduled by a phase that says `Task 01` — reporting it as unscheduled
+    // would attach the remediation "Add it to a phase or remove the file",
+    // which is wrong advice: the fix is to reconcile the id.
+    meta(root);
+    plan(root, '1--p', {
+      id: 1,
+      extra: blueprint([{ name: 'Foundation', bullets: ['- Task 01 — the one task'] }]),
+    });
+    task(root, '1--p', '01--a.md', { id: 7 });
+
+    expect(checksOf(root)).toEqual(['identity/task-id-mismatch']);
+  });
 });
 
 // --------------------------------------------------------------------------

@@ -132,6 +132,15 @@ const filenameId = (file: string): number | undefined => {
  */
 const effectiveId = (task: Task): number | undefined => task.id ?? filenameId(task.file);
 
+/** Every id one task can be addressed by, across notions; deduplicated. */
+const notionIds = (task: Task): number[] => {
+  const ids: number[] = [];
+  if (typeof task.id === 'number') ids.push(task.id);
+  const fromName = filenameId(task.file);
+  if (fromName !== undefined && !ids.includes(fromName)) ids.push(fromName);
+  return ids;
+};
+
 /**
  * Every id by which a task in this plan can be addressed, across all notions.
  *
@@ -140,15 +149,7 @@ const effectiveId = (task: Task): number | undefined => task.id ?? filenameId(ta
  * already names the root cause, so the dependency and blueprint checks stay
  * quiet about the same file.
  */
-const resolvableIds = (tasks: Task[]): Set<number> => {
-  const ids = new Set<number>();
-  for (const task of tasks) {
-    if (typeof task.id === 'number') ids.add(task.id);
-    const fromName = filenameId(task.file);
-    if (fromName !== undefined) ids.add(fromName);
-  }
-  return ids;
-};
+const resolvableIds = (tasks: Task[]): Set<number> => new Set(tasks.flatMap(notionIds));
 
 /**
  * Canonical key for a cycle, invariant under rotation: rotate so the smallest id
@@ -286,7 +287,15 @@ const blueprintFindings = (plan: PlanContext): Finding[] => {
 
   for (const task of plan.tasks) {
     const id = effectiveId(task);
-    if (id === undefined || scheduled.has(id)) continue;
+    if (id === undefined) continue;
+    // Symmetric with the incoming direction above, which resolves through
+    // `resolvableIds`: a task counts as scheduled when *any* of its notions is
+    // named by a phase. Keying this sweep on `effectiveId` alone would report a
+    // file whose frontmatter id and filename prefix disagree as unscheduled
+    // even though a phase names it by filename — a second finding for a root
+    // cause `identity/task-id-mismatch` already reports, carrying remediation
+    // ("Add it to a phase") that is wrong for that cause.
+    if (notionIds(task).some(notion => scheduled.has(notion))) continue;
     findings.push({
       check: 'blueprint/task-in-no-phase',
       path: path.join(plan.relDir, 'tasks', task.file),

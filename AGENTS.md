@@ -338,7 +338,7 @@ Four base templates live at `templates/strikethroo/config/templates/`, and `init
 
 **Plan frontmatter:** `id`, `summary`, `created`. **Plan sections**, in template order: Original Work Order, Plan Clarifications (present only when clarifications were necessary), Executive Summary, Context, Architectural Approach, Risk Considerations and Mitigation Strategies, Success Criteria, Self Validation, Documentation, Resource Requirements, Integration Strategy, Notes. The templates are user-editable and wholesale replaceable by a strikethroo profile, so this list describes the shipped default; nothing machine-readable asserts it.
 
-**Task frontmatter:** `id`, `group`, `dependencies`, `status`, `created`, `skills`, `complexity_score` (required on every newly generated task), and optionally `complexity_notes`. **Task sections:** Objective, Skills Required, Acceptance Criteria, Technical Requirements, Input Dependencies, Output Artifacts, Implementation Notes.
+**Task frontmatter:** `id`, `group`, `dependencies`, `status`, `created`, `skills`, `complexity_score` (required on every newly generated task), and optionally `complexity_notes` and `execution_profile`. The two optional fields reach a task from different places: `complexity_notes` is written by the task-generation skills when a score needs justifying, while `execution_profile` is written only by `route-task-execution.cjs` after it validates the whole task-to-profile mapping — never by hand. `TASK_TEMPLATE.md` carries `execution_profile` as a commented-out line for that reason, and does not mention `complexity_notes` at all. **Task sections:** Objective, Skills Required, Acceptance Criteria, Technical Requirements, Input Dependencies, Output Artifacts, Implementation Notes.
 
 ---
 

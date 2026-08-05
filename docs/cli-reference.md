@@ -70,9 +70,15 @@ npx strikethroo serve [options]
 Boots a local web app over an initialized `.ai/strikethroo/` workspace: a dependency-light Node server hosts the prebuilt single-page viewer as static assets, exposes a read-only JSON API over the workspace model, and streams a coalesced change event over Server-Sent Events whenever the workspace mutates on disk. Run it from inside an initialized workspace; if none is found it prints guidance to run `init` and exits without binding.
 
 {% capture serve_readonly %}
-The viewer is **read-only except for one permitted mutation: the archive action.** A plan whose tasks are all complete (derived state `done`) shows an **Archive** control; confirming it issues `POST /api/plans/:id/archive`, which atomically renames that plan's directory from `plans/` to `archive/`. It is strictly a directory move &mdash; no files are deleted or edited, and only `done` plans are accepted. This is the manual escape hatch for plans that are done but not yet archived; it does not replace the automatic archival the `st-execute-blueprint` skill performs on successful completion.
+The viewer is **read-only except for two sanctioned mutations: the archive action and the config editor.**
+
+**Archive.** A plan whose tasks are all complete (derived state `done`) shows an **Archive** control; confirming it issues `POST /api/plans/:id/archive`, which atomically renames that plan's directory from `plans/` to `archive/`. It is strictly a directory move &mdash; no files are deleted or edited, and only `done` plans are accepted. This is the manual escape hatch for plans that are done but not yet archived; it does not replace the automatic archival the `st-execute-blueprint` skill performs on successful completion.
+
+**Config editor.** The **Customize** section edits your workspace configuration in place, issuing `PUT /api/config/:kind/:id` to overwrite a single existing file. It is overwrite-only and never creates, deletes, or renames: `kind` is restricted to `hooks` and `templates`, each resolving to one flat `config/<kind>/<id>.md` file, plus the special `workspace` kind behind the Customize Config form, which maps to `config/config.yaml`. Anything outside that allowlist &mdash; path separators, `..`, an unknown kind, a file that does not already exist &mdash; is rejected. Saving `config.yaml` through the form preserves unrecognized top-level sections but **does not preserve comments**.
+
+Separately, the **Self Review** action (`POST /api/self-review`) writes nothing itself, but does launch an external reviewer process on your machine.
 {% endcapture %}
-{% include callout.html variant="note" title="READ-ONLY, WITH ONE EXCEPTION" content=serve_readonly %}
+{% include callout.html variant="note" title="READ-ONLY, WITH TWO EXCEPTIONS" content=serve_readonly %}
 
 **Optional flags:**
 

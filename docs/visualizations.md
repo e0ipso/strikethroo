@@ -2,12 +2,12 @@
 layout: default
 title: Visualizations
 nav_order: 7
-description: "See your plans, tasks, dependency graph, and archive in a live, read-only web app"
+description: "See your plans, tasks, dependency graph, and archive in a live local web app"
 ---
 
 # Visualizations
 
-Strikethroo stores everything as Markdown. To *see* where your work stands, run the read-only web app from any initialized project:
+Strikethroo stores everything as Markdown. To *see* where your work stands, run the local web app from any initialized project:
 
 ```bash
 npx strikethroo serve

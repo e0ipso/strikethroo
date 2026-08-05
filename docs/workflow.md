@@ -121,7 +121,7 @@ After `POST_EXECUTION` reports green, an optional code review gate runs if a sec
 
 The review never creates task files and never mutates the execution blueprint. Findings are written to the plan directory under `review/` and are visible via `serve`.
 
-The reviewed scope runs from a base commit recorded before phase execution against the working tree, so committed phase work and uncommitted fixes are both in scope. Untracked files are not — see [Customization](customization.html#code_review) for the complete list of limitations.
+The reviewed scope runs from a base commit recorded before phase execution against the working tree, so committed phase work, uncommitted fixes, and untracked new files are all in scope — nothing needs to be staged or committed for the reviewer to see it. Ignored, generated, and vendored paths are excluded; see [Customization](customization.html#code_review) for the complete list of limitations.
 
 **To disable:** Edit or delete `.ai/strikethroo/config/hooks/CODE_REVIEW.md`. The gate skips cleanly with a note in the execution summary.
 

@@ -7,9 +7,12 @@
 # and each round supersedes the last.
 #
 # Ignoring it also keeps the gate from reviewing itself. The reviewed diff runs
-# from the recorded base against the working tree, so a committed round-1
-# review.xml would appear in round 2's diff as ordinary changed content.
-# Untracked files never enter that diff.
+# from the recorded base against the working tree, and untracked files are in
+# scope — the gate synthesizes an add-diff for each one. What keeps review
+# output out of the next round is these ignore rules: the gate enumerates
+# untracked paths with `git ls-files --others --exclude-standard`, which applies
+# them, so a round-1 review.xml is invisible to round 2 whether or not anything
+# committed it.
 #
 # Both locations are listed because a completed plan directory is moved from
 # plans/ to archive/ wholesale, carrying its review/ directory with it.

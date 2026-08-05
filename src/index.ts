@@ -26,6 +26,21 @@ const TERM_WIDTH = 80;
 const DIVIDER = '─'.repeat(TERM_WIDTH);
 
 /**
+ * Template-side name of the workspace ignore file, and the name it lands under.
+ *
+ * The file cannot ship under its final name: npm mangles `.gitignore` at both
+ * ends of the pipe. npm-packlist reads one as ignore rules and drops it from
+ * the tarball, and any that survives packing is renamed to `.npmignore` on
+ * extract. A workspace installed from npm therefore got no ignore file at all,
+ * and its machine-generated dispatch cache showed up as untracked content —
+ * including inside the code review gate's diff, which only excludes paths git
+ * already ignores. Shipping under a neutral name and renaming at copy time is
+ * the only delivery that behaves the same from the package and from a checkout.
+ */
+const WORKSPACE_IGNORE_TEMPLATE = 'gitignore';
+const WORKSPACE_IGNORE_FILE = '.gitignore';
+
+/**
  * Format a section header with cyan styling
  */
 function formatSectionHeader(title: string): string {
@@ -206,9 +221,16 @@ async function copyCommonTemplates(baseDir: string, force: boolean): Promise<voi
   // Load existing metadata if present
   const existingMetadata = await loadMetadata(metadataPath);
 
+  // The ignore file is copied separately, under its final name
+  const copyOptions = {
+    overwrite: true,
+    filter: (src: string) => path.relative(sourceDir, src) !== WORKSPACE_IGNORE_TEMPLATE,
+  };
+
   // Scenario 1: First-time init (no metadata) - copy all files
   if (!existingMetadata) {
-    await fs.copy(sourceDir, destDir);
+    await fs.copy(sourceDir, destDir, copyOptions);
+    await copyWorkspaceIgnoreFile(sourceDir, destDir);
     // Create initial metadata
     await createMetadata(sourceDir, destDir, metadataPath);
     return;
@@ -216,7 +238,8 @@ async function copyCommonTemplates(baseDir: string, force: boolean): Promise<voi
 
   // Scenario 2: Force flag - overwrite all files
   if (force) {
-    await fs.copy(sourceDir, destDir, { overwrite: true });
+    await fs.copy(sourceDir, destDir, copyOptions);
+    await copyWorkspaceIgnoreFile(sourceDir, destDir);
     // Update metadata
     await createMetadata(sourceDir, destDir, metadataPath);
     return;
@@ -226,7 +249,8 @@ async function copyCommonTemplates(baseDir: string, force: boolean): Promise<voi
   const conflicts = await detectConflicts(destDir, sourceDir, existingMetadata);
 
   if (conflicts.length === 0) {
-    await fs.copy(sourceDir, destDir, { overwrite: true });
+    await fs.copy(sourceDir, destDir, copyOptions);
+    await copyWorkspaceIgnoreFile(sourceDir, destDir);
     // Update metadata
     await createMetadata(sourceDir, destDir, metadataPath);
     return;
@@ -242,9 +266,30 @@ async function copyCommonTemplates(baseDir: string, force: boolean): Promise<voi
 
   // Apply resolutions
   await applyResolutions(sourceDir, destDir, resolutions);
+  await copyWorkspaceIgnoreFile(sourceDir, destDir);
 
   // Update metadata for all files (including resolved conflicts)
   await createMetadata(sourceDir, destDir, metadataPath);
+}
+
+/**
+ * Copy the workspace ignore template to its final `.gitignore` name.
+ *
+ * Runs on every init path, including the conflict path — conflict detection
+ * and hash tracking are scoped to `config/`, so this file has no baseline to
+ * compare against and is refreshed rather than prompted over. Refreshing is
+ * the behaviour that matters here: a workspace initialized before an entry was
+ * added would otherwise keep leaking the paths that entry covers.
+ */
+async function copyWorkspaceIgnoreFile(sourceDir: string, destDir: string): Promise<void> {
+  const source = path.join(sourceDir, WORKSPACE_IGNORE_TEMPLATE);
+  if (!(await exists(source))) {
+    throw new Error(
+      `Workspace ignore template not found: ${source}. The published package must ship ` +
+        `templates/strikethroo/${WORKSPACE_IGNORE_TEMPLATE}.`
+    );
+  }
+  await fs.copy(source, path.join(destDir, WORKSPACE_IGNORE_FILE), { overwrite: true });
 }
 
 /**

@@ -250,6 +250,10 @@ project/
 │   │   ├── shared/                # Cross-skill disciplines read at runtime: verification-gate.md,
 │   │   │                          #   clarification-gate.md, anti-rationalization.md
 │   │   └── templates/             # PLAN_TEMPLATE.md, TASK_TEMPLATE.md
+│   ├── .gitignore                 # Covers plans/*/review/, archive/*/review/, and runtime/.
+│   │                              #   Shipped as templates/strikethroo/gitignore and renamed on
+│   │                              #   copy — npm drops or renames a literal .gitignore in transit,
+│   │                              #   so nothing under templates/ may carry that name.
 │   └── runtime/                   # Gitignored dispatch cache (30m available / 5m unavailable)
 └── .claude/agents/                # Claude-only sub-agents copied by `init`
 ```

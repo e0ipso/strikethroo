@@ -243,15 +243,16 @@ describe('CLI Integration', () => {
     });
   });
 
-  describe('init — review-artifact gitignore', () => {
+  describe('init — workspace gitignore', () => {
     /**
-     * The review gate writes machine-generated per-round output into the plan
-     * it reviews. `init` ships a workspace-root .gitignore covering it, so a
-     * project that tracks its .ai/strikethroo/ workspace still keeps plans and
-     * config under version control while the reviewer's output stays out —
-     * including out of the gate's own next-round diff.
+     * `init` ships one workspace-root .gitignore covering every machine-generated
+     * path in the workspace: the review gate's per-round output and the dispatch
+     * selector's availability cache. A project that tracks its .ai/strikethroo/
+     * workspace keeps plans and config under version control while both stay out
+     * — including out of the review gate's own next-round diff, which excludes
+     * only what git already ignores.
      */
-    it('ships a workspace .gitignore covering plan and archive review output', async () => {
+    it('ships a workspace .gitignore covering review output and the dispatch cache', async () => {
       expect(executeCommand(`node "${cliPath}" init --harnesses claude`).exitCode).toBe(0);
 
       const ignoreFile = path.join(testDir, '.ai/strikethroo/.gitignore');
@@ -259,6 +260,18 @@ describe('CLI Integration', () => {
       const contents = await fs.readFile(ignoreFile, 'utf8');
       expect(contents).toContain('plans/*/review/');
       expect(contents).toContain('archive/*/review/');
+      expect(contents).toContain('runtime/');
+    });
+
+    /**
+     * The template is named `gitignore` because npm mangles `.gitignore` in
+     * transit. That neutral name is a delivery detail — it must be renamed on
+     * copy, never left in the workspace where git would not read it.
+     */
+    it('does not leave the neutrally-named template in the workspace', async () => {
+      expect(executeCommand(`node "${cliPath}" init --harnesses claude`).exitCode).toBe(0);
+
+      expect(await fs.pathExists(path.join(testDir, '.ai/strikethroo/gitignore'))).toBe(false);
     });
 
     it('survives a --force re-run', async () => {
@@ -267,6 +280,35 @@ describe('CLI Integration', () => {
 
       const contents = await fs.readFile(path.join(testDir, '.ai/strikethroo/.gitignore'), 'utf8');
       expect(contents).toContain('plans/*/review/');
+      expect(contents).toContain('runtime/');
+    });
+
+    /**
+     * Regression guard for the delivery bug itself. A template named
+     * `.gitignore` is consumed by npm-packlist as ignore rules and never enters
+     * the tarball; one that survives packing is extracted as `.npmignore`.
+     * Either way the workspace ends up without the ignore file, and the failure
+     * is invisible from a git checkout — where the same template copies fine.
+     * No file shipped under templates/ may carry that name.
+     */
+    it('ships no file named .gitignore under templates/', async () => {
+      const templatesDir = path.join(__dirname, '../../templates');
+
+      const walk = async (dir: string): Promise<string[]> => {
+        const entries = await fs.readdir(dir, { withFileTypes: true });
+        const found: string[] = [];
+        for (const entry of entries) {
+          const full = path.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            found.push(...(await walk(full)));
+          } else if (entry.name === '.gitignore') {
+            found.push(path.relative(templatesDir, full));
+          }
+        }
+        return found;
+      };
+
+      expect(await walk(templatesDir)).toEqual([]);
     });
   });
 

@@ -15,3 +15,13 @@
 # plans/ to archive/ wholesale, carrying its review/ directory with it.
 plans/*/review/
 archive/*/review/
+
+# Dispatch-availability cache.
+#
+# The dispatch target selector probes external harnesses and caches each
+# outcome here, with a lifetime measured in minutes. It is machine-generated,
+# host-specific, and never meaningful to another checkout. The directory is
+# created on demand by the first probe, so it can appear in a workspace long
+# after init ran — which is why it is covered from here rather than by an
+# ignore file shipped inside it.
+runtime/

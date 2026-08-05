@@ -1,7 +1,7 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:d24ae5be6acc9546939dd7030945a5f11b260cabd900e8367b582f426bb18692'
-node_count: 80
+nodes_hash: 'sha256:cf2eed1000ba755666be52cdf9f63ca38c21a5453e5574e546dd8682dab2eeb7'
+node_count: 86
 ---
 # kenkeep
 
@@ -14,6 +14,7 @@ node_count: 80
 - Load [`dev/`](nodes/dev/index.md) for more information on the local development loop — dev:serve hot reload, the three concurrent processes, and rebuilding the SPA for serve.
 - Load [`devcontainer/`](nodes/devcontainer/index.md) for more information on devcontainer environment and t3 agent sandbox setup — Docker networking, port configuration, and t3 desktop connection; read when configuring or troubleshooting the devcontainer.
 - Load [`git/`](nodes/git/index.md) for more information on Git workflow constraints — commit-message hooks, the pre-commit test gate, attribution rules, and gitignored workspace state.
+- Load [`profiles/`](nodes/profiles/index.md) for more information on strikethroo setup profiles — the importable package contract, its validation surface, and the init-time overlay; not execution_routing.profiles; read before authoring, importing, or exporting a profile, or before changing what init accepts from one.
 - Load [`release/`](nodes/release/index.md) for more information on releasing and distribution — semantic-release, the npm-tarball vs GitHub-git-tree channels, and skill-artifact force-adding.
 - Load [`serve/`](nodes/serve/index.md) for more information on the read-only serve backend — HTTP/JSON API routes, the workspace data model and derivation, and the archive and self-review operations.
 - Load [`skills/`](nodes/skills/index.md) for more information on the harness-agnostic Agent Skills system — intent-based loading, the skill-scripts root utility, and cross-harness abstraction.

@@ -1,11 +1,11 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:d24ae5be6acc9546939dd7030945a5f11b260cabd900e8367b582f426bb18692'
-node_count: 80
+nodes_hash: 'sha256:cf2eed1000ba755666be52cdf9f63ca38c21a5453e5574e546dd8682dab2eeb7'
+node_count: 86
 ---
 # kenkeep Graph
 
-Total nodes: 80
+Total nodes: 86
 
 ## map-archive-ui-control-confirmation-gated-archive-button-on-done-plans
 
@@ -132,6 +132,15 @@ Total nodes: 80
 - **tags:** serve, blueprint, parser, derivation, gotcha
 - **relates_to:** practice-plan-detail-blueprint-markdown-vs-tasks-frontmatter
 
+## map-phase-derivation-is-implemented-twice-viewer-path-and-execution-path
+
+- **kind:** map
+- **title:** Phase derivation is implemented twice — viewer path and execution path
+- **path:** serve/map-phase-derivation-is-implemented-twice-viewer-path-and-execution-path.md
+- **tags:** blueprint, phases, serve, derivation, skill-scripts
+- **relates_to:** map-parseblueprintphases-slices-blueprint-section-to-end-of-document, practice-plan-detail-blueprint-markdown-vs-tasks-frontmatter
+- **derived_from:** ecba74ac-907e-4ecc-bb2b-60c89a695f4a:map:0
+
 ## map-releaserc-json-repositoryurl-must-match-current-github-repo-slug
 
 - **kind:** map
@@ -217,6 +226,15 @@ Total nodes: 80
 - **title:** window.__stRevalidationCount — Playwright observability hook for SSE-driven revalidation
 - **path:** testing/map-window-strevalidationcount-playwright-observability-hook-for-sse-driven-revalidation.md
 - **tags:** web, testing, playwright, e2e, observability, sse
+
+## practice-add-every-new-test-file-to-the-manual-include-list-in-vitest-config-ts
+
+- **kind:** practice
+- **title:** Add every new test file to the manual include list in vitest.config.ts
+- **path:** testing/practice-add-every-new-test-file-to-the-manual-include-list-in-vitest-config-ts.md
+- **tags:** testing, vitest, config, gotcha
+- **relates_to:** practice-vitest-test-suite-runs-in-node-environment-browser-apis-unavailable-in-tests
+- **derived_from:** ecba74ac-907e-4ecc-bb2b-60c89a695f4a:practice:1
 
 ## practice-add-lazy-only-codemirror-packages-to-vite-optimizedeps-include-to-prevent-dev-se
 
@@ -450,6 +468,15 @@ Total nodes: 80
 - **path:** git/practice-project-commit-hook-rejects-ai-co-authorship-attribution-trailers.md
 - **tags:** git, commit, hooks, attribution
 
+## practice-rebuild-dist-before-running-the-suite-integration-tests-exec-the-compiled-cli
+
+- **kind:** practice
+- **title:** Rebuild dist/ before running the suite — integration tests exec the compiled CLI
+- **path:** testing/practice-rebuild-dist-before-running-the-suite-integration-tests-exec-the-compiled-cli.md
+- **tags:** testing, build, dist, integration-tests, cli
+- **relates_to:** practice-after-a-git-merge-always-rebuild-dist-web-before-running-e2e-tests, practice-never-hand-commit-generated-skill-artifacts
+- **derived_from:** dd3c135d-8ffc-4046-97c1-60fbf493ff03:practice:0
+
 ## practice-reuse-shared-spa-prose-rendering-components-across-all-markdown-rendering-screens
 
 - **kind:** practice
@@ -534,6 +561,14 @@ Total nodes: 80
 - **path:** web/branding/practice-strikethroo-brand-favicon-svg.md
 - **tags:** web, assets, favicon, brand, font, svg
 
+## practice-strikethroo-profile-packages-tolerate-inert-package-root-extras
+
+- **kind:** practice
+- **title:** Strikethroo profile packages tolerate inert package-root extras
+- **path:** profiles/practice-strikethroo-profile-packages-tolerate-inert-package-root-extras.md
+- **tags:** profiles, init, validation, security
+- **derived_from:** 67ec33eb-6c26-4c0a-8c3f-e117dc130acf:practice:0
+
 ## practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace
 
 - **kind:** practice
@@ -587,6 +622,15 @@ Total nodes: 80
 - **path:** release/practice-use-git-rm-r-for-tracked-skill-output-dirs-not-rm-rf.md
 - **tags:** git, tracked-files, build-artifacts, skills
 
+## practice-use-resolveworkspaceroot-not-findstrikethrooroot-outside-skill-bundles
+
+- **kind:** practice
+- **title:** Use resolveWorkspaceRoot, not findStrikethrooRoot, outside skill bundles
+- **path:** skills/practice-use-resolveworkspaceroot-not-findstrikethrooroot-outside-skill-bundles.md
+- **tags:** workspace-root, cli, skill-scripts, serve, gotcha
+- **relates_to:** map-find-strikethroo-root-ts-skill-scripts-utility-that-locates-the-ai-strikethroo-workspace-root
+- **derived_from:** ecba74ac-907e-4ecc-bb2b-60c89a695f4a:practice:0
+
 ## practice-use-the-throughline-strikethroo-wordmark
 
 - **kind:** practice
@@ -609,6 +653,15 @@ Total nodes: 80
 - **path:** web/styling/practice-vendoring-dalia-css-requires-the-foundational-dark-token-block-not-just-per-component-fixups.md
 - **tags:** web, css, dalia, dark-mode, vendoring, tokens
 - **relates_to:** map-dalia-ui-design-system-vendored-into-src-web-vendor-not-a-package-dependency
+
+## practice-vitest-integration-tests-flake-under-load-re-run-isolated-before-believing-a-failure
+
+- **kind:** practice
+- **title:** Vitest integration tests flake under load — re-run isolated before believing a failure
+- **path:** testing/practice-vitest-integration-tests-flake-under-load-re-run-isolated-before-believing-a-failure.md
+- **tags:** testing, vitest, flakiness, integration-tests
+- **relates_to:** practice-playwright-e2e-suites-flake-under-full-suite-parallelism-due-to-cpu-contention
+- **derived_from:** cf892283-2514-437c-bea8-4b68a535813e:practice:0
 
 ## practice-vitest-test-suite-runs-in-node-environment-browser-apis-unavailable-in-tests
 

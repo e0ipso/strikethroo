@@ -57,6 +57,7 @@ _None._
 ### #config
 - Open [**.releaserc.json repositoryUrl must match current GitHub repo slug**](map-releaserc-json-repositoryurl-must-match-current-github-repo-slug.md) — .releaserc.json's repositoryUrl feeds @semantic-release/github; it must match the current GitHub repo slug or releases fail.
 - Open [**ESLint config: eslint.config.mjs (flat config, ESLint 9)**](../tooling/map-eslint-config-eslint-config-mjs-flat-config-eslint-9.md) — The active ESLint config is eslint.config.mjs (flat config, ESLint 9). A legacy .eslintrc.js at the repo root is dead cruft ignored by ESLint 9.
+- Open [**Add every new test file to the manual include list in vitest.config.ts**](../testing/practice-add-every-new-test-file-to-the-manual-include-list-in-vitest-config-ts.md) — vitest.config.ts enumerates test files explicitly rather than by glob, so an unlisted new test file is never collected and silently never runs.
 ### #docs
 - Open [**docs/_config.yml controls GitHub Pages baseurl for the Jekyll docs site**](map-docs-config-yml-controls-github-pages-baseurl-for-the-jekyll-docs-site.md) — docs/_config.yml sets baseurl and the aux_links GitHub URL; both must match the current repo slug for the Jekyll docs site to serve correctly.
 ### #github-pages

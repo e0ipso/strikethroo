@@ -91,6 +91,17 @@ async function collectRelativeFiles(dir: string, relativeTo: string): Promise<st
 }
 
 /**
+ * Workspace name a shipped template file lands under.
+ *
+ * All but one are copied verbatim; the workspace ignore file ships neutrally
+ * named because npm mangles a literal `.gitignore` in transit, and init renames
+ * it on copy.
+ */
+function workspaceNameFor(relativePath: string): string {
+  return relativePath === 'gitignore' ? '.gitignore' : relativePath;
+}
+
+/**
  * List current profile temp directories under the OS temp root
  */
 async function listProfileTempDirs(): Promise<string[]> {
@@ -403,7 +414,9 @@ describe('Profiles Integration', () => {
       const shippedFiles = await collectRelativeFiles(SHIPPED_TEMPLATE_DIR, SHIPPED_TEMPLATE_DIR);
       expect(shippedFiles.length).toBeGreaterThan(0);
       for (const relativePath of shippedFiles) {
-        expect(await fs.pathExists(path.join(workspace, relativePath))).toBe(true);
+        expect(await fs.pathExists(path.join(workspace, workspaceNameFor(relativePath)))).toBe(
+          true
+        );
       }
 
       // Metadata shape is unchanged: schema 4, config hashes only, no profile key

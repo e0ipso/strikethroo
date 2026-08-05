@@ -1,7 +1,7 @@
 /**
  * Metadata gate: workspace-shape checks derived from `<root>/.init-metadata.json`.
  *
- * Three findings come out of this file — an unreadable or unparsable metadata
+ * Four findings come out of this file — an unreadable or unparsable metadata
  * file, an absent `files` map, a `workspaceSchemaVersion` other than the current
  * constant, and any path recorded in `files` that is no longer on disk.
  *
@@ -12,9 +12,9 @@
  * Only deletions are reported.
  *
  * `isFileDeleted` from `src/conflict-detector.ts` is not reused: it evaluates
- * `relativePath in metadata.files`, which throws when `files` is `undefined` —
- * exactly the state of the committed `serve-workspace` fixture's metadata. The
- * absent-map finding therefore short-circuits the deletion scan below.
+ * `relativePath in metadata.files`, which throws when `files` is `undefined`.
+ * Any workspace initialized before the hash map was recorded is in that state,
+ * so the absent-map finding short-circuits the deletion scan below.
  */
 
 import * as fs from 'fs';

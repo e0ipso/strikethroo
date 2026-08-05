@@ -101,23 +101,7 @@ Requires Node.js 22+ and an assistant that supports the Agent Skills format.
 
 ## Profiles: a tailored setup in one step
 
-A strikethroo profile packages a complete workspace configuration -- hooks, templates, project context -- so `init` starts from a setup tuned for your stack instead of the shipped defaults. Pass `--profile` with a local folder, a GitHub `<user>/<repo>` shorthand, or any git URL:
-
-```bash
-npx strikethroo init --harnesses claude --profile ./my-profile
-npx strikethroo init --harnesses claude --profile someuser/drupal-profile
-npx strikethroo init --harnesses claude --profile https://gitlab.com/team/profile.git
-```
-
-Imports are fork-and-forget: the profile seeds your workspace once, and from then on the files are yours -- no link back, no updates to pull.
-
-Share your own setup with the export command:
-
-```bash
-npx strikethroo export profile --destination-directory ./my-profile
-```
-
-It packages your workspace configuration with a `profile.yaml` manifest collected interactively, and validates the result so it imports cleanly anywhere. Publishing is your business -- push the folder to any git host, or hand it around as-is.
+A strikethroo profile packages a complete workspace configuration -- hooks, templates, project context -- so `init --profile <folder | user/repo | git URL>` starts from a setup tuned for your stack instead of the shipped defaults, and `export profile` packages yours to share. See [Strikethroo profiles](https://strikethroo.canpicasoft.com/customization.html#strikethroo-profiles) in the Customization Guide.
 
 ## In your coding assistant
 

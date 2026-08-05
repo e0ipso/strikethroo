@@ -30,6 +30,7 @@ Creates the shared `.ai/strikethroo/` directory (plans, archive, config, hooks, 
 |------|-------------|
 | `--destination-directory <path>` | Target directory for the workspace. Defaults to the current working directory. |
 | `--force` | Overwrite all files without prompting, even if the user has customized them. Useful for CI/automation. |
+| `--profile <value>` | Seed the workspace `config/` from a [strikethroo profile](customization.html#strikethroo-profiles): a local directory, a GitHub `<user>/<repo>` shorthand, or any git URL. Remote profiles are shallow-cloned (`git` required on PATH). |
 
 **File conflict detection:** On re-run, `init` compares file hashes against `.ai/strikethroo/.init-metadata.json`. Unchanged files are updated silently; modified files trigger a unified-diff prompt. Use `--force` to bypass prompts.
 
@@ -47,7 +48,18 @@ npx strikethroo init --harnesses claude --destination-directory /path/to/project
 
 # Force overwrite (automation)
 npx strikethroo init --harnesses claude --force
+
+# Seed from a strikethroo profile (local folder, GitHub shorthand, or git URL)
+npx strikethroo init --harnesses claude --profile someuser/drupal-profile
 ```
+
+## Profile Export
+
+```bash
+npx strikethroo export profile --destination-directory <dir>
+```
+
+Packages the current workspace's configuration as a shareable [strikethroo profile](customization.html#strikethroo-profiles): copies `config/` (minus the CLI-owned `schemas/`) verbatim, collects the `profile.yaml` manifest interactively, refuses a non-empty destination, and validates the result against the same contract `init --profile` enforces.
 
 ## Serve the Workspace Viewer
 

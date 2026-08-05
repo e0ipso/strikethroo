@@ -216,6 +216,48 @@ Templates are editable Markdown files in `.ai/strikethroo/config/templates/`. Th
 </div>
 </div>
 
+## Strikethroo profiles
+
+Everything above — hooks, shared disciplines, `config.yaml`, templates, and the `STRIKETHROO.md` project context — can be packaged into a **strikethroo profile**: a shareable directory holding a `profile.yaml` manifest plus a sparse `config/` tree mirroring `.ai/strikethroo/config/`. Passing `--profile <value>` to `init` seeds the workspace from that package instead of the shipped defaults, so a team (or a community member) can distribute a setup tuned for a stack in one step.
+
+Not to be confused with the **execution profiles** of [execution routing](#execution-routing) above: those are task-routing concepts selected at dispatch time, while a strikethroo profile is a setup package consumed once at `init`.
+
+### Importing
+
+`--profile` accepts three source forms, resolved in this order:
+
+1. **A local directory** — an existing path on disk is read in place.
+2. **GitHub shorthand** — `<user>/<repo>` expands to `https://github.com/<user>/<repo>.git`.
+3. **Any git URL** — GitLab, ssh, any git host; used verbatim.
+
+Remote profiles are shallow-cloned, so `git` on the PATH is required only for remote imports. A relative local path that happens to look like `user/repo` resolves as the folder — the existing-path check runs first.
+
+```bash
+npx strikethroo init --harnesses claude --profile ./my-profile
+npx strikethroo init --harnesses claude --profile someuser/drupal-profile
+npx strikethroo init --harnesses claude --profile https://gitlab.com/team/profile.git
+```
+
+The profile's files overlay the shipped defaults and then flow through the normal `init` machinery — conflict prompts, `--force`, and hash tracking treat profile-supplied files exactly like stock ones. Validation is all-or-nothing and runs before any workspace mutation; there is no partial import.
+
+Imports are **fork-and-forget**: the profile seeds your workspace once, and from then on the files are yours — no link back, no updates to pull. A subsequent plain `init` uses the shipped defaults again. The only trace is a `profile` field in `.init-metadata.json` recording the name, source, and import date — display and forensics only, nothing reads it for behavior.
+
+### The manifest
+
+`profile.yaml` must carry `schema_version` (currently `1`), a kebab-case `name`, and a one-line `description`. Optional fields: `purpose` (long-form statement of what the profile is tuned for), `tags`, `author`, and two informational dependency lists — `requires` and `recommends`, each a list of `{kind, name, install?}` entries with `kind` of `skill` or `tool`. These are printed during init as prerequisites and pairings; they are never probed, executed, or installed.
+
+The `config/` tree may contain `hooks/*.md`, `templates/*.md`, `shared/*.md`, `config.yaml`, and `STRIKETHROO.md` — flat Markdown only inside the three subdirectories. The `schemas/` subtree is CLI-owned and rejected, as are dotfiles and nested directories.
+
+### Exporting
+
+Share your own setup with the export command:
+
+```bash
+npx strikethroo export profile --destination-directory ./my-profile
+```
+
+It packages the current workspace's `config/` (minus `schemas/`) verbatim — the full surface, not a diff against defaults — collects the manifest interactively, refuses a non-empty destination, and validates the produced package against the same contract `init --profile` enforces, so an export always round-trips. Publishing is your business: push the folder to any git host, or hand it around as-is.
+
 ## Customization Example
 
 Here is a PRE_PLAN hook customized for a project with specific architectural constraints. This is a good use of hooks because the LLM must exercise judgment -- deciding whether a proposed approach violates these guidelines requires understanding, not just execution.

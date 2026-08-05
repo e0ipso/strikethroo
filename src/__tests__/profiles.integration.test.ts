@@ -169,6 +169,43 @@ describe('Profiles Integration', () => {
     });
   });
 
+  describe('package-root extras', () => {
+    it('tolerates root-level extras without copying them into the workspace', async () => {
+      const profileDir = path.join(sandbox, 'profile');
+      const destDir = path.join(sandbox, 'project');
+      await makeFixtureProfile(profileDir);
+
+      // Files a git-hosted profile inevitably carries at its root: only
+      // profile.yaml and config/ are the package surface, the rest is inert.
+      await fs.writeFile(
+        path.join(profileDir, 'postinstall.js'),
+        'throw new Error("must never run or be copied");\n',
+        'utf-8'
+      );
+      await fs.writeFile(path.join(profileDir, 'README.md'), '# Profile repo README\n', 'utf-8');
+
+      const result = await init({
+        harnesses: 'claude',
+        destinationDirectory: destDir,
+        profile: profileDir,
+      });
+      expect(result.success).toBe(true);
+
+      // The import itself worked: the profile's config overlay applied
+      const workspace = path.join(destDir, '.ai/strikethroo');
+      expect(await fs.readFile(path.join(workspace, 'config/hooks/PRE_PLAN.md'), 'utf-8')).toBe(
+        PRE_PLAN_SENTINEL
+      );
+
+      // Neither extra reached the destination anywhere
+      const copiedFiles = await collectRelativeFiles(destDir, destDir);
+      expect(copiedFiles.filter(file => path.basename(file) === 'postinstall.js')).toEqual([]);
+      expect(await fs.readFile(path.join(workspace, 'README.md'), 'utf-8')).toBe(
+        await fs.readFile(path.join(SHIPPED_TEMPLATE_DIR, 'README.md'), 'utf-8')
+      );
+    });
+  });
+
   describe('clone path (local bare repository)', () => {
     it('imports via git clone with identical results and leaves no temp dirs behind', async () => {
       const workDir = path.join(sandbox, 'profile-src');

@@ -246,7 +246,7 @@ Imports are **fork-and-forget**: the profile seeds your workspace once, and from
 
 `profile.yaml` must carry `schema_version` (currently `1`), a kebab-case `name`, and a one-line `description`. Optional fields: `purpose` (long-form statement of what the profile is tuned for), `tags`, `author`, and two informational dependency lists — `requires` and `recommends`, each a list of `{kind, name, install?}` entries with `kind` of `skill` or `tool`. These are printed during init as prerequisites and pairings; they are never probed, executed, or installed.
 
-The `config/` tree may contain `hooks/*.md`, `templates/*.md`, `shared/*.md`, `config.yaml`, and `STRIKETHROO.md` — flat Markdown only inside the three subdirectories. The `schemas/` subtree is CLI-owned and rejected, as are dotfiles and nested directories.
+The `config/` tree may contain `hooks/*.md`, `templates/*.md`, `shared/*.md`, `config.yaml`, and `STRIKETHROO.md` — flat Markdown only inside the three subdirectories. The `schemas/` subtree is CLI-owned and rejected, as are dotfiles and nested directories. Entries at the package root other than `profile.yaml` and `config/` — a repository's `README.md`, `LICENSE`, `.git` — are tolerated and inert: only `config/` is ever copied into the workspace, so root extras are neither imported nor executed.
 
 ### Exporting
 

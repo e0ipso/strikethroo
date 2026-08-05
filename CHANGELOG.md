@@ -1,3 +1,13 @@
+## 3.16.0 (2026-08-05)
+
+* feat: strikethroo profiles — import at init, export as a package (#73) ([65f8bee](https://github.com/e0ipso/strikethroo/commit/65f8bee)), closes [#73](https://github.com/e0ipso/strikethroo/issues/73)
+* docs: reframe messaging around attention and time-to-merge (#72) ([4c21450](https://github.com/e0ipso/strikethroo/commit/4c21450)), closes [#72](https://github.com/e0ipso/strikethroo/issues/72)
+* chore: rebalance documentation ([2fa3b3c](https://github.com/e0ipso/strikethroo/commit/2fa3b3c))
+* chore: update devcontainer for CLI compatibility ([bb6fd61](https://github.com/e0ipso/strikethroo/commit/bb6fd61))
+* chore: update devcontainer for CLI compatibility ([d3c1bf7](https://github.com/e0ipso/strikethroo/commit/d3c1bf7))
+* chore: update kenkeep ([4b1d02b](https://github.com/e0ipso/strikethroo/commit/4b1d02b))
+* Merge remote-tracking branch 'origin/main' ([58b4984](https://github.com/e0ipso/strikethroo/commit/58b4984))
+
 ## 3.15.0 (2026-07-28)
 
 * feat: add an unattended second-harness code review gate (#70) ([75bbdb5](https://github.com/e0ipso/strikethroo/commit/75bbdb5)), closes [#70](https://github.com/e0ipso/strikethroo/issues/70)

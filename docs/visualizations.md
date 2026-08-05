@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Visualizations
-nav_order: 6
+nav_order: 7
 description: "See your plans, tasks, dependency graph, and archive in a live, read-only web app"
 ---
 

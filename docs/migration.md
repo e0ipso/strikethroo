@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Migrating from AI Task Manager
-nav_order: 7
+nav_order: 8
 description: "Upgrade from AI Task Manager to Strikethroo"
 ---
 

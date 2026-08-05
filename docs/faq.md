@@ -1,7 +1,7 @@
 ---
 layout: default
 title: FAQ
-nav_order: 5
+nav_order: 6
 description: "Frequently asked questions about Strikethroo"
 ---
 
@@ -16,10 +16,10 @@ description: "Frequently asked questions about Strikethroo"
 <a class="st-card" href="#workflow">
 <span class="st-card__icon st-card__icon--workflow" aria-hidden="true"></span>
 <p class="st-card__title">Workflow</p>
-<p>The four steps, automation, and plan mode.</p>
+<p>The two commands, automation, and plan mode.</p>
 </a>
 <a class="st-card" href="#code-review">
-<span class="st-card__icon st-card__icon--check-circle" aria-hidden="true"></span>
+<span class="st-card__icon st-card__icon--shield-check" aria-hidden="true"></span>
 <p class="st-card__title">Code Review</p>
 <p>Optional automated review gate, disabling, and limitations.</p>
 </a>
@@ -60,21 +60,24 @@ Yes. Initialize with multiple harnesses (`--harnesses claude,gemini,codex`). All
 
 ## Workflow
 
-**What is the three-step workflow?**
+**What is the workflow?**
 
-1. **Planning**: The `st-create-plan` skill refines your work order into a comprehensive plan.
-2. **Task generation**: The `st-generate-tasks` skill decomposes the plan into an execution blueprint -- atomic tasks organized into dependency-mapped phases.
-3. **Execution**: The `st-execute-blueprint` skill implements each task using sub-agents with focused context.
+Two commands:
 
-Each step produces files in `.ai/strikethroo/plans/` for human review before the next step begins.
+1. **Planning**: `/st-create-plan <your request>` refines your work order into a comprehensive plan. You read it and approve it.
+2. **Execution**: `/st-execute-blueprint <plan-id>` decomposes the plan into an execution blueprint -- atomic tasks in dependency-mapped phases -- and then implements each task using sub-agents with focused context.
 
-**Do I have to use all three steps?**
+Everything lands in `.ai/strikethroo/plans/`, so you can inspect any of it at any point.
 
-No. You can use only plan creation without task generation, generate tasks without executing, execute specific tasks manually, or skip steps that do not apply. The three-step workflow is recommended but not mandatory.
+**Why is there no separate task-generation step?**
+
+There is one -- `st-generate-tasks` -- but you rarely need to run it. `st-execute-blueprint` generates the tasks and blueprint itself when the plan does not have them yet, so the normal path is plan, review, execute.
+
+Running it separately is worth it when you want to see or hand-tune the decomposition before execution starts: an unusually large plan, or one whose phase ordering you want to check. It is a detour, not a step. Your careful reading is better spent on the plan, where a correction costs a sentence.
 
 **What if I want fully automated execution?**
 
-The `st-full-workflow` skill chains all three steps in a single invocation. It is best suited for well-defined features with clear scope. For complex features that need review between steps, use the manual step-by-step workflow.
+The `st-full-workflow` skill runs planning and execution in a single invocation, with no stop for your approval of the plan. It is best suited for well-defined features with clear scope. For anything where the plan is worth a read first, use the two-command workflow.
 
 **How does Strikethroo relate to plan mode?**
 
@@ -118,7 +121,7 @@ The conformance-only scope emphasizes traces back to explicit plan requirements.
 
 **Can I customize the workflow?**
 
-Yes. Nine lifecycle hooks, four templates, and project-context files are all editable Markdown. See the [Customization Guide](customization.html) for examples.
+Yes. Eleven lifecycle hooks, four templates, and project-context files are all editable Markdown. See the [Customization Guide](customization.html) for examples.
 
 **What file formats does it use?**
 
@@ -139,6 +142,24 @@ The `POST_ERROR_DETECTION` hook fires, enabling custom remediation logic. The ta
 Tasks within the same phase have no mutual dependencies and execute concurrently via sub-agents. Phases themselves run in sequence, so a phase starts only after all tasks in the previous phase have completed.
 
 ## Comparison with Other Tools
+
+**How does Strikethroo differ from other spec-driven development frameworks?**
+
+Most spec-driven frameworks optimize the input: write a better specification, get better code, and rely on a human at the end to catch what went wrong. They differ from each other mainly in artifact shape and ceremony. Strikethroo differs on three premises instead:
+
+1. **The agent is an unreliable narrator of its own work.** A subagent reporting success is making a claim, not supplying evidence. A shared verification gate requires identifying the proving command, running it fresh, and reading its exit code before any completion claim. Each skill also ships an anti-rationalization table enumerating the specific excuses a model produces when it is about to skip a discipline.
+2. **A second agent reviewing the first is also unreliable.** So the review gate grades severity and confidence on independent axes with independent floors, treats a missing attribute as below every floor, and explicitly names "manufacturing a finding to justify the round" as the failure it is built to resist.
+3. **The scarce resource is your attention, not tokens.** Your careful read is spent on the plan (where a correction costs a sentence) and on the result, not on the diff (where the same correction costs a review cycle).
+
+The structural consequence is that Strikethroo separates *negotiable* configuration from *compiled* guarantees. Hooks and templates are plain Markdown you own. Termination bounds, safety floors, fail-safe defaults, and the reviewer/implementer separation are compiled into the runtime and cannot be loosened by editing a hook. See [Why Strikethroo](why.html) for the full thesis and the list of claims you can verify in the source.
+
+**Is Strikethroo slower because of all the gates?**
+
+Not on the clock that matters. Measured from prompt to first draft, a tool with no gates is faster. Measured from picking up the work to merging it, the cost sits in the review rounds a fast-but-wrong draft generates -- the dropped requirement found in review, the fix that breaks something adjacent, the re-read of a diff you have already read twice. Strikethroo is designed against that second clock, and it runs tasks in parallel within each phase rather than serially.
+
+**Does the automated review gate replace human code review?**
+
+No. It is a filter that runs *before* you look, not a substitute for looking. Its mandate is deliberately narrow -- requirement conformance and demonstrable defects only -- and it is explicitly forbidden from raising design or abstraction opinions, because design judgment is what your read is being preserved for. A green gate is not a correctness guarantee; it reduces exposure to the same class of error a human PR approval reduces, and leaves the same class behind.
 
 **How does Strikethroo differ from API-based tools like Plandex or Claude Task Master?**
 

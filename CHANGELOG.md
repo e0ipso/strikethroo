@@ -1,3 +1,7 @@
+## 3.17.0 (2026-08-05)
+
+* feat: add a strikethroo validate command for workspace integrity (#78) ([8ae8b2d](https://github.com/e0ipso/strikethroo/commit/8ae8b2d)), closes [#78](https://github.com/e0ipso/strikethroo/issues/78)
+
 ## <small>3.16.1 (2026-08-05)</small>
 
 * docs: correct review-gate scope and serve mutability claims (#77) ([7d75947](https://github.com/e0ipso/strikethroo/commit/7d75947)), closes [#77](https://github.com/e0ipso/strikethroo/issues/77) [#71](https://github.com/e0ipso/strikethroo/issues/71) [#27](https://github.com/e0ipso/strikethroo/issues/27)

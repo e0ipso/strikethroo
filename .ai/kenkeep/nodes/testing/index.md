@@ -63,7 +63,7 @@ _None._
 ### #documentation
 - Open [**Documentation captures current state only**](../conventions/practice-documentation-captures-current-state-only.md) — All docs describe how things work now. No historical context, migration notes, or retired-term mappings.
 - Open [**Phase is reserved for execution blueprint task groups**](../conventions/practice-phase-reserved-for-blueprint-task-groups.md) — "Phase" means parallel task batches in the blueprint. The three workflow stages are "steps", never "phases".
-- Open [**Use committed fixture workspaces, not the live gitignored .ai/strikethroo/ tree**](practice-use-committed-fixture-workspaces-not-the-live-ai-strikethroo-tree.md) — Capture, integration, and e2e must use committed fixture workspaces — not the live gitignored .ai/strikethroo/ tree that breaks CI and capture determinism.
+- Open [**Strikethroo takes no stance on committing the .ai/strikethroo/ workspace**](../practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md) — Whether a consuming project commits .ai/strikethroo/ is that project's call; this repo's root .gitignore entry is dogfooding, not product behavior.
 ### #dom
 - Open [**Vitest test suite runs in node environment — browser APIs unavailable in tests**](practice-vitest-test-suite-runs-in-node-environment-browser-apis-unavailable-in-tests.md) — Vitest is configured with environment: node; localStorage, matchMedia, and document are unavailable. Isolate DOM-touching code behind pure interfaces.
 ### #eslint
@@ -77,9 +77,9 @@ _None._
 - Open [**Project commit hook rejects AI co-authorship attribution trailers**](../git/practice-project-commit-hook-rejects-ai-co-authorship-attribution-trailers.md) — A commit hook rejects Co-Authored-By AI attribution lines; omit them when committing in this repository.
 - Open [**Commit subject ≤50 chars; body wrapped at 72 chars (hook enforced)**](../git/practice-commit-subject-50-chars-body-wrapped-at-72-chars-hook-enforced.md) — A commit-message hook enforces 50-char subject lines and 72-char body wrapping; violations abort the commit.
 ### #gitignore
+- Open [**Strikethroo takes no stance on committing the .ai/strikethroo/ workspace**](../practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md) — Whether a consuming project commits .ai/strikethroo/ is that project's call; this repo's root .gitignore entry is dogfooding, not product behavior.
+- Open [**Review gate artifacts are git-ignored by a workspace-root .gitignore**](../practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore.md) — init ships .ai/strikethroo/.gitignore covering plans/*/review/ and archive/*/review/, keeping reviewer output out of git and its own diff.
 - Open [**Keep .ai/strikethroo (dogfood workspace) explicitly ignored in .gitignore**](../git/practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore.md) — The /.ai/strikethroo path must stay in .gitignore to prevent accidentally committing dogfood workspace state.
-- Open [**Do not commit .agents/skills/ or skills-lock.json — they are local installation artifacts**](../release/practice-do-not-commit-agents-skills-or-skills-lock-json-they-are-local-installation-artifacts.md) — \`.agents/skills/\` and \`skills-lock.json\` are produced by running \`npx skills add\` locally and must be gitignored, not committed.
-- Open [**Use committed fixture workspaces, not the live gitignored .ai/strikethroo/ tree**](practice-use-committed-fixture-workspaces-not-the-live-ai-strikethroo-tree.md) — Capture, integration, and e2e must use committed fixture workspaces — not the live gitignored .ai/strikethroo/ tree that breaks CI and capture determinism.
 ### #globals
 - Open [**ESLint test block must include browser globals for page.evaluate callbacks**](practice-eslint-test-block-must-include-browser-globals-for-page-evaluate-callbacks.md) — Playwright e2e tests use page.evaluate with browser globals (location, URL, document); the ESLint test block must include browserGlobals to avoid no-undef errors.
 ### #linting

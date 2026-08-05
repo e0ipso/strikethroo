@@ -1,7 +1,7 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:175a749fd9d29d147df281bc09e854a1cbfd68026d542e42b05e42360cb34d49'
-node_count: 74
+nodes_hash: 'sha256:d24ae5be6acc9546939dd7030945a5f11b260cabd900e8367b582f426bb18692'
+node_count: 80
 ---
 # kenkeep
 
@@ -9,7 +9,7 @@ node_count: 74
 
 ## Branches
 - Load [`capture/`](nodes/capture/index.md) for more information on the documentation-visual capture harness — its committed fixture workspace and Playwright SPA-driving technique.
-- Load [`code-review/`](nodes/code-review/index.md) for more information on the automated code review gate — the optional-by-absence pattern, review loop ordering, and harness discovery.
+- Load [`code-review/`](nodes/code-review/index.md) for more information on Code Review.
 - Load [`conventions/`](nodes/conventions/index.md) for more information on documentation and terminology conventions — current-state-only docs and the reserved meaning of phase.
 - Load [`dev/`](nodes/dev/index.md) for more information on the local development loop — dev:serve hot reload, the three concurrent processes, and rebuilding the SPA for serve.
 - Load [`devcontainer/`](nodes/devcontainer/index.md) for more information on devcontainer environment and t3 agent sandbox setup — Docker networking, port configuration, and t3 desktop connection; read when configuring or troubleshooting the devcontainer.
@@ -20,3 +20,8 @@ node_count: 74
 - Load [`testing/`](nodes/testing/index.md) for more information on the test strategy — the committed fixture workspace, Vitest node-env limits, and Playwright e2e selectors and flakiness.
 - Load [`tooling/`](nodes/tooling/index.md) for more information on lint, format, and type-check tooling — the ESLint flat config, Prettier exclusions, and gaps in the lint gate.
 - Load [`web/`](nodes/web/index.md) for more information on Web.
+
+## Conventions (how we build)
+- Open [**Never hand-commit generated skill artifacts; they cannot be gitignored**](nodes/practice-never-hand-commit-generated-skill-artifacts.md) to learn about: SKILL.md and .cjs bundles are build output force-added by CI, so .gitattributes and a pre-commit guard cover them and the review gate skips them. #build #skills #git #gitattributes #review-gate #generated-artifacts
+- Open [**Review gate artifacts are git-ignored by a workspace-root .gitignore**](nodes/practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore.md) to learn about: init ships .ai/strikethroo/.gitignore covering plans/*/review/ and archive/*/review/, keeping reviewer output out of git and its own diff. #code-review #gitignore #workspace #init #generated-artifacts
+- Open [**Strikethroo takes no stance on committing the .ai/strikethroo/ workspace**](nodes/practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md) to learn about: Whether a consuming project commits .ai/strikethroo/ is that project's call; this repo's root .gitignore entry is dogfooding, not product behavior. #gitignore #workspace #documentation #code-review #init

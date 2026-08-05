@@ -10,8 +10,8 @@
 _None._
 
 ## Conventions (how we build)
-- Open [**Phase is reserved for execution blueprint task groups**](practice-phase-reserved-for-blueprint-task-groups.md) to learn about: "Phase" means parallel task batches in the blueprint. The three workflow stages are "steps", never "phases". #terminology #documentation #execution-blueprint
 - Open [**Documentation captures current state only**](practice-documentation-captures-current-state-only.md) to learn about: All docs describe how things work now. No historical context, migration notes, or retired-term mappings. #documentation #conventions
+- Open [**Phase is reserved for execution blueprint task groups**](practice-phase-reserved-for-blueprint-task-groups.md) to learn about: "Phase" means parallel task batches in the blueprint. The three workflow stages are "steps", never "phases". #terminology #documentation #execution-blueprint
 
 ## Components (what exists)
 _None yet._
@@ -21,7 +21,7 @@ _None yet._
 ### #documentation
 - Open [**Documentation captures current state only**](practice-documentation-captures-current-state-only.md) — All docs describe how things work now. No historical context, migration notes, or retired-term mappings.
 - Open [**Phase is reserved for execution blueprint task groups**](practice-phase-reserved-for-blueprint-task-groups.md) — "Phase" means parallel task batches in the blueprint. The three workflow stages are "steps", never "phases".
-- Open [**Use committed fixture workspaces, not the live gitignored .ai/strikethroo/ tree**](../testing/practice-use-committed-fixture-workspaces-not-the-live-ai-strikethroo-tree.md) — Capture, integration, and e2e must use committed fixture workspaces — not the live gitignored .ai/strikethroo/ tree that breaks CI and capture determinism.
+- Open [**Strikethroo takes no stance on committing the .ai/strikethroo/ workspace**](../practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md) — Whether a consuming project commits .ai/strikethroo/ is that project's call; this repo's root .gitignore entry is dogfooding, not product behavior.
 ### #conventions
 - Open [**Documentation captures current state only**](practice-documentation-captures-current-state-only.md) — All docs describe how things work now. No historical context, migration notes, or retired-term mappings.
 ### #execution-blueprint

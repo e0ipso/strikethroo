@@ -1,11 +1,11 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:175a749fd9d29d147df281bc09e854a1cbfd68026d542e42b05e42360cb34d49'
-node_count: 74
+nodes_hash: 'sha256:d24ae5be6acc9546939dd7030945a5f11b260cabd900e8367b582f426bb18692'
+node_count: 80
 ---
 # kenkeep Graph
 
-Total nodes: 74
+Total nodes: 80
 
 ## map-archive-ui-control-confirmation-gated-archive-button-on-done-plans
 
@@ -109,6 +109,13 @@ Total nodes: 74
 - **path:** web/rendering/map-mermaiderror-tsx-shared-mermaid-render-error-component.md
 - **tags:** mermaid, spa, components, error-handling
 - **relates_to:** practice-set-suppresserrorrendering-true-in-mermaid-initialization
+
+## map-model-optional-dispatch-reviewer-harness-omits-model
+
+- **kind:** map
+- **title:** Model-optional dispatch: reviewer harness omits --model to use CLI defaults
+- **path:** code-review/map-model-optional-dispatch-reviewer-harness-omits-model.md
+- **tags:** dispatch, harness-discovery, model-selection
 
 ## map-npm-run-dev-serve-ts-node-backend-hot-reload-script
 
@@ -382,6 +389,14 @@ Total nodes: 74
 - **tags:** release, npm, skills, git
 - **depends_on:** practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime
 
+## practice-never-hand-commit-generated-skill-artifacts
+
+- **kind:** practice
+- **title:** Never hand-commit generated skill artifacts; they cannot be gitignored
+- **path:** practice-never-hand-commit-generated-skill-artifacts.md
+- **tags:** build, skills, git, gitattributes, review-gate, generated-artifacts
+- **relates_to:** practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime, map-src-skill-prompts-is-the-authored-source-of-truth-for-skill-md-content
+
 ## practice-npm-run-lint-only-covers-ts-files-tsx-web-files-need-separate-type-check
 
 - **kind:** practice
@@ -389,6 +404,14 @@ Total nodes: 74
 - **path:** tooling/practice-npm-run-lint-only-covers-ts-files-tsx-web-files-need-separate-type-check.md
 - **tags:** web, lint, tsx, build
 - **relates_to:** practice-lint-staged-scopes-lint-format-but-pre-commit-still-runs-the-full-test-suite
+
+## practice-optional-by-absence-new-files-absent-means-feature-off
+
+- **kind:** practice
+- **title:** Optional-by-absence pattern: new workspace files do not bump schema version
+- **path:** code-review/practice-optional-by-absence-new-files-absent-means-feature-off.md
+- **tags:** schema-version, compatibility, optional-gates
+- **relates_to:** practice-documentation-captures-current-state-only
 
 ## practice-phase-reserved-for-blueprint-task-groups
 
@@ -434,6 +457,21 @@ Total nodes: 74
 - **path:** web/rendering/practice-reuse-shared-spa-prose-rendering-components-across-all-markdown-rendering-screens.md
 - **tags:** web, spa, components, reuse, architecture
 - **relates_to:** map-mermaiderror-tsx-shared-mermaid-render-error-component
+
+## practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore
+
+- **kind:** practice
+- **title:** Review gate artifacts are git-ignored by a workspace-root .gitignore
+- **path:** practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore.md
+- **tags:** code-review, gitignore, workspace, init, generated-artifacts
+- **relates_to:** practice-never-hand-commit-generated-skill-artifacts, practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore
+
+## practice-review-loop-ordering-post-execution-reruns-after-fixes
+
+- **kind:** practice
+- **title:** Review loop ordering: POST_EXECUTION re-runs after fixes, not before
+- **path:** code-review/practice-review-loop-ordering-post-execution-reruns-after-fixes.md
+- **tags:** review-gate, ordering, mechanical-gates
 
 ## practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files
 
@@ -495,6 +533,14 @@ Total nodes: 74
 - **title:** Strikethroo brand favicon at src/web/public/favicon.svg
 - **path:** web/branding/practice-strikethroo-brand-favicon-svg.md
 - **tags:** web, assets, favicon, brand, font, svg
+
+## practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace
+
+- **kind:** practice
+- **title:** Strikethroo takes no stance on committing the .ai/strikethroo/ workspace
+- **path:** practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md
+- **tags:** gitignore, workspace, documentation, code-review, init
+- **relates_to:** practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore, practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore
 
 ## practice-use-baseui-components-for-interactive-ui-elements-in-the-spa
 

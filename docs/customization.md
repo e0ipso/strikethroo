@@ -89,6 +89,8 @@ The LLM verifies all tasks reached `completed` status, checks that documentation
 
 Terminal review gate, terminal only — runs once per plan, creates no task files, never mutates the blueprint. When a second harness is discovered and this hook is present and non-empty, a reviewer harness critiques the cumulative diff and emits schema-validated findings (`review.xml`). Findings at or above configured severity and confidence floors are dispatched to the implementer route for remediation; any applied fix forces a full `POST_EXECUTION` re-run before re-verification. Rounds are bounded and enforced in code; a user editing the hook cannot disable termination.
 
+**Reviewed scope**: a two-dot diff from a base commit recorded before phase execution against the **working tree**, so committed phase work and uncommitted fixes are both included. Untracked, unignored files are included too — the gate synthesizes an add-diff for each with `git diff --no-index` against `/dev/null`, so nothing needs to be staged or committed for the reviewer to see it, and the gate never writes to the git index.
+
 **Configuration**: The hook body specifies the mandate — which finding categories (correctness, design, security, etc.) are in scope, the minimum severity floor (`critical`, `major`, `minor`, `info`), the minimum confidence floor (`high`, `medium`, `low`), and the maximum round budget (default 3, clamped in code to a hardcoded `MAX_REVIEW_ROUNDS`). Any findings below either floor are recorded but never auto-fixed.
 
 **To disable**: Empty or delete this file. The gate skips cleanly and notes it in the execution summary. No error. `init` preserves your edits on re-run unless you pass `--force`.
@@ -101,7 +103,8 @@ Terminal review gate, terminal only — runs once per plan, creates no task file
 - Findings do not survive a fresh clone — `init` ships a workspace `.gitignore` that excludes `plans/*/review/` and `archive/*/review/`, so the gate never sees its own output as changed content. That exclusion covers review artifacts only; whether you track the rest of `.ai/strikethroo/` is your project's call.
 - Conformance-only scope has a blind spot — correct code matching the plan but badly abstracted passes.
 - Blast-radius checking is partial — the full `POST_EXECUTION` re-run is the real catcher.
-- Untracked files are outside the review scope — the diff runs from the recorded base commit against the working tree, so an uncommitted change to a tracked file is reviewed, while a brand-new file nothing has staged is invisible. Widening this would mean writing to the git index, which the gate deliberately does not do.
+- Generated and vendored files are outside the review scope — paths that `.gitattributes` marks `linguist-generated` or `linguist-vendored` are dropped from the diff, so changes to build output or vendored code are never reviewed. A finding against generated code is unfixable anyway: the fix is applied as a text replacement, the mandatory `POST_EXECUTION` re-run regenerates the file, and the next round raises the identical finding.
+- Ignored files are outside the review scope — the gate honours your ignore rules, which is also what keeps its own `review/` output from entering the next round's diff.
 
 ### Workflow Control Hooks
 

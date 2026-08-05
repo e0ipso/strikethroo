@@ -1,3 +1,11 @@
+## <small>3.16.1 (2026-08-05)</small>
+
+* docs: correct review-gate scope and serve mutability claims (#77) ([7d75947](https://github.com/e0ipso/strikethroo/commit/7d75947)), closes [#77](https://github.com/e0ipso/strikethroo/issues/77) [#71](https://github.com/e0ipso/strikethroo/issues/71) [#27](https://github.com/e0ipso/strikethroo/issues/27)
+* fix: address gitignore tests ([cdb4194](https://github.com/e0ipso/strikethroo/commit/cdb4194))
+* fix: deliver the workspace .gitignore through npm (#76) ([e207372](https://github.com/e0ipso/strikethroo/commit/e207372)), closes [#76](https://github.com/e0ipso/strikethroo/issues/76) [#75](https://github.com/e0ipso/strikethroo/issues/75)
+* chore: update devcontainer for CLI compatibility ([62a6c86](https://github.com/e0ipso/strikethroo/commit/62a6c86))
+* chore: update Kenkeep ([ee32a31](https://github.com/e0ipso/strikethroo/commit/ee32a31))
+
 ## 3.16.0 (2026-08-05)
 
 * feat: strikethroo profiles — import at init, export as a package (#73) ([65f8bee](https://github.com/e0ipso/strikethroo/commit/65f8bee)), closes [#73](https://github.com/e0ipso/strikethroo/issues/73)

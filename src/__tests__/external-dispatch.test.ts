@@ -230,6 +230,39 @@ describe('model-optional review dispatch (buildReviewCommand / dispatchReview)',
     expect(launchedStdin).toBe('Review this diff for defects.');
   });
 
+  /**
+   * Stdout capture is scoped to the review path and nothing else. Asserted at
+   * the launcher seam rather than by spawning a real process: what matters is
+   * which call site *requests* capture and which result carries the text back.
+   */
+  it('requests capture for the reviewer and surfaces its stdout, while task dispatch neither requests nor returns it', async () => {
+    let reviewCapture: boolean | undefined;
+    const reviewed = await dispatchReview(
+      { harness: 'codex', workspace: '/w', prompt: 'p' },
+      {
+        ...readyDependencies(),
+        launch: async (_command, options) => {
+          reviewCapture = options?.captureStdout;
+          return { exitCode: 0, stdout: 'reviewer text' };
+        },
+      }
+    );
+    expect(reviewCapture).toBe(true);
+    expect(reviewed).toEqual({ kind: 'launched-success', exitCode: 0, stdout: 'reviewer text' });
+
+    let taskCapture: boolean | undefined;
+    const task = await dispatchExternalTask(request('codex'), {
+      ...readyDependencies(),
+      launch: async (_command, options) => {
+        taskCapture = options?.captureStdout;
+        return { exitCode: 0 };
+      },
+    });
+    expect(taskCapture).not.toBe(true);
+    expect(task).toEqual({ kind: 'launched-success', exitCode: 0 });
+    expect(task).not.toHaveProperty('stdout');
+  });
+
   it('falls back before launch when the reviewer executable is unavailable, without launching', async () => {
     let launches = 0;
     const result = await dispatchReview(

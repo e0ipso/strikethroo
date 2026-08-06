@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { SUPPORTED_HARNESSES, type Harness } from '../types';
@@ -82,6 +83,13 @@ export interface FindingsEvaluationContext {
   xsdFile: string;
   planDir: string;
   round: number;
+  /**
+   * Captured reviewer stdout, present only on the review dispatch path. Read
+   * solely when `reviewFile` is absent: an on-disk document always wins.
+   */
+  reviewerStdout?: string;
+  /** This dispatch's collision token; without it no fallback region can match. */
+  fallbackToken?: string;
 }
 
 /**
@@ -160,12 +168,40 @@ export const createFindingsGate =
       confidenceFloor: mandate.confidenceFloor,
     };
 
+    // The stdout channel is a recovery path, not an alternative one: it is read
+    // only when the canonical file is absent, and what it recovers is written to
+    // that same canonical path so it meets the XSD at the one
+    // `validateAgainstSchema` call below. There is no second parser and no
+    // short-circuit into `parseReviewFindings`, whose linear tag scan is only
+    // safe behind validation.
     if (!fs.existsSync(context.reviewFile)) {
-      const detail =
-        `The reviewer did not write ${context.reviewFile}. A round with no findings document ` +
-        'cannot be read as a round with no findings.';
-      record({ ...base, status: 'findings-absent', detail, actionable: [], recorded: [] });
-      return { kind: 'findings-absent', detail };
+      const recovered =
+        context.reviewerStdout === undefined || context.fallbackToken === undefined
+          ? null
+          : _extractFallbackXml(context.reviewerStdout, context.fallbackToken);
+      if (recovered === null) {
+        const detail =
+          `The reviewer did not write ${context.reviewFile}, and its output carried no complete ` +
+          "findings document between this dispatch's fallback delimiters. A round with no " +
+          'findings document cannot be read as a round with no findings.';
+        record({ ...base, status: 'findings-absent', detail, actionable: [], recorded: [] });
+        return { kind: 'findings-absent', detail };
+      }
+      try {
+        fs.mkdirSync(roundDir, { recursive: true });
+        fs.writeFileSync(
+          context.reviewFile,
+          recovered.endsWith('\n') ? recovered : `${recovered}\n`,
+          'utf8'
+        );
+      } catch (error) {
+        // Same convention as `record`'s failure: a workspace that cannot be
+        // written to is an infrastructure failure, reported as exit 2.
+        throw new Error(
+          'A findings document recovered from reviewer output could not be written to ' +
+            `${context.reviewFile}: ${errorMessage(error)}`
+        );
+      }
     }
 
     const validation = await validateAgainstSchema(context.xsdFile, context.reviewFile);
@@ -479,6 +515,65 @@ const renderAdjudicated = (findings: readonly AdjudicatedFinding[]): string => {
     .join('\n');
 };
 
+/**
+ * A per-dispatch collision token spliced into the fallback delimiters. It exists
+ * so marker-shaped text already present in the diff or in the prompt cannot be
+ * mistaken for this dispatch's output. It is not authentication — the reviewer
+ * is shown the token.
+ */
+export const _makeFallbackToken = (): string => crypto.randomBytes(6).toString('hex');
+
+/**
+ * The fallback delimiters, in the same style as the cumulative-diff markers
+ * below. Both ends of the channel call these; the literal is never hand-written
+ * in two places, because a drift between the prompt and the extractor would
+ * silently disable recovery rather than fail.
+ */
+const fallbackBeginMarker = (token: string): string => `<<<BEGIN REVIEW XML ${token}>>>`;
+const fallbackEndMarker = (token: string): string => `<<<END REVIEW XML ${token}>>>`;
+
+/**
+ * CSI sequences a harness may interleave with its output. The leading ESC is
+ * part of the pattern on purpose: without it this would also strip ordinary
+ * bracketed text such as the `[C` of `<![CDATA[`, corrupting the very document
+ * it is meant to recover.
+ */
+// eslint-disable-next-line no-control-regex
+const ANSI_PATTERN = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
+
+/**
+ * Recover a findings document from captured reviewer stdout.
+ *
+ * Takes the LAST complete token-bearing region, because a harness may print the
+ * block more than once and the final emission is the reviewer's actual answer.
+ * A region that does not look like an XML document is skipped rather than
+ * returned: the prompt itself contains these marker literals, so a reviewer
+ * echoing its own instructions would otherwise become a false positive. When
+ * nothing qualifies this returns `null` and the caller keeps its existing
+ * `findings-absent` outcome — a malformed capture must not invent a new failure
+ * mode.
+ */
+export const _extractFallbackXml = (stdout: string, token: string): string | null => {
+  const clean = stdout.replace(ANSI_PATTERN, '');
+  const begin = fallbackBeginMarker(token);
+  const end = fallbackEndMarker(token);
+  // Walk backwards so the last qualifying pair wins while earlier pairs stay
+  // reachable when the last one is an echoed instruction. `searchFrom` reaching
+  // -1 is the terminating case rather than a wraparound: `lastIndexOf(x, -1)`
+  // searches from index 0 and would re-find the region just rejected.
+  let searchFrom = clean.length;
+  while (searchFrom >= 0) {
+    const endIndex = clean.lastIndexOf(end, searchFrom);
+    if (endIndex === -1) return null;
+    const beginIndex = clean.lastIndexOf(begin, endIndex);
+    if (beginIndex === -1) return null;
+    const inner = clean.slice(beginIndex + begin.length, endIndex).trim();
+    if (inner.startsWith('<?xml') || inner.startsWith('<review')) return inner;
+    searchFrom = beginIndex - 1;
+  }
+  return null;
+};
+
 export interface ReviewerPromptInput {
   planId: number;
   planFile: string;
@@ -493,6 +588,8 @@ export interface ReviewerPromptInput {
   diff: string;
   adjudicatedFindings: readonly AdjudicatedFinding[];
   skillInstructions: string;
+  /** This dispatch's collision token, spliced into the fallback delimiters. */
+  fallbackToken: string;
 }
 
 /**
@@ -519,6 +616,27 @@ export const buildReviewerPrompt = (input: ReviewerPromptInput): string =>
     `Base commit anchoring this plan's scope: ${input.baseCommit}`,
     `Round: ${input.round}`,
     `Write your findings to: ${input.reviewFile}`,
+    '',
+    '## If the file write fails',
+    '',
+    'Writing that file is the primary channel. If — and only if — you completed every',
+    'step of the review mandate below and the file write itself failed, emit the complete',
+    'findings document as the final thing you print, between these exact lines:',
+    '',
+    fallbackBeginMarker(input.fallbackToken),
+    // The placeholder deliberately does not begin with `<?xml` or `<review`.
+    // `_extractFallbackXml` rejects a region on exactly that test, which is what
+    // stops a reviewer that echoes these instructions back from being read as a
+    // recovered document. A placeholder shaped like a real document would defeat
+    // it — keep this line prose, here and in any mirror of it.
+    '... the complete findings document, beginning with its XML declaration ...',
+    fallbackEndMarker(input.fallbackToken),
+    '',
+    'Print nothing after the closing line. The document is validated against the same',
+    'schema either way, so an incomplete or invented document fails the round.',
+    'Being unable to read the repository is not a reason to emit this block: a review',
+    'you could not perform is a failed round, and emitting well-formed XML instead of',
+    'reporting that failure is a worse outcome than the failure.',
     '',
     '## Review mandate (authoritative — it overrides the reviewer instructions below)',
     '',
@@ -794,6 +912,22 @@ export const runReviewRound = async (
     };
   }
 
+  // File precedence is only safe when the file belongs to this invocation. Remove
+  // the exact canonical path and nothing else: never glob for XML, never read
+  // `.self-review.yaml`, never follow a custom output name, and leave any prior
+  // `findings.json` in place as evidence of the earlier attempt. `force: true`
+  // makes absence a no-op, which is the common case.
+  try {
+    fs.rmSync(reviewFile, { force: true });
+  } catch (error) {
+    return {
+      kind: 'infrastructure-failure',
+      detail: `Could not remove the stale findings document ${reviewFile}: ${errorMessage(error)}`,
+    };
+  }
+
+  const fallbackToken = _makeFallbackToken();
+
   const prompt = buildReviewerPrompt({
     planId,
     planFile,
@@ -809,6 +943,7 @@ export const runReviewRound = async (
     adjudicatedFindings:
       request.adjudicatedFindings ?? _readPriorAdjudicated(planDir, request.round),
     skillInstructions: readReviewerSkill(),
+    fallbackToken,
   });
 
   const dispatched = await dependencies.dispatch({ harness, workspace, prompt });
@@ -836,12 +971,17 @@ export const runReviewRound = async (
   }
 
   // The gate is not optional. An override may replace it; nothing removes it.
+  // Only a `launched-success` reviewer's stdout reaches evaluation: the
+  // `launched-failure` branch above returns first, so a non-zero exit is never
+  // certified and its output stays diagnostic.
   const evaluate = dependencies.evaluateFindings ?? createFindingsGate(mandate);
   const findingsGate = await evaluate({
     reviewFile,
     xsdFile,
     planDir,
     round: request.round,
+    ...(dispatched.stdout === undefined ? {} : { reviewerStdout: dispatched.stdout }),
+    fallbackToken,
   });
 
   return {

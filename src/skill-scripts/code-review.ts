@@ -83,6 +83,13 @@ export interface FindingsEvaluationContext {
   xsdFile: string;
   planDir: string;
   round: number;
+  /**
+   * Captured reviewer stdout, present only on the review dispatch path. Read
+   * solely when `reviewFile` is absent: an on-disk document always wins.
+   */
+  reviewerStdout?: string;
+  /** This dispatch's collision token; without it no fallback region can match. */
+  fallbackToken?: string;
 }
 
 /**
@@ -161,12 +168,40 @@ export const createFindingsGate =
       confidenceFloor: mandate.confidenceFloor,
     };
 
+    // The stdout channel is a recovery path, not an alternative one: it is read
+    // only when the canonical file is absent, and what it recovers is written to
+    // that same canonical path so it meets the XSD at the one
+    // `validateAgainstSchema` call below. There is no second parser and no
+    // short-circuit into `parseReviewFindings`, whose linear tag scan is only
+    // safe behind validation.
     if (!fs.existsSync(context.reviewFile)) {
-      const detail =
-        `The reviewer did not write ${context.reviewFile}. A round with no findings document ` +
-        'cannot be read as a round with no findings.';
-      record({ ...base, status: 'findings-absent', detail, actionable: [], recorded: [] });
-      return { kind: 'findings-absent', detail };
+      const recovered =
+        context.reviewerStdout === undefined || context.fallbackToken === undefined
+          ? null
+          : _extractFallbackXml(context.reviewerStdout, context.fallbackToken);
+      if (recovered === null) {
+        const detail =
+          `The reviewer did not write ${context.reviewFile}, and its output carried no complete ` +
+          "findings document between this dispatch's fallback delimiters. A round with no " +
+          'findings document cannot be read as a round with no findings.';
+        record({ ...base, status: 'findings-absent', detail, actionable: [], recorded: [] });
+        return { kind: 'findings-absent', detail };
+      }
+      try {
+        fs.mkdirSync(roundDir, { recursive: true });
+        fs.writeFileSync(
+          context.reviewFile,
+          recovered.endsWith('\n') ? recovered : `${recovered}\n`,
+          'utf8'
+        );
+      } catch (error) {
+        // Same convention as `record`'s failure: a workspace that cannot be
+        // written to is an infrastructure failure, reported as exit 2.
+        throw new Error(
+          'A findings document recovered from reviewer output could not be written to ' +
+            `${context.reviewFile}: ${errorMessage(error)}`
+        );
+      }
     }
 
     const validation = await validateAgainstSchema(context.xsdFile, context.reviewFile);
@@ -877,6 +912,22 @@ export const runReviewRound = async (
     };
   }
 
+  // File precedence is only safe when the file belongs to this invocation. Remove
+  // the exact canonical path and nothing else: never glob for XML, never read
+  // `.self-review.yaml`, never follow a custom output name, and leave any prior
+  // `findings.json` in place as evidence of the earlier attempt. `force: true`
+  // makes absence a no-op, which is the common case.
+  try {
+    fs.rmSync(reviewFile, { force: true });
+  } catch (error) {
+    return {
+      kind: 'infrastructure-failure',
+      detail: `Could not remove the stale findings document ${reviewFile}: ${errorMessage(error)}`,
+    };
+  }
+
+  const fallbackToken = _makeFallbackToken();
+
   const prompt = buildReviewerPrompt({
     planId,
     planFile,
@@ -892,9 +943,7 @@ export const runReviewRound = async (
     adjudicatedFindings:
       request.adjudicatedFindings ?? _readPriorAdjudicated(planDir, request.round),
     skillInstructions: readReviewerSkill(),
-    // Task 3 lifts this into a variable it also hands to the findings gate; the
-    // channel is not read back yet, so a per-call token is enough to compile.
-    fallbackToken: _makeFallbackToken(),
+    fallbackToken,
   });
 
   const dispatched = await dependencies.dispatch({ harness, workspace, prompt });
@@ -922,12 +971,17 @@ export const runReviewRound = async (
   }
 
   // The gate is not optional. An override may replace it; nothing removes it.
+  // Only a `launched-success` reviewer's stdout reaches evaluation: the
+  // `launched-failure` branch above returns first, so a non-zero exit is never
+  // certified and its output stays diagnostic.
   const evaluate = dependencies.evaluateFindings ?? createFindingsGate(mandate);
   const findingsGate = await evaluate({
     reviewFile,
     xsdFile,
     planDir,
     round: request.round,
+    ...(dispatched.stdout === undefined ? {} : { reviewerStdout: dispatched.stdout }),
+    fallbackToken,
   });
 
   return {

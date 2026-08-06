@@ -75,8 +75,8 @@ export interface StructuredCommand {
 }
 
 export type ExternalDispatchResult =
-  | { kind: 'launched-success'; exitCode: 0 }
-  | { kind: 'launched-failure'; exitCode: number }
+  | { kind: 'launched-success'; exitCode: 0; stdout?: string }
+  | { kind: 'launched-failure'; exitCode: number; stdout?: string }
   | { kind: 'infrastructure-failure'; detail: string }
   | {
       kind: 'fallback';
@@ -94,7 +94,15 @@ export interface ExternalDispatchDependencies {
     command: StructuredCommand,
     adapter: ExternalHarnessAdapter
   ) => Promise<{ ok: boolean; detail?: string }>;
-  launch: (command: StructuredCommand) => Promise<{ exitCode: number }>;
+  /**
+   * Both the option parameter and the `stdout` result field are optional so a
+   * caller that neither requests nor reads captured output keeps its existing
+   * shape. Do not make either required.
+   */
+  launch: (
+    command: StructuredCommand,
+    options?: { captureStdout?: boolean }
+  ) => Promise<{ exitCode: number; stdout?: string }>;
 }
 
 export interface ExternalHarnessAdapter {
@@ -255,13 +263,34 @@ export const harnessExecutableAvailable = (harness: string): boolean => {
   return adapter ? executableOnPath(adapter.executable) : false;
 };
 
+/**
+ * Upper bound on retained reviewer stdout. The fallback document is the
+ * reviewer's *final* output, so the tail is the load-bearing part: truncation
+ * drops from the front. Sized well above `review-findings.ts`'s 2000-char
+ * xmllint diagnostic bound because a findings document is a whole XML file.
+ */
+export const CAPTURED_STDOUT_LIMIT = 262_144;
+
+/**
+ * How the child's stdout is wired. `capture` pipes it, tees every chunk to this
+ * process's stderr so operator-visible progress survives, and retains a bounded
+ * tail. Child stderr stays inherited in `capture` exactly as in `inherit`.
+ */
+type OutputMode = 'ignore' | 'inherit' | 'capture';
+
+const STDIO_SLOTS: Readonly<Record<OutputMode, { stdout: 'ignore' | 'inherit' | 'pipe' }>> = {
+  ignore: { stdout: 'ignore' },
+  inherit: { stdout: 'inherit' },
+  capture: { stdout: 'pipe' },
+};
+
 const runProcess = (
   executable: string,
   argv: string[],
   cwd: string,
   stdin?: string,
-  inheritOutput = false
-): Promise<{ exitCode: number }> =>
+  outputMode: OutputMode = 'ignore'
+): Promise<{ exitCode: number; stdout?: string }> =>
   new Promise((resolve, reject) => {
     let settled = false;
     const fail = (error: Error): void => {
@@ -274,15 +303,34 @@ const runProcess = (
       shell: false,
       stdio: [
         stdin === undefined ? 'ignore' : 'pipe',
-        inheritOutput ? 'inherit' : 'ignore',
-        inheritOutput ? 'inherit' : 'ignore',
+        STDIO_SLOTS[outputMode].stdout,
+        outputMode === 'ignore' ? 'ignore' : 'inherit',
       ],
     });
+    let captured = '';
+    if (outputMode === 'capture') {
+      // `setEncoding` makes Node decode multibyte sequences across chunk
+      // boundaries, so no hand-rolled Buffer joining is needed here.
+      child.stdout!.setEncoding('utf8');
+      child.stdout!.once('error', fail);
+      child.stdout!.on('data', (chunk: string) => {
+        process.stderr.write(chunk);
+        captured += chunk;
+        if (captured.length > CAPTURED_STDOUT_LIMIT) {
+          captured = captured.slice(captured.length - CAPTURED_STDOUT_LIMIT);
+        }
+      });
+    }
     child.once('error', fail);
+    // `close` (unlike `exit`) fires only after every stdio stream has closed, so
+    // the captured text is complete by the time this resolves.
     child.once('close', code => {
       if (settled) return;
       settled = true;
-      resolve({ exitCode: code ?? 1 });
+      resolve({
+        exitCode: code ?? 1,
+        ...(outputMode === 'capture' ? { stdout: captured } : {}),
+      });
     });
     if (stdin !== undefined) {
       child.stdin!.once('error', fail);
@@ -313,8 +361,14 @@ const dependencies: ExternalDispatchDependencies = {
       };
     }
   },
-  launch: commandSpec =>
-    runProcess(commandSpec.executable, commandSpec.argv, commandSpec.cwd, commandSpec.stdin, true),
+  launch: (commandSpec, options) =>
+    runProcess(
+      commandSpec.executable,
+      commandSpec.argv,
+      commandSpec.cwd,
+      commandSpec.stdin,
+      options?.captureStdout === true ? 'capture' : 'inherit'
+    ),
 };
 
 const errorMessage = (error: unknown): string =>
@@ -368,14 +422,16 @@ const prepareLaunch = async (
 const launchPrepared = async (
   prepared: PreparedLaunch,
   active: ExternalDispatchDependencies,
-  label: string
+  label: string,
+  captureStdout = false
 ): Promise<ExternalDispatchResult> => {
   if (prepared.kind === 'fallback') return prepared;
   try {
-    const launched = await active.launch(prepared.command);
+    const launched = await active.launch(prepared.command, { captureStdout });
+    const stdout = launched.stdout === undefined ? {} : { stdout: launched.stdout };
     return launched.exitCode === 0
-      ? { kind: 'launched-success', exitCode: 0 }
-      : { kind: 'launched-failure', exitCode: launched.exitCode };
+      ? { kind: 'launched-success', exitCode: 0, ...stdout }
+      : { kind: 'launched-failure', exitCode: launched.exitCode, ...stdout };
   } catch (error) {
     return {
       kind: 'infrastructure-failure',
@@ -412,6 +468,10 @@ export const dispatchExternalTask = async (
  * Dispatch a reviewer to a discovered harness. Same pre-launch gate and same
  * result union as task dispatch; no model, no reasoning effort, and therefore no
  * `unsupported-reasoning-effort` guard — that branch is unreachable here.
+ *
+ * This is the only path that requests stdout capture: a reviewer that writes its
+ * findings to stdout instead of the expected file leaves no other trace. Task
+ * dispatch deliberately keeps its child's output inherited and uncaptured.
  */
 export const dispatchReview = async (
   request: ReviewDispatchRequest,
@@ -419,5 +479,5 @@ export const dispatchReview = async (
 ): Promise<ExternalDispatchResult> => {
   const active = { ...dependencies, ...overrides };
   const prepared = await prepareLaunch(request.harness, reviewCommandRequest(request), active);
-  return launchPrepared(prepared, active, 'review');
+  return launchPrepared(prepared, active, 'review', true);
 };

@@ -25,7 +25,7 @@ import {
   type FindingsGate,
   type ReviewRoundDependencies,
 } from '../skill-scripts/code-review';
-import { FAKE_SHA, makeReviewGateWorkspace } from './fixtures/review-gate';
+import { buildReviewXml, FAKE_SHA, makeReviewGateWorkspace } from './fixtures/review-gate';
 
 const stubDeps = (overrides: Partial<ReviewRoundDependencies> = {}): ReviewRoundDependencies => ({
   discover: async () => ({ outcomes: [], reviewerCandidates: ['codex'] }),
@@ -487,5 +487,219 @@ describe('code review gate — xmllint is a soft dependency', () => {
     );
     expect(result).not.toMatchObject({ reason: 'validator-absent' });
     expect(dispatch).toHaveBeenCalled();
+  });
+});
+
+/**
+ * The stdout fallback: a reviewer that completed its review but could not write
+ * `review.xml` still certifies a round by printing the document between this
+ * dispatch's delimiters.
+ *
+ * These cases deliberately do **not** inject `evaluateFindings`. The recovery
+ * branch lives inside `createFindingsGate`, so the override every suite above
+ * uses is precisely what left the branch untested. The real gate runs here,
+ * against the real vendored XSD through the real `xmllint` — which is what
+ * proves a recovered document is held to the same schema as a written one, and
+ * that a failed recovery degrades to a failed round rather than a clean one.
+ */
+describe('code review gate — stdout fallback recovery', () => {
+  const roundOneDir = (ws: ReturnType<typeof makeReviewGateWorkspace>) =>
+    path.join(ws.planDir, 'review', 'round-1');
+
+  const TOKEN_PATTERN = /<<<BEGIN REVIEW XML ([0-9a-f]+)>>>/;
+
+  const delimited = (token: string, xml: string) =>
+    `<<<BEGIN REVIEW XML ${token}>>>\n${xml}\n<<<END REVIEW XML ${token}>>>\n`;
+
+  /**
+   * `runReviewRound` mints the collision token internally, so a stub cannot know
+   * it in advance — it is read back out of the prompt the stub receives. The
+   * regex doubles as an assertion that the prompt carries the delimiters at all:
+   * a drift between the prompt and the extractor would silently disable
+   * recovery, and every case here would stop finding a token.
+   */
+  const emitting = (xml: string) => {
+    let seen = '';
+    const dispatch: ReviewRoundDependencies['dispatch'] = async request => {
+      seen = request.prompt;
+      const token = TOKEN_PATTERN.exec(request.prompt)?.[1];
+      if (token === undefined) return { kind: 'launched-success', exitCode: 0 };
+      return {
+        kind: 'launched-success',
+        exitCode: 0,
+        stdout: `some progress chatter\n${delimited(token, xml)}`,
+      };
+    };
+    return { dispatch, prompt: () => seen };
+  };
+
+  const runRound = (ws: ReturnType<typeof makeReviewGateWorkspace>, dispatch: unknown) =>
+    runBoundedReviewRound(
+      { plan: '1', currentHarness: 'claude', round: 1, startPath: ws.root },
+      stubDeps({ dispatch: dispatch as ReviewRoundDependencies['dispatch'] })
+    );
+
+  it('certifies a round from a document the reviewer only printed, and writes it to the canonical path', async () => {
+    const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    const xml = buildReviewXml([{ file: 'src/x.ts', severity: 'minor', confidence: 'low' }]);
+    const { dispatch, prompt } = emitting(xml);
+    // `vi.spyOn` calls through, so the reporter's own writes are unaffected; the
+    // assertion below is only that no reviewer text is among them.
+    const stdoutSpy = vi.spyOn(process.stdout, 'write');
+    try {
+      const result = await runRound(ws, dispatch);
+
+      expect(result).toMatchObject({
+        kind: 'reviewed',
+        reviewFilePresent: true,
+        findingsGate: { kind: 'evaluated' },
+        decision: { kind: 'gate-passed' },
+      });
+      expect(_exitCodeFor(result)).toBe(0);
+      const { reviewFile } = result as { reviewFile: string };
+      expect(fs.readFileSync(reviewFile, 'utf8').trim()).toBe(xml.trim());
+      expect(prompt()).toMatch(TOKEN_PATTERN);
+
+      // Capture is a channel back into this mechanism, not a passthrough. The
+      // launcher tees the child's output to stderr; nothing reviewer-shaped may
+      // reach this process's stdout, which carries only `emit`'s single JSON
+      // line — and `emit` is not reached from `runBoundedReviewRound`.
+      for (const [chunk] of stdoutSpy.mock.calls) {
+        expect(String(chunk)).not.toContain('src/x.ts');
+        expect(String(chunk)).not.toContain('REVIEW XML');
+      }
+    } finally {
+      stdoutSpy.mockRestore();
+      ws.cleanup();
+    }
+  });
+
+  it('holds a recovered document to the same XSD as a written one: schema-invalid, never evaluated', async () => {
+    const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    const { dispatch } = emitting(
+      '<?xml version="1.0"?><review xmlns="urn:self-review:v2"><nonsense/></review>'
+    );
+    try {
+      const result = await runRound(ws, dispatch);
+
+      expect(result).toMatchObject({
+        kind: 'reviewed',
+        findingsGate: { kind: 'schema-invalid' },
+        decision: { kind: 'round-failed' },
+      });
+      expect(_exitCodeFor(result)).toBe(1);
+    } finally {
+      ws.cleanup();
+    }
+  });
+
+  it('never reads an undelivered document as a clean review, whether nothing was printed or the prompt was echoed back', async () => {
+    const silent: ReviewRoundDependencies['dispatch'] = async () => ({
+      kind: 'launched-success',
+      exitCode: 0,
+    });
+    // The prompt itself carries the delimiters around a prose placeholder, so
+    // echoing it back is the realistic false-positive: the region matches but
+    // does not open an XML document, and must be rejected.
+    const echoing: ReviewRoundDependencies['dispatch'] = async request => ({
+      kind: 'launched-success',
+      exitCode: 0,
+      stdout: request.prompt,
+    });
+
+    for (const dispatch of [silent, echoing]) {
+      const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+      try {
+        const result = await runRound(ws, dispatch);
+
+        expect(result).toMatchObject({
+          kind: 'reviewed',
+          findingsGate: { kind: 'findings-absent' },
+          decision: { kind: 'round-failed' },
+        });
+        const { findingsGate } = result as { findingsGate: { kind: string } };
+        expect(findingsGate.kind).not.toBe('evaluated');
+        expect(_exitCodeFor(result)).toBe(1);
+      } finally {
+        ws.cleanup();
+      }
+    }
+  });
+
+  it('prefers the document on disk when the reviewer delivered on both channels', async () => {
+    const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    const fromDisk = buildReviewXml([
+      { file: 'from-disk.ts', severity: 'minor', confidence: 'low' },
+    ]);
+    const fromStdout = buildReviewXml([
+      { file: 'from-stdout.ts', severity: 'minor', confidence: 'low' },
+    ]);
+    const reviewFile = path.join(roundOneDir(ws), 'review.xml');
+    // Writing from inside the stub models a reviewer that succeeded at both:
+    // the round directory already exists by the time dispatch is called.
+    const dispatch: ReviewRoundDependencies['dispatch'] = async request => {
+      const token = TOKEN_PATTERN.exec(request.prompt)![1]!;
+      fs.writeFileSync(reviewFile, fromDisk, 'utf8');
+      return {
+        kind: 'launched-success',
+        exitCode: 0,
+        stdout: delimited(token, fromStdout),
+      };
+    };
+
+    try {
+      const result = await runRound(ws, dispatch);
+
+      expect(result).toMatchObject({ kind: 'reviewed', findingsGate: { kind: 'evaluated' } });
+      expect(fs.readFileSync(reviewFile, 'utf8')).toBe(fromDisk);
+      // The partition is what the gate actually evaluated, so it is the honest
+      // witness to precedence — not merely which bytes survived on disk.
+      const { findingsGate } = result as { findingsGate: { findingsFile: string } };
+      const partition = fs.readFileSync(findingsGate.findingsFile, 'utf8');
+      expect(partition).toContain('from-disk.ts');
+      expect(partition).not.toContain('from-stdout.ts');
+    } finally {
+      ws.cleanup();
+    }
+  });
+
+  it('removes only the canonical review.xml before dispatch, leaving unrelated round artifacts intact', async () => {
+    const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    const roundDir = roundOneDir(ws);
+    fs.mkdirSync(roundDir, { recursive: true });
+    // Above both floors, so a stale document that survived would produce
+    // `fix-and-continue` and exit 1 — a different observable outcome, not just
+    // different bytes.
+    const stale = buildReviewXml([{ file: 'stale.ts', severity: 'critical', confidence: 'high' }]);
+    const custom = buildReviewXml([{ file: 'custom.ts', severity: 'minor', confidence: 'low' }]);
+    const fresh = buildReviewXml([{ file: 'fresh.ts', severity: 'minor', confidence: 'low' }]);
+    fs.writeFileSync(path.join(roundDir, 'review.xml'), stale, 'utf8');
+    fs.writeFileSync(path.join(roundDir, 'custom-review.xml'), custom, 'utf8');
+    fs.writeFileSync(path.join(roundDir, 'findings.json'), '{"seeded":true}\n', 'utf8');
+
+    const { dispatch } = emitting(fresh);
+    try {
+      const result = await runRound(ws, dispatch);
+
+      expect(result).toMatchObject({
+        kind: 'reviewed',
+        findingsGate: { kind: 'evaluated' },
+        decision: { kind: 'gate-passed' },
+      });
+      expect(fs.readFileSync(path.join(roundDir, 'review.xml'), 'utf8').trim()).toBe(fresh.trim());
+      // `custom-review.xml` is the unrelated artifact this asserts non-deletion
+      // on, byte for byte: the removal must target the exact canonical path and
+      // never glob for XML or follow a custom output name. `findings.json` is
+      // only asserted to still exist, because the gate rewrites it for the
+      // current round by design — its seeded content is *expected* to be gone,
+      // so it cannot witness non-deletion.
+      expect(fs.readFileSync(path.join(roundDir, 'custom-review.xml'), 'utf8')).toBe(custom);
+      expect(fs.existsSync(path.join(roundDir, 'findings.json'))).toBe(true);
+      const partition = fs.readFileSync(path.join(roundDir, 'findings.json'), 'utf8');
+      expect(partition).toContain('fresh.ts');
+      expect(partition).not.toContain('stale.ts');
+    } finally {
+      ws.cleanup();
+    }
   });
 });

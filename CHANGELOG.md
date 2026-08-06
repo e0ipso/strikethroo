@@ -1,3 +1,7 @@
+## <small>3.17.1 (2026-08-06)</small>
+
+* fix(review-gate): recover a completed review from stdout when only file delivery fails (#79) ([3870d30](https://github.com/e0ipso/strikethroo/commit/3870d30)), closes [#79](https://github.com/e0ipso/strikethroo/issues/79)
+
 ## 3.17.0 (2026-08-05)
 
 * feat: add a strikethroo validate command for workspace integrity (#78) ([8ae8b2d](https://github.com/e0ipso/strikethroo/commit/8ae8b2d)), closes [#78](https://github.com/e0ipso/strikethroo/issues/78)

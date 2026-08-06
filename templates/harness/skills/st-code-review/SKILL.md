@@ -221,6 +221,22 @@ finding and stop. Do not restructure a fix to fit the element.
 Why, once: this is what blocks broad speculative refactors structurally rather
 than by request. It must not be designed away.
 
+### If the file write fails
+
+Writing the named file is the primary channel; it is read first. The dispatch
+prompt supplies a second channel — a BEGIN/END delimiter pair carrying a
+per-dispatch token — governed by these rules:
+
+- Use it only when you completed every step of the Operating Procedure below and
+  the file write itself failed.
+- Emit the complete document between the exact delimiter lines the dispatch
+  supplies. Copy those lines from the dispatch; never invent a token.
+- Print nothing after the closing delimiter line.
+- The same schema validates both channels. An incomplete or invented document
+  fails the round on either one.
+- Being unable to read the repository is **not** a reason to emit the block.
+  A review you could not perform is a failed round. Report it as one.
+
 ## Operating Procedure
 
 ### 1. Read the mandate

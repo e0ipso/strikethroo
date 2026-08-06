@@ -3737,7 +3737,13 @@ var executableOnPath = (executable) => (process.env.PATH ?? "").split(path2.deli
     return false;
   }
 });
-var runProcess = (executable, argv, cwd, stdin, inheritOutput = false) => new Promise((resolve3, reject) => {
+var CAPTURED_STDOUT_LIMIT = 262144;
+var STDIO_SLOTS = {
+  ignore: { stdout: "ignore" },
+  inherit: { stdout: "inherit" },
+  capture: { stdout: "pipe" }
+};
+var runProcess = (executable, argv, cwd, stdin, outputMode = "ignore") => new Promise((resolve3, reject) => {
   let settled = false;
   const fail = (error) => {
     if (settled) return;
@@ -3749,15 +3755,30 @@ var runProcess = (executable, argv, cwd, stdin, inheritOutput = false) => new Pr
     shell: false,
     stdio: [
       stdin === void 0 ? "ignore" : "pipe",
-      inheritOutput ? "inherit" : "ignore",
-      inheritOutput ? "inherit" : "ignore"
+      STDIO_SLOTS[outputMode].stdout,
+      outputMode === "ignore" ? "ignore" : "inherit"
     ]
   });
+  let captured = "";
+  if (outputMode === "capture") {
+    child.stdout.setEncoding("utf8");
+    child.stdout.once("error", fail);
+    child.stdout.on("data", (chunk) => {
+      process.stderr.write(chunk);
+      captured += chunk;
+      if (captured.length > CAPTURED_STDOUT_LIMIT) {
+        captured = captured.slice(captured.length - CAPTURED_STDOUT_LIMIT);
+      }
+    });
+  }
   child.once("error", fail);
   child.once("close", (code) => {
     if (settled) return;
     settled = true;
-    resolve3({ exitCode: code ?? 1 });
+    resolve3({
+      exitCode: code ?? 1,
+      ...outputMode === "capture" ? { stdout: captured } : {}
+    });
   });
   if (stdin !== void 0) {
     child.stdin.once("error", fail);
@@ -3785,7 +3806,13 @@ var dependencies = {
       };
     }
   },
-  launch: (commandSpec) => runProcess(commandSpec.executable, commandSpec.argv, commandSpec.cwd, commandSpec.stdin, true)
+  launch: (commandSpec, options2) => runProcess(
+    commandSpec.executable,
+    commandSpec.argv,
+    commandSpec.cwd,
+    commandSpec.stdin,
+    options2?.captureStdout === true ? "capture" : "inherit"
+  )
 };
 var errorMessage = (error) => error instanceof Error ? error.message : String(error);
 var prepareLaunch = async (harness, input, active, guard) => {
@@ -3817,11 +3844,12 @@ var prepareLaunch = async (harness, input, active, guard) => {
   }
   return { kind: "ready", command: commandSpec };
 };
-var launchPrepared = async (prepared, active, label) => {
+var launchPrepared = async (prepared, active, label, captureStdout = false) => {
   if (prepared.kind === "fallback") return prepared;
   try {
-    const launched = await active.launch(prepared.command);
-    return launched.exitCode === 0 ? { kind: "launched-success", exitCode: 0 } : { kind: "launched-failure", exitCode: launched.exitCode };
+    const launched = await active.launch(prepared.command, { captureStdout });
+    const stdout = launched.stdout === void 0 ? {} : { stdout: launched.stdout };
+    return launched.exitCode === 0 ? { kind: "launched-success", exitCode: 0, ...stdout } : { kind: "launched-failure", exitCode: launched.exitCode, ...stdout };
   } catch (error) {
     return {
       kind: "infrastructure-failure",

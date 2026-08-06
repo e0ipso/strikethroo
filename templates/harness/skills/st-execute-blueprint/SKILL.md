@@ -174,7 +174,7 @@ code-review.cjs <plan-id> <current-harness> <round>
 
 `code-review.cjs` ships with the `st-code-review` skill and lives in that skill's own `scripts` directory, a sibling of this one. Resolve it there; it is not bundled with this skill. If the `st-code-review` skill is not installed on this harness, record that as the review outcome in the execution summary and continue to the summary and archival.
 
-`<current-harness>` is the exact supported harness identifier running this skill. `<round>` is `1` on the first invocation, and thereafter the exact `decision.nextRound` the previous round returned. The command emits exactly one JSON line on stdout. Read its `kind`, then — when `kind` is `reviewed` — its `decision.kind`, and do exactly what the matching row states.
+`<current-harness>` is the exact supported harness identifier running this skill. `<round>` is `1` on the first invocation, and thereafter the exact `decision.nextRound` the previous round returned. The command emits exactly one JSON line on stdout. Reviewer output is captured and teed to stderr, so stdout carries the verdict JSON line and nothing else. Read its `kind`, then — when `kind` is `reviewed` — its `decision.kind`, and do exactly what the matching row states.
 
 | Result | What you do |
 | --- | --- |

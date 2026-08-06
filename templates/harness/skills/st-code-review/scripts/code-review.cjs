@@ -37,6 +37,8 @@ __export(code_review_exports, {
   MAX_REVIEW_ROUNDS: () => MAX_REVIEW_ROUNDS,
   _decideRound: () => _decideRound,
   _exitCodeFor: () => _exitCodeFor,
+  _extractFallbackXml: () => _extractFallbackXml,
+  _makeFallbackToken: () => _makeFallbackToken,
   _readBaseCommit: () => _readBaseCommit,
   _readCumulativeDiff: () => _readCumulativeDiff,
   _readPriorAdjudicated: () => _readPriorAdjudicated,
@@ -48,6 +50,7 @@ __export(code_review_exports, {
   runReviewRound: () => runReviewRound
 });
 module.exports = __toCommonJS(code_review_exports);
+var crypto = __toESM(require("crypto"));
 var fs6 = __toESM(require("fs"));
 var path6 = __toESM(require("path"));
 
@@ -382,7 +385,13 @@ var executableOnPath = (executable) => (process.env.PATH ?? "").split(path4.deli
     return false;
   }
 });
-var runProcess = (executable, argv, cwd, stdin, inheritOutput = false) => new Promise((resolve3, reject) => {
+var CAPTURED_STDOUT_LIMIT = 262144;
+var STDIO_SLOTS = {
+  ignore: { stdout: "ignore" },
+  inherit: { stdout: "inherit" },
+  capture: { stdout: "pipe" }
+};
+var runProcess = (executable, argv, cwd, stdin, outputMode = "ignore") => new Promise((resolve3, reject) => {
   let settled = false;
   const fail = (error) => {
     if (settled) return;
@@ -394,15 +403,30 @@ var runProcess = (executable, argv, cwd, stdin, inheritOutput = false) => new Pr
     shell: false,
     stdio: [
       stdin === void 0 ? "ignore" : "pipe",
-      inheritOutput ? "inherit" : "ignore",
-      inheritOutput ? "inherit" : "ignore"
+      STDIO_SLOTS[outputMode].stdout,
+      outputMode === "ignore" ? "ignore" : "inherit"
     ]
   });
+  let captured = "";
+  if (outputMode === "capture") {
+    child.stdout.setEncoding("utf8");
+    child.stdout.once("error", fail);
+    child.stdout.on("data", (chunk) => {
+      process.stderr.write(chunk);
+      captured += chunk;
+      if (captured.length > CAPTURED_STDOUT_LIMIT) {
+        captured = captured.slice(captured.length - CAPTURED_STDOUT_LIMIT);
+      }
+    });
+  }
   child.once("error", fail);
   child.once("close", (code) => {
     if (settled) return;
     settled = true;
-    resolve3({ exitCode: code ?? 1 });
+    resolve3({
+      exitCode: code ?? 1,
+      ...outputMode === "capture" ? { stdout: captured } : {}
+    });
   });
   if (stdin !== void 0) {
     child.stdin.once("error", fail);
@@ -430,7 +454,13 @@ var dependencies = {
       };
     }
   },
-  launch: (commandSpec) => runProcess(commandSpec.executable, commandSpec.argv, commandSpec.cwd, commandSpec.stdin, true)
+  launch: (commandSpec, options) => runProcess(
+    commandSpec.executable,
+    commandSpec.argv,
+    commandSpec.cwd,
+    commandSpec.stdin,
+    options?.captureStdout === true ? "capture" : "inherit"
+  )
 };
 var errorMessage = (error) => error instanceof Error ? error.message : String(error);
 var prepareLaunch = async (harness, input, active, guard) => {
@@ -462,11 +492,12 @@ var prepareLaunch = async (harness, input, active, guard) => {
   }
   return { kind: "ready", command: commandSpec };
 };
-var launchPrepared = async (prepared, active, label) => {
+var launchPrepared = async (prepared, active, label, captureStdout = false) => {
   if (prepared.kind === "fallback") return prepared;
   try {
-    const launched = await active.launch(prepared.command);
-    return launched.exitCode === 0 ? { kind: "launched-success", exitCode: 0 } : { kind: "launched-failure", exitCode: launched.exitCode };
+    const launched = await active.launch(prepared.command, { captureStdout });
+    const stdout = launched.stdout === void 0 ? {} : { stdout: launched.stdout };
+    return launched.exitCode === 0 ? { kind: "launched-success", exitCode: 0, ...stdout } : { kind: "launched-failure", exitCode: launched.exitCode, ...stdout };
   } catch (error) {
     return {
       kind: "infrastructure-failure",
@@ -477,7 +508,7 @@ var launchPrepared = async (prepared, active, label) => {
 var dispatchReview = async (request, overrides = {}) => {
   const active = { ...dependencies, ...overrides };
   const prepared = await prepareLaunch(request.harness, reviewCommandRequest(request), active);
-  return launchPrepared(prepared, active, "review");
+  return launchPrepared(prepared, active, "review", true);
 };
 
 // src/skill-scripts/shared/harness-availability.ts
@@ -1023,9 +1054,25 @@ var createFindingsGate = (mandate) => async (context) => {
     confidenceFloor: mandate.confidenceFloor
   };
   if (!fs6.existsSync(context.reviewFile)) {
-    const detail = `The reviewer did not write ${context.reviewFile}. A round with no findings document cannot be read as a round with no findings.`;
-    record({ ...base, status: "findings-absent", detail, actionable: [], recorded: [] });
-    return { kind: "findings-absent", detail };
+    const recovered = context.reviewerStdout === void 0 || context.fallbackToken === void 0 ? null : _extractFallbackXml(context.reviewerStdout, context.fallbackToken);
+    if (recovered === null) {
+      const detail = `The reviewer did not write ${context.reviewFile}, and its output carried no complete findings document between this dispatch's fallback delimiters. A round with no findings document cannot be read as a round with no findings.`;
+      record({ ...base, status: "findings-absent", detail, actionable: [], recorded: [] });
+      return { kind: "findings-absent", detail };
+    }
+    try {
+      fs6.mkdirSync(roundDir, { recursive: true });
+      fs6.writeFileSync(
+        context.reviewFile,
+        recovered.endsWith("\n") ? recovered : `${recovered}
+`,
+        "utf8"
+      );
+    } catch (error) {
+      throw new Error(
+        `A findings document recovered from reviewer output could not be written to ${context.reviewFile}: ${errorMessage2(error)}`
+      );
+    }
   }
   const validation = await validateAgainstSchema(context.xsdFile, context.reviewFile);
   if (validation.kind === "validator-unavailable") {
@@ -1157,6 +1204,26 @@ var renderAdjudicated = (findings) => {
     return `- [${finding.disposition}] ${where}${attributes ? ` (${attributes})` : ""} \u2014 ${finding.summary}`;
   }).join("\n");
 };
+var _makeFallbackToken = () => crypto.randomBytes(6).toString("hex");
+var fallbackBeginMarker = (token) => `<<<BEGIN REVIEW XML ${token}>>>`;
+var fallbackEndMarker = (token) => `<<<END REVIEW XML ${token}>>>`;
+var ANSI_PATTERN = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
+var _extractFallbackXml = (stdout, token) => {
+  const clean = stdout.replace(ANSI_PATTERN, "");
+  const begin = fallbackBeginMarker(token);
+  const end = fallbackEndMarker(token);
+  let searchFrom = clean.length;
+  while (searchFrom >= 0) {
+    const endIndex = clean.lastIndexOf(end, searchFrom);
+    if (endIndex === -1) return null;
+    const beginIndex = clean.lastIndexOf(begin, endIndex);
+    if (beginIndex === -1) return null;
+    const inner = clean.slice(beginIndex + begin.length, endIndex).trim();
+    if (inner.startsWith("<?xml") || inner.startsWith("<review")) return inner;
+    searchFrom = beginIndex - 1;
+  }
+  return null;
+};
 var buildReviewerPrompt = (input) => [
   `Strikethroo code review gate \u2014 Plan ${input.planId}, review round ${input.round}.`,
   "",
@@ -1173,6 +1240,27 @@ var buildReviewerPrompt = (input) => [
   `Base commit anchoring this plan's scope: ${input.baseCommit}`,
   `Round: ${input.round}`,
   `Write your findings to: ${input.reviewFile}`,
+  "",
+  "## If the file write fails",
+  "",
+  "Writing that file is the primary channel. If \u2014 and only if \u2014 you completed every",
+  "step of the review mandate below and the file write itself failed, emit the complete",
+  "findings document as the final thing you print, between these exact lines:",
+  "",
+  fallbackBeginMarker(input.fallbackToken),
+  // The placeholder deliberately does not begin with `<?xml` or `<review`.
+  // `_extractFallbackXml` rejects a region on exactly that test, which is what
+  // stops a reviewer that echoes these instructions back from being read as a
+  // recovered document. A placeholder shaped like a real document would defeat
+  // it — keep this line prose, here and in any mirror of it.
+  "... the complete findings document, beginning with its XML declaration ...",
+  fallbackEndMarker(input.fallbackToken),
+  "",
+  "Print nothing after the closing line. The document is validated against the same",
+  "schema either way, so an incomplete or invented document fails the round.",
+  "Being unable to read the repository is not a reason to emit this block: a review",
+  "you could not perform is a failed round, and emitting well-formed XML instead of",
+  "reporting that failure is a worse outcome than the failure.",
   "",
   "## Review mandate (authoritative \u2014 it overrides the reviewer instructions below)",
   "",
@@ -1363,6 +1451,15 @@ var runReviewRound = async (request, overrides = {}) => {
       detail: `Could not create the review round directory ${roundDir}: ${errorMessage2(error)}`
     };
   }
+  try {
+    fs6.rmSync(reviewFile, { force: true });
+  } catch (error) {
+    return {
+      kind: "infrastructure-failure",
+      detail: `Could not remove the stale findings document ${reviewFile}: ${errorMessage2(error)}`
+    };
+  }
+  const fallbackToken = _makeFallbackToken();
   const prompt = buildReviewerPrompt({
     planId,
     planFile,
@@ -1376,7 +1473,8 @@ var runReviewRound = async (request, overrides = {}) => {
     reviewFile,
     diff,
     adjudicatedFindings: request.adjudicatedFindings ?? _readPriorAdjudicated(planDir, request.round),
-    skillInstructions: readReviewerSkill()
+    skillInstructions: readReviewerSkill(),
+    fallbackToken
   });
   const dispatched = await dependencies2.dispatch({ harness, workspace, prompt });
   if (dispatched.kind === "infrastructure-failure") {
@@ -1406,7 +1504,9 @@ var runReviewRound = async (request, overrides = {}) => {
     reviewFile,
     xsdFile,
     planDir,
-    round: request.round
+    round: request.round,
+    ...dispatched.stdout === void 0 ? {} : { reviewerStdout: dispatched.stdout },
+    fallbackToken
   });
   return {
     kind: "reviewed",
@@ -1527,6 +1627,8 @@ if (require.main === module) {
   MAX_REVIEW_ROUNDS,
   _decideRound,
   _exitCodeFor,
+  _extractFallbackXml,
+  _makeFallbackToken,
   _readBaseCommit,
   _readCumulativeDiff,
   _readPriorAdjudicated,

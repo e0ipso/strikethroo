@@ -264,7 +264,7 @@ export const harnessExecutableAvailable = (harness: string): boolean => {
 };
 
 /**
- * Upper bound on retained reviewer stdout. The fallback document is the
+ * Upper bound on retained reviewer stdout. The delivered document is the
  * reviewer's *final* output, so the tail is the load-bearing part: truncation
  * drops from the front. Sized well above `review-findings.ts`'s 2000-char
  * xmllint diagnostic bound because a findings document is a whole XML file.
@@ -469,9 +469,10 @@ export const dispatchExternalTask = async (
  * result union as task dispatch; no model, no reasoning effort, and therefore no
  * `unsupported-reasoning-effort` guard — that branch is unreachable here.
  *
- * This is the only path that requests stdout capture: a reviewer that writes its
- * findings to stdout instead of the expected file leaves no other trace. Task
- * dispatch deliberately keeps its child's output inherited and uncaptured.
+ * This is the only path that requests stdout capture: stdout is the reviewer's
+ * sole findings-delivery channel, so the captured text is the only place the
+ * findings document can be found. Task dispatch deliberately keeps its child's
+ * output inherited and uncaptured.
  */
 export const dispatchReview = async (
   request: ReviewDispatchRequest,

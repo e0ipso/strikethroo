@@ -491,18 +491,19 @@ describe('code review gate — xmllint is a soft dependency', () => {
 });
 
 /**
- * The stdout fallback: a reviewer that completed its review but could not write
- * `review.xml` still certifies a round by printing the document between this
- * dispatch's delimiters.
+ * Stdout is the only delivery channel: the reviewer prints its findings document
+ * between this dispatch's delimiters, and the mechanism — never the reviewer —
+ * writes it to the canonical path. There is no on-disk channel to prefer, so a
+ * round certifies from a transcript or not at all.
  *
- * These cases deliberately do **not** inject `evaluateFindings`. The recovery
- * branch lives inside `createFindingsGate`, so the override every suite above
- * uses is precisely what left the branch untested. The real gate runs here,
- * against the real vendored XSD through the real `xmllint` — which is what
- * proves a recovered document is held to the same schema as a written one, and
- * that a failed recovery degrades to a failed round rather than a clean one.
+ * These cases deliberately do **not** inject `evaluateFindings`. Extraction lives
+ * inside `createFindingsGate`, so the override every suite above uses is
+ * precisely what would leave it untested. The real gate runs here, against the
+ * real vendored XSD through the real `xmllint` — which is what proves a delivered
+ * document is held to the schema, and that an undelivered one degrades to a
+ * failed round rather than a clean one.
  */
-describe('code review gate — stdout fallback recovery', () => {
+describe('code review gate — single-channel stdout delivery', () => {
   const roundOneDir = (ws: ReturnType<typeof makeReviewGateWorkspace>) =>
     path.join(ws.planDir, 'review', 'round-1');
 
@@ -516,7 +517,7 @@ describe('code review gate — stdout fallback recovery', () => {
    * it in advance — it is read back out of the prompt the stub receives. The
    * regex doubles as an assertion that the prompt carries the delimiters at all:
    * a drift between the prompt and the extractor would silently disable
-   * recovery, and every case here would stop finding a token.
+   * delivery, and every case here would stop finding a token.
    */
   const emitting = (xml: string) => {
     let seen = '';
@@ -559,6 +560,12 @@ describe('code review gate — stdout fallback recovery', () => {
       const { reviewFile } = result as { reviewFile: string };
       expect(fs.readFileSync(reviewFile, 'utf8').trim()).toBe(xml.trim());
       expect(prompt()).toMatch(TOKEN_PATTERN);
+      // The partition is the round's own record that it was evaluated, not just
+      // that a document arrived.
+      const partition: unknown = JSON.parse(
+        fs.readFileSync(path.join(roundOneDir(ws), 'findings.json'), 'utf8')
+      );
+      expect(partition).toMatchObject({ status: 'evaluated' });
 
       // Capture is a channel back into this mechanism, not a passthrough. The
       // launcher tees the child's output to stderr; nothing reviewer-shaped may
@@ -574,7 +581,86 @@ describe('code review gate — stdout fallback recovery', () => {
     }
   });
 
-  it('holds a recovered document to the same XSD as a written one: schema-invalid, never evaluated', async () => {
+  it('extracts the answer from a noisy harness transcript: ANSI escapes, chatter, an echoed instruction block and a trailing summary', async () => {
+    const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    // `<![CDATA[` is in the payload on purpose. The ANSI pattern requires a
+    // leading ESC precisely so it cannot eat the `[C` of that sequence; a payload
+    // without one would never exercise that constraint.
+    const xml = buildReviewXml([
+      {
+        file: 'src/parse.ts',
+        severity: 'minor',
+        confidence: 'low',
+        rawInner:
+          '<body><![CDATA[Index math on buf[Cursor] is off by one in the escape branch.]]></body>' +
+          '<category>bug</category>',
+      },
+    ]);
+    expect(xml).toContain('<![CDATA[');
+
+    const dim = '\u001b[2m';
+    const reset = '\u001b[0m';
+    // The prompt's own placeholder, verbatim: the reviewer restating its delivery
+    // instructions is the realistic false positive, and it is a token-bearing
+    // region that must never be certified.
+    const placeholder =
+      '... the complete findings document, beginning with its XML declaration ...';
+    const decorated = xml
+      .replace('<review', `${dim}<review`)
+      .replace('</review>', `</review>${reset}`);
+
+    const dispatch: ReviewRoundDependencies['dispatch'] = async request => {
+      const token = TOKEN_PATTERN.exec(request.prompt)?.[1];
+      if (token === undefined) return { kind: 'launched-success', exitCode: 0 };
+      const block = (body: string) =>
+        `<<<BEGIN REVIEW XML ${token}>>>\n${body}\n<<<END REVIEW XML ${token}>>>`;
+      return {
+        kind: 'launched-success',
+        exitCode: 0,
+        stdout: [
+          `${dim}Reading src/parse.ts${reset}`,
+          `${dim}thinking…${reset} weighing the severity of the escape branch`,
+          'tool: shell(git diff --stat) -> 4 files changed, 118 insertions(+)',
+          // Echo before the answer: defeats a naive first-region scan.
+          block(placeholder),
+          'restating the delivery format above; now emitting the real document',
+          // The answer, carrying escapes inside the delimited region itself.
+          block(decorated),
+          // Echo after the answer: the LAST token-bearing region in the transcript
+          // is the placeholder, so certifying this document requires the anti-echo
+          // guard to reject this region *and* the backwards scan to keep walking
+          // past it. Delete either one and the round stops certifying.
+          block(placeholder),
+          `${dim}tokens used: 41,233 · duration 92s${reset}`,
+          '',
+        ].join('\n'),
+      };
+    };
+
+    try {
+      const result = await runRound(ws, dispatch);
+
+      expect(result).toMatchObject({
+        kind: 'reviewed',
+        findingsGate: { kind: 'evaluated' },
+        decision: { kind: 'gate-passed' },
+      });
+      expect(_exitCodeFor(result)).toBe(0);
+      // Byte equality with the payload is the whole assertion: the chatter, the
+      // escapes — including the ones inside the region — and both echoed blocks
+      // were excluded from what was written and validated.
+      const written = fs.readFileSync((result as { reviewFile: string }).reviewFile, 'utf8');
+      expect(written.trim()).toBe(xml.trim());
+      expect(written).toContain('<![CDATA[');
+      expect(written).not.toContain('\u001b');
+      expect(written).not.toContain('tokens used');
+      expect(written).not.toContain('beginning with its XML declaration');
+    } finally {
+      ws.cleanup();
+    }
+  });
+
+  it('holds a delivered document to the same XSD as any other: schema-invalid, never evaluated', async () => {
     const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
     const { dispatch } = emitting(
       '<?xml version="1.0"?><review xmlns="urn:self-review:v2"><nonsense/></review>'
@@ -663,6 +749,66 @@ describe('code review gate — stdout fallback recovery', () => {
       expect(partition).not.toContain('stale.ts');
     } finally {
       ws.cleanup();
+    }
+  });
+
+  /**
+   * With one channel, a round that does not certify leaves no document at all —
+   * so without the transcript there is nothing to debug it from. It is written on
+   * every non-certifying outcome, including the non-zero exit that returns before
+   * the gate runs, and deliberately not on a round that certified: there the
+   * `review.xml` is the artifact, and the transcript would only be noise.
+   */
+  it('keeps the reviewer transcript on a round that did not certify, and only then', async () => {
+    const transcriptOf = (ws: ReturnType<typeof makeReviewGateWorkspace>) =>
+      path.join(roundOneDir(ws), 'reviewer-output.txt');
+    // No token-bearing region anywhere, so the round cannot certify from it.
+    const noise = 'reviewing…\ntool: shell(git status)\nI could not read the repository.\n';
+
+    const undelivered = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    try {
+      const result = await runRound(undelivered, async () => ({
+        kind: 'launched-success',
+        exitCode: 0,
+        stdout: noise,
+      }));
+      expect(result).toMatchObject({
+        kind: 'reviewed',
+        findingsGate: { kind: 'findings-absent' },
+      });
+      expect(fs.readFileSync(transcriptOf(undelivered), 'utf8')).toBe(noise);
+    } finally {
+      undelivered.cleanup();
+    }
+
+    // The darkest case: this branch returns before the gate runs, so without the
+    // write here a non-zero reviewer would leave the round directory empty.
+    const crashed = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    try {
+      const result = await runRound(crashed, async () => ({
+        kind: 'launched-failure',
+        exitCode: 3,
+        stdout: noise,
+      }));
+      expect(result).toMatchObject({ kind: 'launched-failure', exitCode: 3 });
+      expect(fs.readFileSync(transcriptOf(crashed), 'utf8')).toBe(noise);
+    } finally {
+      crashed.cleanup();
+    }
+
+    const certified = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    try {
+      const xml = buildReviewXml([{ file: 'src/x.ts', severity: 'minor', confidence: 'low' }]);
+      const { dispatch } = emitting(xml);
+      const result = await runRound(certified, dispatch);
+      expect(result).toMatchObject({
+        kind: 'reviewed',
+        findingsGate: { kind: 'evaluated' },
+        decision: { kind: 'gate-passed' },
+      });
+      expect(fs.existsSync(transcriptOf(certified))).toBe(false);
+    } finally {
+      certified.cleanup();
     }
   });
 });

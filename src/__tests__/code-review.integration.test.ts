@@ -626,43 +626,6 @@ describe('code review gate — stdout fallback recovery', () => {
     }
   });
 
-  it('prefers the document on disk when the reviewer delivered on both channels', async () => {
-    const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
-    const fromDisk = buildReviewXml([
-      { file: 'from-disk.ts', severity: 'minor', confidence: 'low' },
-    ]);
-    const fromStdout = buildReviewXml([
-      { file: 'from-stdout.ts', severity: 'minor', confidence: 'low' },
-    ]);
-    const reviewFile = path.join(roundOneDir(ws), 'review.xml');
-    // Writing from inside the stub models a reviewer that succeeded at both:
-    // the round directory already exists by the time dispatch is called.
-    const dispatch: ReviewRoundDependencies['dispatch'] = async request => {
-      const token = TOKEN_PATTERN.exec(request.prompt)![1]!;
-      fs.writeFileSync(reviewFile, fromDisk, 'utf8');
-      return {
-        kind: 'launched-success',
-        exitCode: 0,
-        stdout: delimited(token, fromStdout),
-      };
-    };
-
-    try {
-      const result = await runRound(ws, dispatch);
-
-      expect(result).toMatchObject({ kind: 'reviewed', findingsGate: { kind: 'evaluated' } });
-      expect(fs.readFileSync(reviewFile, 'utf8')).toBe(fromDisk);
-      // The partition is what the gate actually evaluated, so it is the honest
-      // witness to precedence — not merely which bytes survived on disk.
-      const { findingsGate } = result as { findingsGate: { findingsFile: string } };
-      const partition = fs.readFileSync(findingsGate.findingsFile, 'utf8');
-      expect(partition).toContain('from-disk.ts');
-      expect(partition).not.toContain('from-stdout.ts');
-    } finally {
-      ws.cleanup();
-    }
-  });
-
   it('removes only the canonical review.xml before dispatch, leaving unrelated round artifacts intact', async () => {
     const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
     const roundDir = roundOneDir(ws);

@@ -15,6 +15,7 @@ export const SUPPORTED_HARNESSES = [
   'gemini',
   'copilot',
   'opencode',
+  'kiro',
 ] as const;
 
 export type Harness = (typeof SUPPORTED_HARNESSES)[number];

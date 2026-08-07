@@ -206,6 +206,19 @@ export const EXTERNAL_HARNESS_ADAPTERS: Readonly<Record<Harness, ExternalHarness
       ),
     authenticationArgv: () => ['auth', 'list'],
   },
+  kiro: {
+    // Kiro's documented headless CLI: kiro-cli chat --no-interactive "prompt"
+    // No --model flag: Kiro does not expose a generic model-override argument.
+    // Reference: https://kiro.dev/docs/cli/headless/
+    executable: 'kiro-cli',
+    buildCommand: request =>
+      command(
+        'kiro-cli',
+        ['chat', '--no-interactive', '--trust-tools=read,write,glob,grep,shell'],
+        request
+      ),
+    authenticationArgv: () => ['--version'],
+  },
 };
 
 const adapterKeys = Object.keys(EXTERNAL_HARNESS_ADAPTERS).sort();
@@ -444,7 +457,10 @@ const unsupportedReasoningEffort = (
   request: ExternalDispatchRequest
 ): DispatchFallback | undefined =>
   request.reasoningEffort !== undefined &&
-  (request.harness === 'cursor' || request.harness === 'gemini' || request.harness === 'copilot')
+  (request.harness === 'cursor' ||
+    request.harness === 'gemini' ||
+    request.harness === 'copilot' ||
+    request.harness === 'kiro')
     ? {
         kind: 'fallback',
         reason: 'unsupported-reasoning-effort',

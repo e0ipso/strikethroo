@@ -112,3 +112,5 @@ docs/vendor/
 _site/
 Gemfile.lock
 /.devcontainer/devcontainer-lock.json
+# Kiro CLI workspace — generated on init, not source
+.kiro/

@@ -54,6 +54,20 @@ describe('external harness adapter registry', () => {
     }
   );
 
+  it('kiro sends task via stdin without model or reasoning-effort flags', () => {
+    const command = buildExternalCommand(request('kiro'));
+    expect(command).toMatchObject({
+      executable: 'kiro-cli',
+      argv: ['chat', '--no-interactive', '--trust-tools=read,write,glob,grep,shell'],
+      cwd: '/workspace/project',
+    });
+    expect(command.stdin).toContain('Plan 12, Task 3');
+    expect(command.stdin).toContain('PRE_TASK_EXECUTION.md');
+    expect(command.stdin).toContain('# Implement the task');
+    expect(command.argv.join(' ')).not.toContain('model');
+    expect(command.argv.join(' ')).not.toContain('Implement the task');
+  });
+
   it('keeps a large task payload exclusively on stdin', () => {
     const payload = `# Task\n${'sensitive context '.repeat(100_000)}`;
     const command = buildExternalCommand(request('codex', undefined, payload));
@@ -74,7 +88,7 @@ describe('external harness adapter registry', () => {
       'model_reasoning_effort=high'
     );
     expect(buildExternalCommand(request('opencode', 'high')).argv).toContain('--variant');
-    for (const harness of ['cursor', 'gemini', 'copilot'] as const) {
+    for (const harness of ['cursor', 'gemini', 'copilot', 'kiro'] as const) {
       expect(buildExternalCommand(request(harness, 'high')).argv.join(' ')).not.toContain('high');
     }
   });
@@ -172,6 +186,8 @@ describe('model-optional review dispatch (buildReviewCommand / dispatchReview)',
     gemini: ['--prompt', '', '--model', 'vendor/model-X:preview'],
     copilot: ['-p', '', '--model', 'vendor/model-X:preview'],
     opencode: ['run', '--model', 'vendor/model-X:preview', '-'],
+    // Kiro does not support --model; its argv is identical with or without.
+    kiro: ['chat', '--no-interactive', '--trust-tools=read,write,glob,grep,shell'],
   };
   const WITHOUT_MODEL: Record<(typeof SUPPORTED_HARNESSES)[number], string[]> = {
     claude: ['-p'],
@@ -180,6 +196,7 @@ describe('model-optional review dispatch (buildReviewCommand / dispatchReview)',
     gemini: ['--prompt', ''],
     copilot: ['-p', ''],
     opencode: ['run', '-'],
+    kiro: ['chat', '--no-interactive', '--trust-tools=read,write,glob,grep,shell'],
   };
 
   it.each(SUPPORTED_HARNESSES)(
@@ -190,7 +207,10 @@ describe('model-optional review dispatch (buildReviewCommand / dispatchReview)',
 
       expect(withModel.argv).toEqual(WITH_MODEL[harness]);
       expect(without.argv).toEqual(WITHOUT_MODEL[harness]);
-      expect(withModel.argv).toContain('--model');
+      // Kiro ignores --model entirely; its argv is identical with or without.
+      if (harness !== 'kiro') {
+        expect(withModel.argv).toContain('--model');
+      }
       expect(without.argv).not.toContain('--model');
       // gemini/copilot keep their empty-string positional placeholder even
       // with the model pair dropped.

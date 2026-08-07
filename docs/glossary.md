@@ -21,7 +21,7 @@ Canonical definitions of the terms used throughout Strikethroo.
 | **Task** | An atomic unit of work within a phase. Has 1-2 skills, acceptance criteria, and dependencies. Executed by a sub-agent with clean context. |
 | **Sub-agent** | A specialized AI agent that executes a single task with focused, clean context. Not the main conversation agent. |
 | **Skill** | A harness-agnostic Agent Skill that implements one step of the workflow (e.g., `st-create-plan`, `st-execute-blueprint`). Skills load automatically when the user's intent matches their description. |
-| **Harness** | The AI assistant environment (Claude Code, Gemini CLI, GitHub Copilot, Codex, etc.) in which skills run. |
+| **Harness** | The AI assistant environment (Claude Code, Gemini CLI, GitHub Copilot, Codex, Kiro, etc.) in which skills run. |
 | **Hook** | A lifecycle callback (Markdown file) executed at a specific point in the workflow. Ten hooks are available: `PRE_PLAN`, `POST_PLAN`, `PRE_PHASE`, `POST_PHASE`, `PRE_TASK_ASSIGNMENT`, `PRE_TASK_EXECUTION`, `TASK_EXECUTION_ROUTING`, `POST_TASK_GENERATION_ALL`, `POST_EXECUTION`, `POST_ERROR_DETECTION`. |
 | **Execution profile** | A named, configuration-driven routing category in `config/config.yaml`. Task generation persists the selected profile as `execution_profile`; immediately before delegation, dispatch selects and verifies one target from that profile. |
 | **Workspace** | The `.ai/strikethroo/` directory tree containing plans, archive, config, hooks, and templates. Created by `init`. |

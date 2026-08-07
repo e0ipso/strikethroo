@@ -110,7 +110,7 @@ describe('CLI Integration', () => {
   describe('init — non-Claude harnesses', () => {
     it('bootstraps .ai/strikethroo and creates per-harness agent files', async () => {
       const result = executeCommand(
-        `node "${cliPath}" init --harnesses gemini,codex,cursor,copilot,opencode`
+        `node "${cliPath}" init --harnesses gemini,codex,cursor,copilot,opencode,kiro`
       );
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('Strikethroo initialized successfully!');
@@ -125,6 +125,7 @@ describe('CLI Integration', () => {
       expect(await fs.pathExists(path.join(testDir, '.opencode/agents/plan-creator.md'))).toBe(
         true
       );
+      expect(await fs.pathExists(path.join(testDir, '.kiro/agents/plan-creator.json'))).toBe(true);
     });
 
     it('emits a skill-install notice', async () => {
@@ -230,6 +231,26 @@ describe('CLI Integration', () => {
       const result = executeCommand(`node "${cliPath}" init --harnesses github`);
       expect(result.exitCode).toBe(1);
       expect(result.stdout + result.stderr).toContain('copilot');
+    });
+  });
+
+  describe('init — kiro JSON output', () => {
+    it('creates valid JSON agent for kiro', async () => {
+      const result = executeCommand(`node "${cliPath}" init --harnesses kiro`);
+      expect(result.exitCode).toBe(0);
+      const raw = await fs.readFile(path.join(testDir, '.kiro/agents/plan-creator.json'), 'utf-8');
+      const parsed = JSON.parse(raw);
+      expect(typeof parsed.name).toBe('string');
+      expect(parsed.name.length).toBeGreaterThan(0);
+      expect(typeof parsed.prompt).toBe('string');
+      expect(parsed.prompt.length).toBeGreaterThan(0);
+      // Tools must use documented Kiro built-in identifiers, not Hermes-style names
+      expect(parsed.tools).toContain('read');
+      expect(parsed.tools).toContain('write');
+      expect(parsed.tools).toContain('shell');
+      expect(parsed.tools).not.toContain('read_file');
+      // model key must be absent so Kiro uses its session default
+      expect(Object.prototype.hasOwnProperty.call(parsed, 'model')).toBe(false);
     });
   });
 

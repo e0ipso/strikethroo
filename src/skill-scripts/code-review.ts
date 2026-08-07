@@ -39,6 +39,8 @@ const BASE_COMMIT_FILE_NAME = 'base-commit.json';
 const REVIEW_FILE_NAME = 'review.xml';
 /** The recorded-versus-actionable partition, written beside each round's review.xml. */
 const FINDINGS_FILE_NAME = 'findings.json';
+/** The reviewer's captured transcript, written only when a round does not certify. */
+const TRANSCRIPT_FILE_NAME = 'reviewer-output.txt';
 const SHA_RE = /^[0-9a-f]{40}$/i;
 
 const errorMessage = (error: unknown): string =>
@@ -49,6 +51,26 @@ const readFileOrNull = (filePath: string): string | null => {
     return fs.readFileSync(filePath, 'utf8');
   } catch {
     return null;
+  }
+};
+
+/**
+ * The reviewer's captured transcript, for a round that did not certify.
+ *
+ * Best-effort on purpose, and deliberately asymmetric with `record`: the
+ * findings partition throws when it cannot be written, because success criterion
+ * 8 requires below-floor findings to be inspectable. This is a diagnostic. A
+ * transcript that cannot be written is a lost diagnostic, never a changed
+ * verdict — turning a decided round into an infrastructure failure would trade
+ * the outcome the gate just computed for the artifact that explains it.
+ */
+const writeTranscript = (roundDir: string, transcript: string | undefined): void => {
+  if (transcript === undefined || transcript === '') return;
+  try {
+    fs.mkdirSync(roundDir, { recursive: true });
+    fs.writeFileSync(path.join(roundDir, TRANSCRIPT_FILE_NAME), transcript, 'utf8');
+  } catch {
+    // Diagnostics are never load-bearing for a verdict.
   }
 };
 
@@ -953,6 +975,10 @@ export const runReviewRound = async (
     };
   }
   if (dispatched.kind === 'launched-failure') {
+    // The darkest case: this branch returns before the findings gate runs, so a
+    // reviewer that reviewed, printed a valid document, and then exited non-zero
+    // would otherwise leave nothing at all behind.
+    writeTranscript(roundDir, dispatched.stdout);
     return {
       kind: 'launched-failure',
       harness,
@@ -976,6 +1002,13 @@ export const runReviewRound = async (
     reviewerStdout: dispatched.stdout ?? '',
     deliveryToken,
   });
+
+  // Every non-certifying outcome — `findings-absent`, `schema-invalid`,
+  // `validator-unavailable`, and the injected-gate `not-evaluated` seam — leaves
+  // the transcript that explains it. A certified round does not.
+  if (findingsGate.kind !== 'evaluated') {
+    writeTranscript(roundDir, dispatched.stdout);
+  }
 
   return {
     kind: 'reviewed',

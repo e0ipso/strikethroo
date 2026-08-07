@@ -928,18 +928,29 @@ export const runReviewRound = async (
   }
 
   // Defensive, now that the gate performs the only write: no foreign document
-  // survives into the round, so what ends up at this path is always this
-  // invocation's. Remove the exact canonical path and nothing else: never glob for
-  // XML, never read `.self-review.yaml`, never follow a custom output name, and
-  // leave any prior `findings.json` in place as evidence of the earlier attempt.
-  // `force: true` makes absence a no-op, which is the common case.
-  try {
-    fs.rmSync(reviewFile, { force: true });
-  } catch (error) {
-    return {
-      kind: 'infrastructure-failure',
-      detail: `Could not remove the stale findings document ${reviewFile}: ${errorMessage(error)}`,
-    };
+  // survives into the round, so what ends up at these paths is always this
+  // invocation's. Remove the two exact paths this invocation may write and
+  // nothing else: never glob for XML, never read `.self-review.yaml`, never
+  // follow a custom output name.
+  //
+  // The transcript joins the removal for a reason `findings.json` does not:
+  // `record` rewrites the partition on every outcome, so it can never be stale,
+  // while the transcript is written only when a round fails to certify. Re-run a
+  // round number that failed and then certified, and a transcript from the
+  // earlier attempt would sit beside a freshly certified `review.xml` — reading
+  // exactly like a round that had failed. Prior `findings.json` still stays put
+  // as evidence of the earlier attempt. `force: true` makes absence a no-op,
+  // which is the common case for both.
+  const staleArtifacts = [reviewFile, path.join(roundDir, TRANSCRIPT_FILE_NAME)];
+  for (const stale of staleArtifacts) {
+    try {
+      fs.rmSync(stale, { force: true });
+    } catch (error) {
+      return {
+        kind: 'infrastructure-failure',
+        detail: `Could not remove the stale round artifact ${stale}: ${errorMessage(error)}`,
+      };
+    }
   }
 
   const deliveryToken = _makeDeliveryToken();

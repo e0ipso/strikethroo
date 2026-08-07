@@ -811,4 +811,40 @@ describe('code review gate — single-channel stdout delivery', () => {
       certified.cleanup();
     }
   });
+
+  /**
+   * The transcript is written only when a round fails to certify, so unlike the
+   * partition — which `record` rewrites on every outcome — it can go stale. Re-run
+   * a round number that failed and then certified, and a transcript from the
+   * earlier attempt would sit beside a freshly certified `review.xml`, reading
+   * exactly like a round that had failed. The pre-dispatch removal is what stops
+   * the round directory from describing an attempt that is no longer the one it
+   * holds.
+   */
+  it("drops a previous attempt's transcript when the same round is re-run and certifies", async () => {
+    const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    const transcript = path.join(roundOneDir(ws), 'reviewer-output.txt');
+    try {
+      const failed = await runRound(ws, async () => ({
+        kind: 'launched-success',
+        exitCode: 0,
+        stdout: 'I could not read the repository.\n',
+      }));
+      expect(failed).toMatchObject({ findingsGate: { kind: 'findings-absent' } });
+      expect(fs.existsSync(transcript)).toBe(true);
+
+      const xml = buildReviewXml([{ file: 'src/x.ts', severity: 'minor', confidence: 'low' }]);
+      const { dispatch } = emitting(xml);
+      const rerun = await runRound(ws, dispatch);
+
+      expect(rerun).toMatchObject({
+        kind: 'reviewed',
+        findingsGate: { kind: 'evaluated' },
+        decision: { kind: 'gate-passed' },
+      });
+      expect(fs.existsSync(transcript)).toBe(false);
+    } finally {
+      ws.cleanup();
+    }
+  });
 });

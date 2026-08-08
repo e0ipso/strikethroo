@@ -103,7 +103,7 @@ Any of these routes to a clean skip with a note in the execution summary. No err
 
 **The gate ran but the round failed. What does that mean?**
 
-A failed round is not a skip: the gate ran and could not certify the result, so execution halts rather than reporting a clean review. One cause is handled for you. If the reviewer completed its review but could not write `review.xml`, the gate recovers the document from the reviewer's own output, writes it to the expected path, and validates it against the same schema -- the round then proceeds like any other, and you will not see a failure at all. So a round that still fails means the reviewer could not perform the review: it could not inspect the repository, or it produced no valid findings document. That is a genuine failure and the recovery path is not meant to paper over it. Read the reported detail, fix the cause, and re-run the gate.
+A failed round is not a skip: the gate ran and could not certify the result, so execution halts rather than reporting a clean review. The reviewer's findings reach the gate on its own output: the reviewer prints the document, the gate extracts it from that output, writes it to the expected path, and validates it against the same schema. So a round that still fails means the reviewer could not perform the review: it could not inspect the repository, or it produced no valid findings document. When that happens, look at `review/round-<n>/reviewer-output.txt` -- it holds the reviewer's captured output for exactly this case, so you can see what it actually did. Read the reported detail, fix the cause, and re-run the gate.
 
 **How do I disable code review?**
 

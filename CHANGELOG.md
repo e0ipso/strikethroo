@@ -1,3 +1,7 @@
+## <small>3.17.2 (2026-08-08)</small>
+
+* fix(review-gate): make stdout the sole findings channel (#81) ([4887998](https://github.com/e0ipso/strikethroo/commit/4887998)), closes [#81](https://github.com/e0ipso/strikethroo/issues/81)
+
 ## <small>3.17.1 (2026-08-06)</small>
 
 * fix(review-gate): recover a completed review from stdout when only file delivery fails (#79) ([3870d30](https://github.com/e0ipso/strikethroo/commit/3870d30)), closes [#79](https://github.com/e0ipso/strikethroo/issues/79)

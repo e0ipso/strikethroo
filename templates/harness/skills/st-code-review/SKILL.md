@@ -27,7 +27,8 @@ You **detect**. You never fix.
   commit.
 - Fixes are dispatched separately, on the implementer route. The implementer sees
   a finding, never your reasoning about it.
-- Your entire output is one `review.xml` plus a short report.
+- Your entire output is one findings document, printed as described below, plus
+  a short report.
 
 ## Critical Rules
 
@@ -166,8 +167,8 @@ callsite's file and line as its evidence.
 
 ## Output: `review.xml`
 
-Emit exactly one XML document in the `urn:self-review:v2` namespace, at the path
-the dispatch names. It must validate against the vendored schema at
+Emit exactly one XML document in the `urn:self-review:v2` namespace. It must
+validate against the vendored schema at
 `<root>/config/schemas/self-review-v2.xsd`.
 
 Required shape:
@@ -221,19 +222,17 @@ finding and stop. Do not restructure a fix to fit the element.
 Why, once: this is what blocks broad speculative refactors structurally rather
 than by request. It must not be designed away.
 
-### If the file write fails
+### Delivering the findings document
 
-Writing the named file is the primary channel; it is read first. The dispatch
-prompt supplies a second channel — a BEGIN/END delimiter pair carrying a
-per-dispatch token — governed by these rules:
+The dispatch supplies a BEGIN/END delimiter pair carrying a per-dispatch token.
+Print the complete document between those exact lines as the final thing you
+print. This is the only channel that is read — do not write the document to a
+file.
 
-- Use it only when you completed every step of the Operating Procedure below and
-  the file write itself failed.
-- Emit the complete document between the exact delimiter lines the dispatch
-  supplies. Copy those lines from the dispatch; never invent a token.
+- Copy the delimiter lines from the dispatch; never invent a token.
 - Print nothing after the closing delimiter line.
-- The same schema validates both channels. An incomplete or invented document
-  fails the round on either one.
+- The same schema validates the document. An incomplete or invented document
+  fails the round.
 - Being unable to read the repository is **not** a reason to emit the block.
   A review you could not perform is a failed round. Report it as one.
 
@@ -295,12 +294,12 @@ For each candidate finding, in order:
 **Exit criterion:** every finding carries a category, evidence, a trace, and both
 attributes. Findings that fail any of those are dropped or graded `info`/`low`.
 
-### 6. Emit `review.xml`
+### 6. Emit the findings document
 
-Write the document to the path the dispatch names, in the shape above.
+Print the document between the dispatch's delimiters, in the shape above.
 
-**Exit criterion:** the file exists, declares `urn:self-review:v2`, has one
-`<file>` per changed file, and every `<comment>` carries `severity` and
+**Exit criterion:** the document you printed declares `urn:self-review:v2`, has
+one `<file>` per changed file, and every `<comment>` carries `severity` and
 `confidence`.
 
 ### 7. Report

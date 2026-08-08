@@ -37,8 +37,8 @@ __export(code_review_exports, {
   MAX_REVIEW_ROUNDS: () => MAX_REVIEW_ROUNDS,
   _decideRound: () => _decideRound,
   _exitCodeFor: () => _exitCodeFor,
-  _extractFallbackXml: () => _extractFallbackXml,
-  _makeFallbackToken: () => _makeFallbackToken,
+  _extractReviewDocument: () => _extractReviewDocument,
+  _makeDeliveryToken: () => _makeDeliveryToken,
   _readBaseCommit: () => _readBaseCommit,
   _readCumulativeDiff: () => _readCumulativeDiff,
   _readPriorAdjudicated: () => _readPriorAdjudicated,
@@ -1023,6 +1023,7 @@ var REVIEW_DIR_NAME = "review";
 var BASE_COMMIT_FILE_NAME = "base-commit.json";
 var REVIEW_FILE_NAME = "review.xml";
 var FINDINGS_FILE_NAME = "findings.json";
+var TRANSCRIPT_FILE_NAME = "reviewer-output.txt";
 var SHA_RE = /^[0-9a-f]{40}$/i;
 var errorMessage2 = (error) => error instanceof Error ? error.message : String(error);
 var readFileOrNull = (filePath) => {
@@ -1030,6 +1031,14 @@ var readFileOrNull = (filePath) => {
     return fs6.readFileSync(filePath, "utf8");
   } catch {
     return null;
+  }
+};
+var writeTranscript = (roundDir, transcript) => {
+  if (transcript === void 0 || transcript === "") return;
+  try {
+    fs6.mkdirSync(roundDir, { recursive: true });
+    fs6.writeFileSync(path6.join(roundDir, TRANSCRIPT_FILE_NAME), transcript, "utf8");
+  } catch {
   }
 };
 var createFindingsGate = (mandate) => async (context) => {
@@ -1053,26 +1062,24 @@ var createFindingsGate = (mandate) => async (context) => {
     severityFloor: mandate.severityFloor,
     confidenceFloor: mandate.confidenceFloor
   };
-  if (!fs6.existsSync(context.reviewFile)) {
-    const recovered = context.reviewerStdout === void 0 || context.fallbackToken === void 0 ? null : _extractFallbackXml(context.reviewerStdout, context.fallbackToken);
-    if (recovered === null) {
-      const detail = `The reviewer did not write ${context.reviewFile}, and its output carried no complete findings document between this dispatch's fallback delimiters. A round with no findings document cannot be read as a round with no findings.`;
-      record({ ...base, status: "findings-absent", detail, actionable: [], recorded: [] });
-      return { kind: "findings-absent", detail };
-    }
-    try {
-      fs6.mkdirSync(roundDir, { recursive: true });
-      fs6.writeFileSync(
-        context.reviewFile,
-        recovered.endsWith("\n") ? recovered : `${recovered}
+  const delivered = _extractReviewDocument(context.reviewerStdout, context.deliveryToken);
+  if (delivered === null) {
+    const detail = "The reviewer printed no complete findings document between this dispatch's delimiters. A round with no findings document cannot be read as a round with no findings.";
+    record({ ...base, status: "findings-absent", detail, actionable: [], recorded: [] });
+    return { kind: "findings-absent", detail };
+  }
+  try {
+    fs6.mkdirSync(roundDir, { recursive: true });
+    fs6.writeFileSync(
+      context.reviewFile,
+      delivered.endsWith("\n") ? delivered : `${delivered}
 `,
-        "utf8"
-      );
-    } catch (error) {
-      throw new Error(
-        `A findings document recovered from reviewer output could not be written to ${context.reviewFile}: ${errorMessage2(error)}`
-      );
-    }
+      "utf8"
+    );
+  } catch (error) {
+    throw new Error(
+      `The delivered findings document could not be written to ${context.reviewFile}: ` + errorMessage2(error)
+    );
   }
   const validation = await validateAgainstSchema(context.xsdFile, context.reviewFile);
   if (validation.kind === "validator-unavailable") {
@@ -1204,14 +1211,14 @@ var renderAdjudicated = (findings) => {
     return `- [${finding.disposition}] ${where}${attributes ? ` (${attributes})` : ""} \u2014 ${finding.summary}`;
   }).join("\n");
 };
-var _makeFallbackToken = () => crypto.randomBytes(6).toString("hex");
-var fallbackBeginMarker = (token) => `<<<BEGIN REVIEW XML ${token}>>>`;
-var fallbackEndMarker = (token) => `<<<END REVIEW XML ${token}>>>`;
+var _makeDeliveryToken = () => crypto.randomBytes(6).toString("hex");
+var beginMarker = (token) => `<<<BEGIN REVIEW XML ${token}>>>`;
+var endMarker = (token) => `<<<END REVIEW XML ${token}>>>`;
 var ANSI_PATTERN = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
-var _extractFallbackXml = (stdout, token) => {
+var _extractReviewDocument = (stdout, token) => {
   const clean = stdout.replace(ANSI_PATTERN, "");
-  const begin = fallbackBeginMarker(token);
-  const end = fallbackEndMarker(token);
+  const begin = beginMarker(token);
+  const end = endMarker(token);
   let searchFrom = clean.length;
   while (searchFrom >= 0) {
     const endIndex = clean.lastIndexOf(end, searchFrom);
@@ -1230,7 +1237,7 @@ var buildReviewerPrompt = (input) => [
   "You are the independent reviewer, running on a different harness than the one",
   "that wrote this code. You detect; you never fix. Do not edit, create, or delete",
   "source files. Do not run formatters. Do not commit. Your entire output is one",
-  "review.xml at the path named below, plus a short report of the counts.",
+  "findings document, printed as described below, plus a short report of the counts.",
   "",
   `Repository / workspace root: ${input.workspace}`,
   `Strikethroo workspace root: ${input.strikethrooRoot}`,
@@ -1239,28 +1246,28 @@ var buildReviewerPrompt = (input) => [
   `Findings schema to validate against: ${input.xsdFile}`,
   `Base commit anchoring this plan's scope: ${input.baseCommit}`,
   `Round: ${input.round}`,
-  `Write your findings to: ${input.reviewFile}`,
   "",
-  "## If the file write fails",
+  "## How to deliver your findings",
   "",
-  "Writing that file is the primary channel. If \u2014 and only if \u2014 you completed every",
-  "step of the review mandate below and the file write itself failed, emit the complete",
-  "findings document as the final thing you print, between these exact lines:",
+  "Print the complete findings document as the final thing you print, between these",
+  "exact lines:",
   "",
-  fallbackBeginMarker(input.fallbackToken),
+  beginMarker(input.deliveryToken),
   // The placeholder deliberately does not begin with `<?xml` or `<review`.
-  // `_extractFallbackXml` rejects a region on exactly that test, which is what
+  // `_extractReviewDocument` rejects a region on exactly that test, which is what
   // stops a reviewer that echoes these instructions back from being read as a
-  // recovered document. A placeholder shaped like a real document would defeat
+  // delivered document. A placeholder shaped like a real document would defeat
   // it — keep this line prose, here and in any mirror of it.
   "... the complete findings document, beginning with its XML declaration ...",
-  fallbackEndMarker(input.fallbackToken),
+  endMarker(input.deliveryToken),
   "",
-  "Print nothing after the closing line. The document is validated against the same",
-  "schema either way, so an incomplete or invented document fails the round.",
-  "Being unable to read the repository is not a reason to emit this block: a review",
-  "you could not perform is a failed round, and emitting well-formed XML instead of",
-  "reporting that failure is a worse outcome than the failure.",
+  "Copy those two lines from this dispatch; never invent a token. Print nothing after",
+  "the closing line. Do not write the document to a file \u2014 this channel is the only",
+  "one that is read. The document is validated against the schema named above, so an",
+  "incomplete or invented document fails the round. Being unable to read the",
+  "repository is not a reason to emit this block: a review you could not perform is a",
+  "failed round, and emitting well-formed XML instead of reporting that failure is a",
+  "worse outcome than the failure.",
   "",
   "## Review mandate (authoritative \u2014 it overrides the reviewer instructions below)",
   "",
@@ -1451,15 +1458,18 @@ var runReviewRound = async (request, overrides = {}) => {
       detail: `Could not create the review round directory ${roundDir}: ${errorMessage2(error)}`
     };
   }
-  try {
-    fs6.rmSync(reviewFile, { force: true });
-  } catch (error) {
-    return {
-      kind: "infrastructure-failure",
-      detail: `Could not remove the stale findings document ${reviewFile}: ${errorMessage2(error)}`
-    };
+  const staleArtifacts = [reviewFile, path6.join(roundDir, TRANSCRIPT_FILE_NAME)];
+  for (const stale of staleArtifacts) {
+    try {
+      fs6.rmSync(stale, { force: true });
+    } catch (error) {
+      return {
+        kind: "infrastructure-failure",
+        detail: `Could not remove the stale round artifact ${stale}: ${errorMessage2(error)}`
+      };
+    }
   }
-  const fallbackToken = _makeFallbackToken();
+  const deliveryToken = _makeDeliveryToken();
   const prompt = buildReviewerPrompt({
     planId,
     planFile,
@@ -1470,11 +1480,10 @@ var runReviewRound = async (request, overrides = {}) => {
     xsdFile,
     baseCommit,
     round: request.round,
-    reviewFile,
     diff,
     adjudicatedFindings: request.adjudicatedFindings ?? _readPriorAdjudicated(planDir, request.round),
     skillInstructions: readReviewerSkill(),
-    fallbackToken
+    deliveryToken
   });
   const dispatched = await dependencies2.dispatch({ harness, workspace, prompt });
   if (dispatched.kind === "infrastructure-failure") {
@@ -1490,6 +1499,7 @@ var runReviewRound = async (request, overrides = {}) => {
     };
   }
   if (dispatched.kind === "launched-failure") {
+    writeTranscript(roundDir, dispatched.stdout);
     return {
       kind: "launched-failure",
       harness,
@@ -1505,9 +1515,12 @@ var runReviewRound = async (request, overrides = {}) => {
     xsdFile,
     planDir,
     round: request.round,
-    ...dispatched.stdout === void 0 ? {} : { reviewerStdout: dispatched.stdout },
-    fallbackToken
+    reviewerStdout: dispatched.stdout ?? "",
+    deliveryToken
   });
+  if (findingsGate.kind !== "evaluated") {
+    writeTranscript(roundDir, dispatched.stdout);
+  }
   return {
     kind: "reviewed",
     harness,
@@ -1627,8 +1640,8 @@ if (require.main === module) {
   MAX_REVIEW_ROUNDS,
   _decideRound,
   _exitCodeFor,
-  _extractFallbackXml,
-  _makeFallbackToken,
+  _extractReviewDocument,
+  _makeDeliveryToken,
   _readBaseCommit,
   _readCumulativeDiff,
   _readPriorAdjudicated,

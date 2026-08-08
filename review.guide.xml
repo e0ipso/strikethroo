@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<guide xmlns="urn:self-review-guide:v1" timestamp="2026-08-08T12:04:39.399Z" git-diff-args="main...HEAD" repository="/workspace">
+  <overview>Makes stdout the sole delivery channel for code-review findings: the reviewer prints delimited XML, the orchestrator extracts it and writes `review/round-&lt;n&gt;/review.xml`, and failed rounds persist the captured transcript to `reviewer-output.txt`. Start with `src/skill-scripts/code-review.ts` — it owns extraction, the write, validation, and transcript handling; then read the reviewer prompt and tests that lock the contract.
+
+```mermaid
+graph LR
+  reviewer[Reviewer harness] -->|stdout delimited XML| capture[dispatchReview capture]
+  capture --> extract[_extractReviewDocument]
+  extract --> write[Orchestrator writes review.xml]
+  write --> validate[validateAgainstSchema]
+  extract -->|no valid document| transcript[reviewer-output.txt]
+```</overview>
+  <group name="Core change">
+    <rationale>The orchestrator implementation that replaces dual-channel file/stdout delivery with print-only extraction, canonical writes, and diagnostic transcripts.</rationale>
+    <file path="src/skill-scripts/code-review.ts"><description>Always extracts findings from captured stdout, writes review.xml itself, persists reviewer-output.txt on non-certifying rounds, and clears stale artifacts before re-dispatch.</description></file>
+    <file path="src/skill-scripts/shared/external-dispatch.ts"><description>Clarifies that review dispatch alone captures stdout because it is the sole findings-delivery channel.</description></file>
+  </group>
+  <group name="Reviewer contract">
+    <rationale>The instructions the external reviewer receives; they must match the extractor and prompt builder in the core module.</rationale>
+    <file path="src/skill-prompts/st-code-review.md"><description>Removes on-disk write instructions and makes printing the delimited findings document the only delivery path.</description></file>
+  </group>
+  <group name="Tests">
+    <rationale>Integration coverage for extraction, schema validation, transcript persistence, and stale-artifact cleanup under the single-channel model.</rationale>
+    <file path="src/__tests__/code-review.integration.test.ts"><description>Renames and extends the delivery suite with noisy-transcript extraction, transcript-on-failure behavior, and re-run stale-transcript removal; drops the old disk-precedence case.</description></file>
+  </group>
+  <group name="Documentation">
+    <rationale>User-facing prose aligned with the new stdout-only delivery and reviewer-output.txt diagnostics.</rationale>
+    <file path="AGENTS.md"><description>Rewrites the code review gate section to describe one delivery channel and transcript retention on failed rounds.</description></file>
+    <file path="docs/faq.md"><description>Updates the failed-round FAQ to explain stdout extraction and point readers at reviewer-output.txt.</description></file>
+  </group>
+</guide>

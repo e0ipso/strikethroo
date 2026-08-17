@@ -84,7 +84,8 @@ export type ExternalDispatchResult =
         | 'adapter-unavailable'
         | 'executable-unavailable'
         | 'authentication-failed'
-        | 'unsupported-reasoning-effort';
+        | 'unsupported-reasoning-effort'
+        | 'unsupported-model-override';
       detail: string;
     };
 
@@ -108,6 +109,12 @@ export interface ExternalDispatchDependencies {
 export interface ExternalHarnessAdapter {
   executable: string;
   buildCommand: (request: DispatchCommandRequest) => StructuredCommand;
+  /**
+   * Optional review-specific command builder. When present, review dispatch
+   * uses this instead of `buildCommand`. This allows restricting tool access
+   * for the reviewer (which only needs read access, not write/shell).
+   */
+  buildReviewCommand?: (request: DispatchCommandRequest) => StructuredCommand;
   authenticationArgv: () => string[];
 }
 
@@ -206,6 +213,24 @@ export const EXTERNAL_HARNESS_ADAPTERS: Readonly<Record<Harness, ExternalHarness
       ),
     authenticationArgv: () => ['auth', 'list'],
   },
+  kiro: {
+    // Kiro's documented headless CLI: kiro-cli chat --no-interactive "prompt"
+    // No --model flag: Kiro does not expose a generic model-override argument.
+    // Reference: https://kiro.dev/docs/cli/headless/
+    executable: 'kiro-cli',
+    buildCommand: request =>
+      command(
+        'kiro-cli',
+        ['chat', '--no-interactive', '--trust-tools=read,write,glob,grep,shell'],
+        request
+      ),
+    // Reviewer only needs read access — restrict tools so it detects but cannot fix.
+    buildReviewCommand: request =>
+      command('kiro-cli', ['chat', '--no-interactive', '--trust-tools=read,glob,grep'], request),
+    // Kiro has no dedicated `auth status` command. A lightweight headless chat
+    // proves the session is valid; an unauthenticated user gets a non-zero exit.
+    authenticationArgv: () => ['chat', '--no-interactive', '--trust-tools=read'],
+  },
 };
 
 const adapterKeys = Object.keys(EXTERNAL_HARNESS_ADAPTERS).sort();
@@ -235,8 +260,11 @@ export const buildExternalCommand = (request: ExternalDispatchRequest): Structur
  * `taskPrompt`, which hard-codes a task file and a `PRE_TASK_EXECUTION.md`
  * instruction that a review must not inherit.
  */
-export const buildReviewCommand = (request: ReviewDispatchRequest): StructuredCommand =>
-  EXTERNAL_HARNESS_ADAPTERS[request.harness].buildCommand(reviewCommandRequest(request));
+export const buildReviewCommand = (request: ReviewDispatchRequest): StructuredCommand => {
+  const adapter = EXTERNAL_HARNESS_ADAPTERS[request.harness];
+  const builder = adapter.buildReviewCommand ?? adapter.buildCommand;
+  return builder(reviewCommandRequest(request));
+};
 
 /** Whether a bare executable name resolves on `PATH`. Shared so callers do not
  * each reimplement PATH scanning. */
@@ -388,7 +416,8 @@ const prepareLaunch = async (
   harness: Harness,
   input: DispatchCommandRequest,
   active: ExternalDispatchDependencies,
-  guard?: () => DispatchFallback | undefined
+  guard?: () => DispatchFallback | undefined,
+  commandBuilder?: (request: DispatchCommandRequest) => StructuredCommand
 ): Promise<PreparedLaunch> => {
   const adapter = EXTERNAL_HARNESS_ADAPTERS[harness];
   if (!adapter) {
@@ -407,7 +436,8 @@ const prepareLaunch = async (
       detail: `${adapter.executable} is unavailable.`,
     };
   }
-  const commandSpec = adapter.buildCommand(input);
+  const builder = commandBuilder ?? adapter.buildCommand;
+  const commandSpec = builder(input);
   const authentication = await active.authenticate(commandSpec, adapter);
   if (!authentication.ok) {
     return {
@@ -444,11 +474,30 @@ const unsupportedReasoningEffort = (
   request: ExternalDispatchRequest
 ): DispatchFallback | undefined =>
   request.reasoningEffort !== undefined &&
-  (request.harness === 'cursor' || request.harness === 'gemini' || request.harness === 'copilot')
+  (request.harness === 'cursor' ||
+    request.harness === 'gemini' ||
+    request.harness === 'copilot' ||
+    request.harness === 'kiro')
     ? {
         kind: 'fallback',
         reason: 'unsupported-reasoning-effort',
         detail: `${request.harness} does not support a generic reasoning_effort override.`,
+      }
+    : undefined;
+
+/**
+ * Kiro does not expose a --model flag; targeting it with an explicit model
+ * silently discards the caller's intent. Return a typed fallback so the
+ * dispatch-target-selector can skip it and try the next candidate.
+ */
+const unsupportedModelOverride = (
+  request: ExternalDispatchRequest
+): DispatchFallback | undefined =>
+  request.model !== undefined && request.harness === 'kiro'
+    ? {
+        kind: 'fallback',
+        reason: 'unsupported-model-override',
+        detail: `${request.harness} does not support a --model override; the configured model would be silently discarded.`,
       }
     : undefined;
 
@@ -458,8 +507,11 @@ export const dispatchExternalTask = async (
   overrides: Partial<ExternalDispatchDependencies> = {}
 ): Promise<ExternalDispatchResult> => {
   const active = { ...dependencies, ...overrides };
-  const prepared = await prepareLaunch(request.harness, taskCommandRequest(request), active, () =>
-    unsupportedReasoningEffort(request)
+  const prepared = await prepareLaunch(
+    request.harness,
+    taskCommandRequest(request),
+    active,
+    () => unsupportedReasoningEffort(request) ?? unsupportedModelOverride(request)
   );
   return launchPrepared(prepared, active, 'task');
 };
@@ -479,6 +531,14 @@ export const dispatchReview = async (
   overrides: Partial<ExternalDispatchDependencies> = {}
 ): Promise<ExternalDispatchResult> => {
   const active = { ...dependencies, ...overrides };
-  const prepared = await prepareLaunch(request.harness, reviewCommandRequest(request), active);
+  const adapter = EXTERNAL_HARNESS_ADAPTERS[request.harness];
+  const reviewBuilder = adapter?.buildReviewCommand ?? adapter?.buildCommand;
+  const prepared = await prepareLaunch(
+    request.harness,
+    reviewCommandRequest(request),
+    active,
+    undefined,
+    reviewBuilder
+  );
   return launchPrepared(prepared, active, 'review', true);
 };

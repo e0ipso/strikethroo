@@ -54,6 +54,20 @@ describe('external harness adapter registry', () => {
     }
   );
 
+  it('kiro sends task via stdin without model or reasoning-effort flags', () => {
+    const command = buildExternalCommand(request('kiro'));
+    expect(command).toMatchObject({
+      executable: 'kiro-cli',
+      argv: ['chat', '--no-interactive', '--trust-tools=read,write,glob,grep,shell'],
+      cwd: '/workspace/project',
+    });
+    expect(command.stdin).toContain('Plan 12, Task 3');
+    expect(command.stdin).toContain('PRE_TASK_EXECUTION.md');
+    expect(command.stdin).toContain('# Implement the task');
+    expect(command.argv.join(' ')).not.toContain('model');
+    expect(command.argv.join(' ')).not.toContain('Implement the task');
+  });
+
   it('keeps a large task payload exclusively on stdin', () => {
     const payload = `# Task\n${'sensitive context '.repeat(100_000)}`;
     const command = buildExternalCommand(request('codex', undefined, payload));
@@ -74,7 +88,7 @@ describe('external harness adapter registry', () => {
       'model_reasoning_effort=high'
     );
     expect(buildExternalCommand(request('opencode', 'high')).argv).toContain('--variant');
-    for (const harness of ['cursor', 'gemini', 'copilot'] as const) {
+    for (const harness of ['cursor', 'gemini', 'copilot', 'kiro'] as const) {
       expect(buildExternalCommand(request(harness, 'high')).argv.join(' ')).not.toContain('high');
     }
   });
@@ -94,6 +108,34 @@ describe('external harness adapter registry', () => {
       detail: 'copilot does not support a generic reasoning_effort override.',
     });
     expect(launches).toBe(0);
+  });
+
+  it('falls back before launch when kiro is targeted with a model override', async () => {
+    let launches = 0;
+    const result = await dispatchExternalTask(request('kiro'), {
+      ...readyDependencies(),
+      launch: async () => {
+        launches += 1;
+        return { exitCode: 0 };
+      },
+    });
+    expect(result).toEqual({
+      kind: 'fallback',
+      reason: 'unsupported-model-override',
+      detail:
+        'kiro does not support a --model override; the configured model would be silently discarded.',
+    });
+    expect(launches).toBe(0);
+  });
+
+  it('kiro dispatches successfully when no model is specified', async () => {
+    const noModelRequest = {
+      ...request('kiro'),
+      model: undefined,
+      reasoningEffort: undefined,
+    };
+    const result = await dispatchExternalTask(noModelRequest, readyDependencies());
+    expect(result).toEqual({ kind: 'launched-success', exitCode: 0 });
   });
 
   it('returns pre-launch fallback without launching when executable is unavailable', async () => {
@@ -172,6 +214,8 @@ describe('model-optional review dispatch (buildReviewCommand / dispatchReview)',
     gemini: ['--prompt', '', '--model', 'vendor/model-X:preview'],
     copilot: ['-p', '', '--model', 'vendor/model-X:preview'],
     opencode: ['run', '--model', 'vendor/model-X:preview', '-'],
+    // Kiro does not support --model; its argv is identical with or without.
+    kiro: ['chat', '--no-interactive', '--trust-tools=read,write,glob,grep,shell'],
   };
   const WITHOUT_MODEL: Record<(typeof SUPPORTED_HARNESSES)[number], string[]> = {
     claude: ['-p'],
@@ -180,6 +224,8 @@ describe('model-optional review dispatch (buildReviewCommand / dispatchReview)',
     gemini: ['--prompt', ''],
     copilot: ['-p', ''],
     opencode: ['run', '-'],
+    // Kiro review uses restricted tools: read-only (no write/shell).
+    kiro: ['chat', '--no-interactive', '--trust-tools=read,glob,grep'],
   };
 
   it.each(SUPPORTED_HARNESSES)(
@@ -190,7 +236,10 @@ describe('model-optional review dispatch (buildReviewCommand / dispatchReview)',
 
       expect(withModel.argv).toEqual(WITH_MODEL[harness]);
       expect(without.argv).toEqual(WITHOUT_MODEL[harness]);
-      expect(withModel.argv).toContain('--model');
+      // Kiro ignores --model entirely; its argv is identical with or without.
+      if (harness !== 'kiro') {
+        expect(withModel.argv).toContain('--model');
+      }
       expect(without.argv).not.toContain('--model');
       // gemini/copilot keep their empty-string positional placeholder even
       // with the model pair dropped.
@@ -199,10 +248,13 @@ describe('model-optional review dispatch (buildReviewCommand / dispatchReview)',
       }
       // Every token in the without-model argv also appears, in order, in the
       // with-model argv — the model pair is a pure splice, not a rewrite.
-      const withoutModelTokens = withModel.argv.filter(
-        token => token !== '--model' && token !== 'vendor/model-X:preview'
-      );
-      expect(withoutModelTokens).toEqual(without.argv);
+      // Exception: kiro uses a distinct review command with restricted tools.
+      if (harness !== 'kiro') {
+        const withoutModelTokens = withModel.argv.filter(
+          token => token !== '--model' && token !== 'vendor/model-X:preview'
+        );
+        expect(withoutModelTokens).toEqual(without.argv);
+      }
     }
   );
 
@@ -228,6 +280,23 @@ describe('model-optional review dispatch (buildReviewCommand / dispatchReview)',
     expect(result).toEqual({ kind: 'launched-success', exitCode: 0 });
     expect(launchedArgv).not.toContain('--model');
     expect(launchedStdin).toBe('Review this diff for defects.');
+  });
+
+  it('kiro review dispatch uses restricted tools (no write/shell)', async () => {
+    let launchedArgv: string[] | undefined;
+    await dispatchReview(
+      { harness: 'kiro', workspace: '/w', prompt: 'Review the diff.' },
+      {
+        ...readyDependencies(),
+        launch: async command => {
+          launchedArgv = command.argv;
+          return { exitCode: 0 };
+        },
+      }
+    );
+    expect(launchedArgv).toEqual(['chat', '--no-interactive', '--trust-tools=read,glob,grep']);
+    expect(launchedArgv!.join(' ')).not.toContain('write');
+    expect(launchedArgv!.join(' ')).not.toContain('shell');
   });
 
   /**

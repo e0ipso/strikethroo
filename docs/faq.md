@@ -111,11 +111,11 @@ Edit or delete `.ai/strikethroo/config/hooks/CODE_REVIEW.md`. The gate skips cle
 
 **Can I configure the thresholds?**
 
-Yes. Edit `CODE_REVIEW.md` to set the minimum severity (`critical`, `major`, `minor`, `info`), minimum confidence (`high`, `medium`, `low`), and maximum rounds (default 3). The round budget is enforced in code and cannot be disabled by editing the file — you can only tighten it.
+Yes. Edit `CODE_REVIEW.md` to change the mandate: which finding categories are in scope, and how the reviewer should grade `severity` and `confidence`. Those labels are advisory, so the gate never filters or applies anything on them; you decide what to act on when you read the review.
 
 **What if the review keeps finding issues?**
 
-Rounds are bounded (default 3 rounds, enforced in code). If exhausted, the plan stays in `plans/` with all findings recorded for your review. You can then edit the plan files and re-run execution, or disable the gate if you believe it is over-rejecting.
+Nothing. The review runs once and records what it found; it never applies a fix or blocks the plan on the strength of a finding. You read `review/review.xml` and decide. The gate only halts when the review could not be certified at all, which means the reviewer never ran or its document was invalid.
 
 **Can the review fix security issues?**
 
@@ -152,10 +152,10 @@ Tasks within the same phase have no mutual dependencies and execute concurrently
 Most spec-driven frameworks optimize the input: write a better specification, get better code, and rely on a human at the end to catch what went wrong. They differ from each other mainly in artifact shape and ceremony. Strikethroo differs on three premises instead:
 
 1. **The agent is an unreliable narrator of its own work.** A subagent reporting success is making a claim, not supplying evidence. A shared verification gate requires identifying the proving command, running it fresh, and reading its exit code before any completion claim. Each skill also ships an anti-rationalization table enumerating the specific excuses a model produces when it is about to skip a discipline.
-2. **A second agent reviewing the first is also unreliable.** So the review gate grades severity and confidence on independent axes with independent floors, treats a missing attribute as below every floor, and explicitly names "manufacturing a finding to justify the round" as the failure it is built to resist.
+2. **A second agent reviewing the first is also unreliable.** So the review gate records the second model's findings for you rather than acting on them, holds the reviewer to conformance and demonstrable defects only, and explicitly names "manufacturing a finding to justify the run" as the failure it is built to resist.
 3. **The scarce resource is your attention, not tokens.** Your careful read is spent on the plan (where a correction costs a sentence) and on the result, not on the diff (where the same correction costs a review cycle).
 
-The structural consequence is that Strikethroo separates *negotiable* configuration from *compiled* guarantees. Hooks and templates are plain Markdown you own. Termination bounds, safety floors, fail-safe defaults, and the reviewer/implementer separation are compiled into the runtime and cannot be loosened by editing a hook. See [Why Strikethroo](why.html) for the full thesis and the list of claims you can verify in the source.
+The structural consequence is that Strikethroo separates *negotiable* configuration from *compiled* guarantees. Hooks and templates are plain Markdown you own. The certification rule (an uncertified review is never reported as clean) and the reviewer/implementer separation are compiled into the runtime and cannot be loosened by editing a hook. See [Why Strikethroo](why.html) for the full thesis and the list of claims you can verify in the source.
 
 **Is Strikethroo slower because of all the gates?**
 

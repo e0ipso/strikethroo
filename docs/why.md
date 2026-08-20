@@ -41,11 +41,11 @@ preserved for.
 ## Guarantees are compiled, not requested
 
 **A rule in Markdown is a request. A rule in TypeScript is a guarantee.** Hooks
-and templates are yours to edit. Termination bounds, severity and confidence
-floors, fail-safe defaults, and reviewer/implementer separation are compiled, so
-no hook edit can loosen them: `MAX_REVIEW_ROUNDS` can be tightened by config and
-raised by nothing, and a finding that *omits* `severity` or `confidence` falls
-below every floor.
+and templates are yours to edit. The review gate's certification rule and the
+reviewer/implementer separation are compiled, so no hook edit can loosen them: a
+review whose findings could not be validated against the schema is never
+reported as a clean one, whether the document was missing, invalid, or
+unvalidatable because `xmllint` was absent.
 
 The question to ask of any framework: **find the guarantee, then find where it is
 enforced.** If the only thing between you and an unbounded loop is a prompt asking
@@ -61,19 +61,21 @@ differently, so a second model is an independent sample, not a cheaper one.
 ## The costs
 
 - **The reviewer will miss "works, matches the plan, wrong abstraction."**
-  Deliberately excluded: the gate is unattended and auto-applies fixes, so
-  false-positive rate matters more than recall.
-- **A fix that isn't a local text replacement is recorded, not applied** — what
-  structurally prevents speculative refactors landing unattended.
-- **A green gate is not a correctness guarantee.** Same class of error a human PR
-  approval catches, and the same class left behind.
+  Deliberately excluded: a second model is confidently wrong often enough that a
+  narrow mandate beats a broad one, and design judgment is what your own read of
+  the diff is preserved for.
+- **The gate fixes nothing for you.** It reports; you decide. That costs you a
+  read of the findings, and it buys you never having to un-apply a confident
+  wrong answer from a model that never ran the tests.
+- **A certified review is not a correctness guarantee.** Same class of error a
+  human PR approval catches, and the same class left behind.
 
 ## Check the claims
 
 | Claim | Where |
 | --- | --- |
-| Round bound compiled, not raisable by config | `MAX_REVIEW_ROUNDS`, `src/skill-scripts/shared/review-findings.ts` |
-| Missing attributes fail safe | `partitionFindings`, same file |
+| An uncertified review is never reported as clean | `_verdictFor`, `src/skill-scripts/code-review.ts` |
+| A missing validator is a distinct failure, not a pass | `validateAgainstSchema`, `src/skill-scripts/shared/review-findings.ts` |
 | Reviewer can't be the implementer's harness | `discoverHarnesses`, `src/skill-scripts/shared/harness-discovery.ts` |
 | Subagent reports aren't proof | `config/shared/verification-gate.md` |
 | Reviewer detects, never fixes | Role section, `src/skill-prompts/st-code-review.md` |

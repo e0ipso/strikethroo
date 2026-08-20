@@ -1,121 +1,33 @@
 import { spawn } from 'child_process';
 
 /**
- * The enforcement half of the code review gate: schema validation of an emitted
- * `review.xml`, the severity/confidence floors, and the compiled round ceiling.
+ * The certification half of the code review gate: schema validation of an
+ * emitted `review.xml` and a reader for the findings it carries.
  *
- * Everything here exists to counter one risk the plan names as its top one — an
- * over-rejecting reviewer auto-applying speculative changes to working code.
- * Three properties are load-bearing and must not be softened:
+ * The gate reports; it does not decide. A second harness gives its opinion on
+ * the diff, the findings are recorded, and the implementer reads them and
+ * chooses what to act on. `severity` and `confidence` ride along as advisory
+ * triage labels and nothing branches on them.
  *
- * 1. An absent `severity` or `confidence` falls below every floor. The schema
- *    declares both `use="optional"` with no default on purpose. There is no
- *    inference from the finding's text and no "unknown, so allow".
- * 2. An XSD-invalid document is a round failure, never "no findings". A missing
- *    validator is a distinct failure, never a silent pass.
- * 3. The round budget is read from user-editable prose but enforced here,
- *    clamped to `MAX_REVIEW_ROUNDS`. A user may tighten it, never loosen it.
+ * One property is load-bearing and must not be softened: an XSD-invalid
+ * document is a failed review, never "no findings", and a missing validator is
+ * a distinct failure, never a silent pass. Telling "the reviewer found nothing"
+ * apart from "the reviewer never ran" is the whole value of the gate.
  */
 
 export type Severity = 'critical' | 'major' | 'minor' | 'info';
 export type Confidence = 'high' | 'medium' | 'low';
 
-/** Most to least consequential. */
-const SEVERITY_RANK: Record<Severity, number> = { critical: 4, major: 3, minor: 2, info: 1 };
-/** Most to least sure. */
-const CONFIDENCE_RANK: Record<Confidence, number> = { high: 3, medium: 2, low: 1 };
-
-/**
- * The compiled round ceiling. The hook states a budget in prose; this bounds it.
- * Rewriting or deleting the hook's budget line cannot raise it, so no edit to
- * `CODE_REVIEW.md` can produce a non-terminating review loop.
- */
-export const MAX_REVIEW_ROUNDS = 3;
-
-export const DEFAULT_SEVERITY_FLOOR: Severity = 'major';
-export const DEFAULT_CONFIDENCE_FLOOR: Confidence = 'high';
+export const SEVERITIES: readonly Severity[] = ['critical', 'major', 'minor', 'info'];
+const CONFIDENCES: readonly Confidence[] = ['high', 'medium', 'low'];
 
 /** Long enough for any plausible review document, short enough to never hang a gate. */
 export const XMLLINT_TIMEOUT_MS = 30_000;
 
-const isSeverity = (value: string): value is Severity => value in SEVERITY_RANK;
-const isConfidence = (value: string): value is Confidence => value in CONFIDENCE_RANK;
-
-/**
- * The mandate the hook expresses in prose. `notes` records every place a stated
- * value was clamped or ignored, so a user can see that their edit was bounded.
- */
-export interface ReviewMandate {
-  severityFloor: Severity;
-  confidenceFloor: Confidence;
-  /** Already clamped to `MAX_REVIEW_ROUNDS`. */
-  roundBudget: number;
-  notes: string[];
-}
-
-// Deliberately loose about the heading level and the surrounding backticks, and
-// deliberately strict about the value: a hook edited into any shape still yields
-// a bounded budget, and an unrecognised value never widens enforcement.
-const SEVERITY_FLOOR_RE = /^[ \t]*#{0,6}[ \t]*severity floor[ \t]*:[ \t]*`?([a-z]+)`?/im;
-const CONFIDENCE_FLOOR_RE = /^[ \t]*#{0,6}[ \t]*confidence floor[ \t]*:[ \t]*`?([a-z]+)`?/im;
-const ROUND_BUDGET_RE = /^[ \t]*#{0,6}[ \t]*round budget[ \t]*:[ \t]*`?(-?\d{1,9})`?/im;
-
-/**
- * Read the floors and the round budget out of `CODE_REVIEW.md`.
- *
- * Forgiving in exactly one direction. A floor the hook does not state falls back
- * to the compiled default. A budget the hook does not state, states as
- * nonsense, or states above the ceiling is clamped to `MAX_REVIEW_ROUNDS`; a
- * smaller positive budget is honoured, because tightening is the user's to do.
- */
-export const parseReviewMandate = (hookContent: string): ReviewMandate => {
-  const notes: string[] = [];
-
-  const severityMatch = SEVERITY_FLOOR_RE.exec(hookContent);
-  const statedSeverity = (severityMatch?.[1] ?? '').toLowerCase();
-  let severityFloor: Severity = DEFAULT_SEVERITY_FLOOR;
-  if (isSeverity(statedSeverity)) {
-    severityFloor = statedSeverity;
-  } else {
-    notes.push(
-      `The hook states no recognised severity floor, so the compiled default \`${DEFAULT_SEVERITY_FLOOR}\` applies.`
-    );
-  }
-
-  const confidenceMatch = CONFIDENCE_FLOOR_RE.exec(hookContent);
-  const statedConfidence = (confidenceMatch?.[1] ?? '').toLowerCase();
-  let confidenceFloor: Confidence = DEFAULT_CONFIDENCE_FLOOR;
-  if (isConfidence(statedConfidence)) {
-    confidenceFloor = statedConfidence;
-  } else {
-    notes.push(
-      `The hook states no recognised confidence floor, so the compiled default \`${DEFAULT_CONFIDENCE_FLOOR}\` applies.`
-    );
-  }
-
-  const budgetMatch = ROUND_BUDGET_RE.exec(hookContent);
-  let roundBudget = MAX_REVIEW_ROUNDS;
-  if (budgetMatch === null) {
-    notes.push(
-      `The hook states no round budget, so the compiled ceiling of ${MAX_REVIEW_ROUNDS} rounds applies.`
-    );
-  } else {
-    const stated = Number(budgetMatch[1]);
-    if (!Number.isInteger(stated) || stated < 1) {
-      notes.push(
-        `The hook states a round budget of "${budgetMatch[1]}", which is not a positive whole number of rounds, so the compiled ceiling of ${MAX_REVIEW_ROUNDS} applies.`
-      );
-    } else if (stated > MAX_REVIEW_ROUNDS) {
-      notes.push(
-        `The hook states a round budget of ${stated}, above the compiled ceiling of ${MAX_REVIEW_ROUNDS}. The ceiling is enforced in code and cannot be raised by editing the hook, so ${MAX_REVIEW_ROUNDS} rounds apply.`
-      );
-    } else {
-      roundBudget = stated;
-    }
-  }
-
-  return { severityFloor, confidenceFloor, roundBudget, notes };
-};
+const isSeverity = (value: string): value is Severity =>
+  (SEVERITIES as readonly string[]).includes(value);
+const isConfidence = (value: string): value is Confidence =>
+  (CONFIDENCES as readonly string[]).includes(value);
 
 export type SchemaValidation =
   | { kind: 'valid' }
@@ -195,8 +107,6 @@ export interface ReviewFinding {
   severity: Severity | null;
   confidence: Confidence | null;
   category: string | null;
-  /** Whether the comment carries a `<suggestion>`, i.e. a local text replacement. */
-  hasSuggestion: boolean;
   /** The `<body>` text, truncated. Enough to identify the finding in the artifact. */
   summary: string;
 }
@@ -267,7 +177,6 @@ interface PartialFinding {
   severity: Severity | null;
   confidence: Confidence | null;
   category: string | null;
-  hasSuggestion: boolean;
   summary: string;
 }
 
@@ -289,8 +198,8 @@ interface PartialFinding {
  * Comments, CDATA sections, processing instructions and doctype declarations are
  * skipped rather than scanned, so a `<body>` quoting XML at itself cannot be
  * mistaken for structure. An attribute value that arrives as an unexpanded
- * entity reference reads as an unrecognised enum value, which falls below every
- * floor — the safe direction.
+ * entity reference reads as an unrecognised enum value, which becomes a null
+ * label rather than a guessed one.
  */
 export const parseReviewFindings = (xml: string): ReviewFinding[] => {
   const findings: ReviewFinding[] = [];
@@ -371,12 +280,11 @@ export const parseReviewFindings = (xml: string): ReviewFinding[] => {
       comment = {
         file: file ?? '',
         location: lineRange(attributes),
-        // Absent, empty, and unrecognised all become null, and null falls below
-        // every floor. This is the one place the fail-safe default lives.
+        // Absent, empty, and unrecognised all become null. The label is
+        // advisory, so an unreadable one is dropped rather than guessed at.
         severity: isSeverity(severity) ? severity : null,
         confidence: isConfidence(confidence) ? confidence : null,
         category: null,
-        hasSuggestion: false,
         summary: '',
       };
       capture = null;
@@ -393,105 +301,40 @@ export const parseReviewFindings = (xml: string): ReviewFinding[] => {
     } else if (name === 'category') {
       capture = 'category';
       buffer = '';
-    } else if (name === 'suggestion') {
-      comment.hasSuggestion = true;
     }
   }
 
   return findings;
 };
 
-/** Why a finding was recorded rather than queued for an automatic fix. */
-export type NonActionableReason =
-  | 'severity-absent'
-  | 'severity-below-floor'
-  | 'confidence-absent'
-  | 'confidence-below-floor'
-  | 'no-suggestion';
-
-export interface RecordedFinding extends ReviewFinding {
-  reasons: NonActionableReason[];
-}
-
-export interface FindingsPartition {
-  severityFloor: Severity;
-  confidenceFloor: Confidence;
-  actionable: ReviewFinding[];
-  recorded: RecordedFinding[];
-  counts: {
-    total: number;
-    /** Clears both floors, whether or not it carries a suggestion. */
-    aboveFloor: number;
-    /** Fails at least one floor, including every absent attribute. */
-    belowFloor: number;
-    /** Clears both floors **and** carries a suggestion. The only auto-fix set. */
-    actionable: number;
-    /** Everything not actionable. */
-    recorded: number;
-    /** Clears both floors but carries no suggestion: real findings, never applied. */
-    aboveFloorWithoutSuggestion: number;
-  };
+/** How many findings carry each severity label, plus how many carry none. */
+export interface FindingCounts {
+  total: number;
+  critical: number;
+  major: number;
+  minor: number;
+  info: number;
+  unlabelled: number;
 }
 
 /**
- * Split findings into the set an automatic fix round may act on and the set that
- * is only recorded.
+ * Tally findings by severity for the report.
  *
- * A finding is actionable only when all three hold: `severity` is present and at
- * or above the floor, `confidence` is present and at or above the floor, and it
- * carries a `<suggestion>`. The third condition is not an extra hurdle invented
- * here — `<suggestion>` requires `original-code` copied verbatim and is applied
- * by text matching, so a fix that cannot be expressed as a local text
- * replacement structurally cannot carry one. That is what keeps broad
- * speculative refactors out of the auto-fix set.
+ * This is reporting only. Nothing downstream branches on the result: the
+ * implementer reads `review.xml` and decides for itself what deserves a fix.
  */
-export const partitionFindings = (
-  findings: readonly ReviewFinding[],
-  severityFloor: Severity,
-  confidenceFloor: Confidence
-): FindingsPartition => {
-  const actionable: ReviewFinding[] = [];
-  const recorded: RecordedFinding[] = [];
-  let aboveFloor = 0;
-  let aboveFloorWithoutSuggestion = 0;
-
-  for (const finding of findings) {
-    const reasons: NonActionableReason[] = [];
-    if (finding.severity === null) {
-      reasons.push('severity-absent');
-    } else if (SEVERITY_RANK[finding.severity] < SEVERITY_RANK[severityFloor]) {
-      reasons.push('severity-below-floor');
-    }
-    if (finding.confidence === null) {
-      reasons.push('confidence-absent');
-    } else if (CONFIDENCE_RANK[finding.confidence] < CONFIDENCE_RANK[confidenceFloor]) {
-      reasons.push('confidence-below-floor');
-    }
-    const clearsFloors = reasons.length === 0;
-    if (clearsFloors) aboveFloor += 1;
-    if (!finding.hasSuggestion) {
-      reasons.push('no-suggestion');
-      if (clearsFloors) aboveFloorWithoutSuggestion += 1;
-    }
-    if (reasons.length === 0) {
-      actionable.push(finding);
-    } else {
-      recorded.push({ ...finding, reasons });
-    }
-  }
-
-  return {
-    severityFloor,
-    confidenceFloor,
-    actionable,
-    recorded,
-    counts: {
-      total: findings.length,
-      aboveFloor,
-      belowFloor: findings.length - aboveFloor,
-      actionable: actionable.length,
-      recorded: recorded.length,
-      aboveFloorWithoutSuggestion,
-    },
+export const countFindings = (findings: readonly ReviewFinding[]): FindingCounts => {
+  const counts: FindingCounts = {
+    total: findings.length,
+    critical: 0,
+    major: 0,
+    minor: 0,
+    info: 0,
+    unlabelled: 0,
   };
+  for (const finding of findings) {
+    if (finding.severity === null) counts.unlabelled += 1;
+    else counts[finding.severity] += 1;
+  }
+  return counts;
 };

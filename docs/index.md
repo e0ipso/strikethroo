@@ -26,12 +26,12 @@ Most spec-driven tools optimize the input: better spec in, better code out, huma
 <div class="st-card">
 <span class="st-card__icon st-card__icon--shield-check" aria-hidden="true"></span>
 <p class="st-card__title">Guarantees are compiled, not requested</p>
-<p>A rule in Markdown is a request; a rule in TypeScript is a guarantee. Hooks and templates are yours to edit. Termination bounds, safety floors, and fail-safe defaults are compiled &mdash; <code>MAX_REVIEW_ROUNDS</code> can be tightened by config and raised by nothing.</p>
+<p>A rule in Markdown is a request; a rule in TypeScript is a guarantee. Hooks and templates are yours to edit. The rule that an uncertified review is never reported as a clean one is compiled, and no edit to a hook can loosen it.</p>
 </div>
 <div class="st-card">
 <span class="st-card__icon st-card__icon--git-fork" aria-hidden="true"></span>
 <p class="st-card__title">Nobody marks their own homework</p>
-<p>The optional review gate runs on a <em>different</em> harness than the one that wrote the code &mdash; the current harness is structurally excluded from the candidate set, not merely deprioritized. The reviewer detects and never fixes; remediation is dispatched separately.</p>
+<p>The optional review gate runs on a <em>different</em> harness than the one that wrote the code &mdash; the current harness is structurally excluded from the candidate set, not merely deprioritized. The reviewer detects and never fixes; its findings are recorded for you to judge.</p>
 </div>
 <div class="st-card">
 <span class="st-card__icon st-card__icon--sliders-horizontal" aria-hidden="true"></span>
@@ -101,7 +101,7 @@ flowchart LR
 `st-execute-blueprint` decomposes the plan into atomic tasks and builds the dependency-mapped blueprint itself when one does not exist yet. Run `/st-generate-tasks 64` on its own only when you want to inspect or hand-tune the blueprint before execution starts.
 
 {% capture context_note %}
-Your review lands on the plan, before any code exists &mdash; that is where a correction costs a sentence. Each step runs with clean context: the planning agent sees only the work order, and each execution sub-agent receives only its specific task. After execution, an optional automated review gate runs on a discovered second harness, critiques the cumulative diff, and drives bounded remediation if findings exceed configured thresholds.
+Your review lands on the plan, before any code exists &mdash; that is where a correction costs a sentence. Each step runs with clean context: the planning agent sees only the work order, and each execution sub-agent receives only its specific task. After execution, an optional automated review gate runs on a discovered second harness, critiques the cumulative diff, and records its findings for you to act on.
 {% endcapture %}
 {% include callout.html variant="note" title="WHY THE GATES MATTER" content=context_note %}
 

@@ -28,7 +28,7 @@ flowchart LR
     style J fill:#c8e6c9
 ```
 
-One human gate sits before any code exists: you **review** the plan, looping back to edit until it is right. Then you run it, and **review** the result. An optional automated review gate runs in between: a discovered second harness critiques the cumulative diff and drives remediation for high-confidence findings, before your read of the result.
+One human gate sits before any code exists: you **review** the plan, looping back to edit until it is right. Then you run it, and **review** the result. An optional automated review gate runs in between: a discovered second harness critiques the cumulative diff and records its findings for you, before your read of the result.
 
 That distribution of effort is deliberate, not incidental. Attention is **rationed toward the point where a correction is cheapest** -- a misunderstanding costs one sentence to fix in the plan and a full review cycle to fix in the diff. So the plan gets your careful read, and the task blueprint gets generated for you rather than reviewed by you. See [Why Strikethroo](why.html) for the reasoning in full.
 
@@ -114,7 +114,7 @@ After `POST_EXECUTION` reports green, an optional code review gate runs if a sec
 **How it works:**
 
 1. **Detect** — Reviewer harness examines the base commit through working tree, emitting findings as XML
-2. **Threshold** — Findings below configured severity and confidence floors are recorded but not auto-fixed
+2. **Certify** — The findings are validated against the vendored schema; an uncertified review is never reported as a clean one
 3. **Fix** — High-confidence findings are dispatched to the implementer route for local text replacements
 4. **Re-verify** — Full `POST_EXECUTION` re-runs (lint, tests, validation) before the reviewer re-checks
 5. **Bounded** — Rounds are limited (default 3); exhaustion halts and leaves the plan with findings recorded

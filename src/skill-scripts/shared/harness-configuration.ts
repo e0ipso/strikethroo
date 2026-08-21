@@ -104,8 +104,16 @@ export const loadHarnessConfiguration = (strikethrooRoot: string): HarnessConfig
   let contents: string;
   try {
     contents = fs.readFileSync(configPath, 'utf8');
-  } catch {
-    return { kind: 'config', config: emptyConfiguration() };
+  } catch (error) {
+    if ((error as { code?: unknown }).code === 'ENOENT') {
+      return { kind: 'config', config: emptyConfiguration() };
+    }
+    return {
+      kind: 'invalid',
+      errors: [
+        `config.yaml could not be read: ${error instanceof Error ? error.message : String(error)}`,
+      ],
+    };
   }
 
   let document: unknown;

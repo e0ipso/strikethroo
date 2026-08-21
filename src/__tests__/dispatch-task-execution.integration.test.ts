@@ -21,6 +21,73 @@ const makeBundle = (directory: string): string => {
 const run = (bundle: string, args: string[], env = process.env) =>
   spawnSync(process.execPath, [bundle, ...args], { encoding: 'utf8', env });
 
+const writePlan14ClaudeFixture = (directory: string, cliArgs: readonly string[]): void => {
+  const configDirectory = path.join(directory, '.ai/strikethroo/config');
+  fs.mkdirSync(configDirectory, { recursive: true });
+  fs.writeFileSync(
+    path.join(configDirectory, 'config.yaml'),
+    `harnesses:\n  claude:\n    cli_args:${
+      cliArgs.length === 0
+        ? ' []'
+        : `\n${cliArgs.map(argument => `      - ${JSON.stringify(argument)}`).join('\n')}`
+    }\n` +
+      'execution_routing:\n  profiles:\n    plan-14:\n      description: Plan 14 regression.\n' +
+      '      models:\n        - model: opus\n          harness: claude\n'
+  );
+  fs.writeFileSync(
+    path.join(directory, 'claude'),
+    `#!${process.execPath}
+const fs = require('fs');
+const path = require('path');
+let stdin = '';
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', chunk => { stdin += chunk; });
+process.stdin.on('end', () => {
+  fs.appendFileSync(process.env.STRIKETHROO_PLAN14_LOG, JSON.stringify({
+    argv: process.argv.slice(2),
+    cwd: process.cwd(),
+    stdin,
+  }) + '\\n');
+  if (process.argv.includes('--version')) {
+    process.stdout.write('fake-claude-plan14 1.0\\n');
+    return;
+  }
+  const evidenceMatch = /STRIKETHROO_EVIDENCE=(\\{[^\\n]+\\})/.exec(stdin);
+  const hasPermission = process.argv.includes('--dangerously-skip-permissions');
+  if (evidenceMatch && !hasPermission) {
+    process.stdout.write('I analyzed the request but permission denied every write.\\n');
+    return;
+  }
+  if (evidenceMatch) {
+    const evidence = JSON.parse(evidenceMatch[1]);
+    if (evidence.phase === 'create') {
+      fs.writeFileSync(path.join(process.cwd(), evidence.create.file), evidence.create.content);
+      fs.writeFileSync(
+        path.join(process.cwd(), evidence.modify.file),
+        evidence.modify.initialContent
+      );
+      return;
+    }
+    fs.writeFileSync(path.join(process.cwd(), evidence.modify.file), evidence.modify.finalContent);
+    fs.writeFileSync(path.join(process.cwd(), evidence.command.file), evidence.command.content);
+    return;
+  }
+  if (stdin.includes('Strikethroo external task dispatch')) {
+    fs.writeFileSync(
+      path.join(process.cwd(), 'task-evidence.json'),
+      JSON.stringify({ implemented: true, verification: 'passed', permission: hasPermission })
+    );
+  }
+});
+`,
+    { mode: 0o700 }
+  );
+  fs.writeFileSync(
+    path.join(directory, 'task.md'),
+    '---\nid: 3\nstatus: pending\nexecution_profile: plan-14\n---\n# Plan 14 task\n'
+  );
+};
+
 describe('dispatch task execution entrypoint', () => {
   it('emits one infrastructure JSON line for an unreadable task file', () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'st-dispatch-'));
@@ -84,6 +151,100 @@ describe('dispatch task execution entrypoint', () => {
       model: 'native/model',
       reasoningEffort: 'high',
     });
+  });
+
+  it('rejects the Plan 14 read-only-zero-exit harness before task launch', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'st-plan14-read-only-'));
+    try {
+      const bundle = makeBundle(directory);
+      writePlan14ClaudeFixture(directory, []);
+      const taskFile = path.join(directory, 'task.md');
+      const log = path.join(directory, 'plan14-invocations.jsonl');
+      const env = {
+        ...process.env,
+        PATH: `${directory}${path.delimiter}${process.env.PATH ?? ''}`,
+        STRIKETHROO_PLAN14_LOG: log,
+      };
+
+      const resolved = run(bundle, ['resolve', taskFile, 'codex', directory, '14', '3'], env);
+
+      expect(resolved.status).toBe(0);
+      expect(JSON.parse(resolved.stdout)).toMatchObject({
+        kind: 'fallback',
+        reason: 'invalid-execution',
+        detail: expect.stringContaining('claude (fresh)'),
+      });
+      const invocations = fs
+        .readFileSync(log, 'utf8')
+        .trim()
+        .split('\n')
+        .map(line => JSON.parse(line) as { argv: string[]; stdin: string });
+      expect(invocations.map(invocation => invocation.argv)).toEqual([
+        ['--version'],
+        ['auth', 'status'],
+        ['-p'],
+        ['-p'],
+      ]);
+      expect(invocations[2]?.stdin).toBe('Reply with OK.');
+      expect(invocations[3]?.stdin).toContain('STRIKETHROO_EVIDENCE=');
+      expect(
+        invocations.some(invocation => invocation.stdin.includes('external task dispatch'))
+      ).toBe(false);
+      expect(fs.existsSync(path.join(directory, 'task-evidence.json'))).toBe(false);
+    } finally {
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('uses the same Plan 14 fake after its local permission arg proves implementation capability', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'st-plan14-permitted-'));
+    try {
+      const bundle = makeBundle(directory);
+      writePlan14ClaudeFixture(directory, ['--dangerously-skip-permissions']);
+      const taskFile = path.join(directory, 'task.md');
+      const log = path.join(directory, 'plan14-invocations.jsonl');
+      const env = {
+        ...process.env,
+        PATH: `${directory}${path.delimiter}${process.env.PATH ?? ''}`,
+        STRIKETHROO_PLAN14_LOG: log,
+      };
+
+      const resolved = run(bundle, ['resolve', taskFile, 'codex', directory, '14', '3'], env);
+      const route = JSON.parse(resolved.stdout) as { kind: string; handoff: string };
+      expect(route).toMatchObject({ kind: 'external-override', handoff: expect.any(String) });
+      const executed = run(
+        bundle,
+        ['execute', route.handoff, taskFile, 'codex', directory, '14', '3'],
+        env
+      );
+
+      expect(executed.status, executed.stdout).toBe(0);
+      expect(JSON.parse(executed.stdout)).toEqual({ kind: 'launched-success', exitCode: 0 });
+      expect(
+        JSON.parse(fs.readFileSync(path.join(directory, 'task-evidence.json'), 'utf8'))
+      ).toEqual({
+        implemented: true,
+        verification: 'passed',
+        permission: true,
+      });
+      const invocations = fs
+        .readFileSync(log, 'utf8')
+        .trim()
+        .split('\n')
+        .map(line => JSON.parse(line) as { argv: string[]; stdin: string });
+      expect(
+        invocations.filter(invocation => invocation.stdin.includes('STRIKETHROO_EVIDENCE='))
+      ).toHaveLength(2);
+      expect(invocations.at(-1)?.argv).toEqual([
+        '-p',
+        '--dangerously-skip-permissions',
+        '--model',
+        'opus',
+      ]);
+      expect(invocations.at(-1)?.stdin).toContain('Strikethroo external task dispatch');
+    } finally {
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
   });
 
   it('executes the resolved external handoff after configuration drift', () => {

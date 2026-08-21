@@ -89,6 +89,8 @@ The LLM verifies all tasks reached `completed` status, checks that documentation
 
 Terminal review gate, terminal only — runs once per plan, creates no task files, never mutates the blueprint. When a second harness is discovered and this hook is present and non-empty, a reviewer harness critiques the cumulative diff and emits schema-validated findings (`review.xml`). The findings are recorded for the implementer to read and act on; nothing is applied automatically. Any fix you then make forces a full `POST_EXECUTION` re-run before execution is declared complete.
 
+Reviewer discovery uses the same local `harnesses.<name>.cli_args` and readiness check as task dispatch. Permission flags may give the reviewer CLI technical write access, but the reviewer prompt still says to detect and report without changing source files. The reviewer prints its findings document to stdout; the Strikethroo process writes `review.xml` and checks the artifact and diff. Local harness permissions do not turn review findings into automatic fixes.
+
 **Reviewed scope**: a two-dot diff from a base commit recorded before phase execution against the **working tree**, so committed phase work and uncommitted fixes are both included. Untracked, unignored files are included too — the gate synthesizes an add-diff for each with `git diff --no-index` against `/dev/null`, so nothing needs to be staged or committed for the reviewer to see it, and the gate never writes to the git index.
 
 **Configuration**: The hook body specifies the mandate — which finding categories are in scope and how the reviewer should grade `severity` (`critical`, `major`, `minor`, `info`) and `confidence` (`high`, `medium`, `low`). Both are advisory labels that help you sort the review; nothing is filtered or applied on the strength of them.
@@ -103,8 +105,8 @@ Terminal review gate, terminal only — runs once per plan, creates no task file
 - Findings do not survive a fresh clone — `init` ships a workspace `.gitignore` that excludes `plans/*/review/` and `archive/*/review/`, so the gate never sees its own output as changed content. That exclusion covers review artifacts only; whether you track the rest of `.ai/strikethroo/` is your project's call.
 - Conformance-only scope has a blind spot — correct code matching the plan but badly abstracted passes.
 - Blast-radius checking is partial — the full `POST_EXECUTION` re-run is the real catcher.
-- Generated and vendored files are outside the review scope — paths that `.gitattributes` marks `linguist-generated` or `linguist-vendored` are dropped from the diff, so changes to build output or vendored code are never reviewed. A finding against generated code is unfixable anyway: the fix is applied as a text replacement, the mandatory `POST_EXECUTION` re-run regenerates the file, and the next round raises the identical finding.
-- Ignored files are outside the review scope — the gate honours your ignore rules, which is also what keeps its own `review/` output from entering the next round's diff.
+- Generated and vendored files are outside the review scope — paths that `.gitattributes` marks `linguist-generated` or `linguist-vendored` are dropped from the diff, so changes to build output or vendored code are never reviewed. Fix the authored source instead; the mandatory `POST_EXECUTION` re-run regenerates build output.
+- Ignored files are outside the review scope — the gate honours your ignore rules, which also keeps its own `review/` output out of the reviewed diff.
 
 ### Workflow Control Hooks
 
@@ -144,14 +146,87 @@ Edit these files to tune project discipline. Empty a file to disable that shared
 
 ## Workspace configuration
 
-`.ai/strikethroo/config/config.yaml` is the workspace's single structured configuration file. Every configurable feature claims one **top-level section** in it — there are no per-feature YAML files, and future features add sections here rather than new files. It is hash-tracked by `init` like hooks, and there are two ways to edit it:
+`.ai/strikethroo/config/config.yaml` is the workspace's single structured configuration file. Every configurable feature claims one top-level section in it. `init` creates the file from a template and hash-tracks it so later `init` runs preserve local edits and report conflicts.
 
-- **The Customize view's Config tab** — the web app's UI for setting up config.yaml. It renders a structured form for each section it understands (today: execution routing) and preserves any other top-level sections on save. Populating the form is a manual process; note that saving from the UI rewrites the file, so hand-written YAML comments are not preserved.
-- **Directly on the filesystem** — any editor works; the file is plain YAML.
+The workspace `.gitignore` ignores `config/config.yaml` by default. Harness permissions, installed models, and routing preferences usually differ between developers and machines, so a newly initialized project does not add this file to Git through normal `git add` commands. This is a default, not a security boundary. Anyone can force-add an ignored file, and ignore rules do not remove a file that Git already tracks.
+
+If an existing project already tracks the file, each checkout that adopts the local-only policy can remove it from the Git index once:
+
+```bash
+git rm --cached .ai/strikethroo/config/config.yaml
+```
+
+The command leaves the working copy in place. Commit the resulting deletion if the repository should stop distributing the file. Strikethroo never runs this command automatically because changing tracked files is a project decision.
+
+There are two ways to edit the local file:
+
+- **The Customize view's Config tab.** The web app renders a form for the sections it understands, currently execution routing, and preserves other top-level sections structurally. Saving rewrites the file, so YAML comments are not preserved.
+- **Directly on the filesystem.** Use this method to edit `harnesses`; the file is plain YAML.
+
+### Harness invocation arguments
+
+The `harnesses` section supplies the extra arguments an external CLI needs to work without interactive permission prompts. Each `cli_args` item is one exact argument:
+
+```yaml
+harnesses:
+  claude:
+    cli_args:
+      - --dangerously-skip-permissions
+  codex:
+    cli_args:
+      - --sandbox
+      - workspace-write
+```
+
+Order and spelling are preserved. Strikethroo does not trim values, split them on whitespace, expand environment variables or globs, or parse shell syntax. It launches child processes with Node's `spawn` and `shell: false`, so a value such as `"two words"` remains one argument. Missing harness entries and missing `cli_args` keys become empty arrays. Unknown harness names, unknown keys, scalar commands, empty strings, non-string values, and strings containing NUL characters make the configuration invalid before an external launch.
+
+The local user owns the permission policy. Strikethroo does not reject permissive flags, including Claude's `--dangerously-skip-permissions`. The shipped template starts with these arguments because unattended task execution must be able to edit files and run verification commands:
+
+| Harness | Starter `cli_args` | Vendor reference |
+| --- | --- | --- |
+| Claude Code | `["--dangerously-skip-permissions"]` | [Claude Code CLI reference](https://docs.anthropic.com/en/docs/claude-code/cli-usage) |
+| Codex CLI | `["--sandbox", "workspace-write"]` | [Codex CLI command reference](https://developers.openai.com/codex/cli/reference) |
+| Cursor Agent | `["--force"]` | [Cursor headless CLI](https://docs.cursor.com/en/cli/headless) |
+| Gemini CLI | `["--approval-mode", "yolo"]` | [Gemini CLI configuration](https://google-gemini.github.io/gemini-cli/docs/get-started/configuration.html) |
+| GitHub Copilot CLI | `["--allow-all"]` | [Copilot CLI command reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference) |
+| OpenCode | `["--auto"]` | [OpenCode permissions](https://opencode.ai/docs/permissions/) |
+
+These are editable starter values, not a promise that every CLI version or machine policy accepts them. Replace them with the permission settings appropriate for the local environment. Some options grant broad filesystem, command, or network access, so use an external sandbox when the local setup requires one.
+
+Do not put API keys, tokens, headers, or other secrets in `cli_args`. Command-line arguments can be visible to other local processes. Use the CLI's authentication command, environment support, or user-level configuration instead. Normal Strikethroo diagnostics record a hash of the ordered arguments rather than echoing the array.
+
+### External harness readiness
+
+Strikethroo checks an external harness before using it for a task or code review. Native targets and targets on the current harness do not incur the external readiness requests or apply external harness arguments.
+
+For an external target, readiness runs in this order:
+
+1. Validate the local harness configuration and resolve the executable on `PATH`.
+2. Run the CLI's version command and record the resolved executable path and version.
+3. Run the adapter's literal authentication or status command. `cli_args` are not added to this command.
+4. Run a minimal non-interactive request with the exact configured arguments.
+5. In a disposable Git directory, run two more requests and verify the files directly. The first request must create two nonce-bearing files. The second must modify one file and run a command that creates a third file.
+
+The configured request and two implementation checks can consume three model requests. Each command has a 20-second timeout, and the disposable directory has a file-count limit. Strikethroo removes the directory after the check. A harness that can answer a prompt but cannot edit and run a verification command is unavailable for both implementation routing and review discovery.
+
+Results live in `.ai/strikethroo/runtime/harness-availability.json`. Ready results last 30 minutes; unavailable results last 5 minutes. The cache key includes the harness, resolved executable path and version, ordered-argument hash, normalization version, and probe-registry version. Changing an argument or its order, changing the executable version, or updating the readiness contract causes a new check. Version resolution still runs before a cache entry can be selected.
+
+Readiness errors identify the failed check without printing model output or the configured arguments:
+
+| Error | What to check |
+| --- | --- |
+| Harness configuration is invalid | Fix the reported `config.yaml` path and exact-array shape. |
+| Executable check failed | Install the CLI and make its executable available on `PATH`. |
+| Executable version check failed | Confirm the CLI's version command works and upgrade or reinstall the CLI if needed. |
+| Authentication check failed | Run the harness login flow, then verify its status command succeeds. |
+| Configured invocation check failed | Compare `cli_args` with the installed CLI's help and confirm the account can make a request. |
+| Implementation capability check failed | Adjust the local permission arguments or user settings so the CLI can create and modify files and run a command. |
+
+Task dispatch and code review use the same harness baseline that passed readiness. A zero exit code means only that the external process completed. Task status and verification evidence decide whether a task completed; the review gate separately requires a valid findings document.
 
 ### Execution routing
 
-The `execution_routing` section defines named **execution profiles**. Task generation persists the selected profile, and dispatch chooses a configured model target immediately before delegation. It ships with `profiles: {}`, which disables routing; tasks with no `execution_profile` use the current harness and its normal defaults.
+The `execution_routing` section defines named **execution profiles**. Task generation persists the selected profile, and dispatch chooses a configured model target immediately before delegation. The shipped local template contains `docs-and-config`, `standard-implementation`, and `complex-architecture` profiles with an ordered model matrix. Edit the models for the CLIs installed on the local machine. Setting `profiles: {}` disables routing; tasks with no `execution_profile` use the current harness and its normal defaults.
 
 The following configuration is **an example** — profile names, descriptions, and model identifiers are placeholders to adapt, not defaults Strikethroo recognizes:
 
@@ -184,8 +259,8 @@ How the pieces divide responsibility:
 - **`models` order is priority.** The built-in selector picks the first target not present in the task's avoid set.
 - **Targets are exact.** `model` is required; `harness` and `reasoning_effort` are optional. The selected values are passed verbatim to dispatch, with no aliases or translation.
 - **One optional global selector.** Advanced policies go in one repository-relative script under `resolver.script` (`.js`/`.cjs`/`.mjs` runs under Node; anything else executes directly). For one task it receives `{"version":1,"task":{"id":6,"profile":"demanding"},"candidates":[{"id":"…","target":{"model":"…"}}],"avoid":["…"]}` on stdin and must print exactly `{"target":"<candidate id>"}`. Candidate IDs identify the complete configured target. It may select only a supplied, non-avoided candidate. Missing scripts, timeouts, non-zero exits, malformed output, and unknown or avoided targets cause a visible fallback to current-harness defaults; a configured selector is authoritative and is not replaced by the built-in policy on failure.
-- **Availability is harness-level.** Native targets (no `harness`) and targets for the current harness bypass probing. Other supported harnesses run a built-in, versioned cheap-request probe that covers CLI installation, authentication, request access, and credits. The probe invokes each harness non-interactively with no explicit model override, letting the CLI use its own configured/default model, so it never fails merely because a pinned probe model was retired. A successful probe establishes harness availability, not availability of every configured model.
-- **Probe results are cached.** `.ai/strikethroo/runtime/harness-availability.json` caches available results for 30 minutes and unavailable results for 5 minutes. The runtime directory is gitignored, tolerant of missing or malformed cache data, and excluded from workspace content.
+- **Readiness is harness-level.** Native and current-harness targets bypass the check. External targets must pass the version, authentication, configured-request, file-edit, and command checks described above. The readiness requests omit a model override so the CLI uses its configured default. A passing check establishes that the harness can implement work, not that every model named in a routing profile exists.
+- **Readiness results are cached by invocation identity.** The cache includes the executable version and exact argument hash, so a CLI upgrade or local argument change cannot reuse an older result.
 - **Unavailable targets retry safely.** Dispatch adds a rejected target's complete ID to the avoid set and invokes selection again. Exhausting the profile, losing the configured profile, or failing the selector falls back to the current harness without model or reasoning overrides.
 
 Classification runs inside `st-generate-tasks` (and the task-generation step of `st-full-workflow`) after task files are emitted and before `POST_TASK_GENERATION_ALL` assembles the blueprint. The durable task metadata is `execution_profile`; selection, availability checking, retries, and fallback happen immediately before delegation.
@@ -221,7 +296,7 @@ Templates are editable Markdown files in `.ai/strikethroo/config/templates/`. Th
 
 ## Strikethroo profiles
 
-Everything above — hooks, shared disciplines, `config.yaml`, templates, and the `STRIKETHROO.md` project context — can be packaged into a **strikethroo profile**: a shareable directory holding a `profile.yaml` manifest plus a sparse `config/` tree mirroring `.ai/strikethroo/config/`. Passing `--profile <value>` to `init` seeds the workspace from that package instead of the shipped defaults, so a team (or a community member) can distribute a setup tuned for a stack in one step.
+Everything above — hooks, shared disciplines, `config.yaml`, templates, and the `STRIKETHROO.md` project context — can be packaged into a **strikethroo profile**: a shareable directory holding a `profile.yaml` manifest plus a sparse `config/` tree mirroring `.ai/strikethroo/config/`. This is the explicit way to distribute a starting `config.yaml` even though initialized workspaces ignore their local copy. Passing `--profile <value>` to `init` seeds the workspace from that package, then the recipient can adjust harness permissions, models, and routing for that machine without committing those edits.
 
 Not to be confused with the **execution profiles** of [execution routing](#execution-routing) above: those are task-routing concepts selected at dispatch time, while a strikethroo profile is a setup package consumed once at `init`.
 
@@ -259,7 +334,7 @@ Share your own setup with the export command:
 npx strikethroo export profile --destination-directory ./my-profile
 ```
 
-It packages the current workspace's `config/` (minus `schemas/`) verbatim — the full surface, not a diff against defaults — collects the manifest interactively, refuses a non-empty destination, and validates the produced package against the same contract `init --profile` enforces, so an export always round-trips. Publishing is your business: push the folder to any git host, or hand it around as-is.
+It packages the current workspace's `config/` (minus `schemas/`) verbatim — including the ignored local `config.yaml` — as the full configuration, not a diff against defaults. It collects the manifest interactively, refuses a non-empty destination, and validates the package against the same contract `init --profile` enforces. Review harness flags and model names before publishing the profile; the export is an intentional snapshot of local settings. Push the resulting folder to a git host or share it directly.
 
 ## Customization Example
 

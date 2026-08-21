@@ -21,7 +21,7 @@ _None yet._
 ### #documentation
 - Open [**Documentation captures current state only**](practice-documentation-captures-current-state-only.md) — All docs describe how things work now. No historical context, migration notes, or retired-term mappings.
 - Open [**Phase is reserved for execution blueprint task groups**](practice-phase-reserved-for-blueprint-task-groups.md) — "Phase" means parallel task batches in the blueprint. The three workflow stages are "steps", never "phases".
-- Open [**Strikethroo takes no stance on committing the .ai/strikethroo/ workspace**](../practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md) — Whether a consuming project commits .ai/strikethroo/ is that project's call; this repo's root .gitignore entry is dogfooding, not product behavior.
+- Open [**Workspace tracking is project-owned except local configuration and runtime output**](../practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md) — Projects choose whether to track plans and authored workspace files, while init ignores machine-local config.yaml, review artifacts, and runtime output.
 ### #conventions
 - Open [**Documentation captures current state only**](practice-documentation-captures-current-state-only.md) — All docs describe how things work now. No historical context, migration notes, or retired-term mappings.
 ### #execution-blueprint

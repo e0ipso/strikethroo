@@ -1,6 +1,6 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:386785ad7b4d41e97d0d3536fc395776e129f44b98a614d99b9d8ee8e0c26f91'
+nodes_hash: 'sha256:ff554b98c8ac05ceb54a28e5de37ac3da50bb410f0bd710bd38d49d7f82ebf31'
 node_count: 86
 ---
 # kenkeep
@@ -25,4 +25,4 @@ node_count: 86
 ## Conventions (how we build)
 - Open [**Never hand-commit generated skill artifacts; they cannot be gitignored**](nodes/practice-never-hand-commit-generated-skill-artifacts.md) to learn about: SKILL.md and .cjs bundles are build output force-added by CI, so .gitattributes and a pre-commit guard cover them and the review gate skips them. #build #skills #git #gitattributes #review-gate #generated-artifacts
 - Open [**Review gate artifacts are git-ignored by a workspace-root .gitignore**](nodes/practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore.md) to learn about: init ships .ai/strikethroo/.gitignore covering plans/*/review/ and archive/*/review/, keeping reviewer output out of git and its own diff. #code-review #gitignore #workspace #init #generated-artifacts
-- Open [**Strikethroo takes no stance on committing the .ai/strikethroo/ workspace**](nodes/practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md) to learn about: Whether a consuming project commits .ai/strikethroo/ is that project's call; this repo's root .gitignore entry is dogfooding, not product behavior. #gitignore #workspace #documentation #code-review #init
+- Open [**Workspace tracking is project-owned except local configuration and runtime output**](nodes/practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md) to learn about: Projects choose whether to track plans and authored workspace files, while init ignores machine-local config.yaml, review artifacts, and runtime output. #gitignore #workspace #documentation #code-review #init

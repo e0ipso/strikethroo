@@ -1,6 +1,6 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:386785ad7b4d41e97d0d3536fc395776e129f44b98a614d99b9d8ee8e0c26f91'
+nodes_hash: 'sha256:ff554b98c8ac05ceb54a28e5de37ac3da50bb410f0bd710bd38d49d7f82ebf31'
 node_count: 86
 ---
 # kenkeep Graph
@@ -573,7 +573,7 @@ Total nodes: 86
 ## practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace
 
 - **kind:** practice
-- **title:** Strikethroo takes no stance on committing the .ai/strikethroo/ workspace
+- **title:** Workspace tracking is project-owned except local configuration and runtime output
 - **path:** practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md
 - **tags:** gitignore, workspace, documentation, code-review, init
 - **relates_to:** practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore, practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore

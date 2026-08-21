@@ -89,6 +89,17 @@ execution_routing:
     expect(result.config.claude.cliArgs).toEqual([' ']);
   });
 
+  it('reports a present config path that cannot be read as a configuration error', () => {
+    const configPath = path.join(tempDir, WORKSPACE_CONFIG_RELPATH);
+    fs.mkdirSync(configPath, { recursive: true });
+
+    const result = loadHarnessConfiguration(tempDir);
+
+    expect(result).toMatchObject({ kind: 'invalid' });
+    if (result.kind !== 'invalid') return;
+    expect(result.errors.join('\n')).toContain('config.yaml could not be read');
+  });
+
   it.each([
     ['invalid YAML', 'harnesses: {', 'config.yaml'],
     ['a non-mapping document', '- harnesses', 'config.yaml'],

@@ -63,7 +63,7 @@ _None._
 ### #github-pages
 - Open [**docs/_config.yml controls GitHub Pages baseurl for the Jekyll docs site**](map-docs-config-yml-controls-github-pages-baseurl-for-the-jekyll-docs-site.md) — docs/_config.yml sets baseurl and the aux_links GitHub URL; both must match the current repo slug for the Jekyll docs site to serve correctly.
 ### #gitignore
-- Open [**Strikethroo takes no stance on committing the .ai/strikethroo/ workspace**](../practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md) — Whether a consuming project commits .ai/strikethroo/ is that project's call; this repo's root .gitignore entry is dogfooding, not product behavior.
+- Open [**Workspace tracking is project-owned except local configuration and runtime output**](../practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md) — Projects choose whether to track plans and authored workspace files, while init ignores machine-local config.yaml, review artifacts, and runtime output.
 - Open [**Review gate artifacts are git-ignored by a workspace-root .gitignore**](../practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore.md) — init ships .ai/strikethroo/.gitignore covering plans/*/review/ and archive/*/review/, keeping reviewer output out of git and its own diff.
 - Open [**Keep .ai/strikethroo (dogfood workspace) explicitly ignored in .gitignore**](../git/practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore.md) — The /.ai/strikethroo path must stay in .gitignore to prevent accidentally committing dogfood workspace state.
 ### #harness

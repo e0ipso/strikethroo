@@ -1,3 +1,7 @@
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+
 import { SUPPORTED_HARNESSES } from '../types';
 import {
   buildExternalCommand,
@@ -380,4 +384,102 @@ describe('model-optional review dispatch (buildReviewCommand / dispatchReview)',
     });
     expect(launches).toBe(0);
   });
+});
+
+describe('real-process adapter boundaries', () => {
+  const authenticationArgv: Record<(typeof SUPPORTED_HARNESSES)[number], string[]> = {
+    claude: ['auth', 'status'],
+    codex: ['login', 'status'],
+    cursor: ['status'],
+    gemini: ['auth', 'status'],
+    copilot: ['auth', 'status'],
+    opencode: ['auth', 'list'],
+  };
+
+  it.each(SUPPORTED_HARNESSES)(
+    '%s spawns exact task/review argv in a Unicode path without shell interpretation',
+    async harness => {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), 'strikethroo argv Ω-'));
+      const executable = path.join(root, 'bin with spaces', 'fake-agent.CMD');
+      const log = path.join(root, 'argv.jsonl');
+      const secondCommand = path.join(root, 'must-not-exist');
+      const cliArgs = [
+        '--local-policy',
+        `value with spaces; touch ${secondCommand}`,
+        '$(printf shell-must-not-run)',
+      ];
+      fs.mkdirSync(path.dirname(executable), { recursive: true });
+      fs.writeFileSync(
+        executable,
+        `#!${process.execPath}
+const fs = require('fs');
+let stdin = '';
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', chunk => { stdin += chunk; });
+process.stdin.on('end', () => {
+  fs.appendFileSync(process.env.STRIKETHROO_FAKE_ARGV_LOG, JSON.stringify({
+    argv: process.argv.slice(2),
+    cwd: process.cwd(),
+    stdin,
+  }) + '\\n');
+});
+`,
+        { mode: 0o700 }
+      );
+      const previousLog = process.env.STRIKETHROO_FAKE_ARGV_LOG;
+      process.env.STRIKETHROO_FAKE_ARGV_LOG = log;
+      try {
+        const taskRequest = {
+          ...request(harness, undefined, '# Implement from the exact task payload', cliArgs),
+          workspace: root,
+          executableIdentity: executable,
+        };
+        expect(await dispatchExternalTask(taskRequest)).toEqual({
+          kind: 'launched-success',
+          exitCode: 0,
+        });
+        expect(
+          await dispatchReview({
+            harness,
+            cliArgs,
+            executableIdentity: executable,
+            workspace: root,
+            prompt: 'Review from the exact review payload',
+          })
+        ).toEqual({ kind: 'launched-success', exitCode: 0, stdout: '' });
+
+        const records = fs
+          .readFileSync(log, 'utf8')
+          .trim()
+          .split('\n')
+          .map(line => JSON.parse(line) as { argv: string[]; cwd: string; stdin: string });
+        expect(records).toHaveLength(4);
+        expect(records[0]?.argv).toEqual(authenticationArgv[harness]);
+        expect(records[2]?.argv).toEqual(authenticationArgv[harness]);
+        expect(records[1]).toMatchObject({
+          argv: buildExternalCommand(taskRequest).argv,
+          cwd: root,
+          stdin: expect.stringContaining('# Implement from the exact task payload'),
+        });
+        expect(records[3]).toMatchObject({
+          argv: buildReviewCommand({
+            harness,
+            cliArgs,
+            executableIdentity: executable,
+            workspace: root,
+            prompt: 'Review from the exact review payload',
+          }).argv,
+          cwd: root,
+          stdin: 'Review from the exact review payload',
+        });
+        expect(records[1]?.argv).toEqual(expect.arrayContaining(cliArgs));
+        expect(records[3]?.argv).toEqual(expect.arrayContaining(cliArgs));
+        expect(fs.existsSync(secondCommand)).toBe(false);
+      } finally {
+        if (previousLog === undefined) delete process.env.STRIKETHROO_FAKE_ARGV_LOG;
+        else process.env.STRIKETHROO_FAKE_ARGV_LOG = previousLog;
+        fs.rmSync(root, { recursive: true, force: true });
+      }
+    }
+  );
 });

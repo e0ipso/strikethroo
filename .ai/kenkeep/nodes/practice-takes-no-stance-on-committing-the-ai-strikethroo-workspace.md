@@ -1,9 +1,9 @@
 ---
 type: practice
-title: Strikethroo takes no stance on committing the .ai/strikethroo/ workspace
+title: Workspace tracking is project-owned except local configuration and runtime output
 description: >-
-  Whether a consuming project commits .ai/strikethroo/ is that project's call;
-  this repo's root .gitignore entry is dogfooding, not product behavior.
+  Projects choose whether to track plans and authored workspace files, while
+  init ignores machine-local config.yaml, review artifacts, and runtime output.
 tags:
   - gitignore
   - workspace
@@ -20,11 +20,15 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-Strikethroo is neutral on whether a project that uses it commits its `.ai/strikethroo/` workspace. Plans, tasks, and config are ordinary project files; some teams track them for review history and some do not. Never write documentation, skill prompts, or node bodies that assert the workspace is untracked, that plans or review findings "do not survive a fresh clone", or anything else that presumes a tracking policy the product does not set.
+Strikethroo is neutral on whether a project commits its authored `.ai/strikethroo/` workspace. Plans, tasks, hooks, templates, shared disciplines, and project context may be tracked or left local. Never claim that the whole workspace is untracked or that plan history cannot survive a fresh clone.
 
-The confusion has one source: this repository's own root `.gitignore` carries `/.ai/strikethroo` because the repo dogfoods Strikethroo and its local workspace is throwaway state. That line describes *this* repo's habit and nothing about a consuming project. Reading it as product behavior is the mistake — it produced the false claim at `docs/customization.md:101` that review findings vanish on clone "because `.ai/strikethroo/` is gitignored", in user-facing docs, where it would have propagated to every reader.
+There are three product-owned exceptions in the workspace `.gitignore`: `config/config.yaml`, plan review directories, and `runtime/`. `init` creates and hash-tracks `config/config.yaml`, but ignores it because harness permissions, installed models, and execution-routing choices depend on the developer and machine. Review artifacts and the availability cache are generated runtime state. Ignoring these paths also keeps review output out of its own diff.
 
-The single thing Strikethroo does ignore on a user's behalf is review-gate output. `init` copies `templates/strikethroo/.gitignore` into the workspace, and it lists exactly `plans/*/review/` and `archive/*/review/`. That narrow scope is deliberate — it keeps the gate from reviewing its own findings while leaving everything else trackable — and it is the only correct basis for saying a review artifact will not be in a fresh clone.
+Ignore rules are defaults, not a security boundary. They do not remove a file that Git already tracks. A project adopting the local-config policy later must choose to run `git rm --cached .ai/strikethroo/config/config.yaml` and commit that deletion. Strikethroo never runs the command automatically.
+
+This repository's root `.gitignore` also contains `/.ai/strikethroo` because it treats its dogfood workspace as local state. That line is repository policy, not product behavior for consuming projects.
+
+Teams that want to share a starting configuration use a strikethroo setup profile. Profile export includes the current `config/config.yaml` verbatim despite its workspace ignore rule, and profile import seeds it during `init`. Each recipient then owns the imported file locally. This explicit exchange is separate from tracking live machine settings in every project clone.
 
 <!-- kk:related:start -->
 # Related

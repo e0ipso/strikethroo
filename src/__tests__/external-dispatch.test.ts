@@ -62,6 +62,20 @@ describe('external harness adapter registry', () => {
     expect(command.argv.join(' ').length).toBeLessThan(200);
   });
 
+  it('passes local arguments as exact argv elements', () => {
+    const command = buildExternalCommand({
+      ...request('claude'),
+      cliArgs: ['--permission-mode', 'acceptEdits'],
+    });
+    expect(command.argv).toEqual([
+      '-p',
+      '--permission-mode',
+      'acceptEdits',
+      '--model',
+      'vendor/model-X:preview',
+    ]);
+  });
+
   it.each(SUPPORTED_HARNESSES)('omits optional reasoning argv for %s when absent', harness => {
     expect(buildExternalCommand(request(harness)).argv.join(' ')).not.toContain('reasoning_effort');
     expect(buildExternalCommand(request(harness)).argv).not.toContain('--effort');
@@ -228,6 +242,16 @@ describe('model-optional review dispatch (buildReviewCommand / dispatchReview)',
     expect(result).toEqual({ kind: 'launched-success', exitCode: 0 });
     expect(launchedArgv).not.toContain('--model');
     expect(launchedStdin).toBe('Review this diff for defects.');
+  });
+
+  it('passes the same local arguments to reviewer commands', () => {
+    const command = buildReviewCommand({
+      harness: 'codex',
+      cliArgs: ['--sandbox', 'workspace-write'],
+      workspace: '/w',
+      prompt: 'p',
+    });
+    expect(command.argv).toEqual(['exec', '--sandbox', 'workspace-write', '-']);
   });
 
   /**

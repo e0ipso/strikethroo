@@ -6,6 +6,7 @@ import { SUPPORTED_HARNESSES, type Harness } from '../types';
 import { selectDispatchTarget } from './shared/dispatch-target-selector';
 import { dispatchExternalTask, type RoutedDispatchRequest } from './shared/external-dispatch';
 import { checkHarnessAvailability } from './shared/harness-availability';
+import { loadHarnessConfiguration } from './shared/harness-configuration';
 import { loadRoutingConfig } from './shared/execution-routing';
 
 interface ExternalHandoff {
@@ -111,6 +112,7 @@ export const resolveDispatchRoute = async (
 
   const avoided = new Set<string>();
   const unavailable: string[] = [];
+  let harnessConfiguration: ReturnType<typeof loadHarnessConfiguration> | undefined;
   const candidateCount =
     configResult.config.profiles.find(candidate => candidate.name === profile)?.targets.length ?? 0;
   for (let attempt = 0; attempt < Math.max(1, candidateCount); attempt += 1) {
@@ -131,11 +133,23 @@ export const resolveDispatchRoute = async (
           : { reasoningEffort: selection.target.reasoning_effort }),
       };
     }
+    harnessConfiguration ??= loadHarnessConfiguration(request.strikethrooRoot);
+    if (harnessConfiguration.kind === 'invalid') {
+      return {
+        kind: 'fallback',
+        reason: 'invalid-execution',
+        detail: `Harness invocation configuration is invalid: ${harnessConfiguration.errors.join(
+          ' '
+        )}`,
+      };
+    }
+    const invocation = harnessConfiguration.config[harness];
     const availability = await checkHarnessAvailability({
       strikethrooRoot: request.strikethrooRoot,
       workspace: request.workspace,
       harness,
       currentHarness: request.currentHarness,
+      invocation,
     });
     if (availability.available) {
       return externalRoute(harness, selection.target.model, selection.target.reasoning_effort);
@@ -202,11 +216,26 @@ const main = async (): Promise<void> => {
   }
 
   const handoff = decodeHandoff(handoffArg!);
+  const executionConfiguration = loadHarnessConfiguration(
+    path.join(path.resolve(validWorkspace), '.ai', 'strikethroo')
+  );
+  if (executionConfiguration.kind === 'invalid') {
+    return emit(
+      {
+        kind: 'infrastructure-failure',
+        detail: `Harness invocation configuration is invalid: ${executionConfiguration.errors.join(
+          ' '
+        )}`,
+      },
+      2
+    );
+  }
   // Routing always resolves an exact model. The narrowed type keeps the compiler
   // enforcing that here even though dispatch itself allows omission for the
   // discovery-driven review path.
   const routed: RoutedDispatchRequest = {
     harness: handoff.harness,
+    cliArgs: executionConfiguration.config[handoff.harness].cliArgs,
     model: handoff.model,
     ...(handoff.reasoningEffort === undefined ? {} : { reasoningEffort: handoff.reasoningEffort }),
     workspace: path.resolve(validWorkspace),

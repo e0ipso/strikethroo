@@ -1,18 +1,21 @@
+# Local workspace configuration.
+#
+# Harness permissions, model routing, and resolver settings depend on the
+# developer's machine. Init still creates and hash-tracks this file so re-runs
+# can preserve local edits and report template conflicts.
+config/config.yaml
+
 # Code review gate artifacts.
 #
-# The review gate writes a recorded base commit and one directory per round
-# (review.xml plus the recorded-versus-actionable findings partition) into the
-# plan it is reviewing. All of it is machine-generated output scoped to a single
-# execution: the base commit is live only from capture through the final round,
-# and each round supersedes the last.
+# The report-only review gate writes a recorded base commit and review.xml into
+# the plan it is reviewing. A failed review may also leave reviewer-output.txt
+# for diagnosis. These files are machine-generated output for one execution.
 #
 # Ignoring it also keeps the gate from reviewing itself. The reviewed diff runs
 # from the recorded base against the working tree, and untracked files are in
-# scope — the gate synthesizes an add-diff for each one. What keeps review
-# output out of the next round is these ignore rules: the gate enumerates
-# untracked paths with `git ls-files --others --exclude-standard`, which applies
-# them, so a round-1 review.xml is invisible to round 2 whether or not anything
-# committed it.
+# scope. The gate synthesizes an add-diff for each one. These rules keep its own
+# output out because the gate enumerates untracked paths with
+# `git ls-files --others --exclude-standard`.
 #
 # Both locations are listed because a completed plan directory is moved from
 # plans/ to archive/ wholesale, carrying its review/ directory with it.

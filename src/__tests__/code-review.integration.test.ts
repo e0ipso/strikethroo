@@ -127,6 +127,38 @@ describe('code review gate — fail-safe skips', () => {
 });
 
 describe('code review gate — the verdict reports, it does not judge', () => {
+  it('dispatches the reviewer with the exact invocation proven during discovery', async () => {
+    const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    const dispatch = vi.fn(async () => ({ kind: 'launched-success', exitCode: 0 }) as const);
+    try {
+      await runReview(
+        { plan: '1', currentHarness: 'claude', startPath: ws.root },
+        stubDeps({
+          discover: async () => ({
+            outcomes: [],
+            reviewerCandidates: ['codex'],
+            reviewerInvocations: {
+              codex: {
+                cliArgs: ['--sandbox', 'workspace-write'],
+              },
+            },
+          }),
+          dispatch,
+          evaluateFindings: oneFinding,
+        })
+      );
+
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          harness: 'codex',
+          cliArgs: ['--sandbox', 'workspace-write'],
+        })
+      );
+    } finally {
+      ws.cleanup();
+    }
+  });
+
   it('records a clean review as recorded, not as an absence', async () => {
     const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
     try {

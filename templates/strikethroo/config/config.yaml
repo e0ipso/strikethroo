@@ -1,12 +1,16 @@
 # Strikethroo workspace configuration.
 #
-# This is the single structured configuration file for the workspace: every
-# configurable feature claims one top-level section here rather than adding
-# its own YAML file. Edit it directly or through the Config tab of the
-# Customize section in the web app (`npx strikethroo serve`) — note that
-# saving from the web UI rewrites this file and does not preserve comments.
+# This file is local to this workspace and ignored by the workspace .gitignore.
+# Harness permissions, installed models, and routing preferences can differ by
+# developer and machine. Edit it directly or through the Config tab of the
+# Customize section in the web app (`npx strikethroo serve`). Saving from the
+# web UI rewrites this file and does not preserve comments.
 #
 # Sections:
+#   harnesses — exact ordered argv elements added when Strikethroo invokes the
+#     named external CLI. The local user owns the resulting permissions. Values
+#     are never split or shell-expanded. Keep secrets and machine paths out of
+#     argv; use each harness's authentication and user configuration instead.
 #   execution_routing — automatic per-task execution routing. Profiles are
 #     arbitrary, project-defined routing categories;
 #     each `description` tells the task-generation LLM when the profile
@@ -23,5 +27,90 @@
 #     contract and an illustrative example:
 #     https://strikethroo.canpicasoft.com/customization.html
 
+harnesses:
+  claude:
+    cli_args:
+      - --dangerously-skip-permissions
+  codex:
+    cli_args:
+      - --sandbox
+      - workspace-write
+  cursor:
+    cli_args:
+      - --force
+  gemini:
+    cli_args:
+      - --approval-mode
+      - yolo
+  copilot:
+    cli_args:
+      - --allow-all
+  opencode:
+    cli_args:
+      - --auto
+
 execution_routing:
-  profiles: {}
+  profiles:
+    docs-and-config:
+      description: >-
+        Prose, documentation, and declarative configuration edits with no
+        intricate control flow: Markdown authoring, README and docs-site
+        updates, technical writing, skill-prompt copy, and YAML/JSON config
+        changes. Typical skills: markdown, technical-writing, documentation,
+        yaml, json, jekyll, markdown-authoring. Complexity score roughly 3-4.
+        Choose this only when the task requires no cross-module code reasoning.
+      models:
+        - model: sonnet
+          harness: claude
+          reasoning_effort: medium
+        - model: gpt-5.6-sol
+          harness: codex
+          reasoning_effort: low
+        - model: opencode-go/minimax-m3
+          harness: opencode
+        - model: composer-2.5
+          harness: cursor
+    standard-implementation:
+      description: >-
+        Everyday feature and bug-fix work scoped to a handful of files with
+        clear acceptance criteria: TypeScript/Node CLI logic, React components
+        and Tailwind/CSS styling, Bash scripts, and their unit/e2e tests
+        (Vitest, Jest, Playwright). Typical skills: typescript, react,
+        react-components, css, tailwindcss, bash, nodejs, vitest, jest,
+        playwright, testing. Complexity score roughly 4-6. This is the default
+        profile when a task fits neither docs-and-config nor
+        complex-architecture.
+      models:
+        - model: opus
+          harness: claude
+          reasoning_effort: medium
+        - model: gpt-5.6-sol
+          harness: codex
+          reasoning_effort: medium
+        - model: opencode-go/kimi-k2.7-code
+          harness: opencode
+        - model: composer-2.5
+          harness: cursor
+    complex-architecture:
+      description: >-
+        High-difficulty, cross-cutting, or design-heavy work: data-model and
+        type-system design, non-trivial refactors, build-tooling and bundler
+        changes (esbuild, Vite), server/HTTP/SSE and API design, runtime prompt
+        composition, MCP/protocol work, and any task whose blast radius spans
+        multiple subsystems or carries subtle correctness constraints. Typical
+        skills: data-modeling, typescript-refactoring, refactoring,
+        build-tooling, esbuild, vite, node-http, server-sent-events,
+        mcp-protocol, secure-coding, html-sanitization. Complexity score roughly
+        6-7, or any task with wide blast radius regardless of score.
+      models:
+        - model: opus
+          harness: claude
+          reasoning_effort: xhigh
+        - model: gpt-5.6-sol
+          harness: codex
+          reasoning_effort: high
+        - model: opencode-go/glm-5.2
+          harness: opencode
+          reasoning_effort: max
+        - model: composer-2.5
+          harness: cursor

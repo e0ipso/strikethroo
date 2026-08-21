@@ -173,14 +173,7 @@ describe('Conflict Detection Integration Tests', () => {
 
       const routingFile = path.join(testDir, '.ai/strikethroo/config/config.yaml');
       const originalContent = await fs.readFile(routingFile, 'utf-8');
-      await fs.writeFile(
-        routingFile,
-        originalContent.replace(
-          'profiles: {}',
-          'profiles:\n  routine:\n    description: custom\n    models:\n      - model: my-model\n'
-        ),
-        'utf-8'
-      );
+      await fs.writeFile(routingFile, `${originalContent}\n# Local-only edit\n`, 'utf-8');
 
       const metadataPath = path.join(testDir, '.ai/strikethroo/.init-metadata.json');
       const metadata = await loadMetadata(metadataPath);

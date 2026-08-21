@@ -11,6 +11,7 @@ import { execSync } from 'child_process';
 import * as fs from 'fs-extra';
 import * as os from 'os';
 import * as path from 'path';
+import { load } from 'js-yaml';
 
 describe('CLI Integration', () => {
   let testDir: string;
@@ -245,22 +246,46 @@ describe('CLI Integration', () => {
 
   describe('init — workspace gitignore', () => {
     /**
-     * `init` ships one workspace-root .gitignore covering every machine-generated
-     * path in the workspace: the review gate's per-round output and the dispatch
-     * selector's availability cache. A project that tracks its .ai/strikethroo/
-     * workspace keeps plans and config under version control while both stay out
-     * — including out of the review gate's own next-round diff, which excludes
-     * only what git already ignores.
+     * `init` ships one workspace-root .gitignore for machine-local config and
+     * generated runtime output. Projects may still track plans and workspace
+     * policy while the config, review output, and availability cache stay local.
      */
-    it('ships a workspace .gitignore covering review output and the dispatch cache', async () => {
+    it('ships a workspace .gitignore covering local config, review output, and the dispatch cache', async () => {
       expect(executeCommand(`node "${cliPath}" init --harnesses claude`).exitCode).toBe(0);
 
       const ignoreFile = path.join(testDir, '.ai/strikethroo/.gitignore');
       expect(await fs.pathExists(ignoreFile)).toBe(true);
       const contents = await fs.readFile(ignoreFile, 'utf8');
+      expect(contents).toContain('config/config.yaml');
       expect(contents).toContain('plans/*/review/');
       expect(contents).toContain('archive/*/review/');
       expect(contents).toContain('runtime/');
+
+      expect(executeCommand('git init').exitCode).toBe(0);
+      const ignored = executeCommand(
+        'git check-ignore --verbose .ai/strikethroo/config/config.yaml'
+      );
+      expect(ignored.exitCode).toBe(0);
+      expect(ignored.stdout).toContain('config/config.yaml');
+    });
+
+    it('ships local autonomous harness arguments', async () => {
+      expect(executeCommand(`node "${cliPath}" init --harnesses claude`).exitCode).toBe(0);
+
+      const config = load(
+        await fs.readFile(path.join(testDir, '.ai/strikethroo/config/config.yaml'), 'utf8')
+      ) as {
+        harnesses: Record<string, { cli_args: string[] }>;
+      };
+
+      expect(config.harnesses).toEqual({
+        claude: { cli_args: ['--dangerously-skip-permissions'] },
+        codex: { cli_args: ['--sandbox', 'workspace-write'] },
+        cursor: { cli_args: ['--force'] },
+        gemini: { cli_args: ['--approval-mode', 'yolo'] },
+        copilot: { cli_args: ['--allow-all'] },
+        opencode: { cli_args: ['--auto'] },
+      });
     });
 
     /**

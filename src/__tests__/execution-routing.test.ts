@@ -74,13 +74,27 @@ describe('loadRoutingConfig', () => {
     expect(loadRoutingConfig(tempDir, SUPPORTED_HARNESSES).kind).toBe('disabled');
   });
 
-  it('returns disabled for the shipped template (routing section present, profiles empty)', () => {
+  it('loads the three active starter profiles from the shipped template', () => {
     const template = fs.readFileSync(
       path.join(__dirname, '..', '..', 'templates', 'strikethroo', WORKSPACE_CONFIG_RELPATH),
       'utf8'
     );
     writeConfig(template);
-    expect(loadRoutingConfig(tempDir, SUPPORTED_HARNESSES).kind).toBe('disabled');
+    const result = loadRoutingConfig(tempDir, SUPPORTED_HARNESSES);
+    expect(result.kind).toBe('config');
+    if (result.kind !== 'config') return;
+    expect(result.config.profiles.map(profile => profile.name)).toEqual([
+      'docs-and-config',
+      'standard-implementation',
+      'complex-architecture',
+    ]);
+    expect(result.config.profiles.map(profile => profile.targets.length)).toEqual([4, 4, 4]);
+    expect(result.config.profiles[0]?.targets[0]).toEqual({
+      model: 'sonnet',
+      harness: 'claude',
+      reasoning_effort: 'medium',
+    });
+    expect(result.config.resolverScript).toBeUndefined();
   });
 
   it('parses valid profiles, ignoring foreign top-level sections', () => {

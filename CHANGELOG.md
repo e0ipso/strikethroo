@@ -1,3 +1,7 @@
+## 3.19.0 (2026-08-21)
+
+* feat: configure local harness invocation (#83) ([ae2a9ca](https://github.com/e0ipso/strikethroo/commit/ae2a9ca)), closes [#83](https://github.com/e0ipso/strikethroo/issues/83)
+
 ## 3.18.0 (2026-08-21)
 
 * feat: make the code review gate report-only (#82) ([1d437a1](https://github.com/e0ipso/strikethroo/commit/1d437a1)), closes [#82](https://github.com/e0ipso/strikethroo/issues/82)

@@ -3342,8 +3342,8 @@ var require_excerpt = __commonJS({
       if (sep2 == null && (opts.excerpt === false || opts.excerpt == null)) {
         return file;
       }
-      const delimiter2 = typeof opts.excerpt === "string" ? opts.excerpt : sep2 || opts.delimiters[0];
-      const idx = file.content.indexOf(delimiter2);
+      const delimiter3 = typeof opts.excerpt === "string" ? opts.excerpt : sep2 || opts.delimiters[0];
+      const idx = file.content.indexOf(delimiter3);
       if (idx !== -1) {
         file.excerpt = file.content.slice(0, idx);
       }
@@ -3407,7 +3407,7 @@ var require_parse = __commonJS({
 var require_gray_matter = __commonJS({
   "node_modules/gray-matter/index.js"(exports2, module2) {
     "use strict";
-    var fs5 = require("fs");
+    var fs6 = require("fs");
     var sections = require_section_matter();
     var defaults = require_defaults();
     var stringify = require_stringify();
@@ -3491,7 +3491,7 @@ var require_gray_matter = __commonJS({
       return stringify(file, data, options2);
     };
     matter2.read = function(filepath, options2) {
-      const str2 = fs5.readFileSync(filepath, "utf8");
+      const str2 = fs6.readFileSync(filepath, "utf8");
       const file = matter2(str2, options2);
       file.path = filepath;
       return file;
@@ -3525,8 +3525,8 @@ __export(dispatch_task_execution_exports, {
   resolveDispatchRoute: () => resolveDispatchRoute
 });
 module.exports = __toCommonJS(dispatch_task_execution_exports);
-var fs4 = __toESM(require("fs"));
-var path5 = __toESM(require("path"));
+var fs5 = __toESM(require("fs"));
+var path6 = __toESM(require("path"));
 var import_gray_matter = __toESM(require_gray_matter());
 
 // src/types.ts
@@ -3664,6 +3664,7 @@ var EXTERNAL_HARNESS_ADAPTERS = {
       "claude",
       [
         "-p",
+        ...request.cliArgs,
         ...modelArgv(request.model),
         ...request.reasoningEffort === void 0 ? [] : ["--effort", request.reasoningEffort]
       ],
@@ -3677,6 +3678,7 @@ var EXTERNAL_HARNESS_ADAPTERS = {
       "codex",
       [
         "exec",
+        ...request.cliArgs,
         ...modelArgv(request.model),
         ...request.reasoningEffort === void 0 ? [] : ["--config", `model_reasoning_effort=${request.reasoningEffort}`],
         "-"
@@ -3687,19 +3689,23 @@ var EXTERNAL_HARNESS_ADAPTERS = {
   },
   cursor: {
     executable: "cursor-agent",
-    buildCommand: (request) => command("cursor-agent", ["--print", ...modelArgv(request.model)], request),
+    buildCommand: (request) => command(
+      "cursor-agent",
+      ["--print", ...request.cliArgs, ...modelArgv(request.model)],
+      request
+    ),
     authenticationArgv: () => ["status"]
   },
   gemini: {
     executable: "gemini",
     // The empty positional prompt is the existing contract — content travels on
     // stdin. It stays even when the model pair is dropped.
-    buildCommand: (request) => command("gemini", ["--prompt", "", ...modelArgv(request.model)], request),
+    buildCommand: (request) => command("gemini", ["--prompt", "", ...request.cliArgs, ...modelArgv(request.model)], request),
     authenticationArgv: () => ["auth", "status"]
   },
   copilot: {
     executable: "copilot",
-    buildCommand: (request) => command("copilot", ["-p", "", ...modelArgv(request.model)], request),
+    buildCommand: (request) => command("copilot", ["-p", "", ...request.cliArgs, ...modelArgv(request.model)], request),
     authenticationArgv: () => ["auth", "status"]
   },
   opencode: {
@@ -3708,6 +3714,7 @@ var EXTERNAL_HARNESS_ADAPTERS = {
       "opencode",
       [
         "run",
+        ...request.cliArgs,
         ...modelArgv(request.model),
         ...request.reasoningEffort === void 0 ? [] : ["--variant", request.reasoningEffort],
         "-"
@@ -3723,27 +3730,30 @@ if (adapterKeys.join("\0") !== harnessKeys.join("\0")) {
   throw new Error("External harness adapter registry does not cover SUPPORTED_HARNESSES exactly.");
 }
 var taskCommandRequest = (request) => ({
+  cliArgs: request.cliArgs ?? [],
   model: request.model,
   reasoningEffort: request.reasoningEffort,
   workspace: request.workspace,
   prompt: taskPrompt(request)
 });
-var executableOnPath = (executable) => (process.env.PATH ?? "").split(path2.delimiter).some((directory) => {
-  if (!directory) return false;
-  const candidate = path2.join(directory, executable);
-  try {
-    return fs.statSync(candidate).isFile();
-  } catch {
-    return false;
+var executableOnPath = (executable) => (/[\\/]/.test(executable) ? [""] : (process.env.PATH ?? "").split(path2.delimiter)).some(
+  (directory) => {
+    if (!directory && !/[\\/]/.test(executable)) return false;
+    const candidate = directory === "" ? executable : path2.join(directory, executable);
+    try {
+      return fs.statSync(candidate).isFile();
+    } catch {
+      return false;
+    }
   }
-});
+);
 var CAPTURED_STDOUT_LIMIT = 262144;
 var STDIO_SLOTS = {
   ignore: { stdout: "ignore" },
   inherit: { stdout: "inherit" },
   capture: { stdout: "pipe" }
 };
-var runProcess = (executable, argv, cwd, stdin, outputMode = "ignore") => new Promise((resolve3, reject) => {
+var runProcess = (executable, argv, cwd, stdin, outputMode = "ignore") => new Promise((resolve4, reject) => {
   let settled = false;
   const fail = (error) => {
     if (settled) return;
@@ -3775,7 +3785,7 @@ var runProcess = (executable, argv, cwd, stdin, outputMode = "ignore") => new Pr
   child.once("close", (code) => {
     if (settled) return;
     settled = true;
-    resolve3({
+    resolve4({
       exitCode: code ?? 1,
       ...outputMode === "capture" ? { stdout: captured } : {}
     });
@@ -3826,11 +3836,12 @@ var prepareLaunch = async (harness, input, active, guard) => {
   }
   const blocked = guard?.();
   if (blocked) return blocked;
-  if (!active.executableExists(adapter.executable)) {
+  const executable = adapter.executable;
+  if (!active.executableExists(executable)) {
     return {
       kind: "fallback",
       reason: "executable-unavailable",
-      detail: `${adapter.executable} is unavailable.`
+      detail: `${executable} is unavailable.`
     };
   }
   const commandSpec = adapter.buildCommand(input);
@@ -3874,191 +3885,14 @@ var dispatchExternalTask = async (request, overrides = {}) => {
 };
 
 // src/skill-scripts/shared/harness-availability.ts
-var fs2 = __toESM(require("fs"));
-var path3 = __toESM(require("path"));
+var import_crypto2 = require("crypto");
 var import_child_process3 = require("child_process");
-var AVAILABILITY_REGISTRY_VERSION = 1;
-var AVAILABLE_TTL_MS = 30 * 60 * 1e3;
-var UNAVAILABLE_TTL_MS = 5 * 60 * 1e3;
-var PROBE_TIMEOUT_MS = 2e4;
-var AVAILABILITY_CACHE_RELATIVE_PATH = path3.join("runtime", "harness-availability.json");
-var PROBE_PROMPT = "Reply with OK.";
-var probeCommand = (executable, argv, cwd, stdin = PROBE_PROMPT) => ({ executable, argv, cwd, stdin });
-var HARNESS_AVAILABILITY_REGISTRY = {
-  claude: {
-    version: AVAILABILITY_REGISTRY_VERSION,
-    executable: "claude",
-    buildCommand: (cwd) => probeCommand("claude", ["-p"], cwd)
-  },
-  codex: {
-    version: AVAILABILITY_REGISTRY_VERSION,
-    executable: "codex",
-    buildCommand: (cwd) => probeCommand("codex", ["exec", "-"], cwd)
-  },
-  cursor: {
-    version: AVAILABILITY_REGISTRY_VERSION,
-    executable: "cursor-agent",
-    buildCommand: (cwd) => probeCommand("cursor-agent", ["--print"], cwd)
-  },
-  gemini: {
-    version: AVAILABILITY_REGISTRY_VERSION,
-    executable: "gemini",
-    buildCommand: (cwd) => probeCommand("gemini", ["--prompt", PROBE_PROMPT], cwd, "")
-  },
-  copilot: {
-    version: AVAILABILITY_REGISTRY_VERSION,
-    executable: "copilot",
-    buildCommand: (cwd) => probeCommand("copilot", ["-p", PROBE_PROMPT], cwd, "")
-  },
-  opencode: {
-    version: AVAILABILITY_REGISTRY_VERSION,
-    executable: "opencode",
-    buildCommand: (cwd) => probeCommand("opencode", ["run", "-"], cwd)
-  }
-};
-var registryKeys = Object.keys(HARNESS_AVAILABILITY_REGISTRY).sort();
-var harnessKeys2 = [...SUPPORTED_HARNESSES].sort();
-if (registryKeys.join("\0") !== harnessKeys2.join("\0")) {
-  throw new Error("Harness availability registry does not cover SUPPORTED_HARNESSES exactly.");
-}
-for (const harness of SUPPORTED_HARNESSES) {
-  const availability = HARNESS_AVAILABILITY_REGISTRY[harness];
-  if (availability.executable !== EXTERNAL_HARNESS_ADAPTERS[harness].executable) {
-    throw new Error(`Harness availability executable disagrees with the ${harness} adapter.`);
-  }
-}
-var safeReason = (value, fallback) => {
-  if (typeof value !== "string") return fallback;
-  const firstLine = value.replace(/[\r\n]+/g, " ").trim().slice(0, 200);
-  return firstLine || fallback;
-};
-var isOutcome = (value) => {
-  if (!value || typeof value !== "object") return false;
-  const entry = value;
-  return typeof entry.available === "boolean" && typeof entry.observedAt === "number" && Number.isFinite(entry.observedAt) && typeof entry.expiresAt === "number" && Number.isFinite(entry.expiresAt) && typeof entry.reason === "string";
-};
-var readCache = (cachePath) => {
-  try {
-    const parsed = JSON.parse(fs2.readFileSync(cachePath, "utf8"));
-    if (!parsed || typeof parsed !== "object") throw new Error("invalid cache");
-    const record = parsed;
-    if (record.version !== 1 || !record.harnesses || typeof record.harnesses !== "object") {
-      throw new Error("invalid cache");
-    }
-    const harnesses = {};
-    for (const harness of SUPPORTED_HARNESSES) {
-      const candidate = record.harnesses[harness];
-      if (isOutcome(candidate)) harnesses[harness] = candidate;
-    }
-    return { version: 1, harnesses };
-  } catch {
-    return { version: 1, harnesses: {} };
-  }
-};
-var writeCache = (cachePath, harness, outcome) => {
-  fs2.mkdirSync(path3.dirname(cachePath), { recursive: true });
-  const cache = readCache(cachePath);
-  const existing = cache.harnesses[harness];
-  if (!existing || existing.observedAt <= outcome.observedAt) {
-    cache.harnesses[harness] = {
-      available: outcome.available,
-      observedAt: outcome.observedAt,
-      expiresAt: outcome.expiresAt,
-      reason: outcome.reason
-    };
-  }
-  const temporary = `${cachePath}.${process.pid}.${Math.random().toString(16).slice(2)}.tmp`;
-  try {
-    fs2.writeFileSync(temporary, `${JSON.stringify(cache, null, 2)}
-`, { mode: 384 });
-    fs2.renameSync(temporary, cachePath);
-  } finally {
-    try {
-      fs2.unlinkSync(temporary);
-    } catch {
-    }
-  }
-};
-var runProbe = (command2, timeoutMs) => new Promise((resolve3) => {
-  let settled = false;
-  let diagnostics = "";
-  const finish = (result) => {
-    if (settled) return;
-    settled = true;
-    resolve3(result);
-  };
-  const child = (0, import_child_process3.spawn)(command2.executable, command2.argv, {
-    cwd: command2.cwd,
-    shell: false,
-    stdio: ["pipe", "ignore", "pipe"]
-  });
-  const timer = setTimeout(() => {
-    child.kill("SIGKILL");
-    finish({ exitCode: 1, timedOut: true, detail: "Probe timed out." });
-  }, timeoutMs);
-  child.stderr?.on("data", (chunk) => {
-    if (diagnostics.length < 400) diagnostics += String(chunk).slice(0, 400 - diagnostics.length);
-  });
-  child.once("error", (error) => {
-    clearTimeout(timer);
-    finish({ exitCode: 1, detail: error.message });
-  });
-  child.once("close", (code) => {
-    clearTimeout(timer);
-    finish({ exitCode: code ?? 1, detail: diagnostics });
-  });
-  child.stdin?.on("error", () => void 0);
-  child.stdin?.end(command2.stdin);
-});
-var defaultDependencies = {
-  now: Date.now,
-  runProbe
-};
-var checkHarnessAvailability = async (request, overrides = {}) => {
-  const active = { ...defaultDependencies, ...overrides };
-  const now = active.now();
-  if (request.harness === void 0 || request.harness === request.currentHarness) {
-    return {
-      harness: request.harness ?? request.currentHarness,
-      available: true,
-      observedAt: now,
-      expiresAt: now,
-      reason: "Native/current harness targets do not require a probe.",
-      source: "bypass"
-    };
-  }
-  const harness = request.harness;
-  const cachePath = path3.join(request.strikethrooRoot, AVAILABILITY_CACHE_RELATIVE_PATH);
-  const cached = readCache(cachePath).harnesses[harness];
-  if (cached && cached.expiresAt > now) return { harness, ...cached, source: "cache" };
-  const definition = HARNESS_AVAILABILITY_REGISTRY[harness];
-  let probe;
-  try {
-    probe = await active.runProbe(definition.buildCommand(request.workspace), PROBE_TIMEOUT_MS);
-  } catch (error) {
-    probe = { exitCode: 1, detail: error instanceof Error ? error.message : String(error) };
-  }
-  const available = probe.exitCode === 0 && !probe.timedOut;
-  const reason = available ? "Harness probe succeeded." : safeReason(
-    probe.detail,
-    probe.timedOut ? "Harness probe timed out." : "Harness probe failed."
-  );
-  const outcome = {
-    harness,
-    available,
-    observedAt: now,
-    expiresAt: now + (available ? AVAILABLE_TTL_MS : UNAVAILABLE_TTL_MS),
-    reason,
-    source: "probe"
-  };
-  try {
-    writeCache(cachePath, harness, outcome);
-  } catch {
-  }
-  return outcome;
-};
+var fs4 = __toESM(require("fs"));
+var os = __toESM(require("os"));
+var path5 = __toESM(require("path"));
 
-// src/skill-scripts/shared/execution-routing.ts
+// src/skill-scripts/shared/harness-configuration.ts
+var import_crypto = require("crypto");
 var fs3 = __toESM(require("fs"));
 var path4 = __toESM(require("path"));
 
@@ -6285,7 +6119,9 @@ var DEFAULT_DUMP_OPTIONS = {
 };
 
 // src/skill-scripts/shared/execution-routing.ts
-var WORKSPACE_CONFIG_RELPATH = path4.join("config", "config.yaml");
+var fs2 = __toESM(require("fs"));
+var path3 = __toESM(require("path"));
+var WORKSPACE_CONFIG_RELPATH = path3.join("config", "config.yaml");
 var EXECUTION_ROUTING_SECTION = "execution_routing";
 var isPlainObject2 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 var isNonEmptyString = (value) => typeof value === "string" && value.trim().length > 0;
@@ -6360,10 +6196,10 @@ var validateProfile = (name, raw, supportedHarnesses, errors) => {
   return { name, description: raw.description.trim(), targets };
 };
 var loadRoutingConfig = (strikethrooRoot, supportedHarnesses) => {
-  const configPath = path4.join(strikethrooRoot, WORKSPACE_CONFIG_RELPATH);
+  const configPath = path3.join(strikethrooRoot, WORKSPACE_CONFIG_RELPATH);
   let contents;
   try {
-    contents = fs3.readFileSync(configPath, "utf8");
+    contents = fs2.readFileSync(configPath, "utf8");
   } catch {
     return { kind: "no-config" };
   }
@@ -6430,6 +6266,349 @@ var loadRoutingConfig = (strikethrooRoot, supportedHarnesses) => {
   return { kind: "config", config };
 };
 
+// src/skill-scripts/shared/harness-configuration.ts
+var HARNESS_CONFIGURATION_SECTION = "harnesses";
+var HARNESS_CONFIGURATION_NORMALIZATION_VERSION = 1;
+var isPlainObject3 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+var hashHarnessCliArgs = (harness, cliArgs, normalizationVersion = HARNESS_CONFIGURATION_NORMALIZATION_VERSION) => (0, import_crypto.createHash)("sha256").update(
+  JSON.stringify({
+    schema: normalizationVersion,
+    harness,
+    cliArgs
+  }),
+  "utf8"
+).digest("hex");
+var normalizeInvocation = (harness, cliArgs) => {
+  const immutableArgs = Object.freeze([...cliArgs]);
+  return Object.freeze({
+    cliArgs: immutableArgs,
+    cliArgsHash: hashHarnessCliArgs(harness, immutableArgs)
+  });
+};
+var emptyConfiguration = () => Object.freeze(
+  Object.fromEntries(
+    SUPPORTED_HARNESSES.map((harness) => [harness, normalizeInvocation(harness, [])])
+  )
+);
+var validateHarnessEntry = (harness, raw, errors) => {
+  const entryPath = `config.yaml ${HARNESS_CONFIGURATION_SECTION}.${harness}`;
+  if (!isPlainObject3(raw)) {
+    errors.push(`${entryPath} must be a mapping.`);
+    return null;
+  }
+  for (const key of Object.keys(raw)) {
+    if (key !== "cli_args") errors.push(`${entryPath}.${key} is not supported.`);
+  }
+  if (!("cli_args" in raw)) return normalizeInvocation(harness, []);
+  if (!Array.isArray(raw.cli_args)) {
+    errors.push(`${entryPath}.cli_args must be an array of exact strings.`);
+    return null;
+  }
+  const cliArgs = [];
+  raw.cli_args.forEach((value, index) => {
+    const valuePath = `${entryPath}.cli_args[${index}]`;
+    if (typeof value !== "string" || value.length === 0) {
+      errors.push(`${valuePath} must be a non-empty string.`);
+      return;
+    }
+    if (value.includes("\0")) {
+      errors.push(`${valuePath} must not contain a NUL character.`);
+      return;
+    }
+    cliArgs.push(value);
+  });
+  return normalizeInvocation(harness, cliArgs);
+};
+var loadHarnessConfiguration = (strikethrooRoot) => {
+  const configPath = path4.join(strikethrooRoot, WORKSPACE_CONFIG_RELPATH);
+  let contents;
+  try {
+    contents = fs3.readFileSync(configPath, "utf8");
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return { kind: "config", config: emptyConfiguration() };
+    }
+    return {
+      kind: "invalid",
+      errors: [
+        `config.yaml could not be read: ${error instanceof Error ? error.message : String(error)}`
+      ]
+    };
+  }
+  let document;
+  try {
+    document = load(contents);
+  } catch (error) {
+    return {
+      kind: "invalid",
+      errors: [
+        `config.yaml is not valid YAML: ${error instanceof Error ? error.message : String(error)}`
+      ]
+    };
+  }
+  if (document === null || document === void 0) {
+    return { kind: "config", config: emptyConfiguration() };
+  }
+  if (!isPlainObject3(document)) {
+    return { kind: "invalid", errors: ["config.yaml must be a YAML mapping."] };
+  }
+  const section = document[HARNESS_CONFIGURATION_SECTION];
+  if (section === null || section === void 0) {
+    return { kind: "config", config: emptyConfiguration() };
+  }
+  if (!isPlainObject3(section)) {
+    return {
+      kind: "invalid",
+      errors: [`config.yaml ${HARNESS_CONFIGURATION_SECTION} must be a YAML mapping.`]
+    };
+  }
+  const errors = [];
+  const supportedHarnesses = new Set(SUPPORTED_HARNESSES);
+  for (const harness of Object.keys(section)) {
+    if (!supportedHarnesses.has(harness)) {
+      errors.push(`config.yaml ${HARNESS_CONFIGURATION_SECTION}.${harness} is not supported.`);
+    }
+  }
+  const entries = {};
+  for (const harness of SUPPORTED_HARNESSES) {
+    if (!(harness in section)) {
+      entries[harness] = normalizeInvocation(harness, []);
+      continue;
+    }
+    const entry = validateHarnessEntry(harness, section[harness], errors);
+    if (entry) entries[harness] = entry;
+  }
+  if (errors.length > 0) return { kind: "invalid", errors };
+  return { kind: "config", config: Object.freeze(entries) };
+};
+
+// src/skill-scripts/shared/harness-availability.ts
+var AVAILABILITY_REGISTRY_VERSION = 3;
+var AVAILABLE_TTL_MS = 30 * 60 * 1e3;
+var UNAVAILABLE_TTL_MS = 5 * 60 * 1e3;
+var PROBE_TIMEOUT_MS = 2e4;
+var AVAILABILITY_CACHE_RELATIVE_PATH = path5.join("runtime", "harness-availability.json");
+var CACHE_VERSION = 2;
+var availabilityDefinition = (harness) => {
+  const adapter = EXTERNAL_HARNESS_ADAPTERS[harness];
+  return {
+    executable: adapter.executable,
+    buildCommand: (cwd, cliArgs, prompt) => adapter.buildCommand({ cliArgs, workspace: cwd, prompt })
+  };
+};
+var HARNESS_AVAILABILITY_REGISTRY = Object.freeze(
+  Object.fromEntries(
+    SUPPORTED_HARNESSES.map((harness) => [harness, availabilityDefinition(harness)])
+  )
+);
+var resolveExecutable = (executable) => {
+  const extensions = process.platform === "win32" ? ["", ...(process.env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";")] : [""];
+  const directories = /[\\/]/.test(executable) ? [""] : (process.env.PATH ?? "").split(path5.delimiter).filter(Boolean);
+  for (const directory of directories) {
+    for (const extension of extensions) {
+      const candidate = path5.resolve(directory, `${executable}${extension}`);
+      try {
+        fs4.accessSync(
+          candidate,
+          process.platform === "win32" ? fs4.constants.F_OK : fs4.constants.X_OK
+        );
+        if (fs4.statSync(candidate).isFile()) return fs4.realpathSync(candidate);
+      } catch {
+      }
+    }
+  }
+  return void 0;
+};
+var runProbe = (command2, timeoutMs) => new Promise((resolve4) => {
+  let settled = false;
+  let timedOut = false;
+  const finish = (result) => {
+    if (settled) return;
+    settled = true;
+    resolve4(result);
+  };
+  const child = (0, import_child_process3.spawn)(command2.executable, command2.argv, {
+    cwd: command2.cwd,
+    shell: false,
+    stdio: ["pipe", "ignore", "ignore"]
+  });
+  const timer = setTimeout(() => {
+    timedOut = true;
+    child.kill("SIGKILL");
+  }, timeoutMs);
+  child.once("error", () => {
+    clearTimeout(timer);
+    finish({ exitCode: 1, timedOut });
+  });
+  child.once("close", (code) => {
+    clearTimeout(timer);
+    finish({ exitCode: code ?? 1, timedOut });
+  });
+  child.stdin?.on("error", () => void 0);
+  child.stdin?.end(command2.stdin);
+});
+var defaultDependencies = {
+  now: Date.now,
+  resolveExecutable,
+  runProbe
+};
+var isHarness = (value) => typeof value === "string" && SUPPORTED_HARNESSES.includes(value);
+var isCacheEntry = (value) => {
+  if (!value || typeof value !== "object") return false;
+  const entry = value;
+  return typeof entry.key === "string" && isHarness(entry.harness) && typeof entry.available === "boolean" && typeof entry.observedAt === "number" && Number.isFinite(entry.observedAt) && typeof entry.expiresAt === "number" && Number.isFinite(entry.expiresAt) && typeof entry.reason === "string";
+};
+var emptyCache = () => ({ version: CACHE_VERSION, entries: [] });
+var readCache = (cachePath) => {
+  try {
+    const parsed = JSON.parse(fs4.readFileSync(cachePath, "utf8"));
+    if (!parsed || typeof parsed !== "object") return emptyCache();
+    const record = parsed;
+    if (record.version !== CACHE_VERSION || !Array.isArray(record.entries)) return emptyCache();
+    return { version: CACHE_VERSION, entries: record.entries.filter(isCacheEntry) };
+  } catch {
+    return emptyCache();
+  }
+};
+var writeCache = (cachePath, entry) => {
+  fs4.mkdirSync(path5.dirname(cachePath), { recursive: true });
+  const cache = readCache(cachePath);
+  const existingIndex = cache.entries.findIndex((candidate) => candidate.key === entry.key);
+  if (existingIndex === -1) cache.entries.push(entry);
+  else if (cache.entries[existingIndex].observedAt <= entry.observedAt) {
+    cache.entries[existingIndex] = entry;
+  }
+  const temporary = `${cachePath}.${process.pid}.${(0, import_crypto2.randomUUID)()}.tmp`;
+  try {
+    fs4.writeFileSync(temporary, `${JSON.stringify(cache, null, 2)}
+`, { mode: 384 });
+    fs4.renameSync(temporary, cachePath);
+  } finally {
+    try {
+      fs4.unlinkSync(temporary);
+    } catch {
+    }
+  }
+};
+var cacheKey = (harness, executableIdentity, invocation) => (0, import_crypto2.createHash)("sha256").update(
+  JSON.stringify({
+    harness,
+    executableIdentity,
+    cliArgsHash: invocation.cliArgsHash,
+    normalizationVersion: HARNESS_CONFIGURATION_NORMALIZATION_VERSION,
+    probeRegistryVersion: AVAILABILITY_REGISTRY_VERSION
+  })
+).digest("hex");
+var readinessEvidence = () => {
+  const nonce = (0, import_crypto2.randomUUID)();
+  return {
+    file: "strikethroo-readiness.txt",
+    content: `strikethroo-readiness:${nonce}
+`
+  };
+};
+var readinessPrompt = (evidence) => `Run a shell command that creates ${evidence.file} in the current workspace with the exact UTF-8 content ${JSON.stringify(evidence.content)}. Do not use a file editing tool.
+STRIKETHROO_READINESS=${JSON.stringify(evidence)}
+`;
+var initializeProbeWorkspace = () => {
+  const workspace = fs4.mkdtempSync(path5.join(os.tmpdir(), "strikethroo-harness-probe-"));
+  const initialized = (0, import_child_process3.spawnSync)("git", ["init", "--quiet"], {
+    cwd: workspace,
+    shell: false,
+    stdio: "ignore",
+    timeout: 5e3
+  });
+  if (initialized.status === 0 && !initialized.error) return workspace;
+  fs4.rmSync(workspace, { recursive: true, force: true });
+  return void 0;
+};
+var hasReadinessEvidence = (workspace, evidence) => {
+  const target = path5.join(workspace, evidence.file);
+  try {
+    return fs4.lstatSync(target).isFile() && fs4.readFileSync(target, "utf8") === evidence.content;
+  } catch {
+    return false;
+  }
+};
+var outcome = (harness, available, now, reason) => ({
+  harness,
+  available,
+  observedAt: now,
+  expiresAt: now + (available ? AVAILABLE_TTL_MS : UNAVAILABLE_TTL_MS),
+  reason,
+  source: "probe"
+});
+var invocationFor = (request, harness) => {
+  if (request.invocation) return request.invocation;
+  const loaded = loadHarnessConfiguration(request.strikethrooRoot);
+  return loaded.kind === "config" ? loaded.config[harness] : void 0;
+};
+var checkHarnessAvailability = async (request, overrides = {}) => {
+  const active = { ...defaultDependencies, ...overrides };
+  const now = active.now();
+  if (request.harness === void 0 || request.harness === request.currentHarness) {
+    return {
+      harness: request.harness ?? request.currentHarness,
+      available: true,
+      observedAt: now,
+      expiresAt: now,
+      reason: "Native/current harness targets do not require a probe.",
+      source: "bypass"
+    };
+  }
+  const harness = request.harness;
+  const invocation = invocationFor(request, harness);
+  if (!invocation) return outcome(harness, false, now, "Harness configuration is invalid.");
+  const definition = HARNESS_AVAILABILITY_REGISTRY[harness];
+  const executableIdentity = active.resolveExecutable(definition.executable);
+  if (!executableIdentity)
+    return outcome(harness, false, now, "Harness executable is unavailable.");
+  const key = cacheKey(harness, executableIdentity, invocation);
+  const cachePath = path5.join(request.strikethrooRoot, AVAILABILITY_CACHE_RELATIVE_PATH);
+  const cached = readCache(cachePath).entries.find(
+    (entry) => entry.key === key && entry.expiresAt > now
+  );
+  if (cached) {
+    const { key: _key, ...cachedOutcome } = cached;
+    return { ...cachedOutcome, source: "cache" };
+  }
+  const complete = (result) => {
+    const { source: _source, ...cacheEntry } = result;
+    try {
+      writeCache(cachePath, { key, ...cacheEntry });
+    } catch {
+    }
+    return result;
+  };
+  const probeWorkspace = initializeProbeWorkspace();
+  if (!probeWorkspace) {
+    return complete(outcome(harness, false, now, "Harness readiness check failed."));
+  }
+  try {
+    const evidence = readinessEvidence();
+    const command2 = definition.buildCommand(
+      probeWorkspace,
+      invocation.cliArgs,
+      readinessPrompt(evidence)
+    );
+    const probe = await active.runProbe(
+      { ...command2, executable: executableIdentity },
+      PROBE_TIMEOUT_MS
+    );
+    const available = probe.exitCode === 0 && !probe.timedOut && hasReadinessEvidence(probeWorkspace, evidence);
+    return complete(
+      outcome(
+        harness,
+        available,
+        now,
+        available ? "Harness readiness verified." : "Harness readiness check failed."
+      )
+    );
+  } finally {
+    fs4.rmSync(probeWorkspace, { recursive: true, force: true });
+  }
+};
+
 // src/skill-scripts/dispatch-task-execution.ts
 var emit = (result, exitCode) => {
   process.stdout.write(`${JSON.stringify(result)}
@@ -6482,6 +6661,7 @@ var resolveDispatchRoute = async (request) => {
   }
   const avoided = /* @__PURE__ */ new Set();
   const unavailable = [];
+  let harnessConfiguration;
   const candidateCount = configResult.config.profiles.find((candidate) => candidate.name === profile)?.targets.length ?? 0;
   for (let attempt = 0; attempt < Math.max(1, candidateCount); attempt += 1) {
     const selection = selectDispatchTarget(configResult.config, profile, avoided, {
@@ -6499,11 +6679,23 @@ var resolveDispatchRoute = async (request) => {
         ...selection.target.reasoning_effort === void 0 ? {} : { reasoningEffort: selection.target.reasoning_effort }
       };
     }
+    harnessConfiguration ??= loadHarnessConfiguration(request.strikethrooRoot);
+    if (harnessConfiguration.kind === "invalid") {
+      return {
+        kind: "fallback",
+        reason: "invalid-execution",
+        detail: `Harness invocation configuration is invalid: ${harnessConfiguration.errors.join(
+          " "
+        )}`
+      };
+    }
+    const invocation = harnessConfiguration.config[harness];
     const availability = await checkHarnessAvailability({
       strikethrooRoot: request.strikethrooRoot,
       workspace: request.workspace,
       harness,
-      currentHarness: request.currentHarness
+      currentHarness: request.currentHarness,
+      invocation
     });
     if (availability.available) {
       return externalRoute(harness, selection.target.model, selection.target.reasoning_effort);
@@ -6541,26 +6733,41 @@ var main = async () => {
   const validWorkspace = workspace;
   const validPlanId = planId;
   const validTaskId = taskId;
-  const taskPath = path5.resolve(validTaskFile);
-  const taskMarkdown = fs4.readFileSync(taskPath, "utf8");
+  const taskPath = path6.resolve(validTaskFile);
+  const taskMarkdown = fs5.readFileSync(taskPath, "utf8");
   if (mode === "resolve") {
     emit(
       await resolveDispatchRoute({
         taskMarkdown,
         currentHarness: validCurrentHarness,
-        workspace: path5.resolve(validWorkspace),
-        strikethrooRoot: path5.join(path5.resolve(validWorkspace), ".ai", "strikethroo"),
+        workspace: path6.resolve(validWorkspace),
+        strikethrooRoot: path6.join(path6.resolve(validWorkspace), ".ai", "strikethroo"),
         taskId: Number(validTaskId)
       }),
       0
     );
   }
   const handoff = decodeHandoff(handoffArg);
+  const executionConfiguration = loadHarnessConfiguration(
+    path6.join(path6.resolve(validWorkspace), ".ai", "strikethroo")
+  );
+  if (executionConfiguration.kind === "invalid") {
+    return emit(
+      {
+        kind: "infrastructure-failure",
+        detail: `Harness invocation configuration is invalid: ${executionConfiguration.errors.join(
+          " "
+        )}`
+      },
+      2
+    );
+  }
   const routed = {
     harness: handoff.harness,
+    cliArgs: executionConfiguration.config[handoff.harness].cliArgs,
     model: handoff.model,
     ...handoff.reasoningEffort === void 0 ? {} : { reasoningEffort: handoff.reasoningEffort },
-    workspace: path5.resolve(validWorkspace),
+    workspace: path6.resolve(validWorkspace),
     planId: validPlanId,
     taskId: validTaskId,
     taskFile: taskPath,

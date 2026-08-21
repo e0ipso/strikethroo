@@ -98,7 +98,29 @@ describe('dispatch task execution entrypoint', () => {
     );
     fs.writeFileSync(
       path.join(directory, 'claude'),
-      '#!/bin/sh\nwhile IFS= read -r line; do :; done\nexit 0\n',
+      `#!${process.execPath}
+const fs = require('fs');
+const path = require('path');
+let stdin = '';
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', chunk => { stdin += chunk; });
+process.stdin.on('end', () => {
+  if (process.argv.includes('--version')) {
+    process.stdout.write('fake-claude 1.0\\n');
+    return;
+  }
+  const match = /STRIKETHROO_EVIDENCE=(\\{[^\\n]+\\})/.exec(stdin);
+  if (!match) return;
+  const evidence = JSON.parse(match[1]);
+  if (evidence.phase === 'create') {
+    fs.writeFileSync(path.join(process.cwd(), evidence.create.file), evidence.create.content);
+    fs.writeFileSync(path.join(process.cwd(), evidence.modify.file), evidence.modify.initialContent);
+    return;
+  }
+  fs.writeFileSync(path.join(process.cwd(), evidence.modify.file), evidence.modify.finalContent);
+  fs.writeFileSync(path.join(process.cwd(), evidence.command.file), evidence.command.content);
+});
+`,
       { mode: 0o700 }
     );
     const taskFile = path.join(directory, 'task.md');
@@ -106,7 +128,7 @@ describe('dispatch task execution entrypoint', () => {
       taskFile,
       '---\nid: 3\nstatus: pending\nexecution_profile: remote\n---\n# Task\n'
     );
-    const env = { ...process.env, PATH: directory };
+    const env = { ...process.env, PATH: `${directory}${path.delimiter}${process.env.PATH ?? ''}` };
     const resolved = run(bundle, ['resolve', taskFile, 'codex', directory, '12', '3'], env);
     const route = JSON.parse(resolved.stdout) as { kind: string; handoff: string };
     expect(route).toMatchObject({

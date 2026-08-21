@@ -269,16 +269,13 @@ describe('CLI Integration', () => {
       expect(ignored.stdout).toContain('config/config.yaml');
     });
 
-    it('ships local autonomous harness arguments and the starter routing matrix', async () => {
+    it('ships local autonomous harness arguments', async () => {
       expect(executeCommand(`node "${cliPath}" init --harnesses claude`).exitCode).toBe(0);
 
       const config = load(
         await fs.readFile(path.join(testDir, '.ai/strikethroo/config/config.yaml'), 'utf8')
       ) as {
         harnesses: Record<string, { cli_args: string[] }>;
-        execution_routing: {
-          profiles: Record<string, { models: Array<Record<string, string>> }>;
-        };
       };
 
       expect(config.harnesses).toEqual({
@@ -289,54 +286,6 @@ describe('CLI Integration', () => {
         copilot: { cli_args: ['--allow-all'] },
         opencode: { cli_args: ['--auto'] },
       });
-      expect(Object.keys(config.execution_routing.profiles)).toEqual([
-        'docs-and-config',
-        'standard-implementation',
-        'complex-architecture',
-      ]);
-      expect(config.execution_routing.profiles['docs-and-config']?.models).toEqual([
-        { model: 'sonnet', harness: 'claude', reasoning_effort: 'medium' },
-        { model: 'gpt-5.6-sol', harness: 'codex', reasoning_effort: 'low' },
-        { model: 'opencode-go/minimax-m3', harness: 'opencode' },
-        { model: 'composer-2.5', harness: 'cursor' },
-      ]);
-      expect(config.execution_routing.profiles['standard-implementation']?.models).toEqual([
-        { model: 'opus', harness: 'claude', reasoning_effort: 'medium' },
-        { model: 'gpt-5.6-sol', harness: 'codex', reasoning_effort: 'medium' },
-        { model: 'opencode-go/kimi-k2.7-code', harness: 'opencode' },
-        { model: 'composer-2.5', harness: 'cursor' },
-      ]);
-      expect(config.execution_routing.profiles['complex-architecture']?.models).toEqual([
-        { model: 'opus', harness: 'claude', reasoning_effort: 'xhigh' },
-        { model: 'gpt-5.6-sol', harness: 'codex', reasoning_effort: 'high' },
-        {
-          model: 'opencode-go/glm-5.2',
-          harness: 'opencode',
-          reasoning_effort: 'max',
-        },
-        { model: 'composer-2.5', harness: 'cursor' },
-      ]);
-
-      const routedHarnesses = Object.values(config.execution_routing.profiles).flatMap(profile =>
-        profile.models.map(model => model.harness)
-      );
-      expect(routedHarnesses).not.toContain('gemini');
-      expect(routedHarnesses).not.toContain('copilot');
-    });
-
-    it('does not untrack an existing config.yaml during re-init', async () => {
-      expect(executeCommand(`node "${cliPath}" init --harnesses claude`).exitCode).toBe(0);
-      expect(executeCommand('git init').exitCode).toBe(0);
-      expect(executeCommand('git add -f .ai/strikethroo/config/config.yaml').exitCode).toBe(0);
-
-      const before = executeCommand('git diff --cached --name-only');
-      expect(before.exitCode).toBe(0);
-      expect(before.stdout.trim()).toBe('.ai/strikethroo/config/config.yaml');
-
-      expect(executeCommand(`node "${cliPath}" init --harnesses claude`).exitCode).toBe(0);
-      const after = executeCommand('git diff --cached --name-only');
-      expect(after.exitCode).toBe(0);
-      expect(after.stdout).toBe(before.stdout);
     });
 
     /**

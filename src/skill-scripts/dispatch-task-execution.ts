@@ -6,22 +6,15 @@ import { SUPPORTED_HARNESSES, type Harness } from '../types';
 import { selectDispatchTarget } from './shared/dispatch-target-selector';
 import { dispatchExternalTask, type RoutedDispatchRequest } from './shared/external-dispatch';
 import { checkHarnessAvailability } from './shared/harness-availability';
-import {
-  hashHarnessCliArgs,
-  loadHarnessConfiguration,
-  type NormalizedHarnessInvocation,
-} from './shared/harness-configuration';
+import { loadHarnessConfiguration } from './shared/harness-configuration';
 import { loadRoutingConfig } from './shared/execution-routing';
 
 interface ExternalHandoff {
-  version: 2;
+  version: 1;
   kind: 'external-override';
   harness: Harness;
   model: string;
   reasoningEffort?: string;
-  cliArgs: string[];
-  cliArgsHash: string;
-  executableIdentity: string;
 }
 
 type ResolvedRoute =
@@ -41,7 +34,7 @@ const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
 const encodeHandoff = (route: Omit<ExternalHandoff, 'version'>): string =>
-  Buffer.from(JSON.stringify({ version: 2, ...route }), 'utf8').toString('base64url');
+  Buffer.from(JSON.stringify({ version: 1, ...route }), 'utf8').toString('base64url');
 
 const decodeHandoff = (encoded: string): ExternalHandoff => {
   let raw: unknown;
@@ -54,40 +47,16 @@ const decodeHandoff = (encoded: string): ExternalHandoff => {
     throw new Error('Resolved execution handoff must be an object.');
   }
   const value = raw as Record<string, unknown>;
-  const allowed = [
-    'version',
-    'kind',
-    'harness',
-    'model',
-    'reasoningEffort',
-    'cliArgs',
-    'cliArgsHash',
-    'executableIdentity',
-  ];
-  const cliArgsValid =
-    Array.isArray(value.cliArgs) &&
-    value.cliArgs.every(
-      argument => typeof argument === 'string' && argument.length > 0 && !argument.includes('\0')
-    );
+  const allowed = ['version', 'kind', 'harness', 'model', 'reasoningEffort'];
   if (
     Object.keys(value).some(key => !allowed.includes(key)) ||
-    value.version !== 2 ||
+    value.version !== 1 ||
     value.kind !== 'external-override' ||
     typeof value.harness !== 'string' ||
     !SUPPORTED_HARNESSES.includes(value.harness as Harness) ||
     typeof value.model !== 'string' ||
     value.model.length === 0 ||
-    ('reasoningEffort' in value && typeof value.reasoningEffort !== 'string') ||
-    !cliArgsValid ||
-    typeof value.cliArgsHash !== 'string' ||
-    !/^[a-f0-9]{64}$/.test(value.cliArgsHash) ||
-    typeof value.executableIdentity !== 'string' ||
-    !path.isAbsolute(value.executableIdentity)
-  ) {
-    throw new Error('Resolved execution handoff has an invalid shape.');
-  }
-  if (
-    hashHarnessCliArgs(value.harness as Harness, value.cliArgs as string[]) !== value.cliArgsHash
+    ('reasoningEffort' in value && typeof value.reasoningEffort !== 'string')
   ) {
     throw new Error('Resolved execution handoff has an invalid shape.');
   }
@@ -97,23 +66,15 @@ const decodeHandoff = (encoded: string): ExternalHandoff => {
 const externalRoute = (
   harness: Harness,
   model: string,
-  invocation: NormalizedHarnessInvocation,
-  executableIdentity: string,
   reasoningEffort?: string
 ): ResolvedRoute => {
-  const route = {
+  const exact = {
     kind: 'external-override' as const,
     harness,
     model,
     ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
   };
-  const bound = {
-    ...route,
-    cliArgs: [...invocation.cliArgs],
-    cliArgsHash: invocation.cliArgsHash,
-    executableIdentity,
-  };
-  return { ...route, handoff: encodeHandoff(bound) };
+  return { ...exact, handoff: encodeHandoff(exact) };
 };
 
 const readProfile = (taskMarkdown: string): string | undefined => {
@@ -190,18 +151,8 @@ export const resolveDispatchRoute = async (
       currentHarness: request.currentHarness,
       invocation,
     });
-    if (
-      availability.available &&
-      availability.cliArgsHash === invocation.cliArgsHash &&
-      availability.executableIdentity !== undefined
-    ) {
-      return externalRoute(
-        harness,
-        selection.target.model,
-        invocation,
-        availability.executableIdentity,
-        selection.target.reasoning_effort
-      );
+    if (availability.available) {
+      return externalRoute(harness, selection.target.model, selection.target.reasoning_effort);
     }
     unavailable.push(
       `${harness} (${availability.source === 'probe' ? 'fresh' : availability.source})`
@@ -265,13 +216,26 @@ const main = async (): Promise<void> => {
   }
 
   const handoff = decodeHandoff(handoffArg!);
+  const executionConfiguration = loadHarnessConfiguration(
+    path.join(path.resolve(validWorkspace), '.ai', 'strikethroo')
+  );
+  if (executionConfiguration.kind === 'invalid') {
+    return emit(
+      {
+        kind: 'infrastructure-failure',
+        detail: `Harness invocation configuration is invalid: ${executionConfiguration.errors.join(
+          ' '
+        )}`,
+      },
+      2
+    );
+  }
   // Routing always resolves an exact model. The narrowed type keeps the compiler
   // enforcing that here even though dispatch itself allows omission for the
   // discovery-driven review path.
   const routed: RoutedDispatchRequest = {
     harness: handoff.harness,
-    cliArgs: handoff.cliArgs,
-    executableIdentity: handoff.executableIdentity,
+    cliArgs: executionConfiguration.config[handoff.harness].cliArgs,
     model: handoff.model,
     ...(handoff.reasoningEffort === undefined ? {} : { reasoningEffort: handoff.reasoningEffort }),
     workspace: path.resolve(validWorkspace),

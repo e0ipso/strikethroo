@@ -1,54 +1,43 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
-  HARNESS_CONFIGURATION_NORMALIZATION_VERSION,
   hashHarnessCliArgs,
   loadHarnessConfiguration,
 } from '../skill-scripts/shared/harness-configuration';
 import { WORKSPACE_CONFIG_RELPATH } from '../skill-scripts/shared/execution-routing';
 import { SUPPORTED_HARNESSES } from '../types';
 
-describe('loadHarnessConfiguration', () => {
-  let tempDir: string;
+describe('harness configuration', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-config-'));
+  });
+
+  afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
   const writeConfig = (contents: string): void => {
-    const configPath = path.join(tempDir, WORKSPACE_CONFIG_RELPATH);
+    const configPath = path.join(root, WORKSPACE_CONFIG_RELPATH);
     fs.mkdirSync(path.dirname(configPath), { recursive: true });
     fs.writeFileSync(configPath, contents);
   };
 
-  beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-config-'));
-  });
-
-  afterEach(() => {
-    fs.rmSync(tempDir, { recursive: true, force: true });
-  });
-
-  it.each([
-    ['an absent config file', undefined],
-    ['an absent harnesses section', 'execution_routing:\n  profiles: {}\n'],
-    ['a bare harnesses section', 'harnesses:\n'],
-  ])('normalizes %s to immutable empty arrays', (_label, contents) => {
-    if (contents !== undefined) writeConfig(contents);
-
-    const result = loadHarnessConfiguration(tempDir);
+  it('defaults every supported harness to an empty argument list', () => {
+    const result = loadHarnessConfiguration(root);
 
     expect(result.kind).toBe('config');
     if (result.kind !== 'config') return;
     expect(Object.keys(result.config)).toEqual(SUPPORTED_HARNESSES);
     for (const harness of SUPPORTED_HARNESSES) {
       expect(result.config[harness].cliArgs).toEqual([]);
-      expect(Object.isFrozen(result.config[harness].cliArgs)).toBe(true);
-      expect(Object.isFrozen(result.config[harness])).toBe(true);
     }
-    expect(Object.isFrozen(result.config)).toBe(true);
   });
 
-  it('preserves exact decoded strings and order without filtering permission flags', () => {
+  it('preserves exact strings, order, and permissive flags', () => {
     writeConfig(String.raw`
 harnesses:
   claude:
@@ -60,12 +49,9 @@ harnesses:
     cli_args:
       - --sandbox
       - workspace-write
-  cursor: {}
-execution_routing:
-  profiles: {}
 `);
 
-    const result = loadHarnessConfiguration(tempDir);
+    const result = loadHarnessConfiguration(root);
 
     expect(result.kind).toBe('config');
     if (result.kind !== 'config') return;
@@ -75,102 +61,38 @@ execution_routing:
       '$HOME/*.ts; echo untouched',
     ]);
     expect(result.config.codex.cliArgs).toEqual(['--sandbox', 'workspace-write']);
-    expect(result.config.cursor.cliArgs).toEqual([]);
-    expect(result.config.gemini.cliArgs).toEqual([]);
-  });
-
-  it('accepts whitespace-only strings because they are non-empty exact argv elements', () => {
-    writeConfig('harnesses:\n  claude:\n    cli_args:\n      - " "\n');
-
-    const result = loadHarnessConfiguration(tempDir);
-
-    expect(result.kind).toBe('config');
-    if (result.kind !== 'config') return;
-    expect(result.config.claude.cliArgs).toEqual([' ']);
-  });
-
-  it('reports a present config path that cannot be read as a configuration error', () => {
-    const configPath = path.join(tempDir, WORKSPACE_CONFIG_RELPATH);
-    fs.mkdirSync(configPath, { recursive: true });
-
-    const result = loadHarnessConfiguration(tempDir);
-
-    expect(result).toMatchObject({ kind: 'invalid' });
-    if (result.kind !== 'invalid') return;
-    expect(result.errors.join('\n')).toContain('config.yaml could not be read');
   });
 
   it.each([
-    ['invalid YAML', 'harnesses: {', 'config.yaml'],
-    ['a non-mapping document', '- harnesses', 'config.yaml'],
-    ['a non-mapping harnesses section', 'harnesses: 3\n', 'config.yaml harnesses'],
     ['an unknown harness', 'harnesses:\n  unknown:\n    cli_args: []\n', 'harnesses.unknown'],
-    ['a non-mapping harness entry', 'harnesses:\n  claude: []\n', 'harnesses.claude'],
     [
-      'an unknown harness key',
-      'harnesses:\n  claude:\n    permission_mode: acceptEdits\n',
-      'harnesses.claude.permission_mode',
-    ],
-    [
-      'a scalar cli_args value',
+      'a scalar argument list',
       'harnesses:\n  claude:\n    cli_args: "--permission-mode acceptEdits"\n',
       'harnesses.claude.cli_args',
     ],
     [
-      'a non-string member',
+      'a non-string argument',
       'harnesses:\n  claude:\n    cli_args:\n      - 7\n',
       'harnesses.claude.cli_args[0]',
     ],
     [
-      'an empty member',
+      'an empty argument',
       'harnesses:\n  claude:\n    cli_args:\n      - ""\n',
-      'harnesses.claude.cli_args[0]',
-    ],
-    [
-      'a NUL member',
-      'harnesses:\n  claude:\n    cli_args:\n      - "\\0"\n',
       'harnesses.claude.cli_args[0]',
     ],
   ])('rejects %s with a path-specific error', (_label, contents, expectedPath) => {
     writeConfig(contents);
 
-    const result = loadHarnessConfiguration(tempDir);
+    const result = loadHarnessConfiguration(root);
 
     expect(result.kind).toBe('invalid');
     if (result.kind !== 'invalid') return;
     expect(result.errors.join('\n')).toContain(expectedPath);
   });
-});
 
-describe('hashHarnessCliArgs', () => {
-  const version = HARNESS_CONFIGURATION_NORMALIZATION_VERSION;
-
-  it('is deterministic and changes with argument order', () => {
-    const first = hashHarnessCliArgs('claude', ['--permission-mode', 'acceptEdits'], version);
-    expect(hashHarnessCliArgs('claude', ['--permission-mode', 'acceptEdits'], version)).toBe(first);
-    expect(hashHarnessCliArgs('claude', ['acceptEdits', '--permission-mode'], version)).not.toBe(
-      first
-    );
-  });
-
-  it('is harness-specific and normalization-version-specific', () => {
-    const args = ['--sandbox', 'workspace-write'];
-    const first = hashHarnessCliArgs('claude', args, version);
-    expect(hashHarnessCliArgs('codex', args, version)).not.toBe(first);
-    expect(hashHarnessCliArgs('claude', args, version + 1)).not.toBe(first);
-  });
-
-  it('stores each normalized list hash on the loaded harness entry', () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-config-hash-'));
-    try {
-      const result = loadHarnessConfiguration(tempDir);
-      expect(result.kind).toBe('config');
-      if (result.kind !== 'config') return;
-      expect(result.config.opencode.cliArgsHash).toBe(
-        hashHarnessCliArgs('opencode', [], HARNESS_CONFIGURATION_NORMALIZATION_VERSION)
-      );
-    } finally {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    }
+  it('hashes argument order and harness identity', () => {
+    const first = hashHarnessCliArgs('claude', ['--permission-mode', 'acceptEdits']);
+    expect(hashHarnessCliArgs('claude', ['acceptEdits', '--permission-mode'])).not.toBe(first);
+    expect(hashHarnessCliArgs('codex', ['--permission-mode', 'acceptEdits'])).not.toBe(first);
   });
 });

@@ -1,14 +1,10 @@
 import { SUPPORTED_HARNESSES, type Harness } from '../../types';
 import {
   checkHarnessAvailability,
-  AVAILABILITY_REGISTRY_VERSION,
   type HarnessAvailabilityDependencies,
   type HarnessAvailabilityOutcome,
 } from './harness-availability';
-import {
-  HARNESS_CONFIGURATION_NORMALIZATION_VERSION,
-  loadHarnessConfiguration,
-} from './harness-configuration';
+import { loadHarnessConfiguration } from './harness-configuration';
 
 /**
  * Harness discovery: "which harnesses are installed and responsive right
@@ -37,11 +33,6 @@ export interface HarnessDiscoveryResult {
       Harness,
       {
         cliArgs: readonly string[];
-        cliArgsHash: string;
-        executableIdentity: string;
-        executableVersion: string;
-        normalizationVersion: number;
-        probeRegistryVersion: number;
       }
     >
   >;
@@ -76,7 +67,6 @@ export const discoverHarnesses = async (
             ? 'Native/current harness targets do not require a probe.'
             : 'Harness configuration is invalid.',
         source: harness === request.currentHarness ? ('bypass' as const) : ('probe' as const),
-        ...(harness === request.currentHarness ? {} : { readinessStage: 'configuration' as const }),
       })),
       reviewerCandidates: [],
       configurationErrors: configuration.errors,
@@ -117,30 +107,7 @@ export const discoverHarnesses = async (
   });
 
   const reviewerInvocations = Object.fromEntries(
-    reviewerCandidates.flatMap(harness => {
-      const outcome = outcomes.find(candidate => candidate.harness === harness);
-      const invocation = configuration.config[harness];
-      if (
-        outcome?.executableIdentity === undefined ||
-        outcome.executableVersion === undefined ||
-        outcome.cliArgsHash !== invocation.cliArgsHash
-      ) {
-        return [];
-      }
-      return [
-        [
-          harness,
-          {
-            cliArgs: invocation.cliArgs,
-            cliArgsHash: invocation.cliArgsHash,
-            executableIdentity: outcome.executableIdentity,
-            executableVersion: outcome.executableVersion,
-            normalizationVersion: HARNESS_CONFIGURATION_NORMALIZATION_VERSION,
-            probeRegistryVersion: AVAILABILITY_REGISTRY_VERSION,
-          },
-        ],
-      ];
-    })
+    reviewerCandidates.map(harness => [harness, { cliArgs: configuration.config[harness].cliArgs }])
   );
 
   return { outcomes, reviewerCandidates, reviewerInvocations };

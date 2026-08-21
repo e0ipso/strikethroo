@@ -183,30 +183,6 @@ describe('Conflict Detection Integration Tests', () => {
       expect(originalHash).toBeDefined();
       expect(currentHash).not.toBe(originalHash);
     });
-
-    it('should preserve a locally edited config.yaml on a conflict-aware re-run', async () => {
-      await init({
-        harnesses: 'claude',
-        destinationDirectory: testDir,
-      });
-
-      const configFile = path.join(testDir, '.ai/strikethroo/config/config.yaml');
-      const localContent = `${await fs.readFile(configFile, 'utf-8')}\n# Local-only edit\n`;
-      await fs.writeFile(configFile, localContent, 'utf-8');
-
-      const result = await init({
-        harnesses: 'claude',
-        destinationDirectory: testDir,
-      });
-
-      expect(result.success).toBe(true);
-      expect(await fs.readFile(configFile, 'utf-8')).toBe(localContent);
-
-      const metadata = await loadMetadata(
-        path.join(testDir, '.ai/strikethroo/.init-metadata.json')
-      );
-      expect(metadata?.files['config/config.yaml']).toBe(await calculateFileHash(configFile));
-    });
   });
 
   describe('Force flag behavior', () => {

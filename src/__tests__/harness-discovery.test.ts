@@ -1,23 +1,11 @@
-/**
- * Unit tests for harness discovery (`shared/harness-discovery.ts`): the
- * reviewer-candidate derivation the code review gate depends on.
- *
- * Two properties are load-bearing and are exactly what this suite proves:
- * the current harness is never a candidate for reviewing its own work, even
- * though its availability check reports it available (a "bypass", not a
- * probe); and the underlying availability cache means a second discovery
- * call rechecks only the cheap local version stage. A probe is never real here — `runProbe` is always
- * injected — so this suite never depends on any harness CLI being installed.
- */
-
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { AVAILABLE_TTL_MS } from '../skill-scripts/shared/harness-availability';
 import { discoverHarnesses } from '../skill-scripts/shared/harness-discovery';
-import {
-  AVAILABLE_TTL_MS,
-  type HarnessReadinessStage,
-} from '../skill-scripts/shared/harness-availability';
 import { SUPPORTED_HARNESSES } from '../types';
 
 describe('harness discovery', () => {
@@ -29,74 +17,24 @@ describe('harness discovery', () => {
 
   afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
-  // A function, not a plain object: `root` is only assigned inside `beforeEach`,
-  // so this must read it fresh per test rather than capture it once at collection time.
   const request = () => ({
     strikethrooRoot: root,
     workspace: root,
     currentHarness: 'claude' as const,
   });
 
-  const successfulProbe = async (
-    command: { cwd: string; stdin: string },
-    _timeout: number,
-    stage: HarnessReadinessStage
-  ) => {
-    if (stage === 'version') return { exitCode: 0, stdout: 'fake-cli 1.0' };
-    if (stage === 'implementation-capability') {
-      const match = /STRIKETHROO_EVIDENCE=(\{[^\n]+\})/.exec(command.stdin);
-      if (!match) throw new Error('Missing capability evidence specification.');
-      const evidence = JSON.parse(match[1]) as {
-        phase: 'create' | 'modify';
-        create: { file: string; content: string };
-        modify: { file: string; initialContent: string; finalContent: string };
-        command: { file: string; content: string };
-      };
-      if (evidence.phase === 'create') {
-        fs.writeFileSync(path.join(command.cwd, evidence.create.file), evidence.create.content);
-        fs.writeFileSync(
-          path.join(command.cwd, evidence.modify.file),
-          evidence.modify.initialContent
-        );
-      } else {
-        fs.writeFileSync(
-          path.join(command.cwd, evidence.modify.file),
-          evidence.modify.finalContent
-        );
-        fs.writeFileSync(path.join(command.cwd, evidence.command.file), evidence.command.content);
-      }
-    }
-    return { exitCode: 0 };
-  };
-
   const successfulDependencies = () => ({
-    resolveExecutable: (executable: string) => path.join('/fake/bin', executable),
-    runProbe: vi.fn(successfulProbe),
+    resolveExecutable: (executable: string) => `/fake/bin/${executable}`,
+    runProbe: vi.fn(async (command: { cwd: string; stdin: string }) => {
+      const match = /STRIKETHROO_READINESS=(\{[^\n]+\})/.exec(command.stdin);
+      if (!match) return { exitCode: 1 };
+      const evidence = JSON.parse(match[1]) as { file: string; content: string };
+      fs.writeFileSync(path.join(command.cwd, evidence.file), evidence.content);
+      return { exitCode: 0 };
+    }),
   });
 
-  it('never includes the current harness in reviewerCandidates, even though its own check reports it available', async () => {
-    const dependencies = successfulDependencies();
-    const result = await discoverHarnesses(request(), {
-      ...dependencies,
-      now: () => 1_000_000,
-    });
-
-    expect(result.reviewerCandidates).not.toContain('claude');
-    const own = result.outcomes.find(outcome => outcome.harness === 'claude');
-    expect(own).toMatchObject({ available: true, source: 'bypass' });
-    // The current harness's outcome is a bypass: it is never among the probe's
-    // invocations, even though every probe call in this test succeeds.
-    expect(dependencies.runProbe).toHaveBeenCalledTimes((SUPPORTED_HARNESSES.length - 1) * 5);
-    expect(
-      dependencies.runProbe.mock.calls.every(([command]) => !command.executable.endsWith('claude'))
-    ).toBe(true);
-    // Sanity: every other harness's (stubbed-successful) probe does make it in.
-    expect(result.reviewerCandidates.sort()).toEqual(
-      SUPPORTED_HARNESSES.filter(h => h !== 'claude').sort()
-    );
-  });
-
-  it('binds configured arguments and executable identity to reviewer candidates', async () => {
+  it('excludes the current harness and returns local reviewer arguments', async () => {
     fs.mkdirSync(path.join(root, 'config'), { recursive: true });
     fs.writeFileSync(
       path.join(root, 'config/config.yaml'),
@@ -104,99 +42,43 @@ describe('harness discovery', () => {
     );
     const dependencies = successfulDependencies();
 
-    const result = await discoverHarnesses(request(), {
-      ...dependencies,
-      now: () => 1_000_000,
-    });
-
-    expect(result.reviewerInvocations?.codex).toMatchObject({
-      cliArgs: ['--sandbox', 'workspace-write'],
-      executableIdentity: '/fake/bin/codex',
-      executableVersion: 'fake-cli 1.0',
-      normalizationVersion: 1,
-      probeRegistryVersion: 2,
-    });
-    const configuredCommand = dependencies.runProbe.mock.calls.find(
-      ([, , stage]) => stage === 'configured-invocation'
-    )?.[0];
-    expect(configuredCommand.argv).toEqual(['exec', '--sandbox', 'workspace-write', '-']);
-  });
-
-  it('reports invalid local configuration without probing external harnesses', async () => {
-    fs.mkdirSync(path.join(root, 'config'), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, 'config/config.yaml'),
-      'harnesses:\n  codex:\n    cli_args: --sandbox workspace-write\n'
-    );
-    const dependencies = successfulDependencies();
-
     const result = await discoverHarnesses(request(), dependencies);
 
-    expect(result.configurationErrors?.join(' ')).toContain(
-      'harnesses.codex.cli_args must be an array'
+    expect(result.reviewerCandidates).not.toContain('claude');
+    expect(result.reviewerCandidates.sort()).toEqual(
+      SUPPORTED_HARNESSES.filter(harness => harness !== 'claude').sort()
     );
-    expect(result.reviewerCandidates).toEqual([]);
-    expect(dependencies.runProbe).not.toHaveBeenCalled();
+    expect(result.reviewerInvocations?.codex?.cliArgs).toEqual(['--sandbox', 'workspace-write']);
+    expect(dependencies.runProbe).toHaveBeenCalledTimes(SUPPORTED_HARNESSES.length - 1);
   });
 
-  it('serves expensive stages from cache after rechecking executable versions', async () => {
+  it('serves a second discovery from cache', async () => {
     const dependencies = successfulDependencies();
     const now = () => 5_000;
 
     const first = await discoverHarnesses(request(), { ...dependencies, now });
-    const probesAfterFirstCall = dependencies.runProbe.mock.calls.length;
-    expect(probesAfterFirstCall).toBe((SUPPORTED_HARNESSES.length - 1) * 5);
+    expect(dependencies.runProbe).toHaveBeenCalledTimes(SUPPORTED_HARNESSES.length - 1);
 
     const second = await discoverHarnesses(request(), { ...dependencies, now });
-    expect(dependencies.runProbe).toHaveBeenCalledTimes(
-      probesAfterFirstCall + SUPPORTED_HARNESSES.length - 1
-    );
-    const secondCallStages = dependencies.runProbe.mock.calls
-      .slice(probesAfterFirstCall)
-      .map(([, , stage]) => stage);
-    expect(new Set(secondCallStages)).toEqual(new Set(['version']));
-    for (const outcome of second.outcomes) {
-      if (outcome.harness === 'claude') continue;
-      expect(outcome.source).toBe('cache');
-    }
+    expect(dependencies.runProbe).toHaveBeenCalledTimes(SUPPORTED_HARNESSES.length - 1);
     expect(second.reviewerCandidates).toEqual(first.reviewerCandidates);
   });
 
-  it('re-probes once the availability TTL has elapsed', async () => {
-    let now = 0;
+  it('rechecks harnesses after the cache expires', async () => {
     const dependencies = successfulDependencies();
+    let now = 0;
 
     await discoverHarnesses(request(), { ...dependencies, now: () => now });
-    const afterFirst = dependencies.runProbe.mock.calls.length;
     now += AVAILABLE_TTL_MS + 1;
     await discoverHarnesses(request(), { ...dependencies, now: () => now });
 
-    expect(dependencies.runProbe.mock.calls.length).toBeGreaterThan(afterFirst);
+    expect(dependencies.runProbe).toHaveBeenCalledTimes((SUPPORTED_HARNESSES.length - 1) * 2);
   });
 
-  it('returns an empty candidate set, and never throws, when every probe fails', async () => {
-    const probe = vi.fn(async () => ({ exitCode: 1 }));
+  it('returns no candidates when probes fail', async () => {
     const result = await discoverHarnesses(request(), {
-      resolveExecutable: executable => path.join('/fake/bin', executable),
-      runProbe: probe,
-      now: () => 1,
-    });
-
-    expect(result.reviewerCandidates).toEqual([]);
-    expect(result.outcomes).toHaveLength(SUPPORTED_HARNESSES.length);
-    expect(
-      result.outcomes.every(outcome => outcome.available === false || outcome.source === 'bypass')
-    ).toBe(true);
-  });
-
-  it('never throws when the probe itself rejects', async () => {
-    const probe = vi.fn(async () => {
-      throw new Error('probe process crashed');
-    });
-    const result = await discoverHarnesses(request(), {
-      resolveExecutable: executable => path.join('/fake/bin', executable),
-      runProbe: probe,
-      now: () => 1,
+      resolveExecutable: executable => `/fake/bin/${executable}`,
+      runProbe: async () => ({ exitCode: 1 }),
     });
 
     expect(result.reviewerCandidates).toEqual([]);

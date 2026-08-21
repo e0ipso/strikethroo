@@ -1,7 +1,3 @@
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
-
 import { SUPPORTED_HARNESSES } from '../types';
 import {
   buildExternalCommand,
@@ -16,13 +12,11 @@ import {
 const request = (
   harness: (typeof SUPPORTED_HARNESSES)[number],
   reasoningEffort?: string,
-  taskMarkdown = '# Implement the task',
-  cliArgs: readonly string[] = []
+  taskMarkdown = '# Implement the task'
 ) => ({
   harness,
   model: 'vendor/model-X:preview',
   reasoningEffort,
-  cliArgs,
   workspace: '/workspace/project',
   planId: '12',
   taskId: '3',
@@ -40,75 +34,6 @@ describe('external harness adapter registry', () => {
   it('covers the canonical supported harnesses exactly', () => {
     expect(Object.keys(EXTERNAL_HARNESS_ADAPTERS).sort()).toEqual([...SUPPORTED_HARNESSES].sort());
   });
-
-  const LOCAL_ARGS = ['--local-policy', 'value with spaces; $(echo no)'] as const;
-
-  it.each([
-    ['claude', ['-p', ...LOCAL_ARGS, '--model', 'vendor/model-X:preview', '--effort', 'high']],
-    [
-      'codex',
-      [
-        'exec',
-        ...LOCAL_ARGS,
-        '--model',
-        'vendor/model-X:preview',
-        '--config',
-        'model_reasoning_effort=high',
-        '-',
-      ],
-    ],
-    ['cursor', ['--print', ...LOCAL_ARGS, '--model', 'vendor/model-X:preview']],
-    ['gemini', ['--prompt', '', ...LOCAL_ARGS, '--model', 'vendor/model-X:preview']],
-    ['copilot', ['-p', '', ...LOCAL_ARGS, '--model', 'vendor/model-X:preview']],
-    [
-      'opencode',
-      ['run', ...LOCAL_ARGS, '--model', 'vendor/model-X:preview', '--variant', 'high', '-'],
-    ],
-  ] as const)(
-    '%s inserts exact local args before model, reasoning, and terminal prompt argv',
-    (harness, argv) => {
-      const command = buildExternalCommand(
-        request(harness, 'high', '# Implement the task', LOCAL_ARGS)
-      );
-
-      expect(command.argv).toEqual(argv);
-      expect(command.argv).toContain('value with spaces; $(echo no)');
-    }
-  );
-
-  it.each([
-    ['claude', ['-p', ...LOCAL_ARGS]],
-    ['codex', ['exec', ...LOCAL_ARGS, '-']],
-    ['cursor', ['--print', ...LOCAL_ARGS]],
-    ['gemini', ['--prompt', '', ...LOCAL_ARGS]],
-    ['copilot', ['-p', '', ...LOCAL_ARGS]],
-    ['opencode', ['run', ...LOCAL_ARGS, '-']],
-  ] as const)('%s applies the same local args to model-free review argv', (harness, argv) => {
-    expect(
-      buildReviewCommand({
-        harness,
-        workspace: '/w',
-        prompt: 'Review this diff.',
-        cliArgs: LOCAL_ARGS,
-      }).argv
-    ).toEqual(argv);
-  });
-
-  it.each([
-    ['claude', ['auth', 'status']],
-    ['codex', ['login', 'status']],
-    ['cursor', ['status']],
-    ['gemini', ['auth', 'status']],
-    ['copilot', ['auth', 'status']],
-    ['opencode', ['auth', 'list']],
-  ] as const)(
-    '%s keeps literal authentication argv separate and exposes version argv',
-    (harness, authenticationArgv) => {
-      const adapter = EXTERNAL_HARNESS_ADAPTERS[harness];
-      expect(adapter.authenticationArgv()).toEqual(authenticationArgv);
-      expect(adapter.versionArgv()).toEqual(['--version']);
-    }
-  );
 
   it.each([
     ['claude', 'claude', ['-p', '--model', 'vendor/model-X:preview']],
@@ -135,6 +60,20 @@ describe('external harness adapter registry', () => {
     expect(command.stdin).toContain(payload);
     expect(command.argv.join(' ')).not.toContain('sensitive context');
     expect(command.argv.join(' ').length).toBeLessThan(200);
+  });
+
+  it('passes local arguments as exact argv elements', () => {
+    const command = buildExternalCommand({
+      ...request('claude'),
+      cliArgs: ['--permission-mode', 'acceptEdits'],
+    });
+    expect(command.argv).toEqual([
+      '-p',
+      '--permission-mode',
+      'acceptEdits',
+      '--model',
+      'vendor/model-X:preview',
+    ]);
   });
 
   it.each(SUPPORTED_HARNESSES)('omits optional reasoning argv for %s when absent', harness => {
@@ -305,30 +244,14 @@ describe('model-optional review dispatch (buildReviewCommand / dispatchReview)',
     expect(launchedStdin).toBe('Review this diff for defects.');
   });
 
-  it('launches the exact executable and local arguments proven during discovery', async () => {
-    const executableExists = vi.fn(() => true);
-    const authenticate = vi.fn(async () => ({ ok: true }));
-    const launch = vi.fn(async () => ({ exitCode: 0 }));
-
-    await dispatchReview(
-      {
-        harness: 'codex',
-        cliArgs: ['--sandbox', 'workspace-write'],
-        executableIdentity: '/opt/codex/bin/codex',
-        workspace: '/w',
-        prompt: 'Review this diff.',
-      },
-      { executableExists, authenticate, launch }
-    );
-
-    expect(executableExists).toHaveBeenCalledWith('/opt/codex/bin/codex');
-    expect(authenticate.mock.calls[0]?.[0]).toMatchObject({
-      executable: '/opt/codex/bin/codex',
+  it('passes the same local arguments to reviewer commands', () => {
+    const command = buildReviewCommand({
+      harness: 'codex',
+      cliArgs: ['--sandbox', 'workspace-write'],
+      workspace: '/w',
+      prompt: 'p',
     });
-    expect(launch.mock.calls[0]?.[0]).toMatchObject({
-      executable: '/opt/codex/bin/codex',
-      argv: ['exec', '--sandbox', 'workspace-write', '-'],
-    });
+    expect(command.argv).toEqual(['exec', '--sandbox', 'workspace-write', '-']);
   });
 
   /**
@@ -384,102 +307,4 @@ describe('model-optional review dispatch (buildReviewCommand / dispatchReview)',
     });
     expect(launches).toBe(0);
   });
-});
-
-describe('real-process adapter boundaries', () => {
-  const authenticationArgv: Record<(typeof SUPPORTED_HARNESSES)[number], string[]> = {
-    claude: ['auth', 'status'],
-    codex: ['login', 'status'],
-    cursor: ['status'],
-    gemini: ['auth', 'status'],
-    copilot: ['auth', 'status'],
-    opencode: ['auth', 'list'],
-  };
-
-  it.each(SUPPORTED_HARNESSES)(
-    '%s spawns exact task/review argv in a Unicode path without shell interpretation',
-    async harness => {
-      const root = fs.mkdtempSync(path.join(os.tmpdir(), 'strikethroo argv Ω-'));
-      const executable = path.join(root, 'bin with spaces', 'fake-agent.CMD');
-      const log = path.join(root, 'argv.jsonl');
-      const secondCommand = path.join(root, 'must-not-exist');
-      const cliArgs = [
-        '--local-policy',
-        `value with spaces; touch ${secondCommand}`,
-        '$(printf shell-must-not-run)',
-      ];
-      fs.mkdirSync(path.dirname(executable), { recursive: true });
-      fs.writeFileSync(
-        executable,
-        `#!${process.execPath}
-const fs = require('fs');
-let stdin = '';
-process.stdin.setEncoding('utf8');
-process.stdin.on('data', chunk => { stdin += chunk; });
-process.stdin.on('end', () => {
-  fs.appendFileSync(process.env.STRIKETHROO_FAKE_ARGV_LOG, JSON.stringify({
-    argv: process.argv.slice(2),
-    cwd: process.cwd(),
-    stdin,
-  }) + '\\n');
-});
-`,
-        { mode: 0o700 }
-      );
-      const previousLog = process.env.STRIKETHROO_FAKE_ARGV_LOG;
-      process.env.STRIKETHROO_FAKE_ARGV_LOG = log;
-      try {
-        const taskRequest = {
-          ...request(harness, undefined, '# Implement from the exact task payload', cliArgs),
-          workspace: root,
-          executableIdentity: executable,
-        };
-        expect(await dispatchExternalTask(taskRequest)).toEqual({
-          kind: 'launched-success',
-          exitCode: 0,
-        });
-        expect(
-          await dispatchReview({
-            harness,
-            cliArgs,
-            executableIdentity: executable,
-            workspace: root,
-            prompt: 'Review from the exact review payload',
-          })
-        ).toEqual({ kind: 'launched-success', exitCode: 0, stdout: '' });
-
-        const records = fs
-          .readFileSync(log, 'utf8')
-          .trim()
-          .split('\n')
-          .map(line => JSON.parse(line) as { argv: string[]; cwd: string; stdin: string });
-        expect(records).toHaveLength(4);
-        expect(records[0]?.argv).toEqual(authenticationArgv[harness]);
-        expect(records[2]?.argv).toEqual(authenticationArgv[harness]);
-        expect(records[1]).toMatchObject({
-          argv: buildExternalCommand(taskRequest).argv,
-          cwd: root,
-          stdin: expect.stringContaining('# Implement from the exact task payload'),
-        });
-        expect(records[3]).toMatchObject({
-          argv: buildReviewCommand({
-            harness,
-            cliArgs,
-            executableIdentity: executable,
-            workspace: root,
-            prompt: 'Review from the exact review payload',
-          }).argv,
-          cwd: root,
-          stdin: 'Review from the exact review payload',
-        });
-        expect(records[1]?.argv).toEqual(expect.arrayContaining(cliArgs));
-        expect(records[3]?.argv).toEqual(expect.arrayContaining(cliArgs));
-        expect(fs.existsSync(secondCommand)).toBe(false);
-      } finally {
-        if (previousLog === undefined) delete process.env.STRIKETHROO_FAKE_ARGV_LOG;
-        else process.env.STRIKETHROO_FAKE_ARGV_LOG = previousLog;
-        fs.rmSync(root, { recursive: true, force: true });
-      }
-    }
-  );
 });

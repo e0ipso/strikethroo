@@ -140,11 +140,6 @@ describe('code review gate — the verdict reports, it does not judge', () => {
             reviewerInvocations: {
               codex: {
                 cliArgs: ['--sandbox', 'workspace-write'],
-                cliArgsHash: 'a'.repeat(64),
-                executableIdentity: '/opt/codex/bin/codex',
-                executableVersion: 'codex 1.0',
-                normalizationVersion: 1,
-                probeRegistryVersion: 2,
               },
             },
           }),
@@ -157,7 +152,6 @@ describe('code review gate — the verdict reports, it does not judge', () => {
         expect.objectContaining({
           harness: 'codex',
           cliArgs: ['--sandbox', 'workspace-write'],
-          executableIdentity: '/opt/codex/bin/codex',
         })
       );
     } finally {

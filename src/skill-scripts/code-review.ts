@@ -823,7 +823,6 @@ export const runReview = async (
       ? {}
       : {
           cliArgs: invocation.cliArgs,
-          executableIdentity: invocation.executableIdentity,
         }),
   });
   if (dispatched.kind === 'infrastructure-failure') {

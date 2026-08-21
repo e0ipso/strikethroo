@@ -199,28 +199,17 @@ Do not put API keys, tokens, headers, or other secrets in `cli_args`. Command-li
 
 Strikethroo checks an external harness before using it for a task or code review. Native targets and targets on the current harness do not incur the external readiness requests or apply external harness arguments.
 
-For an external target, readiness runs in this order:
+For an external target, Strikethroo makes one request in a disposable Git directory using the exact configured arguments. The prompt tells the harness to run a shell command that creates one nonce-bearing file. Strikethroo verifies the file contents and removes the directory afterward. A zero exit without the file is a failed check.
 
-1. Validate the local harness configuration and resolve the executable on `PATH`.
-2. Run the CLI's version command and record the resolved executable path and version.
-3. Run the adapter's literal authentication or status command. `cli_args` are not added to this command.
-4. Run a minimal non-interactive request with the exact configured arguments.
-5. In a disposable Git directory, run two more requests and verify the files directly. The first request must create two nonce-bearing files. The second must modify one file and run a command that creates a third file.
+Results live in `.ai/strikethroo/runtime/harness-availability.json`. Ready results last 30 minutes; unavailable results last 5 minutes. The cache key includes the harness, resolved executable path, ordered-argument hash, normalization version, and probe-registry version. Changing an argument or its order, moving the executable, or updating the readiness contract causes a new check.
 
-The configured request and two implementation checks can consume three model requests. Each command has a 20-second timeout, and the disposable directory has a file-count limit. Strikethroo removes the directory after the check. A harness that can answer a prompt but cannot edit and run a verification command is unavailable for both implementation routing and review discovery.
-
-Results live in `.ai/strikethroo/runtime/harness-availability.json`. Ready results last 30 minutes; unavailable results last 5 minutes. The cache key includes the harness, resolved executable path and version, ordered-argument hash, normalization version, and probe-registry version. Changing an argument or its order, changing the executable version, or updating the readiness contract causes a new check. Version resolution still runs before a cache entry can be selected.
-
-Readiness errors identify the failed check without printing model output or the configured arguments:
+Readiness errors do not print model output or configured arguments:
 
 | Error | What to check |
 | --- | --- |
 | Harness configuration is invalid | Fix the reported `config.yaml` path and exact-array shape. |
-| Executable check failed | Install the CLI and make its executable available on `PATH`. |
-| Executable version check failed | Confirm the CLI's version command works and upgrade or reinstall the CLI if needed. |
-| Authentication check failed | Run the harness login flow, then verify its status command succeeds. |
-| Configured invocation check failed | Compare `cli_args` with the installed CLI's help and confirm the account can make a request. |
-| Implementation capability check failed | Adjust the local permission arguments or user settings so the CLI can create and modify files and run a command. |
+| Harness executable is unavailable | Install the CLI and make its executable available on `PATH`. |
+| Harness readiness check failed | Check authentication and adjust the local arguments so the harness can run a command that creates a file. |
 
 Task dispatch and code review use the same harness baseline that passed readiness. A zero exit code means only that the external process completed. Task status and verification evidence decide whether a task completed; the review gate separately requires a valid findings document.
 
@@ -259,8 +248,8 @@ How the pieces divide responsibility:
 - **`models` order is priority.** The built-in selector picks the first target not present in the task's avoid set.
 - **Targets are exact.** `model` is required; `harness` and `reasoning_effort` are optional. The selected values are passed verbatim to dispatch, with no aliases or translation.
 - **One optional global selector.** Advanced policies go in one repository-relative script under `resolver.script` (`.js`/`.cjs`/`.mjs` runs under Node; anything else executes directly). For one task it receives `{"version":1,"task":{"id":6,"profile":"demanding"},"candidates":[{"id":"…","target":{"model":"…"}}],"avoid":["…"]}` on stdin and must print exactly `{"target":"<candidate id>"}`. Candidate IDs identify the complete configured target. It may select only a supplied, non-avoided candidate. Missing scripts, timeouts, non-zero exits, malformed output, and unknown or avoided targets cause a visible fallback to current-harness defaults; a configured selector is authoritative and is not replaced by the built-in policy on failure.
-- **Readiness is harness-level.** Native and current-harness targets bypass the check. External targets must pass the version, authentication, configured-request, file-edit, and command checks described above. The readiness requests omit a model override so the CLI uses its configured default. A passing check establishes that the harness can implement work, not that every model named in a routing profile exists.
-- **Readiness results are cached by invocation identity.** The cache includes the executable version and exact argument hash, so a CLI upgrade or local argument change cannot reuse an older result.
+- **Readiness is harness-level.** Native and current-harness targets bypass the check. An external target must complete the one file-creation request described above. The request omits a model override so the CLI uses its configured default. A passing check does not prove that every model named in a routing profile exists.
+- **Readiness results are cached by invocation identity.** The cache includes the resolved executable path and exact argument hash, so moving the CLI or changing local arguments cannot reuse an older result.
 - **Unavailable targets retry safely.** Dispatch adds a rejected target's complete ID to the avoid set and invokes selection again. Exhausting the profile, losing the configured profile, or failing the selector falls back to the current harness without model or reasoning overrides.
 
 Classification runs inside `st-generate-tasks` (and the task-generation step of `st-full-workflow`) after task files are emitted and before `POST_TASK_GENERATION_ALL` assembles the blueprint. The durable task metadata is `execution_profile`; selection, availability checking, retries, and fallback happen immediately before delegation.

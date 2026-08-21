@@ -173,14 +173,7 @@ describe('Conflict Detection Integration Tests', () => {
 
       const routingFile = path.join(testDir, '.ai/strikethroo/config/config.yaml');
       const originalContent = await fs.readFile(routingFile, 'utf-8');
-      await fs.writeFile(
-        routingFile,
-        originalContent.replace(
-          'profiles: {}',
-          'profiles:\n  routine:\n    description: custom\n    models:\n      - model: my-model\n'
-        ),
-        'utf-8'
-      );
+      await fs.writeFile(routingFile, `${originalContent}\n# Local-only edit\n`, 'utf-8');
 
       const metadataPath = path.join(testDir, '.ai/strikethroo/.init-metadata.json');
       const metadata = await loadMetadata(metadataPath);
@@ -189,6 +182,30 @@ describe('Conflict Detection Integration Tests', () => {
 
       expect(originalHash).toBeDefined();
       expect(currentHash).not.toBe(originalHash);
+    });
+
+    it('should preserve a locally edited config.yaml on a conflict-aware re-run', async () => {
+      await init({
+        harnesses: 'claude',
+        destinationDirectory: testDir,
+      });
+
+      const configFile = path.join(testDir, '.ai/strikethroo/config/config.yaml');
+      const localContent = `${await fs.readFile(configFile, 'utf-8')}\n# Local-only edit\n`;
+      await fs.writeFile(configFile, localContent, 'utf-8');
+
+      const result = await init({
+        harnesses: 'claude',
+        destinationDirectory: testDir,
+      });
+
+      expect(result.success).toBe(true);
+      expect(await fs.readFile(configFile, 'utf-8')).toBe(localContent);
+
+      const metadata = await loadMetadata(
+        path.join(testDir, '.ai/strikethroo/.init-metadata.json')
+      );
+      expect(metadata?.files['config/config.yaml']).toBe(await calculateFileHash(configFile));
     });
   });
 

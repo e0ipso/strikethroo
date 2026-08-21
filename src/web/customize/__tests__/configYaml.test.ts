@@ -20,6 +20,14 @@ const FULL = `
 other_feature:
   nested:
     flag: true
+harnesses:
+  claude:
+    cli_args:
+      - --dangerously-skip-permissions
+  codex:
+    cli_args:
+      - --sandbox
+      - workspace-write
 execution_routing:
   profiles:
     routine:
@@ -95,6 +103,10 @@ describe('serializeWorkspaceConfig round-trip', () => {
     const output = serializeWorkspaceConfig(parsed.document, parsed.routing);
     const reloaded = load(output) as Record<string, unknown>;
     expect(reloaded.other_feature).toEqual({ nested: { flag: true } });
+    expect(reloaded.harnesses).toEqual({
+      claude: { cli_args: ['--dangerously-skip-permissions'] },
+      codex: { cli_args: ['--sandbox', 'workspace-write'] },
+    });
 
     const reparsed = parseWorkspaceConfig(output);
     expect(reparsed.kind).toBe('parsed');

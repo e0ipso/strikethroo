@@ -19,6 +19,7 @@ export default defineConfig({
       'src/__tests__/execution-policy.test.ts',
       'src/__tests__/execution-routing.test.ts',
       'src/__tests__/external-dispatch.test.ts',
+      'src/__tests__/harness-configuration.test.ts',
       'src/__tests__/harness-availability.test.ts',
       'src/__tests__/harness-discovery.test.ts',
       'src/__tests__/harness-registry.test.ts',

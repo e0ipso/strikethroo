@@ -1,3 +1,10 @@
+# Local workspace configuration.
+#
+# Harness permissions, model routing, and resolver settings depend on the
+# developer's machine. Init still creates and hash-tracks this file so re-runs
+# can preserve local edits and report template conflicts.
+config/config.yaml
+
 # Code review gate artifacts.
 #
 # The review gate writes a recorded base commit and one directory per round

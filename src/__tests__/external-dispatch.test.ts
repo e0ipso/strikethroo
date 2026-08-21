@@ -12,11 +12,13 @@ import {
 const request = (
   harness: (typeof SUPPORTED_HARNESSES)[number],
   reasoningEffort?: string,
-  taskMarkdown = '# Implement the task'
+  taskMarkdown = '# Implement the task',
+  cliArgs: readonly string[] = []
 ) => ({
   harness,
   model: 'vendor/model-X:preview',
   reasoningEffort,
+  cliArgs,
   workspace: '/workspace/project',
   planId: '12',
   taskId: '3',
@@ -34,6 +36,75 @@ describe('external harness adapter registry', () => {
   it('covers the canonical supported harnesses exactly', () => {
     expect(Object.keys(EXTERNAL_HARNESS_ADAPTERS).sort()).toEqual([...SUPPORTED_HARNESSES].sort());
   });
+
+  const LOCAL_ARGS = ['--local-policy', 'value with spaces; $(echo no)'] as const;
+
+  it.each([
+    ['claude', ['-p', ...LOCAL_ARGS, '--model', 'vendor/model-X:preview', '--effort', 'high']],
+    [
+      'codex',
+      [
+        'exec',
+        ...LOCAL_ARGS,
+        '--model',
+        'vendor/model-X:preview',
+        '--config',
+        'model_reasoning_effort=high',
+        '-',
+      ],
+    ],
+    ['cursor', ['--print', ...LOCAL_ARGS, '--model', 'vendor/model-X:preview']],
+    ['gemini', ['--prompt', '', ...LOCAL_ARGS, '--model', 'vendor/model-X:preview']],
+    ['copilot', ['-p', '', ...LOCAL_ARGS, '--model', 'vendor/model-X:preview']],
+    [
+      'opencode',
+      ['run', ...LOCAL_ARGS, '--model', 'vendor/model-X:preview', '--variant', 'high', '-'],
+    ],
+  ] as const)(
+    '%s inserts exact local args before model, reasoning, and terminal prompt argv',
+    (harness, argv) => {
+      const command = buildExternalCommand(
+        request(harness, 'high', '# Implement the task', LOCAL_ARGS)
+      );
+
+      expect(command.argv).toEqual(argv);
+      expect(command.argv).toContain('value with spaces; $(echo no)');
+    }
+  );
+
+  it.each([
+    ['claude', ['-p', ...LOCAL_ARGS]],
+    ['codex', ['exec', ...LOCAL_ARGS, '-']],
+    ['cursor', ['--print', ...LOCAL_ARGS]],
+    ['gemini', ['--prompt', '', ...LOCAL_ARGS]],
+    ['copilot', ['-p', '', ...LOCAL_ARGS]],
+    ['opencode', ['run', ...LOCAL_ARGS, '-']],
+  ] as const)('%s applies the same local args to model-free review argv', (harness, argv) => {
+    expect(
+      buildReviewCommand({
+        harness,
+        workspace: '/w',
+        prompt: 'Review this diff.',
+        cliArgs: LOCAL_ARGS,
+      }).argv
+    ).toEqual(argv);
+  });
+
+  it.each([
+    ['claude', ['auth', 'status']],
+    ['codex', ['login', 'status']],
+    ['cursor', ['status']],
+    ['gemini', ['auth', 'status']],
+    ['copilot', ['auth', 'status']],
+    ['opencode', ['auth', 'list']],
+  ] as const)(
+    '%s keeps literal authentication argv separate and exposes version argv',
+    (harness, authenticationArgv) => {
+      const adapter = EXTERNAL_HARNESS_ADAPTERS[harness];
+      expect(adapter.authenticationArgv()).toEqual(authenticationArgv);
+      expect(adapter.versionArgv()).toEqual(['--version']);
+    }
+  );
 
   it.each([
     ['claude', 'claude', ['-p', '--model', 'vendor/model-X:preview']],

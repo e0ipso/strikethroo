@@ -17,6 +17,8 @@ import { SUPPORTED_HARNESSES, type Harness } from '../../types';
  */
 export interface ExternalDispatchRequest {
   harness: Harness;
+  /** Exact local argv elements loaded from the normalized harness configuration. */
+  cliArgs?: readonly string[];
   /**
    * An exact model identifier, or absent to let the harness CLI use its own
    * configured default. Absence exists for discovery-driven dispatch, which
@@ -50,6 +52,8 @@ export type RoutedDispatchRequest = ExternalDispatchRequest & { model: string };
  */
 export interface ReviewDispatchRequest {
   harness: Harness;
+  /** The same local harness baseline used for task dispatch and readiness. */
+  cliArgs?: readonly string[];
   workspace: string;
   prompt: string;
 }
@@ -61,6 +65,7 @@ export interface ReviewDispatchRequest {
  * is written once.
  */
 export interface DispatchCommandRequest {
+  readonly cliArgs: readonly string[];
   model?: string;
   reasoningEffort?: string;
   workspace: string;
@@ -109,6 +114,7 @@ export interface ExternalHarnessAdapter {
   executable: string;
   buildCommand: (request: DispatchCommandRequest) => StructuredCommand;
   authenticationArgv: () => string[];
+  versionArgv: () => string[];
 }
 
 const taskPrompt = (request: ExternalDispatchRequest): string =>
@@ -140,6 +146,8 @@ const command = (
 const modelArgv = (model: string | undefined): string[] =>
   model === undefined ? [] : ['--model', model];
 
+const versionArgv = (): string[] => ['--version'];
+
 export const EXTERNAL_HARNESS_ADAPTERS: Readonly<Record<Harness, ExternalHarnessAdapter>> = {
   claude: {
     executable: 'claude',
@@ -148,12 +156,14 @@ export const EXTERNAL_HARNESS_ADAPTERS: Readonly<Record<Harness, ExternalHarness
         'claude',
         [
           '-p',
+          ...request.cliArgs,
           ...modelArgv(request.model),
           ...(request.reasoningEffort === undefined ? [] : ['--effort', request.reasoningEffort]),
         ],
         request
       ),
     authenticationArgv: () => ['auth', 'status'],
+    versionArgv,
   },
   codex: {
     executable: 'codex',
@@ -162,6 +172,7 @@ export const EXTERNAL_HARNESS_ADAPTERS: Readonly<Record<Harness, ExternalHarness
         'codex',
         [
           'exec',
+          ...request.cliArgs,
           ...modelArgv(request.model),
           ...(request.reasoningEffort === undefined
             ? []
@@ -171,25 +182,34 @@ export const EXTERNAL_HARNESS_ADAPTERS: Readonly<Record<Harness, ExternalHarness
         request
       ),
     authenticationArgv: () => ['login', 'status'],
+    versionArgv,
   },
   cursor: {
     executable: 'cursor-agent',
     buildCommand: request =>
-      command('cursor-agent', ['--print', ...modelArgv(request.model)], request),
+      command(
+        'cursor-agent',
+        ['--print', ...request.cliArgs, ...modelArgv(request.model)],
+        request
+      ),
     authenticationArgv: () => ['status'],
+    versionArgv,
   },
   gemini: {
     executable: 'gemini',
     // The empty positional prompt is the existing contract — content travels on
     // stdin. It stays even when the model pair is dropped.
     buildCommand: request =>
-      command('gemini', ['--prompt', '', ...modelArgv(request.model)], request),
+      command('gemini', ['--prompt', '', ...request.cliArgs, ...modelArgv(request.model)], request),
     authenticationArgv: () => ['auth', 'status'],
+    versionArgv,
   },
   copilot: {
     executable: 'copilot',
-    buildCommand: request => command('copilot', ['-p', '', ...modelArgv(request.model)], request),
+    buildCommand: request =>
+      command('copilot', ['-p', '', ...request.cliArgs, ...modelArgv(request.model)], request),
     authenticationArgv: () => ['auth', 'status'],
+    versionArgv,
   },
   opencode: {
     executable: 'opencode',
@@ -198,6 +218,7 @@ export const EXTERNAL_HARNESS_ADAPTERS: Readonly<Record<Harness, ExternalHarness
         'opencode',
         [
           'run',
+          ...request.cliArgs,
           ...modelArgv(request.model),
           ...(request.reasoningEffort === undefined ? [] : ['--variant', request.reasoningEffort]),
           '-',
@@ -205,6 +226,7 @@ export const EXTERNAL_HARNESS_ADAPTERS: Readonly<Record<Harness, ExternalHarness
         request
       ),
     authenticationArgv: () => ['auth', 'list'],
+    versionArgv,
   },
 };
 
@@ -215,6 +237,7 @@ if (adapterKeys.join('\0') !== harnessKeys.join('\0')) {
 }
 
 const taskCommandRequest = (request: ExternalDispatchRequest): DispatchCommandRequest => ({
+  cliArgs: request.cliArgs ?? [],
   model: request.model,
   reasoningEffort: request.reasoningEffort,
   workspace: request.workspace,
@@ -222,6 +245,7 @@ const taskCommandRequest = (request: ExternalDispatchRequest): DispatchCommandRe
 });
 
 const reviewCommandRequest = (request: ReviewDispatchRequest): DispatchCommandRequest => ({
+  cliArgs: request.cliArgs ?? [],
   workspace: request.workspace,
   prompt: request.prompt,
 });

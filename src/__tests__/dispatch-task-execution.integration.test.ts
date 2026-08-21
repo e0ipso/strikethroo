@@ -394,9 +394,6 @@ process.stdin.on('end', () => {
         cliArgs: ['--changed'],
         cliArgsHash: '0'.repeat(64),
         executableIdentity: path.join(directory, 'claude'),
-        executableVersion: 'fake 1.0',
-        normalizationVersion: 1,
-        probeRegistryVersion: 2,
       })
     ).toString('base64url');
 

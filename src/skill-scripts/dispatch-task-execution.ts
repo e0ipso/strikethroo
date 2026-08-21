@@ -5,12 +5,8 @@ import matter from 'gray-matter';
 import { SUPPORTED_HARNESSES, type Harness } from '../types';
 import { selectDispatchTarget } from './shared/dispatch-target-selector';
 import { dispatchExternalTask, type RoutedDispatchRequest } from './shared/external-dispatch';
+import { checkHarnessAvailability } from './shared/harness-availability';
 import {
-  AVAILABILITY_REGISTRY_VERSION,
-  checkHarnessAvailability,
-} from './shared/harness-availability';
-import {
-  HARNESS_CONFIGURATION_NORMALIZATION_VERSION,
   hashHarnessCliArgs,
   loadHarnessConfiguration,
   type NormalizedHarnessInvocation,
@@ -26,9 +22,6 @@ interface ExternalHandoff {
   cliArgs: string[];
   cliArgsHash: string;
   executableIdentity: string;
-  executableVersion: string;
-  normalizationVersion: number;
-  probeRegistryVersion: number;
 }
 
 type ResolvedRoute =
@@ -70,9 +63,6 @@ const decodeHandoff = (encoded: string): ExternalHandoff => {
     'cliArgs',
     'cliArgsHash',
     'executableIdentity',
-    'executableVersion',
-    'normalizationVersion',
-    'probeRegistryVersion',
   ];
   const cliArgsValid =
     Array.isArray(value.cliArgs) &&
@@ -92,20 +82,12 @@ const decodeHandoff = (encoded: string): ExternalHandoff => {
     typeof value.cliArgsHash !== 'string' ||
     !/^[a-f0-9]{64}$/.test(value.cliArgsHash) ||
     typeof value.executableIdentity !== 'string' ||
-    !path.isAbsolute(value.executableIdentity) ||
-    typeof value.executableVersion !== 'string' ||
-    value.executableVersion.length === 0 ||
-    value.normalizationVersion !== HARNESS_CONFIGURATION_NORMALIZATION_VERSION ||
-    value.probeRegistryVersion !== AVAILABILITY_REGISTRY_VERSION
+    !path.isAbsolute(value.executableIdentity)
   ) {
     throw new Error('Resolved execution handoff has an invalid shape.');
   }
   if (
-    hashHarnessCliArgs(
-      value.harness as Harness,
-      value.cliArgs as string[],
-      value.normalizationVersion
-    ) !== value.cliArgsHash
+    hashHarnessCliArgs(value.harness as Harness, value.cliArgs as string[]) !== value.cliArgsHash
   ) {
     throw new Error('Resolved execution handoff has an invalid shape.');
   }
@@ -117,7 +99,6 @@ const externalRoute = (
   model: string,
   invocation: NormalizedHarnessInvocation,
   executableIdentity: string,
-  executableVersion: string,
   reasoningEffort?: string
 ): ResolvedRoute => {
   const route = {
@@ -131,9 +112,6 @@ const externalRoute = (
     cliArgs: [...invocation.cliArgs],
     cliArgsHash: invocation.cliArgsHash,
     executableIdentity,
-    executableVersion,
-    normalizationVersion: HARNESS_CONFIGURATION_NORMALIZATION_VERSION,
-    probeRegistryVersion: AVAILABILITY_REGISTRY_VERSION,
   };
   return { ...route, handoff: encodeHandoff(bound) };
 };
@@ -215,15 +193,13 @@ export const resolveDispatchRoute = async (
     if (
       availability.available &&
       availability.cliArgsHash === invocation.cliArgsHash &&
-      availability.executableIdentity !== undefined &&
-      availability.executableVersion !== undefined
+      availability.executableIdentity !== undefined
     ) {
       return externalRoute(
         harness,
         selection.target.model,
         invocation,
         availability.executableIdentity,
-        availability.executableVersion,
         selection.target.reasoning_effort
       );
     }

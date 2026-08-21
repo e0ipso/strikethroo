@@ -19,15 +19,13 @@ import * as path from 'path';
 import {
   _exitCodeFor,
   _readCumulativeDiff,
-  MAX_REVIEW_ROUNDS,
-  runBoundedReviewRound,
-  runReviewRound,
+  runReview,
   type FindingsGate,
-  type ReviewRoundDependencies,
+  type ReviewDependencies,
 } from '../skill-scripts/code-review';
 import { buildReviewXml, FAKE_SHA, makeReviewGateWorkspace } from './fixtures/review-gate';
 
-const stubDeps = (overrides: Partial<ReviewRoundDependencies> = {}): ReviewRoundDependencies => ({
+const stubDeps = (overrides: Partial<ReviewDependencies> = {}): ReviewDependencies => ({
   discover: async () => ({ outcomes: [], reviewerCandidates: ['codex'] }),
   dispatch: async () => ({ kind: 'launched-success', exitCode: 0 }),
   readDiff: () => 'diff --git a/x.ts b/x.ts\n+something changed\n',
@@ -35,16 +33,9 @@ const stubDeps = (overrides: Partial<ReviewRoundDependencies> = {}): ReviewRound
   ...overrides,
 });
 
-const alwaysActionable: FindingsGate = async () => ({
+const oneFinding: FindingsGate = async () => ({
   kind: 'evaluated',
-  aboveFloor: 1,
-  belowFloor: 0,
-  actionable: 1,
-  recorded: 0,
-  total: 1,
-  aboveFloorWithoutSuggestion: 0,
-  severityFloor: 'major',
-  confidenceFloor: 'high',
+  counts: { total: 1, critical: 0, major: 1, minor: 0, info: 0, unlabelled: 0 },
   findingsFile: '/dev/null',
 });
 
@@ -60,8 +51,8 @@ describe('code review gate — fail-safe skips', () => {
       const ws = makeReviewGateWorkspace(options);
       const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
       try {
-        const result = await runReviewRound(
-          { plan: '1', currentHarness: 'claude', round: 1, startPath: ws.root },
+        const result = await runReview(
+          { plan: '1', currentHarness: 'claude', startPath: ws.root },
           stubDeps()
         );
         expect(result).toMatchObject({ kind: 'skipped', reason });
@@ -78,8 +69,8 @@ describe('code review gate — fail-safe skips', () => {
     const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     try {
-      const result = await runReviewRound(
-        { plan: '1', currentHarness: 'claude', round: 1, startPath: ws.root },
+      const result = await runReview(
+        { plan: '1', currentHarness: 'claude', startPath: ws.root },
         stubDeps({ discover: async () => ({ outcomes: [], reviewerCandidates: [] }) })
       );
       expect(result).toMatchObject({ kind: 'skipped', reason: 'no-reviewer-candidate' });
@@ -101,8 +92,8 @@ describe('code review gate — fail-safe skips', () => {
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     let dispatched = false;
     try {
-      const result = await runReviewRound(
-        { plan: '1', currentHarness: 'claude', round: 1, startPath: ws.root },
+      const result = await runReview(
+        { plan: '1', currentHarness: 'claude', startPath: ws.root },
         stubDeps({
           readDiff: () => '   \n',
           dispatch: async () => {
@@ -124,9 +115,9 @@ describe('code review gate — fail-safe skips', () => {
   it('reaches evaluation (no skip) once every input is present, proving the skip ladder is order-sensitive not vacuous', async () => {
     const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
     try {
-      const result = await runReviewRound(
-        { plan: '1', currentHarness: 'claude', round: 1, startPath: ws.root },
-        stubDeps({ evaluateFindings: alwaysActionable })
+      const result = await runReview(
+        { plan: '1', currentHarness: 'claude', startPath: ws.root },
+        stubDeps({ evaluateFindings: oneFinding })
       );
       expect(result.kind).toBe('reviewed');
     } finally {
@@ -135,153 +126,79 @@ describe('code review gate — fail-safe skips', () => {
   });
 });
 
-describe('code review gate — round budget bounding', () => {
-  it('bounds the loop at the compiled ceiling regardless of an inflated hook-stated budget', async () => {
-    const ws = makeReviewGateWorkspace({
-      baseCommit: FAKE_SHA,
-      hook: '# CODE_REVIEW Hook\n\n## Round Budget: 9999\n',
-    });
-    try {
-      const deps = stubDeps({ evaluateFindings: alwaysActionable });
-      let executedRounds = 0;
-      let last: Awaited<ReturnType<typeof runBoundedReviewRound>> | undefined;
-      for (let round = 1; round <= MAX_REVIEW_ROUNDS + 5; round += 1) {
-        last = await runBoundedReviewRound(
-          { plan: '1', currentHarness: 'claude', round, startPath: ws.root },
-          deps
-        );
-        executedRounds += 1;
-        const continues = last.kind === 'reviewed' && last.decision?.kind === 'fix-and-continue';
-        if (!continues) break;
-      }
-
-      // Every round reports actionable findings, so nothing but the compiled
-      // ceiling itself could have stopped the loop.
-      expect(executedRounds).toBe(MAX_REVIEW_ROUNDS);
-      expect(last).toMatchObject({
-        kind: 'reviewed',
-        decision: { kind: 'budget-exhausted', actionable: 1 },
-        roundBudget: MAX_REVIEW_ROUNDS,
-        roundCeiling: MAX_REVIEW_ROUNDS,
-      });
-      expect(_exitCodeFor(last!)).toBe(1);
-
-      // A round requested past the clamped budget is refused before any
-      // reviewer is dispatched at all.
-      let dispatches = 0;
-      const countingDeps = stubDeps({
-        evaluateFindings: alwaysActionable,
-        dispatch: async () => {
-          dispatches += 1;
-          return { kind: 'launched-success', exitCode: 0 };
-        },
-      });
-      const overBudget = await runBoundedReviewRound(
-        { plan: '1', currentHarness: 'claude', round: MAX_REVIEW_ROUNDS + 1, startPath: ws.root },
-        countingDeps
-      );
-      expect(overBudget).toMatchObject({
-        kind: 'budget-exhausted',
-        round: MAX_REVIEW_ROUNDS + 1,
-        roundBudget: MAX_REVIEW_ROUNDS,
-        roundCeiling: MAX_REVIEW_ROUNDS,
-      });
-      expect(dispatches).toBe(0);
-      expect(_exitCodeFor(overBudget)).toBe(1);
-    } finally {
-      ws.cleanup();
-    }
-  });
-
-  it('honours a tightened hook-stated budget: nothing is dispatched past it', async () => {
-    const ws = makeReviewGateWorkspace({
-      baseCommit: FAKE_SHA,
-      hook: '# CODE_REVIEW Hook\n\n## Round Budget: 2\n',
-    });
-    try {
-      let dispatches = 0;
-      const deps = stubDeps({
-        evaluateFindings: alwaysActionable,
-        dispatch: async () => {
-          dispatches += 1;
-          return { kind: 'launched-success', exitCode: 0 };
-        },
-      });
-
-      const round1 = await runBoundedReviewRound(
-        { plan: '1', currentHarness: 'claude', round: 1, startPath: ws.root },
-        deps
-      );
-      expect(round1).toMatchObject({
-        kind: 'reviewed',
-        decision: { kind: 'fix-and-continue', nextRound: 2 },
-        roundBudget: 2,
-      });
-
-      const round2 = await runBoundedReviewRound(
-        { plan: '1', currentHarness: 'claude', round: 2, startPath: ws.root },
-        deps
-      );
-      expect(round2).toMatchObject({
-        kind: 'reviewed',
-        decision: { kind: 'budget-exhausted' },
-        roundBudget: 2,
-      });
-      expect(dispatches).toBe(2);
-
-      const round3 = await runBoundedReviewRound(
-        { plan: '1', currentHarness: 'claude', round: 3, startPath: ws.root },
-        deps
-      );
-      expect(round3).toMatchObject({
-        kind: 'budget-exhausted',
-        roundBudget: 2,
-        roundCeiling: MAX_REVIEW_ROUNDS,
-      });
-      // The tightened budget, not the compiled ceiling, is what stopped round 3.
-      expect(dispatches).toBe(2);
-    } finally {
-      ws.cleanup();
-    }
-  });
-
-  it('passes cleanly with no findings above floor, without exhausting the budget', async () => {
+describe('code review gate — the verdict reports, it does not judge', () => {
+  it('records a clean review as recorded, not as an absence', async () => {
     const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
     try {
       const noFindings: FindingsGate = async () => ({
         kind: 'evaluated',
-        aboveFloor: 0,
-        belowFloor: 0,
-        actionable: 0,
-        recorded: 0,
-        total: 0,
-        aboveFloorWithoutSuggestion: 0,
-        severityFloor: 'major',
-        confidenceFloor: 'high',
+        counts: { total: 0, critical: 0, major: 0, minor: 0, info: 0, unlabelled: 0 },
         findingsFile: '/dev/null',
       });
-      const result = await runBoundedReviewRound(
-        { plan: '1', currentHarness: 'claude', round: 1, startPath: ws.root },
+      const result = await runReview(
+        { plan: '1', currentHarness: 'claude', startPath: ws.root },
         stubDeps({ evaluateFindings: noFindings })
       );
-      expect(result).toMatchObject({ kind: 'reviewed', decision: { kind: 'gate-passed' } });
+      expect(result).toMatchObject({
+        kind: 'reviewed',
+        verdict: { kind: 'review-recorded', detail: expect.stringContaining('no findings') },
+      });
       expect(_exitCodeFor(result)).toBe(0);
+    } finally {
+      ws.cleanup();
+    }
+  });
+
+  it('reports findings without acting on them, whatever their labels', async () => {
+    const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    try {
+      // Two `critical` findings would once have forced a fix round. Now they
+      // are counted, named, and handed to the implementer to judge.
+      const loud: FindingsGate = async () => ({
+        kind: 'evaluated',
+        counts: { total: 3, critical: 2, major: 0, minor: 0, info: 0, unlabelled: 1 },
+        findingsFile: '/tmp/findings.json',
+      });
+      const result = await runReview(
+        { plan: '1', currentHarness: 'claude', startPath: ws.root },
+        stubDeps({ evaluateFindings: loud })
+      );
+      expect(result).toMatchObject({
+        kind: 'reviewed',
+        verdict: {
+          kind: 'review-recorded',
+          detail: expect.stringContaining('2 critical, 1 unlabelled'),
+        },
+      });
+      // Findings never change the exit code: the gate does not judge them.
+      expect(_exitCodeFor(result)).toBe(0);
+    } finally {
+      ws.cleanup();
+    }
+  });
+
+  it('exits 1 when the findings were never certified', async () => {
+    const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    try {
+      const uncertified: FindingsGate = async () => ({
+        kind: 'schema-invalid',
+        detail: 'review.xml does not validate.',
+      });
+      const result = await runReview(
+        { plan: '1', currentHarness: 'claude', startPath: ws.root },
+        stubDeps({ evaluateFindings: uncertified })
+      );
+      expect(result).toMatchObject({
+        kind: 'reviewed',
+        verdict: { kind: 'review-failed' },
+      });
+      expect(_exitCodeFor(result)).toBe(1);
     } finally {
       ws.cleanup();
     }
   });
 });
 
-/**
- * The reviewed diff must exclude build output and vendored files.
- *
- * A finding against generated code is unfixable by construction: the suggestion
- * is applied as a text replacement, the mandatory full `POST_EXECUTION` re-run
- * regenerates the file, the fix vanishes, and the next round raises the same
- * finding because the source was never touched. That loop spends the whole
- * round budget and halts. These tests use a real git repository because the
- * exclusion is resolved by `git check-attr` against real `.gitattributes`.
- */
 describe('cumulative diff scope: generated and vendored files', () => {
   let repo: string;
 
@@ -451,8 +368,8 @@ describe('code review gate — xmllint is a soft dependency', () => {
     const dispatch = vi.fn(async () => ({ kind: 'launched-success', exitCode: 0 }) as const);
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     try {
-      const result = await runReviewRound(
-        { plan: '1', currentHarness: 'claude', round: 1, startPath: ws.root },
+      const result = await runReview(
+        { plan: '1', currentHarness: 'claude', startPath: ws.root },
         stubDeps({ dispatch, validatorAvailable: () => false })
       );
       expect(result).toMatchObject({ kind: 'skipped', reason: 'validator-absent' });
@@ -468,8 +385,8 @@ describe('code review gate — xmllint is a soft dependency', () => {
 
   it('names an actionable fix rather than failing opaquely', async () => {
     const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
-    const result = await runReviewRound(
-      { plan: '1', currentHarness: 'claude', round: 1, startPath: ws.root },
+    const result = await runReview(
+      { plan: '1', currentHarness: 'claude', startPath: ws.root },
       stubDeps({ validatorAvailable: () => false })
     );
     expect(result).toMatchObject({ kind: 'skipped' });
@@ -478,11 +395,11 @@ describe('code review gate — xmllint is a soft dependency', () => {
     expect(detail).toContain('libxml2');
   });
 
-  it('runs the round normally when the validator is available', async () => {
+  it('runs the review normally when the validator is available', async () => {
     const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
     const dispatch = vi.fn(async () => ({ kind: 'launched-success', exitCode: 0 }) as const);
-    const result = await runReviewRound(
-      { plan: '1', currentHarness: 'claude', round: 1, startPath: ws.root },
+    const result = await runReview(
+      { plan: '1', currentHarness: 'claude', startPath: ws.root },
       stubDeps({ dispatch, validatorAvailable: () => true })
     );
     expect(result).not.toMatchObject({ reason: 'validator-absent' });
@@ -504,8 +421,8 @@ describe('code review gate — xmllint is a soft dependency', () => {
  * failed round rather than a clean one.
  */
 describe('code review gate — single-channel stdout delivery', () => {
-  const roundOneDir = (ws: ReturnType<typeof makeReviewGateWorkspace>) =>
-    path.join(ws.planDir, 'review', 'round-1');
+  const reviewDirOf = (ws: ReturnType<typeof makeReviewGateWorkspace>) =>
+    path.join(ws.planDir, 'review');
 
   const TOKEN_PATTERN = /<<<BEGIN REVIEW XML ([0-9a-f]+)>>>/;
 
@@ -521,7 +438,7 @@ describe('code review gate — single-channel stdout delivery', () => {
    */
   const emitting = (xml: string) => {
     let seen = '';
-    const dispatch: ReviewRoundDependencies['dispatch'] = async request => {
+    const dispatch: ReviewDependencies['dispatch'] = async request => {
       seen = request.prompt;
       const token = TOKEN_PATTERN.exec(request.prompt)?.[1];
       if (token === undefined) return { kind: 'launched-success', exitCode: 0 };
@@ -535,12 +452,12 @@ describe('code review gate — single-channel stdout delivery', () => {
   };
 
   const runRound = (ws: ReturnType<typeof makeReviewGateWorkspace>, dispatch: unknown) =>
-    runBoundedReviewRound(
-      { plan: '1', currentHarness: 'claude', round: 1, startPath: ws.root },
-      stubDeps({ dispatch: dispatch as ReviewRoundDependencies['dispatch'] })
+    runReview(
+      { plan: '1', currentHarness: 'claude', startPath: ws.root },
+      stubDeps({ dispatch: dispatch as ReviewDependencies['dispatch'] })
     );
 
-  it('certifies a round from a document the reviewer only printed, and writes it to the canonical path', async () => {
+  it('certifies a review from a document the reviewer only printed, and writes it to the canonical path', async () => {
     const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
     const xml = buildReviewXml([{ file: 'src/x.ts', severity: 'minor', confidence: 'low' }]);
     const { dispatch, prompt } = emitting(xml);
@@ -554,7 +471,7 @@ describe('code review gate — single-channel stdout delivery', () => {
         kind: 'reviewed',
         reviewFilePresent: true,
         findingsGate: { kind: 'evaluated' },
-        decision: { kind: 'gate-passed' },
+        verdict: { kind: 'review-recorded' },
       });
       expect(_exitCodeFor(result)).toBe(0);
       const { reviewFile } = result as { reviewFile: string };
@@ -563,14 +480,14 @@ describe('code review gate — single-channel stdout delivery', () => {
       // The partition is the round's own record that it was evaluated, not just
       // that a document arrived.
       const partition: unknown = JSON.parse(
-        fs.readFileSync(path.join(roundOneDir(ws), 'findings.json'), 'utf8')
+        fs.readFileSync(path.join(reviewDirOf(ws), 'findings.json'), 'utf8')
       );
       expect(partition).toMatchObject({ status: 'evaluated' });
 
       // Capture is a channel back into this mechanism, not a passthrough. The
       // launcher tees the child's output to stderr; nothing reviewer-shaped may
       // reach this process's stdout, which carries only `emit`'s single JSON
-      // line — and `emit` is not reached from `runBoundedReviewRound`.
+      // line — and `emit` is not reached from `runReview`.
       for (const [chunk] of stdoutSpy.mock.calls) {
         expect(String(chunk)).not.toContain('src/x.ts');
         expect(String(chunk)).not.toContain('REVIEW XML');
@@ -609,7 +526,7 @@ describe('code review gate — single-channel stdout delivery', () => {
       .replace('<review', `${dim}<review`)
       .replace('</review>', `</review>${reset}`);
 
-    const dispatch: ReviewRoundDependencies['dispatch'] = async request => {
+    const dispatch: ReviewDependencies['dispatch'] = async request => {
       const token = TOKEN_PATTERN.exec(request.prompt)?.[1];
       if (token === undefined) return { kind: 'launched-success', exitCode: 0 };
       const block = (body: string) =>
@@ -643,7 +560,7 @@ describe('code review gate — single-channel stdout delivery', () => {
       expect(result).toMatchObject({
         kind: 'reviewed',
         findingsGate: { kind: 'evaluated' },
-        decision: { kind: 'gate-passed' },
+        verdict: { kind: 'review-recorded' },
       });
       expect(_exitCodeFor(result)).toBe(0);
       // Byte equality with the payload is the whole assertion: the chatter, the
@@ -671,7 +588,7 @@ describe('code review gate — single-channel stdout delivery', () => {
       expect(result).toMatchObject({
         kind: 'reviewed',
         findingsGate: { kind: 'schema-invalid' },
-        decision: { kind: 'round-failed' },
+        verdict: { kind: 'review-failed' },
       });
       expect(_exitCodeFor(result)).toBe(1);
     } finally {
@@ -680,14 +597,14 @@ describe('code review gate — single-channel stdout delivery', () => {
   });
 
   it('never reads an undelivered document as a clean review, whether nothing was printed or the prompt was echoed back', async () => {
-    const silent: ReviewRoundDependencies['dispatch'] = async () => ({
+    const silent: ReviewDependencies['dispatch'] = async () => ({
       kind: 'launched-success',
       exitCode: 0,
     });
     // The prompt itself carries the delimiters around a prose placeholder, so
     // echoing it back is the realistic false-positive: the region matches but
     // does not open an XML document, and must be rejected.
-    const echoing: ReviewRoundDependencies['dispatch'] = async request => ({
+    const echoing: ReviewDependencies['dispatch'] = async request => ({
       kind: 'launched-success',
       exitCode: 0,
       stdout: request.prompt,
@@ -701,7 +618,7 @@ describe('code review gate — single-channel stdout delivery', () => {
         expect(result).toMatchObject({
           kind: 'reviewed',
           findingsGate: { kind: 'findings-absent' },
-          decision: { kind: 'round-failed' },
+          verdict: { kind: 'review-failed' },
         });
         const { findingsGate } = result as { findingsGate: { kind: string } };
         expect(findingsGate.kind).not.toBe('evaluated');
@@ -712,19 +629,18 @@ describe('code review gate — single-channel stdout delivery', () => {
     }
   });
 
-  it('removes only the canonical review.xml before dispatch, leaving unrelated round artifacts intact', async () => {
+  it('removes only the canonical review.xml before dispatch, leaving unrelated review artifacts intact', async () => {
     const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
-    const roundDir = roundOneDir(ws);
-    fs.mkdirSync(roundDir, { recursive: true });
-    // Above both floors, so a stale document that survived would produce
-    // `fix-and-continue` and exit 1 — a different observable outcome, not just
-    // different bytes.
+    const reviewDir = reviewDirOf(ws);
+    fs.mkdirSync(reviewDir, { recursive: true });
+    // The stale document names a different file from the fresh one, so if it
+    // survived, the recorded findings would describe the wrong file entirely.
     const stale = buildReviewXml([{ file: 'stale.ts', severity: 'critical', confidence: 'high' }]);
     const custom = buildReviewXml([{ file: 'custom.ts', severity: 'minor', confidence: 'low' }]);
     const fresh = buildReviewXml([{ file: 'fresh.ts', severity: 'minor', confidence: 'low' }]);
-    fs.writeFileSync(path.join(roundDir, 'review.xml'), stale, 'utf8');
-    fs.writeFileSync(path.join(roundDir, 'custom-review.xml'), custom, 'utf8');
-    fs.writeFileSync(path.join(roundDir, 'findings.json'), '{"seeded":true}\n', 'utf8');
+    fs.writeFileSync(path.join(reviewDir, 'review.xml'), stale, 'utf8');
+    fs.writeFileSync(path.join(reviewDir, 'custom-review.xml'), custom, 'utf8');
+    fs.writeFileSync(path.join(reviewDir, 'findings.json'), '{"seeded":true}\n', 'utf8');
 
     const { dispatch } = emitting(fresh);
     try {
@@ -733,18 +649,18 @@ describe('code review gate — single-channel stdout delivery', () => {
       expect(result).toMatchObject({
         kind: 'reviewed',
         findingsGate: { kind: 'evaluated' },
-        decision: { kind: 'gate-passed' },
+        verdict: { kind: 'review-recorded' },
       });
-      expect(fs.readFileSync(path.join(roundDir, 'review.xml'), 'utf8').trim()).toBe(fresh.trim());
+      expect(fs.readFileSync(path.join(reviewDir, 'review.xml'), 'utf8').trim()).toBe(fresh.trim());
       // `custom-review.xml` is the unrelated artifact this asserts non-deletion
       // on, byte for byte: the removal must target the exact canonical path and
       // never glob for XML or follow a custom output name. `findings.json` is
       // only asserted to still exist, because the gate rewrites it for the
       // current round by design — its seeded content is *expected* to be gone,
       // so it cannot witness non-deletion.
-      expect(fs.readFileSync(path.join(roundDir, 'custom-review.xml'), 'utf8')).toBe(custom);
-      expect(fs.existsSync(path.join(roundDir, 'findings.json'))).toBe(true);
-      const partition = fs.readFileSync(path.join(roundDir, 'findings.json'), 'utf8');
+      expect(fs.readFileSync(path.join(reviewDir, 'custom-review.xml'), 'utf8')).toBe(custom);
+      expect(fs.existsSync(path.join(reviewDir, 'findings.json'))).toBe(true);
+      const partition = fs.readFileSync(path.join(reviewDir, 'findings.json'), 'utf8');
       expect(partition).toContain('fresh.ts');
       expect(partition).not.toContain('stale.ts');
     } finally {
@@ -759,9 +675,9 @@ describe('code review gate — single-channel stdout delivery', () => {
    * the gate runs, and deliberately not on a round that certified: there the
    * `review.xml` is the artifact, and the transcript would only be noise.
    */
-  it('keeps the reviewer transcript on a round that did not certify, and only then', async () => {
+  it('keeps the reviewer transcript on a review that did not certify, and only then', async () => {
     const transcriptOf = (ws: ReturnType<typeof makeReviewGateWorkspace>) =>
-      path.join(roundOneDir(ws), 'reviewer-output.txt');
+      path.join(reviewDirOf(ws), 'reviewer-output.txt');
     // No token-bearing region anywhere, so the round cannot certify from it.
     const noise = 'reviewing…\ntool: shell(git status)\nI could not read the repository.\n';
 
@@ -804,7 +720,7 @@ describe('code review gate — single-channel stdout delivery', () => {
       expect(result).toMatchObject({
         kind: 'reviewed',
         findingsGate: { kind: 'evaluated' },
-        decision: { kind: 'gate-passed' },
+        verdict: { kind: 'review-recorded' },
       });
       expect(fs.existsSync(transcriptOf(certified))).toBe(false);
     } finally {
@@ -821,9 +737,9 @@ describe('code review gate — single-channel stdout delivery', () => {
    * the round directory from describing an attempt that is no longer the one it
    * holds.
    */
-  it("drops a previous attempt's transcript when the same round is re-run and certifies", async () => {
+  it("drops a previous attempt's transcript when the review is re-run and certifies", async () => {
     const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
-    const transcript = path.join(roundOneDir(ws), 'reviewer-output.txt');
+    const transcript = path.join(reviewDirOf(ws), 'reviewer-output.txt');
     try {
       const failed = await runRound(ws, async () => ({
         kind: 'launched-success',
@@ -840,7 +756,7 @@ describe('code review gate — single-channel stdout delivery', () => {
       expect(rerun).toMatchObject({
         kind: 'reviewed',
         findingsGate: { kind: 'evaluated' },
-        decision: { kind: 'gate-passed' },
+        verdict: { kind: 'review-recorded' },
       });
       expect(fs.existsSync(transcript)).toBe(false);
     } finally {

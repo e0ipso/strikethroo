@@ -1,7 +1,7 @@
 /**
- * Tests for the review gate's enforcement logic (`shared/review-findings.ts`):
- * the round-budget clamp, real `xmllint` schema validation against the
- * vendored XSD, and the severity/confidence/suggestion partition.
+ * Tests for the review gate's certification logic (`shared/review-findings.ts`):
+ * real `xmllint` schema validation against the vendored XSD, the hand-rolled
+ * tag scanner, and the advisory severity tally.
  *
  * Per the project's test philosophy this does not test that `xmllint`
  * validates XML — that is libxml's job — it tests that this module reaches
@@ -18,62 +18,11 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import {
-  DEFAULT_CONFIDENCE_FLOOR,
-  DEFAULT_SEVERITY_FLOOR,
-  MAX_REVIEW_ROUNDS,
+  countFindings,
   parseReviewFindings,
-  parseReviewMandate,
-  partitionFindings,
   validateAgainstSchema,
 } from '../skill-scripts/shared/review-findings';
 import { buildReviewXml, REAL_XSD_PATH } from './fixtures/review-gate';
-
-describe('parseReviewMandate — round budget bounding', () => {
-  const hookWith = (budgetLine: string | null): string =>
-    ['# CODE_REVIEW Hook', '', budgetLine ?? '(no budget line at all)', ''].join('\n');
-
-  it('falls back to the compiled ceiling when the hook states no round budget', () => {
-    const mandate = parseReviewMandate(hookWith(null));
-    expect(mandate.roundBudget).toBe(MAX_REVIEW_ROUNDS);
-    expect(mandate.notes.some(note => note.includes('no round budget'))).toBe(true);
-  });
-
-  it.each([9999, 50])('clamps a loosened round budget of %d to the compiled ceiling', stated => {
-    const mandate = parseReviewMandate(hookWith(`## Round Budget: ${stated}`));
-    expect(mandate.roundBudget).toBe(MAX_REVIEW_ROUNDS);
-    expect(mandate.notes.some(note => note.includes(String(stated)))).toBe(true);
-  });
-
-  it.each([1, 2])('honours a tightened round budget of %d', stated => {
-    const mandate = parseReviewMandate(hookWith(`## Round Budget: ${stated}`));
-    expect(mandate.roundBudget).toBe(stated);
-    // No note about the round budget specifically — it was honoured, not clamped.
-    // (The fixture hook states no severity/confidence floor, so those two
-    // compiled-default notes are still expected here.)
-    expect(mandate.notes.some(note => note.toLowerCase().includes('round budget'))).toBe(false);
-  });
-
-  it.each(['0', '-1', 'not-a-number', ''])(
-    'falls back to the compiled ceiling for a nonsense round budget %j',
-    stated => {
-      const mandate = parseReviewMandate(hookWith(`## Round Budget: ${stated}`));
-      expect(mandate.roundBudget).toBe(MAX_REVIEW_ROUNDS);
-    }
-  );
-
-  it('falls back to the compiled ceiling when the budget line is deleted entirely', () => {
-    const mandate = parseReviewMandate(
-      '# CODE_REVIEW Hook\n\nNo round budget mentioned anywhere.\n'
-    );
-    expect(mandate.roundBudget).toBe(MAX_REVIEW_ROUNDS);
-  });
-
-  it('falls back to the compiled default floors when the hook states none', () => {
-    const mandate = parseReviewMandate('# CODE_REVIEW Hook\n');
-    expect(mandate.severityFloor).toBe(DEFAULT_SEVERITY_FLOOR);
-    expect(mandate.confidenceFloor).toBe(DEFAULT_CONFIDENCE_FLOOR);
-  });
-});
 
 describe('validateAgainstSchema — real xmllint against the vendored XSD', () => {
   let dir: string;
@@ -136,132 +85,110 @@ describe('validateAgainstSchema — real xmllint against the vendored XSD', () =
 });
 
 describe('parseReviewFindings — never forges structure from text', () => {
-  it('does not read a <suggestion> quoted inside CDATA as a real suggestion', () => {
+  // The scanner is a linear tag walk, safe only because the document was
+  // already validated. These pin the three ways text can look like structure.
+  it('does not read a <comment> quoted inside CDATA as a second finding', () => {
     const xml = buildReviewXml([
       {
         file: 'src/a.ts',
         severity: 'major',
         confidence: 'high',
         rawInner:
-          '<body><![CDATA[Example: <suggestion><original-code>x</original-code><proposed-code>y</proposed-code></suggestion>]]></body><category>bug</category>',
+          '<body><![CDATA[Example: <comment severity="critical"><body>x</body>' +
+          '<category>forged</category></comment>]]></body><category>bug</category>',
       },
     ]);
     const findings = parseReviewFindings(xml);
     expect(findings).toHaveLength(1);
-    expect(findings[0]!.hasSuggestion).toBe(false);
-    expect(findings[0]!.summary).toContain('<suggestion>');
+    expect(findings[0]!.category).toBe('bug');
+    expect(findings[0]!.severity).toBe('major');
+    expect(findings[0]!.summary).toContain('<comment');
   });
 
-  it('does not read an escaped &lt;suggestion&gt; in body text as a real suggestion', () => {
+  it('does not read an escaped &lt;category&gt; in body text as the category', () => {
     const xml = buildReviewXml([
       {
         file: 'src/a.ts',
         severity: 'major',
         confidence: 'high',
         rawInner:
-          '<body>Do not write &lt;suggestion&gt;&lt;original-code&gt;x&lt;/original-code&gt;&lt;/suggestion&gt; here.</body><category>bug</category>',
+          '<body>Do not write &lt;category&gt;forged&lt;/category&gt; here.</body>' +
+          '<category>bug</category>',
       },
     ]);
     const findings = parseReviewFindings(xml);
     expect(findings).toHaveLength(1);
-    expect(findings[0]!.hasSuggestion).toBe(false);
-    expect(findings[0]!.summary).toContain(
-      '<suggestion><original-code>x</original-code></suggestion>'
-    );
+    expect(findings[0]!.category).toBe('bug');
+    expect(findings[0]!.summary).toContain('<category>forged</category>');
   });
 
-  it('does not read a <suggestion> inside an XML comment as a real suggestion', () => {
+  it('does not read a <comment> inside an XML comment as a second finding', () => {
     const xml = buildReviewXml([
       {
         file: 'src/a.ts',
         severity: 'major',
         confidence: 'high',
         rawInner:
-          '<!-- <suggestion><original-code>x</original-code><proposed-code>y</proposed-code></suggestion> -->' +
+          '<!-- <comment severity="critical"><body>x</body><category>forged</category></comment> -->' +
           '<body>No fix available.</body><category>bug</category>',
       },
     ]);
     const findings = parseReviewFindings(xml);
     expect(findings).toHaveLength(1);
-    expect(findings[0]!.hasSuggestion).toBe(false);
+    expect(findings[0]!.category).toBe('bug');
+  });
+
+  it('reads an unrecognised severity as no label rather than guessing one', () => {
+    const xml = buildReviewXml([
+      { file: 'src/a.ts', severity: 'catastrophic', confidence: 'high', body: 'bogus severity' },
+    ]);
+    const findings = parseReviewFindings(xml);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.severity).toBeNull();
+    expect(findings[0]!.confidence).toBe('high');
+  });
+
+  it('ignores a <suggestion> entirely: it is no longer part of a finding', () => {
+    const xml = buildReviewXml([
+      { file: 'src/a.ts', severity: 'major', confidence: 'high', hasSuggestion: true },
+    ]);
+    const findings = parseReviewFindings(xml);
+    expect(findings).toHaveLength(1);
+    expect(Object.keys(findings[0]!)).not.toContain('hasSuggestion');
   });
 });
 
-describe('partitionFindings — the actionable/recorded threshold', () => {
-  it('actions only above-floor findings that carry a suggestion; every other reason lands in recorded', () => {
-    const xml = buildReviewXml([
-      {
-        file: 'a.ts',
-        severity: 'major',
-        confidence: 'high',
-        hasSuggestion: true,
-        body: 'actionable',
-      },
-      {
-        file: 'b.ts',
-        severity: 'minor',
-        confidence: 'high',
-        hasSuggestion: true,
-        body: 'below-severity',
-      },
-      {
-        file: 'c.ts',
-        severity: 'major',
-        confidence: 'low',
-        hasSuggestion: true,
-        body: 'below-confidence',
-      },
-      { file: 'd.ts', confidence: 'high', hasSuggestion: true, body: 'severity-absent' },
-      { file: 'e.ts', severity: 'major', hasSuggestion: true, body: 'confidence-absent' },
-      {
-        file: 'f.ts',
-        severity: 'major',
-        confidence: 'high',
-        hasSuggestion: false,
-        body: 'no-suggestion',
-      },
-    ]);
-    const findings = parseReviewFindings(xml);
-    expect(findings).toHaveLength(6);
-
-    const partition = partitionFindings(findings, 'major', 'high');
-
-    expect(partition.actionable).toHaveLength(1);
-    expect(partition.actionable[0]!.summary).toBe('actionable');
-    expect(partition.recorded).toHaveLength(5);
-    expect(partition.recorded.map(f => f.summary).sort()).toEqual(
-      [
-        'below-confidence',
-        'below-severity',
-        'confidence-absent',
-        'no-suggestion',
-        'severity-absent',
-      ].sort()
+describe('countFindings — an advisory tally, not a filter', () => {
+  it('counts every finding by label and never drops one', () => {
+    const findings = parseReviewFindings(
+      buildReviewXml([
+        { file: 'a.ts', severity: 'critical', confidence: 'high', body: 'one' },
+        { file: 'a.ts', severity: 'major', confidence: 'low', body: 'two' },
+        { file: 'b.ts', severity: 'minor', confidence: 'medium', body: 'three' },
+        { file: 'b.ts', severity: 'info', body: 'four' },
+        { file: 'c.ts', confidence: 'high', body: 'five, no severity' },
+      ])
     );
+    // Every one is counted, including the unlabelled one and the `low`
+    // confidence one. Nothing here is a threshold.
+    expect(countFindings(findings)).toEqual({
+      total: 5,
+      critical: 1,
+      major: 1,
+      minor: 1,
+      info: 1,
+      unlabelled: 1,
+    });
+  });
 
-    expect(partition.recorded.find(f => f.summary === 'below-severity')?.reasons).toEqual([
-      'severity-below-floor',
-    ]);
-    expect(partition.recorded.find(f => f.summary === 'below-confidence')?.reasons).toEqual([
-      'confidence-below-floor',
-    ]);
-    expect(partition.recorded.find(f => f.summary === 'severity-absent')?.reasons).toEqual([
-      'severity-absent',
-    ]);
-    expect(partition.recorded.find(f => f.summary === 'confidence-absent')?.reasons).toEqual([
-      'confidence-absent',
-    ]);
-    expect(partition.recorded.find(f => f.summary === 'no-suggestion')?.reasons).toEqual([
-      'no-suggestion',
-    ]);
-
-    expect(partition.counts).toEqual({
-      total: 6,
-      aboveFloor: 2, // actionable + no-suggestion both clear both floors
-      belowFloor: 4,
-      actionable: 1,
-      recorded: 5,
-      aboveFloorWithoutSuggestion: 1,
+  it('reports an empty review as zero rather than as an absence', () => {
+    expect(countFindings([])).toEqual({
+      total: 0,
+      critical: 0,
+      major: 0,
+      minor: 0,
+      info: 0,
+      unlabelled: 0,
     });
   });
 });

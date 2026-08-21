@@ -1,6 +1,6 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:cf2eed1000ba755666be52cdf9f63ca38c21a5453e5574e546dd8682dab2eeb7'
+nodes_hash: 'sha256:386785ad7b4d41e97d0d3536fc395776e129f44b98a614d99b9d8ee8e0c26f91'
 node_count: 86
 ---
 # kenkeep Graph
@@ -493,12 +493,13 @@ Total nodes: 86
 - **tags:** code-review, gitignore, workspace, init, generated-artifacts
 - **relates_to:** practice-never-hand-commit-generated-skill-artifacts, practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore
 
-## practice-review-loop-ordering-post-execution-reruns-after-fixes
+## practice-review-gate-reports-it-does-not-fix
 
 - **kind:** practice
-- **title:** Review loop ordering: POST_EXECUTION re-runs after fixes, not before
-- **path:** code-review/practice-review-loop-ordering-post-execution-reruns-after-fixes.md
-- **tags:** review-gate, ordering, mechanical-gates
+- **title:** The review gate reports; it never fixes. Re-run POST_EXECUTION after acting on a finding
+- **path:** code-review/practice-review-gate-reports-it-does-not-fix.md
+- **tags:** review-gate, ordering, mechanical-gates, report-only
+- **relates_to:** map-model-optional-dispatch-reviewer-harness-omits-model, practice-optional-by-absence-new-files-absent-means-feature-off, practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore
 
 ## practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files
 

@@ -112,3 +112,4 @@ docs/vendor/
 _site/
 Gemfile.lock
 /.devcontainer/devcontainer-lock.json
+review.guide.xml

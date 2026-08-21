@@ -11,7 +11,7 @@ _None._
 
 ## Conventions (how we build)
 - Open [**Optional-by-absence pattern: new workspace files do not bump schema version**](practice-optional-by-absence-new-files-absent-means-feature-off.md) to learn about: CODE_REVIEW.md and self-review-v2.xsd are both optional by absence; their presence/absence gates the feature. v4 workspaces keep working unchanged. #schema-version #compatibility #optional-gates
-- Open [**Review loop ordering: POST_EXECUTION re-runs after fixes, not before**](practice-review-loop-ordering-post-execution-reruns-after-fixes.md) to learn about: Detect → threshold → fix on implementer route → full re-run of mechanical gates → re-verify. The re-run happens after every fix because fixes invalidate the prior green build. #review-gate #ordering #mechanical-gates
+- Open [**The review gate reports; it never fixes. Re-run POST_EXECUTION after acting on a finding**](practice-review-gate-reports-it-does-not-fix.md) to learn about: The gate runs once after POST_EXECUTION, records findings, and applies nothing. If you act on a finding, re-run POST_EXECUTION in full before declaring complete. #review-gate #ordering #mechanical-gates #report-only
 
 ## Components (what exists)
 - Open [**Model-optional dispatch: reviewer harness omits --model to use CLI defaults**](map-model-optional-dispatch-reviewer-harness-omits-model.md) to learn about: Harness discovery yields a harness, not a model id. Reviewer dispatch omits \`--model\`; execution_routing dispatch still requires it. Harness probes work the same way for the same reason. #dispatch #harness-discovery #model-selection
@@ -25,15 +25,17 @@ _None._
 ### #harness-discovery
 - Open [**Model-optional dispatch: reviewer harness omits --model to use CLI defaults**](map-model-optional-dispatch-reviewer-harness-omits-model.md) — Harness discovery yields a harness, not a model id. Reviewer dispatch omits \`--model\`; execution_routing dispatch still requires it. Harness probes work the same way for the same reason.
 ### #mechanical-gates
-- Open [**Review loop ordering: POST_EXECUTION re-runs after fixes, not before**](practice-review-loop-ordering-post-execution-reruns-after-fixes.md) — Detect → threshold → fix on implementer route → full re-run of mechanical gates → re-verify. The re-run happens after every fix because fixes invalidate the prior green build.
+- Open [**The review gate reports; it never fixes. Re-run POST_EXECUTION after acting on a finding**](practice-review-gate-reports-it-does-not-fix.md) — The gate runs once after POST_EXECUTION, records findings, and applies nothing. If you act on a finding, re-run POST_EXECUTION in full before declaring complete.
 ### #model-selection
 - Open [**Model-optional dispatch: reviewer harness omits --model to use CLI defaults**](map-model-optional-dispatch-reviewer-harness-omits-model.md) — Harness discovery yields a harness, not a model id. Reviewer dispatch omits \`--model\`; execution_routing dispatch still requires it. Harness probes work the same way for the same reason.
 ### #optional-gates
 - Open [**Optional-by-absence pattern: new workspace files do not bump schema version**](practice-optional-by-absence-new-files-absent-means-feature-off.md) — CODE_REVIEW.md and self-review-v2.xsd are both optional by absence; their presence/absence gates the feature. v4 workspaces keep working unchanged.
 ### #ordering
-- Open [**Review loop ordering: POST_EXECUTION re-runs after fixes, not before**](practice-review-loop-ordering-post-execution-reruns-after-fixes.md) — Detect → threshold → fix on implementer route → full re-run of mechanical gates → re-verify. The re-run happens after every fix because fixes invalidate the prior green build.
+- Open [**The review gate reports; it never fixes. Re-run POST_EXECUTION after acting on a finding**](practice-review-gate-reports-it-does-not-fix.md) — The gate runs once after POST_EXECUTION, records findings, and applies nothing. If you act on a finding, re-run POST_EXECUTION in full before declaring complete.
+### #report-only
+- Open [**The review gate reports; it never fixes. Re-run POST_EXECUTION after acting on a finding**](practice-review-gate-reports-it-does-not-fix.md) — The gate runs once after POST_EXECUTION, records findings, and applies nothing. If you act on a finding, re-run POST_EXECUTION in full before declaring complete.
 ### #review-gate
 - Open [**Never hand-commit generated skill artifacts; they cannot be gitignored**](../practice-never-hand-commit-generated-skill-artifacts.md) — SKILL.md and .cjs bundles are build output force-added by CI, so .gitattributes and a pre-commit guard cover them and the review gate skips them.
-- Open [**Review loop ordering: POST_EXECUTION re-runs after fixes, not before**](practice-review-loop-ordering-post-execution-reruns-after-fixes.md) — Detect → threshold → fix on implementer route → full re-run of mechanical gates → re-verify. The re-run happens after every fix because fixes invalidate the prior green build.
+- Open [**The review gate reports; it never fixes. Re-run POST_EXECUTION after acting on a finding**](practice-review-gate-reports-it-does-not-fix.md) — The gate runs once after POST_EXECUTION, records findings, and applies nothing. If you act on a finding, re-run POST_EXECUTION in full before declaring complete.
 ### #schema-version
 - Open [**Optional-by-absence pattern: new workspace files do not bump schema version**](practice-optional-by-absence-new-files-absent-means-feature-off.md) — CODE_REVIEW.md and self-review-v2.xsd are both optional by absence; their presence/absence gates the feature. v4 workspaces keep working unchanged.

@@ -87,11 +87,11 @@ The LLM verifies all tasks reached `completed` status, checks that documentation
 
 **When:** After `POST_EXECUTION` reports green, before execution summary and archival.
 
-Terminal review gate, terminal only — runs once per plan, creates no task files, never mutates the blueprint. When a second harness is discovered and this hook is present and non-empty, a reviewer harness critiques the cumulative diff and emits schema-validated findings (`review.xml`). Findings at or above configured severity and confidence floors are dispatched to the implementer route for remediation; any applied fix forces a full `POST_EXECUTION` re-run before re-verification. Rounds are bounded and enforced in code; a user editing the hook cannot disable termination.
+Terminal review gate, terminal only — runs once per plan, creates no task files, never mutates the blueprint. When a second harness is discovered and this hook is present and non-empty, a reviewer harness critiques the cumulative diff and emits schema-validated findings (`review.xml`). The findings are recorded for the implementer to read and act on; nothing is applied automatically. Any fix you then make forces a full `POST_EXECUTION` re-run before execution is declared complete.
 
 **Reviewed scope**: a two-dot diff from a base commit recorded before phase execution against the **working tree**, so committed phase work and uncommitted fixes are both included. Untracked, unignored files are included too — the gate synthesizes an add-diff for each with `git diff --no-index` against `/dev/null`, so nothing needs to be staged or committed for the reviewer to see it, and the gate never writes to the git index.
 
-**Configuration**: The hook body specifies the mandate — which finding categories (correctness, design, security, etc.) are in scope, the minimum severity floor (`critical`, `major`, `minor`, `info`), the minimum confidence floor (`high`, `medium`, `low`), and the maximum round budget (default 3, clamped in code to a hardcoded `MAX_REVIEW_ROUNDS`). Any findings below either floor are recorded but never auto-fixed.
+**Configuration**: The hook body specifies the mandate — which finding categories are in scope and how the reviewer should grade `severity` (`critical`, `major`, `minor`, `info`) and `confidence` (`high`, `medium`, `low`). Both are advisory labels that help you sort the review; nothing is filtered or applied on the strength of them.
 
 **To disable**: Empty or delete this file. The gate skips cleanly and notes it in the execution summary. No error. `init` preserves your edits on re-run unless you pass `--force`.
 

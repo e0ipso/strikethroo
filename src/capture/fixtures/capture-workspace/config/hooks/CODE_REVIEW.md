@@ -2,13 +2,13 @@
 
 ## Automated Code Review Gate
 
-This hook governs an unattended review loop that runs at the end of blueprint execution, after mechanical gates (lint, tests, Self Validation) report success. A reviewer on a discovered external harness critiques the plan's cumulative diff and emits findings; findings at or above the severity and confidence floors trigger automatic remediation, followed by a full re-run of the mechanical gates and re-verification.
+This hook governs a review step that runs at the end of blueprint execution, after the mechanical gates (lint, tests, Self Validation) report success. A reviewer on a discovered external harness critiques the plan's cumulative diff and emits findings. The findings are validated against the vendored schema and recorded.
 
-The gate terminates on exhausted round budget or when no findings above threshold remain.
+The gate reports; it does not decide. Nothing is applied automatically, and the implementer reads the recorded findings and chooses what to act on.
 
 ## Mandate: Conformance and Defects Only
 
-The reviewer checks the diff against the **plan's stated requirements** and for **demonstrable defects**. It does **not** raise general code-quality opinions, style notes, design critiques, or taste judgments — the linter owns style. Every finding must cite concrete evidence and trace to:
+The reviewer checks the diff against the **plan's stated requirements** and for **demonstrable defects**. It does **not** raise general code-quality opinions, style notes, design critiques, or taste judgments. The linter owns style. Every finding must cite concrete evidence and trace to:
 
 - An explicit requirement stated in the plan, **or**
 - A demonstrable defect in the code as written
@@ -17,41 +17,31 @@ Anything else is out of scope and must not be included in findings.
 
 ## Finding Categories In Scope
 
-- **Requirement conformance** — the code does not implement what the plan explicitly asked for
-- **Demonstrable defects** — the code fails at runtime, produces wrong behaviour, violates a contract it declares, has a security hole, causes data loss, or breaks something else in the plan
+- **Requirement conformance**: the code does not implement what the plan explicitly asked for
+- **Demonstrable defects**: the code fails at runtime, produces wrong behaviour, violates a contract it declares, has a security hole, causes data loss, or breaks something else in the plan
 
-## Severity Floor: `major`
+## Severity and Confidence
 
-Findings below `major` are recorded in the review output but never auto-applied. The severity levels, ordered from most to least consequential:
+Both are advisory triage labels carried on every finding so that whoever reads the review can sort it. Nothing thresholds on them and nothing is filtered out before the implementer sees it.
 
-- `critical` — causes data loss, security hole, crash, or corruption on a path real usage reaches
-- `major` — produces wrong behaviour or breaks a documented contract; nothing destroyed
-- `minor` — real but bounded (mishandled edge case, missing test, maintenance hazard); behaviour correct today
-- `info` — no defect (style, naming, question for author, recorded context)
+Severity, from most to least consequential:
 
-If a finding omits the severity attribute, it falls below the floor and is never auto-applied.
+- `critical`: causes data loss, a security hole, a crash, or corruption on a path real usage reaches
+- `major`: produces wrong behaviour or breaks a documented contract; nothing destroyed
+- `minor`: real but bounded (mishandled edge case, maintenance hazard); behaviour correct today
+- `info`: no defect (recorded context, a question for the author)
 
-## Confidence Floor: `high`
+Confidence, from most to least sure:
 
-Findings below `high` are recorded but never auto-applied. The confidence levels, ordered from most to least sure:
+- `high`: the evidence is in the code that was read, and the failure traces from the diff alone
+- `medium`: likely real, but rests on one assumption that was not verified (how a caller behaves, what a dependency guarantees, what a requirement was)
+- `low`: speculative (failure scenario imagined rather than traced, constraint invented, intent could not be inferred)
 
-- `high` — evidence is in the code that was read; failure can be traced from the diff alone, no assumptions needed
-- `medium` — likely real, but rests on one assumption not verified (how a caller behaves, what a dependency guarantees, what a requirement was)
-- `low` — speculative (failure scenario imagined, not traced; constraint invented; intent could not be inferred)
+Confidence matters most when it is low. LLM reviewers overstate certainty, so a reviewer that marks its own guess as `medium` is doing the reader a service. Record the label honestly rather than upgrading it to be taken seriously.
 
-If a finding omits the confidence attribute, it falls below the floor and is never auto-applied.
+## What the Gate Guarantees
 
-This attribute has no schema default on purpose. Findings that omit confidence are treated as falling below any floor. An automated consumer relies on confidence being lowered honestly; LLM reviewers systematically overstate certainty.
-
-## Round Budget: 3
-
-The gate runs up to three detect-and-fix cycles:
-
-1. Reviewer critiques the cumulative diff → findings
-2. If findings above floor exist: implement fixes, re-run mechanical gates, verify
-3. Reviewer re-checks → repeat until no new findings above floor or budget exhausted
-
-This value expressed here is advisory prose only. **Termination is enforced in code and cannot be bypassed by editing this file.** If the round budget is exhausted, the gate halts exactly as any mechanical gate failure does: the plan stays in `plans/`, findings are recorded, and the failure is documented.
+Exactly one thing, and it is enforced in code rather than here: a review that could not be certified is never reported as a clean one. A findings document that is absent, invalid against the schema, or unvalidatable because `xmllint` is missing halts the gate and says which of those happened. "The reviewer found nothing" and "the reviewer never ran" are never collapsed into each other.
 
 ## Disable the Gate
 

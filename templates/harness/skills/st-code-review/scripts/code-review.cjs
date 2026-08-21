@@ -34,20 +34,16 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/skill-scripts/code-review.ts
 var code_review_exports = {};
 __export(code_review_exports, {
-  MAX_REVIEW_ROUNDS: () => MAX_REVIEW_ROUNDS,
-  _decideRound: () => _decideRound,
   _exitCodeFor: () => _exitCodeFor,
   _extractReviewDocument: () => _extractReviewDocument,
   _makeDeliveryToken: () => _makeDeliveryToken,
   _readBaseCommit: () => _readBaseCommit,
   _readCumulativeDiff: () => _readCumulativeDiff,
-  _readPriorAdjudicated: () => _readPriorAdjudicated,
+  _verdictFor: () => _verdictFor,
   buildReviewerPrompt: () => buildReviewerPrompt,
   createFindingsGate: () => createFindingsGate,
   main: () => main,
-  parseReviewMandate: () => parseReviewMandate,
-  runBoundedReviewRound: () => runBoundedReviewRound,
-  runReviewRound: () => runReviewRound
+  runReview: () => runReview
 });
 module.exports = __toCommonJS(code_review_exports);
 var crypto = __toESM(require("crypto"));
@@ -730,61 +726,11 @@ var discoverHarnesses = async (request, overrides = {}) => {
 
 // src/skill-scripts/shared/review-findings.ts
 var import_child_process4 = require("child_process");
-var SEVERITY_RANK = { critical: 4, major: 3, minor: 2, info: 1 };
-var CONFIDENCE_RANK = { high: 3, medium: 2, low: 1 };
-var MAX_REVIEW_ROUNDS = 3;
-var DEFAULT_SEVERITY_FLOOR = "major";
-var DEFAULT_CONFIDENCE_FLOOR = "high";
+var SEVERITIES = ["critical", "major", "minor", "info"];
+var CONFIDENCES = ["high", "medium", "low"];
 var XMLLINT_TIMEOUT_MS = 3e4;
-var isSeverity = (value) => value in SEVERITY_RANK;
-var isConfidence = (value) => value in CONFIDENCE_RANK;
-var SEVERITY_FLOOR_RE = /^[ \t]*#{0,6}[ \t]*severity floor[ \t]*:[ \t]*`?([a-z]+)`?/im;
-var CONFIDENCE_FLOOR_RE = /^[ \t]*#{0,6}[ \t]*confidence floor[ \t]*:[ \t]*`?([a-z]+)`?/im;
-var ROUND_BUDGET_RE = /^[ \t]*#{0,6}[ \t]*round budget[ \t]*:[ \t]*`?(-?\d{1,9})`?/im;
-var parseReviewMandate = (hookContent) => {
-  const notes = [];
-  const severityMatch = SEVERITY_FLOOR_RE.exec(hookContent);
-  const statedSeverity = (severityMatch?.[1] ?? "").toLowerCase();
-  let severityFloor = DEFAULT_SEVERITY_FLOOR;
-  if (isSeverity(statedSeverity)) {
-    severityFloor = statedSeverity;
-  } else {
-    notes.push(
-      `The hook states no recognised severity floor, so the compiled default \`${DEFAULT_SEVERITY_FLOOR}\` applies.`
-    );
-  }
-  const confidenceMatch = CONFIDENCE_FLOOR_RE.exec(hookContent);
-  const statedConfidence = (confidenceMatch?.[1] ?? "").toLowerCase();
-  let confidenceFloor = DEFAULT_CONFIDENCE_FLOOR;
-  if (isConfidence(statedConfidence)) {
-    confidenceFloor = statedConfidence;
-  } else {
-    notes.push(
-      `The hook states no recognised confidence floor, so the compiled default \`${DEFAULT_CONFIDENCE_FLOOR}\` applies.`
-    );
-  }
-  const budgetMatch = ROUND_BUDGET_RE.exec(hookContent);
-  let roundBudget = MAX_REVIEW_ROUNDS;
-  if (budgetMatch === null) {
-    notes.push(
-      `The hook states no round budget, so the compiled ceiling of ${MAX_REVIEW_ROUNDS} rounds applies.`
-    );
-  } else {
-    const stated = Number(budgetMatch[1]);
-    if (!Number.isInteger(stated) || stated < 1) {
-      notes.push(
-        `The hook states a round budget of "${budgetMatch[1]}", which is not a positive whole number of rounds, so the compiled ceiling of ${MAX_REVIEW_ROUNDS} applies.`
-      );
-    } else if (stated > MAX_REVIEW_ROUNDS) {
-      notes.push(
-        `The hook states a round budget of ${stated}, above the compiled ceiling of ${MAX_REVIEW_ROUNDS}. The ceiling is enforced in code and cannot be raised by editing the hook, so ${MAX_REVIEW_ROUNDS} rounds apply.`
-      );
-    } else {
-      roundBudget = stated;
-    }
-  }
-  return { severityFloor, confidenceFloor, roundBudget, notes };
-};
+var isSeverity = (value) => SEVERITIES.includes(value);
+var isConfidence = (value) => CONFIDENCES.includes(value);
 var validateAgainstSchema = (xsdFile, xmlFile, timeoutMs = XMLLINT_TIMEOUT_MS) => new Promise((resolve3) => {
   let settled = false;
   let diagnostics = "";
@@ -943,12 +889,11 @@ var parseReviewFindings = (xml) => {
       comment = {
         file: file ?? "",
         location: lineRange(attributes),
-        // Absent, empty, and unrecognised all become null, and null falls below
-        // every floor. This is the one place the fail-safe default lives.
+        // Absent, empty, and unrecognised all become null. The label is
+        // advisory, so an unreadable one is dropped rather than guessed at.
         severity: isSeverity(severity) ? severity : null,
         confidence: isConfidence(confidence) ? confidence : null,
         category: null,
-        hasSuggestion: false,
         summary: ""
       };
       capture = null;
@@ -965,55 +910,24 @@ var parseReviewFindings = (xml) => {
     } else if (name === "category") {
       capture = "category";
       buffer = "";
-    } else if (name === "suggestion") {
-      comment.hasSuggestion = true;
     }
   }
   return findings;
 };
-var partitionFindings = (findings, severityFloor, confidenceFloor) => {
-  const actionable = [];
-  const recorded = [];
-  let aboveFloor = 0;
-  let aboveFloorWithoutSuggestion = 0;
-  for (const finding of findings) {
-    const reasons = [];
-    if (finding.severity === null) {
-      reasons.push("severity-absent");
-    } else if (SEVERITY_RANK[finding.severity] < SEVERITY_RANK[severityFloor]) {
-      reasons.push("severity-below-floor");
-    }
-    if (finding.confidence === null) {
-      reasons.push("confidence-absent");
-    } else if (CONFIDENCE_RANK[finding.confidence] < CONFIDENCE_RANK[confidenceFloor]) {
-      reasons.push("confidence-below-floor");
-    }
-    const clearsFloors = reasons.length === 0;
-    if (clearsFloors) aboveFloor += 1;
-    if (!finding.hasSuggestion) {
-      reasons.push("no-suggestion");
-      if (clearsFloors) aboveFloorWithoutSuggestion += 1;
-    }
-    if (reasons.length === 0) {
-      actionable.push(finding);
-    } else {
-      recorded.push({ ...finding, reasons });
-    }
-  }
-  return {
-    severityFloor,
-    confidenceFloor,
-    actionable,
-    recorded,
-    counts: {
-      total: findings.length,
-      aboveFloor,
-      belowFloor: findings.length - aboveFloor,
-      actionable: actionable.length,
-      recorded: recorded.length,
-      aboveFloorWithoutSuggestion
-    }
+var countFindings = (findings) => {
+  const counts = {
+    total: findings.length,
+    critical: 0,
+    major: 0,
+    minor: 0,
+    info: 0,
+    unlabelled: 0
   };
+  for (const finding of findings) {
+    if (finding.severity === null) counts.unlabelled += 1;
+    else counts[finding.severity] += 1;
+  }
+  return counts;
 };
 
 // src/skill-scripts/code-review.ts
@@ -1033,43 +947,37 @@ var readFileOrNull = (filePath) => {
     return null;
   }
 };
-var writeTranscript = (roundDir, transcript) => {
+var writeTranscript = (reviewDir, transcript) => {
   if (transcript === void 0 || transcript === "") return;
   try {
-    fs6.mkdirSync(roundDir, { recursive: true });
-    fs6.writeFileSync(path6.join(roundDir, TRANSCRIPT_FILE_NAME), transcript, "utf8");
+    fs6.mkdirSync(reviewDir, { recursive: true });
+    fs6.writeFileSync(path6.join(reviewDir, TRANSCRIPT_FILE_NAME), transcript, "utf8");
   } catch {
   }
 };
-var createFindingsGate = (mandate) => async (context) => {
-  const roundDir = path6.dirname(context.reviewFile);
-  const findingsFile = path6.join(roundDir, FINDINGS_FILE_NAME);
+var createFindingsGate = () => async (context) => {
+  const reviewDir = path6.dirname(context.reviewFile);
+  const findingsFile = path6.join(reviewDir, FINDINGS_FILE_NAME);
   const record = (payload) => {
     try {
-      fs6.mkdirSync(roundDir, { recursive: true });
+      fs6.mkdirSync(reviewDir, { recursive: true });
       fs6.writeFileSync(findingsFile, `${JSON.stringify(payload, null, 2)}
 `, "utf8");
     } catch (error) {
       throw new Error(
-        `The review round's findings partition could not be written to ${findingsFile}: ${errorMessage2(error)}`
+        `The review findings could not be written to ${findingsFile}: ${errorMessage2(error)}`
       );
     }
   };
-  const base = {
-    round: context.round,
-    reviewFile: context.reviewFile,
-    xsdFile: context.xsdFile,
-    severityFloor: mandate.severityFloor,
-    confidenceFloor: mandate.confidenceFloor
-  };
+  const base = { reviewFile: context.reviewFile, xsdFile: context.xsdFile };
   const delivered = _extractReviewDocument(context.reviewerStdout, context.deliveryToken);
   if (delivered === null) {
     const detail = "The reviewer printed no complete findings document between this dispatch's delimiters. A round with no findings document cannot be read as a round with no findings.";
-    record({ ...base, status: "findings-absent", detail, actionable: [], recorded: [] });
+    record({ ...base, status: "findings-absent", detail, findings: [] });
     return { kind: "findings-absent", detail };
   }
   try {
-    fs6.mkdirSync(roundDir, { recursive: true });
+    fs6.mkdirSync(reviewDir, { recursive: true });
     fs6.writeFileSync(
       context.reviewFile,
       delivered.endsWith("\n") ? delivered : `${delivered}
@@ -1087,46 +995,25 @@ var createFindingsGate = (mandate) => async (context) => {
       ...base,
       status: "validator-unavailable",
       detail: validation.detail,
-      actionable: [],
-      recorded: []
+      findings: []
     });
     return { kind: "validator-unavailable", detail: validation.detail };
   }
   if (validation.kind === "invalid") {
-    const detail = `${context.reviewFile} does not validate against ${context.xsdFile}, so its findings were not thresholded and none of them was applied. xmllint reported: ${validation.detail}`;
-    record({ ...base, status: "schema-invalid", detail, actionable: [], recorded: [] });
+    const detail = `${context.reviewFile} does not validate against ${context.xsdFile}, so its findings could not be certified and none of them was recorded. xmllint reported: ${validation.detail}`;
+    record({ ...base, status: "schema-invalid", detail, findings: [] });
     return { kind: "schema-invalid", detail };
   }
   const xml = readFileOrNull(context.reviewFile);
   if (xml === null) {
     const detail = `${context.reviewFile} validated but could not then be read.`;
-    record({ ...base, status: "findings-absent", detail, actionable: [], recorded: [] });
+    record({ ...base, status: "findings-absent", detail, findings: [] });
     return { kind: "findings-absent", detail };
   }
-  const partition = partitionFindings(
-    parseReviewFindings(xml),
-    mandate.severityFloor,
-    mandate.confidenceFloor
-  );
-  record({
-    ...base,
-    status: "evaluated",
-    counts: partition.counts,
-    actionable: partition.actionable,
-    recorded: partition.recorded
-  });
-  return {
-    kind: "evaluated",
-    aboveFloor: partition.counts.aboveFloor,
-    belowFloor: partition.counts.belowFloor,
-    actionable: partition.counts.actionable,
-    recorded: partition.counts.recorded,
-    total: partition.counts.total,
-    aboveFloorWithoutSuggestion: partition.counts.aboveFloorWithoutSuggestion,
-    severityFloor: mandate.severityFloor,
-    confidenceFloor: mandate.confidenceFloor,
-    findingsFile
-  };
+  const findings = parseReviewFindings(xml);
+  const counts = countFindings(findings);
+  record({ ...base, status: "evaluated", counts, findings });
+  return { kind: "evaluated", counts, findingsFile };
 };
 var _readBaseCommit = (filePath) => {
   const raw = readFileOrNull(filePath);
@@ -1198,19 +1085,6 @@ var readReviewerSkill = () => {
   const content = readFileOrNull(skillFile);
   return content === null ? "Load the `st-code-review` skill and follow its Operating Procedure. If that skill is not installed on this harness, follow the mandate below exactly." : content;
 };
-var renderAdjudicated = (findings) => {
-  if (findings.length === 0) {
-    return "None. This is the first round, or no earlier finding has been ruled on.";
-  }
-  return findings.map((finding) => {
-    const attributes = [
-      finding.severity === void 0 ? null : `severity=${finding.severity}`,
-      finding.confidence === void 0 ? null : `confidence=${finding.confidence}`
-    ].filter((part) => part !== null).join(" ");
-    const where = finding.location === void 0 ? finding.file : `${finding.file}:${finding.location}`;
-    return `- [${finding.disposition}] ${where}${attributes ? ` (${attributes})` : ""} \u2014 ${finding.summary}`;
-  }).join("\n");
-};
 var _makeDeliveryToken = () => crypto.randomBytes(6).toString("hex");
 var beginMarker = (token) => `<<<BEGIN REVIEW XML ${token}>>>`;
 var endMarker = (token) => `<<<END REVIEW XML ${token}>>>`;
@@ -1232,7 +1106,7 @@ var _extractReviewDocument = (stdout, token) => {
   return null;
 };
 var buildReviewerPrompt = (input) => [
-  `Strikethroo code review gate \u2014 Plan ${input.planId}, review round ${input.round}.`,
+  `Strikethroo code review gate \u2014 Plan ${input.planId}.`,
   "",
   "You are the independent reviewer, running on a different harness than the one",
   "that wrote this code. You detect; you never fix. Do not edit, create, or delete",
@@ -1245,7 +1119,6 @@ var buildReviewerPrompt = (input) => [
   `Review mandate hook: ${input.hookFile}`,
   `Findings schema to validate against: ${input.xsdFile}`,
   `Base commit anchoring this plan's scope: ${input.baseCommit}`,
-  `Round: ${input.round}`,
   "",
   "## How to deliver your findings",
   "",
@@ -1264,9 +1137,9 @@ var buildReviewerPrompt = (input) => [
   "Copy those two lines from this dispatch; never invent a token. Print nothing after",
   "the closing line. Do not write the document to a file \u2014 this channel is the only",
   "one that is read. The document is validated against the schema named above, so an",
-  "incomplete or invented document fails the round. Being unable to read the",
+  "incomplete or invented document fails the review. Being unable to read the",
   "repository is not a reason to emit this block: a review you could not perform is a",
-  "failed round, and emitting well-formed XML instead of reporting that failure is a",
+  "failed review, and emitting well-formed XML instead of reporting that failure is a",
   "worse outcome than the failure.",
   "",
   "## Review mandate (authoritative \u2014 it overrides the reviewer instructions below)",
@@ -1276,10 +1149,6 @@ var buildReviewerPrompt = (input) => [
   "## Reviewer instructions",
   "",
   input.skillInstructions.trim(),
-  "",
-  "## Prior adjudicated findings \u2014 do not re-litigate these",
-  "",
-  renderAdjudicated(input.adjudicatedFindings),
   "",
   "## Cumulative diff",
   "",
@@ -1292,48 +1161,6 @@ ${input.diff}
 <<<END CUMULATIVE DIFF>>>`,
   ""
 ].join("\n");
-var asAdjudicated = (value, disposition) => {
-  if (!Array.isArray(value)) return [];
-  const adjudicated = [];
-  for (const entry of value) {
-    if (entry === null || typeof entry !== "object") continue;
-    const finding = entry;
-    if (typeof finding["file"] !== "string") continue;
-    adjudicated.push({
-      file: finding["file"],
-      ...typeof finding["location"] === "string" ? { location: finding["location"] } : {},
-      ...typeof finding["severity"] === "string" ? { severity: finding["severity"] } : {},
-      ...typeof finding["confidence"] === "string" ? { confidence: finding["confidence"] } : {},
-      summary: typeof finding["summary"] === "string" ? finding["summary"] : "",
-      disposition
-    });
-  }
-  return adjudicated;
-};
-var _readPriorAdjudicated = (planDir, round) => {
-  const carried = /* @__PURE__ */ new Map();
-  for (let prior = 1; prior < round; prior += 1) {
-    const raw = readFileOrNull(
-      path6.join(planDir, REVIEW_DIR_NAME, `round-${prior}`, FINDINGS_FILE_NAME)
-    );
-    if (raw === null) continue;
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed === null || typeof parsed !== "object") continue;
-      const partition = parsed;
-      const roundFindings = [
-        ...asAdjudicated(partition["actionable"], "applied"),
-        ...asAdjudicated(partition["recorded"], "recorded-below-floor")
-      ];
-      for (const finding of roundFindings) {
-        carried.set(`${finding.file}|${finding.location ?? ""}|${finding.summary}`, finding);
-      }
-    } catch {
-      continue;
-    }
-  }
-  return [...carried.values()];
-};
 var skip = (reason, detail) => ({
   kind: "skipped",
   reason,
@@ -1396,17 +1223,16 @@ var resolveReviewContext = (startPath, validatorAvailable = () => executableOnPa
       workspace: path6.dirname(path6.dirname(strikethrooRoot)),
       hookFile,
       hookContent,
-      xsdFile,
-      mandate: parseReviewMandate(hookContent)
+      xsdFile
     }
   };
 };
-var runReviewRound = async (request, overrides = {}) => {
+var runReview = async (request, overrides = {}) => {
   const dependencies2 = { ...defaultDependencies2, ...overrides };
   const startPath = request.startPath ?? process.cwd();
   const resolution = resolveReviewContext(startPath, dependencies2.validatorAvailable);
   if (resolution.kind === "ended") return resolution.result;
-  const { strikethrooRoot, workspace, hookFile, hookContent, xsdFile, mandate } = resolution.context;
+  const { strikethrooRoot, workspace, hookFile, hookContent, xsdFile } = resolution.context;
   const resolved = resolvePlan(request.plan, startPath);
   if (!resolved) {
     return {
@@ -1448,24 +1274,24 @@ var runReviewRound = async (request, overrides = {}) => {
       `The diff from ${baseCommit} to the working tree in ${workspace} is empty, so there was nothing to review. No reviewer was dispatched, and no round was certified.`
     );
   }
-  const roundDir = path6.join(planDir, REVIEW_DIR_NAME, `round-${request.round}`);
-  const reviewFile = path6.join(roundDir, REVIEW_FILE_NAME);
+  const reviewDir = path6.join(planDir, REVIEW_DIR_NAME);
+  const reviewFile = path6.join(reviewDir, REVIEW_FILE_NAME);
   try {
-    fs6.mkdirSync(roundDir, { recursive: true });
+    fs6.mkdirSync(reviewDir, { recursive: true });
   } catch (error) {
     return {
       kind: "infrastructure-failure",
-      detail: `Could not create the review round directory ${roundDir}: ${errorMessage2(error)}`
+      detail: `Could not create the review directory ${reviewDir}: ${errorMessage2(error)}`
     };
   }
-  const staleArtifacts = [reviewFile, path6.join(roundDir, TRANSCRIPT_FILE_NAME)];
+  const staleArtifacts = [reviewFile, path6.join(reviewDir, TRANSCRIPT_FILE_NAME)];
   for (const stale of staleArtifacts) {
     try {
       fs6.rmSync(stale, { force: true });
     } catch (error) {
       return {
         kind: "infrastructure-failure",
-        detail: `Could not remove the stale round artifact ${stale}: ${errorMessage2(error)}`
+        detail: `Could not remove the stale review artifact ${stale}: ${errorMessage2(error)}`
       };
     }
   }
@@ -1479,9 +1305,7 @@ var runReviewRound = async (request, overrides = {}) => {
     hookContent,
     xsdFile,
     baseCommit,
-    round: request.round,
     diff,
-    adjudicatedFindings: request.adjudicatedFindings ?? _readPriorAdjudicated(planDir, request.round),
     skillInstructions: readReviewerSkill(),
     deliveryToken
   });
@@ -1493,95 +1317,56 @@ var runReviewRound = async (request, overrides = {}) => {
     return {
       kind: "fallback",
       harness,
-      round: request.round,
       reason: dispatched.reason,
       detail: dispatched.detail
     };
   }
   if (dispatched.kind === "launched-failure") {
-    writeTranscript(roundDir, dispatched.stdout);
+    writeTranscript(reviewDir, dispatched.stdout);
     return {
       kind: "launched-failure",
       harness,
-      round: request.round,
       reviewFile,
       exitCode: dispatched.exitCode,
       detail: `The ${harness} reviewer exited ${dispatched.exitCode}.`
     };
   }
-  const evaluate = dependencies2.evaluateFindings ?? createFindingsGate(mandate);
+  const evaluate = dependencies2.evaluateFindings ?? createFindingsGate();
   const findingsGate = await evaluate({
     reviewFile,
     xsdFile,
     planDir,
-    round: request.round,
     reviewerStdout: dispatched.stdout ?? "",
     deliveryToken
   });
   if (findingsGate.kind !== "evaluated") {
-    writeTranscript(roundDir, dispatched.stdout);
+    writeTranscript(reviewDir, dispatched.stdout);
   }
   return {
     kind: "reviewed",
     harness,
-    round: request.round,
     baseCommit,
     reviewFile,
     reviewFilePresent: fs6.existsSync(reviewFile),
+    verdict: _verdictFor(findingsGate),
     findingsGate
   };
 };
-var _decideRound = (outcome, round, roundBudget) => {
+var _verdictFor = (outcome) => {
   if (outcome.kind !== "evaluated") {
-    return { kind: "round-failed", detail: outcome.detail };
+    return { kind: "review-failed", detail: outcome.detail };
   }
-  const recorded = `${outcome.recorded} finding(s) were recorded without being applied, of which ${outcome.aboveFloorWithoutSuggestion} cleared both floors but carried no local fix. See ${outcome.findingsFile}.`;
-  if (outcome.actionable === 0) {
+  const { counts, findingsFile } = outcome;
+  if (counts.total === 0) {
     return {
-      kind: "gate-passed",
-      detail: `No finding cleared the \`${outcome.severityFloor}\` severity floor and the \`${outcome.confidenceFloor}\` confidence floor with a local fix attached, so the review gate passed on round ${round}. ${recorded}`
+      kind: "review-recorded",
+      detail: `The reviewer raised no findings. See ${findingsFile}.`
     };
   }
-  if (round >= roundBudget) {
-    return {
-      kind: "budget-exhausted",
-      actionable: outcome.actionable,
-      detail: `Round ${round} of an enforced ${roundBudget}-round budget still reports ${outcome.actionable} actionable finding(s), so the review gate halts with the budget exhausted. The plan stays in \`plans/\` and every round's findings are recorded under its \`review/\` directory. ${recorded}`
-    };
-  }
+  const byLabel = SEVERITIES.filter((label) => counts[label] > 0).map((label) => `${counts[label]} ${label}`).concat(counts.unlabelled > 0 ? [`${counts.unlabelled} unlabelled`] : []).join(", ");
   return {
-    kind: "fix-and-continue",
-    nextRound: round + 1,
-    actionable: outcome.actionable,
-    detail: `${outcome.actionable} finding(s) clear both floors and carry a local fix. Dispatch them on the implementer route, re-run POST_EXECUTION in full, then run round ${round + 1} of ${roundBudget}. ${recorded}`
-  };
-};
-var runBoundedReviewRound = async (request, overrides = {}) => {
-  const startPath = request.startPath ?? process.cwd();
-  const resolution = resolveReviewContext(
-    startPath,
-    { ...defaultDependencies2, ...overrides }.validatorAvailable
-  );
-  if (resolution.kind === "ended") return resolution.result;
-  const { mandate } = resolution.context;
-  if (request.round > mandate.roundBudget) {
-    return {
-      kind: "budget-exhausted",
-      round: request.round,
-      roundBudget: mandate.roundBudget,
-      roundCeiling: MAX_REVIEW_ROUNDS,
-      mandateNotes: mandate.notes,
-      detail: `Round ${request.round} was requested, but the review gate enforces a ${mandate.roundBudget}-round budget (compiled ceiling ${MAX_REVIEW_ROUNDS}). No reviewer was dispatched. The plan stays in \`plans/\` and the rounds already run are recorded under its \`review/\` directory.`
-    };
-  }
-  const result = await runReviewRound(request, overrides);
-  if (result.kind !== "reviewed") return result;
-  return {
-    ...result,
-    decision: _decideRound(result.findingsGate, request.round, mandate.roundBudget),
-    roundBudget: mandate.roundBudget,
-    roundCeiling: MAX_REVIEW_ROUNDS,
-    mandateNotes: mandate.notes
+    kind: "review-recorded",
+    detail: `The reviewer raised ${counts.total} finding(s) (${byLabel}). They are recorded, not applied: read them and decide which to act on. See ${findingsFile}.`
   };
 };
 var emit = (result, exitCode) => {
@@ -1592,34 +1377,23 @@ var emit = (result, exitCode) => {
 var _exitCodeFor = (result) => {
   if (result.kind === "infrastructure-failure") return 2;
   if (result.kind === "launched-failure") return 1;
-  if (result.kind === "budget-exhausted") return 1;
-  if (result.kind === "reviewed" && result.decision !== void 0) {
-    return result.decision.kind === "budget-exhausted" || result.decision.kind === "round-failed" ? 1 : 0;
-  }
+  if (result.kind === "reviewed") return result.verdict.kind === "review-failed" ? 1 : 0;
   return 0;
 };
 var main = async (startPath = process.cwd()) => {
-  const [planArg, harnessArg, roundArg] = process.argv.slice(2);
+  const [planArg, harnessArg] = process.argv.slice(2);
   if (!planArg || !harnessArg || !SUPPORTED_HARNESSES.includes(harnessArg)) {
     emit(
       {
         kind: "infrastructure-failure",
-        detail: `Usage: code-review.cjs <plan-id-or-path> <current-harness> [round]. <current-harness> is one of: ${SUPPORTED_HARNESSES.join(", ")}.`
+        detail: `Usage: code-review.cjs <plan-id-or-path> <current-harness>. <current-harness> is one of: ${SUPPORTED_HARNESSES.join(", ")}.`
       },
       2
     );
   }
-  const round = roundArg === void 0 ? 1 : Number(roundArg);
-  if (!Number.isInteger(round) || round < 1) {
-    emit(
-      { kind: "infrastructure-failure", detail: `Round "${roundArg}" is not a positive integer.` },
-      2
-    );
-  }
-  const result = await runBoundedReviewRound({
+  const result = await runReview({
     plan: planArg,
     currentHarness: harnessArg,
-    round,
     startPath
   });
   emit(result, _exitCodeFor(result));
@@ -1637,18 +1411,14 @@ if (require.main === module) {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  MAX_REVIEW_ROUNDS,
-  _decideRound,
   _exitCodeFor,
   _extractReviewDocument,
   _makeDeliveryToken,
   _readBaseCommit,
   _readCumulativeDiff,
-  _readPriorAdjudicated,
+  _verdictFor,
   buildReviewerPrompt,
   createFindingsGate,
   main,
-  parseReviewMandate,
-  runBoundedReviewRound,
-  runReviewRound
+  runReview
 });

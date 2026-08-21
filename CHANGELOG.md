@@ -1,3 +1,8 @@
+## 3.18.0 (2026-08-21)
+
+* feat: make the code review gate report-only (#82) ([1d437a1](https://github.com/e0ipso/strikethroo/commit/1d437a1)), closes [#82](https://github.com/e0ipso/strikethroo/issues/82)
+* chore: update devcontainer for CLI compatibility ([6190a58](https://github.com/e0ipso/strikethroo/commit/6190a58))
+
 ## <small>3.17.2 (2026-08-08)</small>
 
 * fix(review-gate): make stdout the sole findings channel (#81) ([4887998](https://github.com/e0ipso/strikethroo/commit/4887998)), closes [#81](https://github.com/e0ipso/strikethroo/issues/81)

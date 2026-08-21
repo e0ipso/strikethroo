@@ -94,7 +94,8 @@ describe('dispatch task execution entrypoint', () => {
     const config = path.join(configDir, 'config.yaml');
     fs.writeFileSync(
       config,
-      'execution_routing:\n  profiles:\n    remote:\n      description: Remote route.\n      models:\n        - model: exact/model\n          harness: claude\n'
+      'harnesses:\n  claude:\n    cli_args:\n      - --resolved-permission\n' +
+        'execution_routing:\n  profiles:\n    remote:\n      description: Remote route.\n      models:\n        - model: exact/model\n          harness: claude\n'
     );
     fs.writeFileSync(
       path.join(directory, 'claude'),
@@ -110,7 +111,12 @@ process.stdin.on('end', () => {
     return;
   }
   const match = /STRIKETHROO_EVIDENCE=(\\{[^\\n]+\\})/.exec(stdin);
-  if (!match) return;
+  if (!match) {
+    if (stdin.includes('Strikethroo external task dispatch')) {
+      fs.writeFileSync(path.join(process.cwd(), 'launched-argv.json'), JSON.stringify(process.argv.slice(2)));
+    }
+    return;
+  }
   const evidence = JSON.parse(match[1]);
   if (evidence.phase === 'create') {
     fs.writeFileSync(path.join(process.cwd(), evidence.create.file), evidence.create.content);
@@ -138,7 +144,20 @@ process.stdin.on('end', () => {
       handoff: expect.any(String),
     });
 
-    fs.writeFileSync(config, 'execution_routing:\n  profiles: {}\n');
+    const decoded = JSON.parse(Buffer.from(route.handoff, 'base64url').toString('utf8')) as {
+      cliArgs: string[];
+      cliArgsHash: string;
+      executableIdentity: string;
+    };
+    expect(decoded.cliArgs).toEqual(['--resolved-permission']);
+    expect(decoded.cliArgsHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(decoded.executableIdentity).toBe(path.join(directory, 'claude'));
+
+    fs.writeFileSync(
+      config,
+      'harnesses:\n  claude:\n    cli_args:\n      - --drifted-permission\n' +
+        'execution_routing:\n  profiles: {}\n'
+    );
     const executed = run(
       bundle,
       ['execute', route.handoff, taskFile, 'codex', directory, '12', '3'],
@@ -146,5 +165,86 @@ process.stdin.on('end', () => {
     );
     expect(executed.status, executed.stdout).toBe(0);
     expect(JSON.parse(executed.stdout)).toEqual({ kind: 'launched-success', exitCode: 0 });
+    expect(JSON.parse(fs.readFileSync(path.join(directory, 'launched-argv.json'), 'utf8'))).toEqual(
+      ['-p', '--resolved-permission', '--model', 'exact/model']
+    );
+  });
+
+  it('fails external resolution when local harness configuration is malformed', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'st-dispatch-'));
+    const bundle = makeBundle(directory);
+    fs.mkdirSync(path.join(directory, '.ai/strikethroo/config'), { recursive: true });
+    fs.writeFileSync(
+      path.join(directory, '.ai/strikethroo/config/config.yaml'),
+      'harnesses:\n  claude:\n    cli_args: --dangerously-skip-permissions\n' +
+        'execution_routing:\n  profiles:\n    remote:\n      description: Remote route.\n      models:\n        - model: exact/model\n          harness: claude\n'
+    );
+    const taskFile = path.join(directory, 'task.md');
+    fs.writeFileSync(
+      taskFile,
+      '---\nid: 3\nstatus: pending\nexecution_profile: remote\n---\n# Task\n'
+    );
+
+    const result = run(bundle, ['resolve', taskFile, 'codex', directory, '12', '3']);
+
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      kind: 'fallback',
+      reason: 'invalid-execution',
+      detail: expect.stringContaining('Harness invocation configuration is invalid'),
+    });
+  });
+
+  it('keeps current-harness targets native when external configuration is malformed', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'st-dispatch-'));
+    const bundle = makeBundle(directory);
+    fs.mkdirSync(path.join(directory, '.ai/strikethroo/config'), { recursive: true });
+    fs.writeFileSync(
+      path.join(directory, '.ai/strikethroo/config/config.yaml'),
+      'harnesses:\n  claude:\n    cli_args: invalid-scalar\n' +
+        'execution_routing:\n  profiles:\n    native:\n      description: Native route.\n      models:\n        - model: native/model\n          harness: codex\n'
+    );
+    const taskFile = path.join(directory, 'task.md');
+    fs.writeFileSync(
+      taskFile,
+      '---\nid: 3\nstatus: pending\nexecution_profile: native\n---\n# Task\n'
+    );
+
+    const result = run(bundle, ['resolve', taskFile, 'codex', directory, '12', '3']);
+
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({
+      kind: 'native-override',
+      model: 'native/model',
+    });
+  });
+
+  it('rejects a handoff whose bound arguments no longer match its hash', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'st-dispatch-'));
+    const bundle = makeBundle(directory);
+    const taskFile = path.join(directory, 'task.md');
+    fs.writeFileSync(taskFile, '---\nid: 3\nstatus: pending\n---\n# Task\n');
+    const handoff = Buffer.from(
+      JSON.stringify({
+        version: 2,
+        kind: 'external-override',
+        harness: 'claude',
+        model: 'exact/model',
+        cliArgs: ['--changed'],
+        cliArgsHash: '0'.repeat(64),
+        executableIdentity: path.join(directory, 'claude'),
+        executableVersion: 'fake 1.0',
+        normalizationVersion: 1,
+        probeRegistryVersion: 2,
+      })
+    ).toString('base64url');
+
+    const result = run(bundle, ['execute', handoff, taskFile, 'codex', directory, '12', '3']);
+
+    expect(result.status).toBe(2);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      kind: 'infrastructure-failure',
+      detail: expect.stringContaining('invalid shape'),
+    });
   });
 });

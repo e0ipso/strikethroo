@@ -96,6 +96,49 @@ describe('harness discovery', () => {
     );
   });
 
+  it('binds configured arguments and executable identity to reviewer candidates', async () => {
+    fs.mkdirSync(path.join(root, 'config'), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, 'config/config.yaml'),
+      'harnesses:\n  codex:\n    cli_args:\n      - --sandbox\n      - workspace-write\n'
+    );
+    const dependencies = successfulDependencies();
+
+    const result = await discoverHarnesses(request(), {
+      ...dependencies,
+      now: () => 1_000_000,
+    });
+
+    expect(result.reviewerInvocations?.codex).toMatchObject({
+      cliArgs: ['--sandbox', 'workspace-write'],
+      executableIdentity: '/fake/bin/codex',
+      executableVersion: 'fake-cli 1.0',
+      normalizationVersion: 1,
+      probeRegistryVersion: 2,
+    });
+    const configuredCommand = dependencies.runProbe.mock.calls.find(
+      ([, , stage]) => stage === 'configured-invocation'
+    )?.[0];
+    expect(configuredCommand.argv).toEqual(['exec', '--sandbox', 'workspace-write', '-']);
+  });
+
+  it('reports invalid local configuration without probing external harnesses', async () => {
+    fs.mkdirSync(path.join(root, 'config'), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, 'config/config.yaml'),
+      'harnesses:\n  codex:\n    cli_args: --sandbox workspace-write\n'
+    );
+    const dependencies = successfulDependencies();
+
+    const result = await discoverHarnesses(request(), dependencies);
+
+    expect(result.configurationErrors?.join(' ')).toContain(
+      'harnesses.codex.cli_args must be an array'
+    );
+    expect(result.reviewerCandidates).toEqual([]);
+    expect(dependencies.runProbe).not.toHaveBeenCalled();
+  });
+
   it('serves expensive stages from cache after rechecking executable versions', async () => {
     const dependencies = successfulDependencies();
     const now = () => 5_000;

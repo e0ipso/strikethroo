@@ -722,6 +722,14 @@ export const runReview = async (
     workspace,
     currentHarness: request.currentHarness,
   });
+  if (discovery.configurationErrors !== undefined) {
+    return {
+      kind: 'infrastructure-failure',
+      detail: `Harness invocation configuration is invalid: ${discovery.configurationErrors.join(
+        ' '
+      )}`,
+    };
+  }
   const harness = discovery.reviewerCandidates[0];
   if (harness === undefined) {
     return skip(
@@ -806,7 +814,18 @@ export const runReview = async (
     deliveryToken,
   });
 
-  const dispatched = await dependencies.dispatch({ harness, workspace, prompt });
+  const invocation = discovery.reviewerInvocations?.[harness];
+  const dispatched = await dependencies.dispatch({
+    harness,
+    workspace,
+    prompt,
+    ...(invocation === undefined
+      ? {}
+      : {
+          cliArgs: invocation.cliArgs,
+          executableIdentity: invocation.executableIdentity,
+        }),
+  });
   if (dispatched.kind === 'infrastructure-failure') {
     return { kind: 'infrastructure-failure', detail: dispatched.detail };
   }

@@ -301,6 +301,32 @@ describe('model-optional review dispatch (buildReviewCommand / dispatchReview)',
     expect(launchedStdin).toBe('Review this diff for defects.');
   });
 
+  it('launches the exact executable and local arguments proven during discovery', async () => {
+    const executableExists = vi.fn(() => true);
+    const authenticate = vi.fn(async () => ({ ok: true }));
+    const launch = vi.fn(async () => ({ exitCode: 0 }));
+
+    await dispatchReview(
+      {
+        harness: 'codex',
+        cliArgs: ['--sandbox', 'workspace-write'],
+        executableIdentity: '/opt/codex/bin/codex',
+        workspace: '/w',
+        prompt: 'Review this diff.',
+      },
+      { executableExists, authenticate, launch }
+    );
+
+    expect(executableExists).toHaveBeenCalledWith('/opt/codex/bin/codex');
+    expect(authenticate.mock.calls[0]?.[0]).toMatchObject({
+      executable: '/opt/codex/bin/codex',
+    });
+    expect(launch.mock.calls[0]?.[0]).toMatchObject({
+      executable: '/opt/codex/bin/codex',
+      argv: ['exec', '--sandbox', 'workspace-write', '-'],
+    });
+  });
+
   /**
    * Stdout capture is scoped to the review path and nothing else. Asserted at
    * the launcher seam rather than by spawning a real process: what matters is

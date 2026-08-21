@@ -5,15 +5,30 @@ import matter from 'gray-matter';
 import { SUPPORTED_HARNESSES, type Harness } from '../types';
 import { selectDispatchTarget } from './shared/dispatch-target-selector';
 import { dispatchExternalTask, type RoutedDispatchRequest } from './shared/external-dispatch';
-import { checkHarnessAvailability } from './shared/harness-availability';
+import {
+  AVAILABILITY_REGISTRY_VERSION,
+  checkHarnessAvailability,
+} from './shared/harness-availability';
+import {
+  HARNESS_CONFIGURATION_NORMALIZATION_VERSION,
+  hashHarnessCliArgs,
+  loadHarnessConfiguration,
+  type NormalizedHarnessInvocation,
+} from './shared/harness-configuration';
 import { loadRoutingConfig } from './shared/execution-routing';
 
 interface ExternalHandoff {
-  version: 1;
+  version: 2;
   kind: 'external-override';
   harness: Harness;
   model: string;
   reasoningEffort?: string;
+  cliArgs: string[];
+  cliArgsHash: string;
+  executableIdentity: string;
+  executableVersion: string;
+  normalizationVersion: number;
+  probeRegistryVersion: number;
 }
 
 type ResolvedRoute =
@@ -33,7 +48,7 @@ const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
 const encodeHandoff = (route: Omit<ExternalHandoff, 'version'>): string =>
-  Buffer.from(JSON.stringify({ version: 1, ...route }), 'utf8').toString('base64url');
+  Buffer.from(JSON.stringify({ version: 2, ...route }), 'utf8').toString('base64url');
 
 const decodeHandoff = (encoded: string): ExternalHandoff => {
   let raw: unknown;
@@ -46,16 +61,51 @@ const decodeHandoff = (encoded: string): ExternalHandoff => {
     throw new Error('Resolved execution handoff must be an object.');
   }
   const value = raw as Record<string, unknown>;
-  const allowed = ['version', 'kind', 'harness', 'model', 'reasoningEffort'];
+  const allowed = [
+    'version',
+    'kind',
+    'harness',
+    'model',
+    'reasoningEffort',
+    'cliArgs',
+    'cliArgsHash',
+    'executableIdentity',
+    'executableVersion',
+    'normalizationVersion',
+    'probeRegistryVersion',
+  ];
+  const cliArgsValid =
+    Array.isArray(value.cliArgs) &&
+    value.cliArgs.every(
+      argument => typeof argument === 'string' && argument.length > 0 && !argument.includes('\0')
+    );
   if (
     Object.keys(value).some(key => !allowed.includes(key)) ||
-    value.version !== 1 ||
+    value.version !== 2 ||
     value.kind !== 'external-override' ||
     typeof value.harness !== 'string' ||
     !SUPPORTED_HARNESSES.includes(value.harness as Harness) ||
     typeof value.model !== 'string' ||
     value.model.length === 0 ||
-    ('reasoningEffort' in value && typeof value.reasoningEffort !== 'string')
+    ('reasoningEffort' in value && typeof value.reasoningEffort !== 'string') ||
+    !cliArgsValid ||
+    typeof value.cliArgsHash !== 'string' ||
+    !/^[a-f0-9]{64}$/.test(value.cliArgsHash) ||
+    typeof value.executableIdentity !== 'string' ||
+    !path.isAbsolute(value.executableIdentity) ||
+    typeof value.executableVersion !== 'string' ||
+    value.executableVersion.length === 0 ||
+    value.normalizationVersion !== HARNESS_CONFIGURATION_NORMALIZATION_VERSION ||
+    value.probeRegistryVersion !== AVAILABILITY_REGISTRY_VERSION
+  ) {
+    throw new Error('Resolved execution handoff has an invalid shape.');
+  }
+  if (
+    hashHarnessCliArgs(
+      value.harness as Harness,
+      value.cliArgs as string[],
+      value.normalizationVersion
+    ) !== value.cliArgsHash
   ) {
     throw new Error('Resolved execution handoff has an invalid shape.');
   }
@@ -65,15 +115,27 @@ const decodeHandoff = (encoded: string): ExternalHandoff => {
 const externalRoute = (
   harness: Harness,
   model: string,
+  invocation: NormalizedHarnessInvocation,
+  executableIdentity: string,
+  executableVersion: string,
   reasoningEffort?: string
 ): ResolvedRoute => {
-  const exact = {
+  const route = {
     kind: 'external-override' as const,
     harness,
     model,
     ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
   };
-  return { ...exact, handoff: encodeHandoff(exact) };
+  const bound = {
+    ...route,
+    cliArgs: [...invocation.cliArgs],
+    cliArgsHash: invocation.cliArgsHash,
+    executableIdentity,
+    executableVersion,
+    normalizationVersion: HARNESS_CONFIGURATION_NORMALIZATION_VERSION,
+    probeRegistryVersion: AVAILABILITY_REGISTRY_VERSION,
+  };
+  return { ...route, handoff: encodeHandoff(bound) };
 };
 
 const readProfile = (taskMarkdown: string): string | undefined => {
@@ -111,6 +173,7 @@ export const resolveDispatchRoute = async (
 
   const avoided = new Set<string>();
   const unavailable: string[] = [];
+  let harnessConfiguration: ReturnType<typeof loadHarnessConfiguration> | undefined;
   const candidateCount =
     configResult.config.profiles.find(candidate => candidate.name === profile)?.targets.length ?? 0;
   for (let attempt = 0; attempt < Math.max(1, candidateCount); attempt += 1) {
@@ -131,14 +194,38 @@ export const resolveDispatchRoute = async (
           : { reasoningEffort: selection.target.reasoning_effort }),
       };
     }
+    harnessConfiguration ??= loadHarnessConfiguration(request.strikethrooRoot);
+    if (harnessConfiguration.kind === 'invalid') {
+      return {
+        kind: 'fallback',
+        reason: 'invalid-execution',
+        detail: `Harness invocation configuration is invalid: ${harnessConfiguration.errors.join(
+          ' '
+        )}`,
+      };
+    }
+    const invocation = harnessConfiguration.config[harness];
     const availability = await checkHarnessAvailability({
       strikethrooRoot: request.strikethrooRoot,
       workspace: request.workspace,
       harness,
       currentHarness: request.currentHarness,
+      invocation,
     });
-    if (availability.available) {
-      return externalRoute(harness, selection.target.model, selection.target.reasoning_effort);
+    if (
+      availability.available &&
+      availability.cliArgsHash === invocation.cliArgsHash &&
+      availability.executableIdentity !== undefined &&
+      availability.executableVersion !== undefined
+    ) {
+      return externalRoute(
+        harness,
+        selection.target.model,
+        invocation,
+        availability.executableIdentity,
+        availability.executableVersion,
+        selection.target.reasoning_effort
+      );
     }
     unavailable.push(
       `${harness} (${availability.source === 'probe' ? 'fresh' : availability.source})`
@@ -207,6 +294,8 @@ const main = async (): Promise<void> => {
   // discovery-driven review path.
   const routed: RoutedDispatchRequest = {
     harness: handoff.harness,
+    cliArgs: handoff.cliArgs,
+    executableIdentity: handoff.executableIdentity,
     model: handoff.model,
     ...(handoff.reasoningEffort === undefined ? {} : { reasoningEffort: handoff.reasoningEffort }),
     workspace: path.resolve(validWorkspace),

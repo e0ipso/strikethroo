@@ -19,6 +19,8 @@ export interface ExternalDispatchRequest {
   harness: Harness;
   /** Exact local argv elements loaded from the normalized harness configuration. */
   cliArgs?: readonly string[];
+  /** Absolute executable path proven ready during route resolution. */
+  executableIdentity?: string;
   /**
    * An exact model identifier, or absent to let the harness CLI use its own
    * configured default. Absence exists for discovery-driven dispatch, which
@@ -54,6 +56,8 @@ export interface ReviewDispatchRequest {
   harness: Harness;
   /** The same local harness baseline used for task dispatch and readiness. */
   cliArgs?: readonly string[];
+  /** Absolute executable path proven ready during reviewer discovery. */
+  executableIdentity?: string;
   workspace: string;
   prompt: string;
 }
@@ -66,6 +70,7 @@ export interface ReviewDispatchRequest {
  */
 export interface DispatchCommandRequest {
   readonly cliArgs: readonly string[];
+  executableIdentity?: string;
   model?: string;
   reasoningEffort?: string;
   workspace: string;
@@ -79,6 +84,10 @@ export interface StructuredCommand {
   stdin: string;
 }
 
+/**
+ * `launched-success` means only that the external process exited zero. Durable
+ * task status and verification evidence remain the task-completion authority.
+ */
 export type ExternalDispatchResult =
   | { kind: 'launched-success'; exitCode: 0; stdout?: string }
   | { kind: 'launched-failure'; exitCode: number; stdout?: string }
@@ -132,7 +141,7 @@ const command = (
   argv: string[],
   request: DispatchCommandRequest
 ): StructuredCommand => ({
-  executable,
+  executable: request.executableIdentity ?? executable,
   argv,
   cwd: request.workspace,
   stdin: request.prompt,
@@ -238,6 +247,7 @@ if (adapterKeys.join('\0') !== harnessKeys.join('\0')) {
 
 const taskCommandRequest = (request: ExternalDispatchRequest): DispatchCommandRequest => ({
   cliArgs: request.cliArgs ?? [],
+  executableIdentity: request.executableIdentity,
   model: request.model,
   reasoningEffort: request.reasoningEffort,
   workspace: request.workspace,
@@ -246,6 +256,7 @@ const taskCommandRequest = (request: ExternalDispatchRequest): DispatchCommandRe
 
 const reviewCommandRequest = (request: ReviewDispatchRequest): DispatchCommandRequest => ({
   cliArgs: request.cliArgs ?? [],
+  executableIdentity: request.executableIdentity,
   workspace: request.workspace,
   prompt: request.prompt,
 });
@@ -265,15 +276,17 @@ export const buildReviewCommand = (request: ReviewDispatchRequest): StructuredCo
 /** Whether a bare executable name resolves on `PATH`. Shared so callers do not
  * each reimplement PATH scanning. */
 export const executableOnPath = (executable: string): boolean =>
-  (process.env.PATH ?? '').split(path.delimiter).some(directory => {
-    if (!directory) return false;
-    const candidate = path.join(directory, executable);
-    try {
-      return fs.statSync(candidate).isFile();
-    } catch {
-      return false;
+  (/[\\/]/.test(executable) ? [''] : (process.env.PATH ?? '').split(path.delimiter)).some(
+    directory => {
+      if (!directory && !/[\\/]/.test(executable)) return false;
+      const candidate = directory === '' ? executable : path.join(directory, executable);
+      try {
+        return fs.statSync(candidate).isFile();
+      } catch {
+        return false;
+      }
     }
-  });
+  );
 
 /**
  * Whether the CLI for a harness is installed on this machine, keyed by the
@@ -424,11 +437,12 @@ const prepareLaunch = async (
   }
   const blocked = guard?.();
   if (blocked) return blocked;
-  if (!active.executableExists(adapter.executable)) {
+  const executable = input.executableIdentity ?? adapter.executable;
+  if (!active.executableExists(executable)) {
     return {
       kind: 'fallback',
       reason: 'executable-unavailable',
-      detail: `${adapter.executable} is unavailable.`,
+      detail: `${executable} is unavailable.`,
     };
   }
   const commandSpec = adapter.buildCommand(input);

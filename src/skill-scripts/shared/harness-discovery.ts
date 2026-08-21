@@ -1,9 +1,14 @@
 import { SUPPORTED_HARNESSES, type Harness } from '../../types';
 import {
   checkHarnessAvailability,
+  AVAILABILITY_REGISTRY_VERSION,
   type HarnessAvailabilityDependencies,
   type HarnessAvailabilityOutcome,
 } from './harness-availability';
+import {
+  HARNESS_CONFIGURATION_NORMALIZATION_VERSION,
+  loadHarnessConfiguration,
+} from './harness-configuration';
 
 /**
  * Harness discovery: "which harnesses are installed and responsive right
@@ -26,6 +31,22 @@ export interface HarnessDiscoveryResult {
   outcomes: HarnessAvailabilityOutcome[];
   /** Reachable harnesses excluding the current one — the reviewer candidates. */
   reviewerCandidates: Harness[];
+  /** Exact invocation identity that made each external reviewer candidate ready. */
+  reviewerInvocations?: Partial<
+    Record<
+      Harness,
+      {
+        cliArgs: readonly string[];
+        cliArgsHash: string;
+        executableIdentity: string;
+        executableVersion: string;
+        normalizationVersion: number;
+        probeRegistryVersion: number;
+      }
+    >
+  >;
+  /** Invalid local configuration prevents external discovery from proceeding. */
+  configurationErrors?: readonly string[];
 }
 
 /**
@@ -41,6 +62,27 @@ export const discoverHarnesses = async (
   request: DiscoverHarnessesRequest,
   overrides: Partial<HarnessAvailabilityDependencies> = {}
 ): Promise<HarnessDiscoveryResult> => {
+  const configuration = loadHarnessConfiguration(request.strikethrooRoot);
+  if (configuration.kind === 'invalid') {
+    const now = (overrides.now ?? Date.now)();
+    return {
+      outcomes: SUPPORTED_HARNESSES.map(harness => ({
+        harness,
+        available: harness === request.currentHarness,
+        observedAt: now,
+        expiresAt: now,
+        reason:
+          harness === request.currentHarness
+            ? 'Native/current harness targets do not require a probe.'
+            : 'Harness configuration is invalid.',
+        source: harness === request.currentHarness ? ('bypass' as const) : ('probe' as const),
+        ...(harness === request.currentHarness ? {} : { readinessStage: 'configuration' as const }),
+      })),
+      reviewerCandidates: [],
+      configurationErrors: configuration.errors,
+    };
+  }
+
   const outcomes = await Promise.all(
     SUPPORTED_HARNESSES.map(async harness => {
       try {
@@ -50,6 +92,7 @@ export const discoverHarnesses = async (
             workspace: request.workspace,
             harness,
             currentHarness: request.currentHarness,
+            invocation: configuration.config[harness],
           },
           overrides
         );
@@ -73,5 +116,32 @@ export const discoverHarnesses = async (
     return outcome?.available === true;
   });
 
-  return { outcomes, reviewerCandidates };
+  const reviewerInvocations = Object.fromEntries(
+    reviewerCandidates.flatMap(harness => {
+      const outcome = outcomes.find(candidate => candidate.harness === harness);
+      const invocation = configuration.config[harness];
+      if (
+        outcome?.executableIdentity === undefined ||
+        outcome.executableVersion === undefined ||
+        outcome.cliArgsHash !== invocation.cliArgsHash
+      ) {
+        return [];
+      }
+      return [
+        [
+          harness,
+          {
+            cliArgs: invocation.cliArgs,
+            cliArgsHash: invocation.cliArgsHash,
+            executableIdentity: outcome.executableIdentity,
+            executableVersion: outcome.executableVersion,
+            normalizationVersion: HARNESS_CONFIGURATION_NORMALIZATION_VERSION,
+            probeRegistryVersion: AVAILABILITY_REGISTRY_VERSION,
+          },
+        ],
+      ];
+    })
+  );
+
+  return { outcomes, reviewerCandidates, reviewerInvocations };
 };

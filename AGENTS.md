@@ -22,7 +22,7 @@ npm run lint:fix      # Auto-fix style
 
 The CLI registers four commands (`src/cli.ts`): `init`, the nested `export profile`, `serve`, and `validate`. Every action stays thin — it parses flags, delegates to a module, and owns only the reporting and the exit code.
 
-The workflow itself ships as **Agent Skills** (harness-agnostic — one `SKILL.md` works on any harness supporting the format). Install once with `npx skills add e0ipso/strikethroo` (append `@<tag>` to pin); the matching skill auto-loads on intent.
+The workflow itself ships as **Agent Skills** (harness-agnostic — one `SKILL.md` works on any harness supporting the format). Install once with `npx skills add e0ipso/strikethroo` (append `#<tag>` to pin — `#` selects the git ref, `@` selects a skill name); the matching skill auto-loads on intent.
 
 ---
 
@@ -251,7 +251,7 @@ React + Vite + Tailwind v4 SPA built by `npm run build:web` (`vite.config.mts`) 
 
 **Adding a skill:** drop a TS entrypoint under `src/skill-scripts/`, add it to `SKILL_ENTRYPOINTS` (top of `build-skills.cjs`) as a four-element entry or (optionally) a five-element entry with a `banner` field to inject a header comment into the compiled bundle, add the path to `.claude-plugin/plugin.json`, create a source template in `src/skill-prompts/`. No other plumbing needed.
 
-**Generated artifacts force-added into the release commit** by `@semantic-release/git` (via `git add --force`, since they are git-ignored on `main`): the `.cjs` bundles under `templates/harness/skills/*/scripts/` and the assembled `SKILL.md` files under `templates/harness/skills/*/`. These must live at the tagged ref because `npx skills add e0ipso/strikethroo@<tag>` reads `templates/` directly from it. The prebuilt SPA `dist-web/` is **not** committed to git — it ships only via the npm package's `files: ["dist-web/"]` entry, built fresh by `prepublishOnly`/CI. Skill bundles/prompts also ship via `files: ["templates/"]`.
+**Generated artifacts force-added into the release commit** by `@semantic-release/git` (via `git add --force`, since they are git-ignored on `main`): the `.cjs` bundles under `templates/harness/skills/*/scripts/` and the assembled `SKILL.md` files under `templates/harness/skills/*/`. These must live on `main`, because a bare `npx skills add e0ipso/strikethroo` shallow-clones the repository's **default branch** and reads `templates/` from it. Because release commits land on `main`, the force-add is what puts them there; the tag is incidental. A pinned `npx skills add e0ipso/strikethroo#<tag>` reads that tag instead. The prebuilt SPA `dist-web/` is **not** committed to git — it ships only via the npm package's `files: ["dist-web/"]` entry, built fresh by `prepublishOnly`/CI. Skill bundles/prompts also ship via `files: ["templates/"]`.
 
 **Never commit either by hand.** Release automation owns both, so a hand-committed copy is churn at best and a lost edit at worst — `npm run build` overwrites each file wholesale, so a change made to a `SKILL.md` or a `.cjs` disappears at the next build. Edit `src/skill-prompts/` for prompts and `src/skill-scripts/` for bundles. Two guards enforce this, and they are the answer to "why aren't these just gitignored": they cannot be, because CI must be able to commit them.
 
@@ -264,7 +264,7 @@ Local rebuilds therefore leave a permanently dirty working tree for these paths.
 
 ## Distribution
 
-Skills are distributed via [vercel-labs/skills](https://github.com/vercel-labs/skills), which reads `.claude-plugin/plugin.json` at the repo root — a JSON manifest whose `skills:` array lists `./templates/harness/skills/<name>` entries (leading `./` required). Users run `npx skills add e0ipso/strikethroo` (`@<tag>` to pin), and the installer reads the tagged release ref.
+Skills are distributed via [vercel-labs/skills](https://github.com/vercel-labs/skills), which reads `.claude-plugin/plugin.json` at the repo root — a JSON manifest whose `skills:` array lists `./templates/harness/skills/<name>` entries (leading `./` required). Users run `npx skills add e0ipso/strikethroo`, which shallow-clones the repository's **default branch** — not the latest release tag. The installer takes a git ref only from a `#` fragment (`npx skills add e0ipso/strikethroo#v3.19.0`); an `@` suffix is parsed as a *skill-name filter*, not a version, so `…/strikethroo@v3.19.0` silently clones `main` and then looks for a skill literally named `v3.19.0`. Verify against `parseFragmentRef` and the `atSkillMatch` branch of `parseSource` in the `skills` package before changing anything that depends on ref resolution.
 
 Note the two sibling directories under `templates/harness/`: `skills/` is install-time content read by `npx skills add`; `agents/` is init-time content copied into `.claude/agents/` by `npx . init`. The CLI's `init` does not read `skills/`.
 
@@ -290,6 +290,7 @@ Absent values in older metadata are backfilled to `1` on read (both sides), so d
 Verify the invariant:
 
 ```bash
+git ls-tree -r origin/main -- 'templates/harness/skills/*/SKILL.md'   # expect: prompts listed (the bare install reads this)
 git ls-tree -r v<tag> -- 'templates/harness/skills/*/scripts/*.cjs'   # expect: bundles listed
 git ls-tree -r v<tag> -- 'templates/harness/skills/*/SKILL.md'        # expect: prompts listed
 git ls-tree -r v<tag> -- 'dist-web/*'                                 # expect: EMPTY (SPA ships via npm)

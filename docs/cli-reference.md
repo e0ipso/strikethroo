@@ -94,13 +94,15 @@ Separately, the **Self Review** action (`POST /api/self-review`) writes nothing 
 npx skills add e0ipso/strikethroo
 ```
 
-Installs the Agent Skills that implement the workflow. Skills are fetched from the repository's tagged release via the `.claude-plugin/plugin.json` manifest.
+Installs the Agent Skills that implement the workflow, resolved through the `.claude-plugin/plugin.json` manifest. Without a pin, the installer reads the repository's default branch, which always carries the current released skills.
 
-**Pin a specific version:**
+**Pin a specific version** — note the `#`, not `@`:
 
 ```bash
-npx skills add e0ipso/strikethroo@<tag>
+npx skills add e0ipso/strikethroo#v3.19.0
 ```
+
+An `@` suffix means something different: it filters by skill name, so `e0ipso/strikethroo@v3.19.0` does not pin a version.
 
 **Update skills:**
 

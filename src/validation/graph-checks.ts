@@ -12,7 +12,7 @@
  *
  * Cycle detection exists nowhere else in this repository. The acyclicity rule is
  * written down only as instructions to a language model
- * (`src/skill-prompts/sections/validation-checklist.md`, the
+ * (`src/skill-prompts/_partials/validation-checklist.md.hbs`, the
  * `POST_TASK_GENERATION_ALL` hook). Today a cycle is a display defect in the
  * viewer plus a permanent, undiagnosed "phase not ready" stall from
  * `collectTaskReadinessIssues` — which is why naming the participating task ids

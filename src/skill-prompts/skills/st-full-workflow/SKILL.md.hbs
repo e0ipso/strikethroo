@@ -1,14 +1,6 @@
 ---
 name: st-full-workflow
-description: "Use when the user asks to run the complete end-to-end Strikethroo workflow for a work order in one shot in this repository — triggers include full workflow, end-to-end, plan and execute, do everything, run the whole strikethroo workflow. Do not use when the user wants only one stage (create a plan, generate tasks, or execute a blueprint); use the dedicated skill for that stage instead."
-target: st-full-workflow
-vars:
-  action_verb_phrase: "execute the full workflow"
-  heading: "#####"
-  heading_parent: "####"
-  phase_step: "5"
-  summary_step: "7"
-  archive_step: "8"
+description: Use when the user asks to run the complete end-to-end Strikethroo workflow for a work order in one shot in this repository — triggers include full workflow, end-to-end, plan and execute, do everything, run the whole strikethroo workflow. Do not use when the user wants only one stage (create a plan, generate tasks, or execute a blueprint); use the dedicated skill for that stage instead.
 ---
 
 # st-full-workflow
@@ -50,7 +42,7 @@ These indicators are purely informational. Do not pause or wait for user input w
 
 #### 1. Locate the strikethroo root
 
-{{include sections/root-discovery.md}}
+{{> root-discovery action_verb_phrase="execute the full workflow"}}
 
 #### 2. Load project context
 
@@ -132,15 +124,15 @@ Read these files in order:
 
 #### 3. Analyze and decompose the plan
 
-{{include sections/task-minimization.md}}
+{{> task-minimization}}
 
 #### 4. Apply granularity and skill rules
 
-{{include sections/granularity-skill-rules.md}}
+{{> granularity-skill-rules}}
 
 #### 5. Test philosophy: "write a few tests, mostly integration"
 
-{{include sections/test-philosophy.md}}
+{{> test-philosophy}}
 
 #### 6. Dependency analysis
 
@@ -153,7 +145,7 @@ A task B depends on A if B requires A's output or artifacts, modifies code creat
 
 #### 7. Complexity analysis
 
-{{include sections/task-complexity-analysis.md}}
+{{> task-complexity-analysis}}
 
 #### 8. Allocate task IDs
 
@@ -163,15 +155,15 @@ The slug derives from a short task title: lowercase, alphanumeric and hyphens on
 
 #### 9. Emit the task files
 
-{{include sections/task-file-output.md}}
+{{> task-file-output}}
 
 #### 10. Validation checklist
 
-{{include sections/validation-checklist.md}}
+{{> validation-checklist}}
 
 #### 11. Route task execution
 
-{{include sections/task-execution-routing.md}}
+{{> task-execution-routing}}
 
 #### 12. Run the POST_TASK_GENERATION_ALL hook
 
@@ -240,11 +232,11 @@ Read these files in order:
 
 #### 5. Execute phases in order
 
-{{include sections/phase-execution-loop.md}}
+{{> phase-execution-loop heading="#####" phase_step="5"}}
 
 #### 6. Post-execution validation
 
-{{include sections/post-execution-archive.md}}
+{{> post-execution-archive heading="#####" heading_parent="####" summary_step="7" archive_step="8"}}
 
 **Progress**: `⬛⬛⬛ 100% - Step 3/3: Blueprint Execution Complete`
 

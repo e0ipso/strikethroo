@@ -1,9 +1,6 @@
 ---
 name: st-generate-tasks
-description: "Use when the user asks to decompose, break down, or generate tasks for an existing Strikethroo plan ID in this repository — triggers include generate tasks, break down the plan, decompose plan, create the task blueprint. Do not use to create a new plan, to execute tasks, or for generic project planning outside Strikethroo."
-target: st-generate-tasks
-vars:
-  action_verb_phrase: "generate tasks"
+description: Use when the user asks to decompose, break down, or generate tasks for an existing Strikethroo plan ID in this repository — triggers include generate tasks, break down the plan, decompose plan, create the task blueprint. Do not use to create a new plan, to execute tasks, or for generic project planning outside Strikethroo.
 ---
 
 # st-generate-tasks
@@ -23,11 +20,11 @@ prompt the user instead.
 
 ### 1. Locate the strikethroo root
 
-{{include sections/root-discovery.md}}
+{{> root-discovery action_verb_phrase="generate tasks"}}
 
 ### 2. Resolve the plan
 
-{{include sections/plan-resolution.md}}
+{{> plan-resolution}}
 
 ### 3. Load project context
 
@@ -43,7 +40,7 @@ Read these files, in order:
 
 ### 4. Analyze and decompose the plan
 
-{{include sections/task-minimization.md}}
+{{> task-minimization}}
 
 Apply `<root>/config/shared/anti-rationalization.md` to this rationalization table:
 
@@ -56,11 +53,11 @@ Apply `<root>/config/shared/anti-rationalization.md` to this rationalization tab
 
 ### 5. Apply granularity and skill rules
 
-{{include sections/granularity-skill-rules.md}}
+{{> granularity-skill-rules}}
 
 ### 6. Test philosophy: "write a few tests, mostly integration"
 
-{{include sections/test-philosophy.md}}
+{{> test-philosophy}}
 
 ### 7. Dependency analysis
 
@@ -75,7 +72,7 @@ final dependency graph is acyclic.
 
 ### 8. Complexity analysis
 
-{{include sections/task-complexity-analysis.md}}
+{{> task-complexity-analysis}}
 
 ### 9. Allocate task IDs
 
@@ -89,15 +86,15 @@ hyphens only, collapsed, trimmed.
 
 ### 10. Emit the task files
 
-{{include sections/task-file-output.md}}
+{{> task-file-output}}
 
 ### 11. Validation checklist
 
-{{include sections/validation-checklist.md}}
+{{> validation-checklist}}
 
 ### 12. Route task execution
 
-{{include sections/task-execution-routing.md}}
+{{> task-execution-routing}}
 
 ### 13. Run the POST_TASK_GENERATION_ALL hook
 

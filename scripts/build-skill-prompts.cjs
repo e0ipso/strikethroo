@@ -1,36 +1,119 @@
 #!/usr/bin/env node
 /**
- * Assembles SKILL.md files from composable source templates.
+ * Renders SKILL.md files from Handlebars source templates.
  *
- * Source templates live in src/skill-prompts/*.md with YAML frontmatter
- * declaring the target skill, description, and template variables.
- * Shared sections live in src/skill-prompts/sections/.
+ * Source layout mirrors the output layout, which is what lets the output path
+ * be derived rather than declared:
  *
- * Processing pipeline per template:
- *   1. Read file and parse YAML frontmatter
- *   2. Resolve {{include path}} directives (recursive, cycle-safe)
- *   3. Substitute {{variable}} placeholders from the vars map
- *   4. Reassemble frontmatter (name + description only) with processed body
- *   5. Write to templates/harness/skills/<target>/SKILL.md
- *   6. Run validation assertions
+ *   src/skill-prompts/_partials/<name>.md.hbs   shared, never shipped
+ *   src/skill-prompts/skills/<skill>/SKILL.md.hbs
+ *     -> templates/harness/skills/<skill>/SKILL.md
+ *
+ * Partials register under their path relative to `_partials/` with `.md.hbs`
+ * stripped, so a template pulls one in with `{{> name}}` and parameterizes it
+ * with call-site hash arguments (`{{> name arg="value"}}`).
+ *
+ * Frontmatter is pass-through: the source carries exactly `name` +
+ * `description`, which is exactly what ships, so the whole file is one template
+ * and there is nothing to parse and reconstruct.
+ *
+ * RENDER IN PLACE. Unlike the kenkeep reference implementation this is modelled
+ * on, this script must never wipe or copy its destination. `templates/` is
+ * mostly committed source (`templates/strikethroo/`, `templates/harness/agents/`),
+ * and the per-skill `scripts/` bundles under `templates/harness/skills/` are
+ * written by `build:skills` immediately before this script runs in the
+ * `npm run build` chain. The only
+ * write target here is `templates/harness/skills/<skill>/SKILL.md`. Any
+ * `rmSync`, `cpSync`, or `mkdirSync` against `templates/` is a defect.
+ *
+ * `_partials/` is never shipped, and that is structural rather than enforced:
+ * partials live only under `src/`, and nothing copies them.
  */
 
 const fs = require('fs');
 const path = require('path');
+const Handlebars = require('handlebars');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const SRC_DIR = path.join(REPO_ROOT, 'src', 'skill-prompts');
+const PARTIALS_DIR = path.join(SRC_DIR, '_partials');
+const TEMPLATES_DIR = path.join(SRC_DIR, 'skills');
 const SKILLS_ROOT = path.join(REPO_ROOT, 'templates', 'harness', 'skills');
+const SHIPPED_ROOT = path.join(REPO_ROOT, 'templates');
 
-const MAX_INCLUDE_DEPTH = 3;
+const PARTIAL_EXTENSION = '.md.hbs';
+const TEMPLATE_FILENAME = 'SKILL.md.hbs';
+
+// Markdown and shell text, not HTML: `&`, `<`, and `>` must reach the output
+// verbatim. ignoreStandalone keeps a partial tag from swallowing the blank
+// lines it sits between, so spacing stays exactly as authored.
+const COMPILE_OPTIONS = { noEscape: true, ignoreStandalone: true };
+
+const HTML_ENTITIES = ['&lt;', '&gt;', '&amp;'];
 
 // ---------------------------------------------------------------------------
-// YAML frontmatter parsing (lightweight, no external deps)
+// Filesystem helpers
+// ---------------------------------------------------------------------------
+
+function walkFiles(dir) {
+  const files = [];
+  for (const name of fs.readdirSync(dir).sort()) {
+    const full = path.join(dir, name);
+    const stat = fs.statSync(full);
+    if (stat.isDirectory()) files.push(...walkFiles(full));
+    else if (stat.isFile()) files.push(full);
+  }
+  return files;
+}
+
+// ---------------------------------------------------------------------------
+// Partial registration
 // ---------------------------------------------------------------------------
 
 /**
- * Splits a file into { frontmatter: string, body: string }.
- * Expects the file to start with `---\n`.
+ * Registers every `_partials/**\/*.md.hbs` under its path relative to
+ * `_partials/` with the extension stripped.
+ *
+ * Bodies are trimEnd()ed so authoring a trailing newline never shifts rendered
+ * output.
+ *
+ * @returns {string[]} Registered partial bodies, for the escaping tripwire.
+ */
+function registerPartials() {
+  if (!fs.existsSync(PARTIALS_DIR)) {
+    throw new Error(`Partials directory not found: ${PARTIALS_DIR}`);
+  }
+
+  const bodies = [];
+  for (const file of walkFiles(PARTIALS_DIR)) {
+    if (!file.endsWith(PARTIAL_EXTENSION)) {
+      throw new Error(
+        `Non-partial file in _partials/: ${path.relative(REPO_ROOT, file)}\n` +
+          `Every file under _partials/ must be a *${PARTIAL_EXTENSION} template.`
+      );
+    }
+    const name = path
+      .relative(PARTIALS_DIR, file)
+      .slice(0, -PARTIAL_EXTENSION.length)
+      .split(path.sep)
+      .join('/');
+    const body = fs.readFileSync(file, 'utf8').trimEnd();
+    Handlebars.registerPartial(name, body);
+    bodies.push(body);
+  }
+
+  if (bodies.length === 0) {
+    throw new Error(`No *${PARTIAL_EXTENSION} partials found in ${PARTIALS_DIR}`);
+  }
+  return bodies;
+}
+
+// ---------------------------------------------------------------------------
+// Validation
+// ---------------------------------------------------------------------------
+
+/**
+ * Splits a rendered file into { frontmatter, body }.
  */
 function splitFrontmatter(content) {
   if (!content.startsWith('---')) {
@@ -40,154 +123,35 @@ function splitFrontmatter(content) {
   if (end === -1) {
     throw new Error('Unterminated YAML frontmatter (no closing ---)');
   }
-  const frontmatter = content.slice(4, end); // skip opening "---\n"
-  const body = content.slice(end + 4); // skip closing "\n---"
-  return { frontmatter, body };
+  return { frontmatter: content.slice(4, end), body: content.slice(end + 4) };
 }
 
 /**
- * Parses the frontmatter block into { name, description, target, vars }.
- */
-function parseFrontmatter(raw) {
-  const result = { name: '', description: '', target: '', vars: {} };
-  const lines = raw.split('\n');
-  let inVars = false;
-
-  for (const line of lines) {
-    // Blank lines reset nested context
-    if (line.trim() === '') {
-      inVars = false;
-      continue;
-    }
-
-    // Indented line inside vars block
-    if (inVars && /^\s+/.test(line)) {
-      const m = line.match(/^\s+(\w+)\s*:\s*"?([^"]*)"?\s*$/);
-      if (m) {
-        result.vars[m[1]] = m[2];
-      }
-      continue;
-    }
-
-    // Top-level key
-    inVars = false;
-    const kv = line.match(/^(\w+)\s*:\s*(.*?)\s*$/);
-    if (!kv) continue;
-
-    const key = kv[1];
-    let value = kv[2];
-    // Strip surrounding quotes
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-
-    if (key === 'vars') {
-      inVars = true;
-      continue;
-    }
-
-    if (key === 'name') result.name = value;
-    else if (key === 'description') result.description = value;
-    else if (key === 'target') result.target = value;
-  }
-
-  return result;
-}
-
-// ---------------------------------------------------------------------------
-// Include resolution
-// ---------------------------------------------------------------------------
-
-/**
- * Recursively resolves {{include <relPath>}} directives.
- *
- * @param {string} content   - Text content to process
- * @param {string} basePath  - Directory for resolving relative include paths
- * @param {number} depth     - Current recursion depth
- * @param {Set<string>} seen - Absolute paths already in the include chain
- * @returns {string} Content with all includes resolved
- */
-function resolveIncludes(content, basePath, depth = 0, seen = new Set()) {
-  if (depth > MAX_INCLUDE_DEPTH) {
-    throw new Error(
-      `Max include depth (${MAX_INCLUDE_DEPTH}) exceeded. Check for deep or circular includes.`
-    );
-  }
-
-  return content.replace(
-    /^\{\{include (.+?)\}\}$/gm,
-    (_match, relPath) => {
-      const absPath = path.resolve(basePath, relPath.trim());
-
-      if (seen.has(absPath)) {
-        throw new Error(`Include cycle detected: ${absPath}`);
-      }
-
-      if (!fs.existsSync(absPath)) {
-        throw new Error(`Include file not found: ${absPath}`);
-      }
-
-      const childSeen = new Set(seen);
-      childSeen.add(absPath);
-
-      const included = fs.readFileSync(absPath, 'utf8').trimEnd();
-      return resolveIncludes(
-        included,
-        path.dirname(absPath),
-        depth + 1,
-        childSeen
-      );
-    }
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Variable substitution
-// ---------------------------------------------------------------------------
-
-/**
- * Replaces {{var_name}} with values from the vars map.
- * Only matches identifiers (alphanumeric + underscore), so include directives
- * (already resolved) and code-block examples are unaffected.
- */
-function substituteVars(content, vars) {
-  let result = content;
-  for (const [key, value] of Object.entries(vars)) {
-    const pattern = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
-    result = result.replace(pattern, value);
-  }
-  return result;
-}
-
-// ---------------------------------------------------------------------------
-// Validation
-// ---------------------------------------------------------------------------
-
-/**
- * Strips fenced code blocks (``` ... ```) from content so that template-like
- * syntax inside code examples does not trigger false positives.
+ * Strips fenced code blocks (``` ... ```) so template-like syntax inside code
+ * examples does not trigger false positives. The kenkeep reference scans the
+ * whole file; several prompts here carry literal `{{...}}`-looking text in
+ * fenced examples, so that simpler check would report them.
  */
 function stripFencedCodeBlocks(content) {
   return content.replace(/^```[\s\S]*?^```/gm, '');
 }
 
 /**
- * Runs post-assembly validation on the final SKILL.md content.
+ * Runs post-render validation on the final SKILL.md content.
  * Throws on the first failure.
+ *
+ * @param {string} content   - Rendered output
+ * @param {string} skillName - Skill directory name, for error messages
+ * @param {string} corpus    - Template source plus every partial body; the
+ *                             baseline for the HTML-escaping tripwire
  */
-function validate(content, skillName) {
-  // Must be non-empty
+function validate(content, skillName, corpus) {
   if (!content || content.trim().length === 0) {
-    throw new Error(`${skillName}: assembled file is empty`);
+    throw new Error(`${skillName}: rendered file is empty`);
   }
 
-  // Parse the output frontmatter
   const { frontmatter, body } = splitFrontmatter(content);
 
-  // Frontmatter must have name and description
   if (!/^name\s*:/m.test(frontmatter)) {
     throw new Error(`${skillName}: output frontmatter missing 'name' field`);
   }
@@ -196,8 +160,6 @@ function validate(content, skillName) {
       `${skillName}: output frontmatter missing 'description' field`
     );
   }
-
-  // Frontmatter must NOT have vars or target
   if (/^vars\s*:/m.test(frontmatter)) {
     throw new Error(
       `${skillName}: output frontmatter must not contain 'vars' field`
@@ -209,14 +171,12 @@ function validate(content, skillName) {
     );
   }
 
-  // Body must contain ## Operating Procedure
   if (!/^## Operating Procedure/m.test(body)) {
     throw new Error(
       `${skillName}: body missing '## Operating Procedure' heading`
     );
   }
 
-  // No unresolved {{ directives outside fenced code blocks
   const strippedBody = stripFencedCodeBlocks(body);
   const unresolvedMatch = strippedBody.match(/\{\{.+?\}\}/);
   if (unresolvedMatch) {
@@ -224,21 +184,42 @@ function validate(content, skillName) {
       `${skillName}: unresolved directive found: ${unresolvedMatch[0]}`
     );
   }
+
+  // Tripwire for a missing `noEscape`: an entity reference in the output that
+  // no source file contains was manufactured by the templating engine.
+  for (const entity of HTML_ENTITIES) {
+    if (content.includes(entity) && !corpus.includes(entity)) {
+      throw new Error(
+        `${skillName}: rendered output contains '${entity}' that is absent from ` +
+          'the source. Check that Handlebars is compiled with noEscape: true.'
+      );
+    }
+  }
 }
 
-// ---------------------------------------------------------------------------
-// Output assembly
-// ---------------------------------------------------------------------------
-
 /**
- * Builds the output frontmatter containing only name and description.
+ * Sweeps the shipped tree for build-time artifacts that must never reach it.
  */
-function buildOutputFrontmatter(meta) {
-  const lines = ['---'];
-  lines.push(`name: ${meta.name}`);
-  lines.push(`description: ${meta.description}`);
-  lines.push('---');
-  return lines.join('\n');
+function assertNoTemplateArtifactsShipped() {
+  const stack = [SHIPPED_ROOT];
+  while (stack.length > 0) {
+    const dir = stack.pop();
+    for (const name of fs.readdirSync(dir)) {
+      const full = path.join(dir, name);
+      if (fs.statSync(full).isDirectory()) {
+        if (name === '_partials') {
+          throw new Error(
+            `Partials directory leaked into the shipped tree: ${path.relative(REPO_ROOT, full)}`
+          );
+        }
+        stack.push(full);
+      } else if (name.endsWith('.hbs')) {
+        throw new Error(
+          `Unrendered template left in the shipped tree: ${path.relative(REPO_ROOT, full)}`
+        );
+      }
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -246,81 +227,70 @@ function buildOutputFrontmatter(meta) {
 // ---------------------------------------------------------------------------
 
 function main() {
-  // Discover source templates (top-level .md files only)
-  if (!fs.existsSync(SRC_DIR)) {
+  if (!fs.existsSync(TEMPLATES_DIR)) {
     console.error(
-      `Source directory not found: ${SRC_DIR}\n` +
-        'Create src/skill-prompts/ with at least one template before running this script.'
+      `Template directory not found: ${TEMPLATES_DIR}\n` +
+        'Create src/skill-prompts/skills/<name>/SKILL.md.hbs before running this script.'
     );
     process.exit(1);
   }
 
-  // Top-level docs that are not skill templates (no frontmatter, not assembled).
-  const NON_TEMPLATE_DOCS = new Set(['README.md', 'AUTHORING.md']);
+  const partialBodies = registerPartials();
+  const partialCorpus = partialBodies.join('\n');
 
-  const templates = fs
-    .readdirSync(SRC_DIR)
-    .filter((f) => f.endsWith('.md') && !NON_TEMPLATE_DOCS.has(f) && !fs.statSync(path.join(SRC_DIR, f)).isDirectory());
+  const skills = fs
+    .readdirSync(TEMPLATES_DIR)
+    .sort()
+    .filter((name) => fs.statSync(path.join(TEMPLATES_DIR, name)).isDirectory());
 
-  if (templates.length === 0) {
-    console.error(`No .md templates found in ${SRC_DIR}`);
+  if (skills.length === 0) {
+    console.error(`No skill templates found in ${TEMPLATES_DIR}`);
     process.exit(1);
   }
 
-  let assembled = 0;
+  let rendered = 0;
 
-  for (const file of templates) {
-    const srcPath = path.join(SRC_DIR, file);
-    const raw = fs.readFileSync(srcPath, 'utf8');
-
-    // 1. Parse frontmatter
-    const { frontmatter: rawFm, body: rawBody } = splitFrontmatter(raw);
-    const meta = parseFrontmatter(rawFm);
-
-    if (!meta.name) {
-      throw new Error(`${file}: frontmatter missing 'name'`);
-    }
-    if (!meta.target) {
-      throw new Error(`${file}: frontmatter missing 'target'`);
-    }
-
-    // 2. Resolve includes
-    const afterIncludes = resolveIncludes(rawBody, SRC_DIR);
-
-    // 3. Substitute variables
-    const afterVars = substituteVars(afterIncludes, meta.vars);
-
-    // 4. Reassemble with output frontmatter
-    const output = buildOutputFrontmatter(meta) + afterVars;
-
-    // 5. Validate
-    validate(output, meta.target);
-
-    // 6. Write to target skill directory
-    const targetDir = path.join(SKILLS_ROOT, meta.target);
-    if (!fs.existsSync(targetDir)) {
+  for (const skill of skills) {
+    const srcPath = path.join(TEMPLATES_DIR, skill, TEMPLATE_FILENAME);
+    if (!fs.existsSync(srcPath)) {
       throw new Error(
-        `Target skill directory does not exist: ${targetDir}\n` +
-          `Ensure templates/harness/skills/${meta.target}/ exists.`
+        `${skill}: missing ${TEMPLATE_FILENAME} in ${path.relative(REPO_ROOT, path.dirname(srcPath))}`
       );
     }
 
-    // Validate current assembled output, not a stale SKILL.md from a prior build.
+    const source = fs.readFileSync(srcPath, 'utf8');
+    const template = Handlebars.compile(source, COMPILE_OPTIONS);
+    const output = template(undefined, { partials: Handlebars.partials });
+
+    validate(output, skill, source + '\n' + partialCorpus);
+
+    // The target directory is created by build:skills, which runs first in the
+    // build chain. Never create it here; its absence means the ordering broke.
+    const targetDir = path.join(SKILLS_ROOT, skill);
+    if (!fs.existsSync(targetDir)) {
+      throw new Error(
+        `Target skill directory does not exist: ${targetDir}\n` +
+          `Ensure templates/harness/skills/${skill}/ exists.`
+      );
+    }
+
+    // Validate against the freshly rendered output, not a stale SKILL.md.
     for (const [, script] of output.matchAll(/scripts\/([\w.-]+\.cjs)/g)) {
       const scriptPath = path.join(targetDir, 'scripts', script);
       if (!fs.existsSync(scriptPath)) {
-        throw new Error(`${meta.target}: references missing script scripts/${script}`);
+        throw new Error(`${skill}: references missing script scripts/${script}`);
       }
     }
 
-    const outPath = path.join(targetDir, 'SKILL.md');
-    fs.writeFileSync(outPath, output, 'utf8');
-    process.stdout.write(`  assembled ${meta.target}/SKILL.md\n`);
-    assembled++;
+    fs.writeFileSync(path.join(targetDir, 'SKILL.md'), output, 'utf8');
+    process.stdout.write(`  assembled ${skill}/SKILL.md\n`);
+    rendered++;
   }
 
+  assertNoTemplateArtifactsShipped();
+
   process.stdout.write(
-    `\n${assembled} skill prompt${assembled !== 1 ? 's' : ''} assembled.\n`
+    `\n${rendered} skill prompt${rendered !== 1 ? 's' : ''} assembled.\n`
   );
 }
 

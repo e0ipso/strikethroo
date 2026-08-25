@@ -1,9 +1,6 @@
 ---
 name: st-create-plan
-description: "Use when the user asks to draft, scope, or write up a new Strikethroo plan for a work order, feature, or initiative in this repository — triggers include create plan, new plan, plan this, scope a plan, strikethroo plan. Do not use to decompose an existing plan into tasks, to execute a plan, or for generic brainstorming outside Strikethroo."
-target: st-create-plan
-vars:
-  action_verb_phrase: "create a plan"
+description: Use when the user asks to draft, scope, or write up a new Strikethroo plan for a work order, feature, or initiative in this repository — triggers include create plan, new plan, plan this, scope a plan, strikethroo plan. Do not use to decompose an existing plan into tasks, to execute a plan, or for generic brainstorming outside Strikethroo.
 ---
 
 # st-create-plan
@@ -23,7 +20,7 @@ user instead.
 
 ### 1. Locate the strikethroo root
 
-{{include sections/root-discovery.md}}
+{{> root-discovery action_verb_phrase="create a plan"}}
 
 ### 2. Load project context
 

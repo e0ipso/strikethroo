@@ -242,8 +242,9 @@ describe('task-generation skill artifacts carry the routing procedure', () => {
       expect(content).toContain('execution_profile');
       expect(content).toContain('never during generation');
       expect(content).toContain('TASK_EXECUTION_ROUTING.md');
-      expect(content).not.toContain('{{include');
-      expect(content).not.toContain('{{variable');
+      // Nothing from the Handlebars source layer may survive into the shipped
+      // prompt: no partial call, no hash-arg reference, no stray marker.
+      expect(content).not.toContain('{{');
 
       const emitIndex = content.indexOf('Emit the task files');
       const routingIndex = content.indexOf('Route task execution');

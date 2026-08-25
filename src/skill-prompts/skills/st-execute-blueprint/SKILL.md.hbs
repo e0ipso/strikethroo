@@ -1,14 +1,6 @@
 ---
 name: st-execute-blueprint
-description: "Use when the user asks to run, execute, implement, or carry out a Strikethroo plan or its blueprint by plan ID in this repository — triggers include execute blueprint, run the plan, implement plan, build the plan. Do not use to create a plan, to only generate tasks, to run a single task, or for generic development outside Strikethroo."
-target: st-execute-blueprint
-vars:
-  action_verb_phrase: "execute a plan"
-  heading: "####"
-  heading_parent: "###"
-  phase_step: "7"
-  summary_step: "9"
-  archive_step: "10"
+description: Use when the user asks to run, execute, implement, or carry out a Strikethroo plan or its blueprint by plan ID in this repository — triggers include execute blueprint, run the plan, implement plan, build the plan. Do not use to create a plan, to only generate tasks, to run a single task, or for generic development outside Strikethroo.
 ---
 
 # st-execute-blueprint
@@ -30,11 +22,11 @@ The user supplies the numeric plan ID conversationally. Treat it as the only aut
 
 ### 1. Locate the strikethroo root
 
-{{include sections/root-discovery.md}}
+{{> root-discovery action_verb_phrase="execute a plan"}}
 
 ### 2. Resolve the plan
 
-{{include sections/plan-resolution.md}}
+{{> plan-resolution}}
 
 ### 3. Validate tasks and blueprint existence
 
@@ -67,7 +59,7 @@ Read these files, in order:
 
 ### 7. Execute phases in order
 
-{{include sections/phase-execution-loop.md}}
+{{> phase-execution-loop heading="####" phase_step="7"}}
 
 Apply `<root>/config/shared/anti-rationalization.md` to this rationalization table:
 
@@ -79,7 +71,7 @@ Apply `<root>/config/shared/anti-rationalization.md` to this rationalization tab
 
 ### 8. Post-execution validation
 
-{{include sections/post-execution-archive.md}}
+{{> post-execution-archive heading="####" heading_parent="###" summary_step="9" archive_step="10"}}
 
 ## Failure Modes
 

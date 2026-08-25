@@ -63,81 +63,24 @@ require you to apply it.
 
 Using the Plan ID extracted from Step 1:
 
-#### 1. Resolve the plan
-
-Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` to obtain the absolute path of the plan file. If the script exits non-zero, stop and report the error. Do not guess a different ID.
-
-#### 2. Load project context
-
-Read these files in order:
-
-- `<root>/config/STRIKETHROO.md` — directory conventions.
-- The plan body at the path returned above — this is the contract for what tasks must exist.
-- `<root>/config/templates/TASK_TEMPLATE.md` — every task file must conform to this template.
-
-#### 3. Analyze and decompose the plan
-
-{{> task-minimization}}
-
-#### 4. Apply granularity and skill rules
-
-{{> granularity-skill-rules}}
-
-#### 5. Test philosophy: "write a few tests, mostly integration"
-
-{{> test-philosophy}}
-
-#### 6. Dependency analysis
-
-For each task, identify:
-
-- Hard dependencies — tasks that MUST complete before this one can start.
-- Soft dependencies — tasks that SHOULD complete for optimal execution.
-
-A task B depends on A if B requires A's output or artifacts, modifies code created by A, or tests functionality implemented by A. Validate that the final dependency graph is acyclic.
-
-#### 7. Complexity analysis
-
-{{> task-complexity-analysis}}
-
-#### 8. Allocate task IDs
-
-Run `scripts/get-next-task-id.cjs <plan-id>` to obtain the first available task ID. Allocate subsequent IDs by incrementing in-process. Use the unpadded integer in the task frontmatter `id` field and the zero-padded form (`{padded-id}--{slug}`) for the filename.
-
-The slug derives from a short task title: lowercase, alphanumeric and hyphens only, collapsed, trimmed.
-
-#### 9. Emit the task files
-
-{{> task-file-output}}
-
-#### 10. Validation checklist
-
-{{> validation-checklist}}
-
-#### 11. Route task execution
-
-{{> task-execution-routing}}
-
-#### 12. Run the POST_TASK_GENERATION_ALL hook
-
-Read `<root>/config/hooks/POST_TASK_GENERATION_ALL.md` and follow its instructions. Run it only after routing succeeded or reported routing off. This typically requires:
-
-- Appending an Execution Blueprint section to the plan document, including a Mermaid dependency diagram and explicit phase groupings.
-- Use `<root>/config/templates/BLUEPRINT_TEMPLATE.md` for structure.
-
-#### 13. Emit the Step 2 structured summary
-
-Conclude Step 2 with exactly this block:
-
-```
----
-Task Generation Summary:
-- Plan ID: [numeric-id]
-- Tasks: [count]
-- Status: Ready for execution
-```
-
-Parse the `Tasks` count from this output and pass it to Step 3 for progress tracking.
+{{> procedure-generate-tasks
+     heading="####"
+     step_resolve="1"
+     step_context="2"
+     step_decompose="3"
+     step_granularity="4"
+     step_test_philosophy="5"
+     step_dependencies="6"
+     step_complexity="7"
+     step_task_ids="8"
+     step_emit="9"
+     step_validation="10"
+     step_routing="11"
+     step_hook="12"
+     step_summary="13"
+     summary_heading="Emit the Step 2 structured summary"
+     summary_lead_in="Conclude Step 2 with exactly this block:"
+     summary_closing="Parse the `Tasks` count from this output and pass it to Step 3 for progress tracking."}}
 
 **Progress**: `⬛⬛⬜ 66% - Step 2/3: Task Generation Complete`
 

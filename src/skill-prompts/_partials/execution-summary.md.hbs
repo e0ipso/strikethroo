@@ -1,0 +1,21 @@
+{{!--
+  The terminal structured-summary block. Rendered by st-execute-blueprint and by
+  st-full-workflow's Step 3. Zero parameters: the two call sites were already
+  byte-identical, heading level included, so there is nothing to parameterize.
+
+  The call site supplies nothing but the partial tag; this partial owns the
+  `## Execution Summary` heading.
+--}}## Execution Summary
+
+Conclude with exactly this block as the final output:
+
+```
+---
+Execution Summary:
+- Plan ID: [numeric-id]
+- Status: Archived
+- Location: [absolute path to archive directory]
+---
+```
+
+The summary is consumed by downstream automation; keep the format exact.

@@ -36,12 +36,9 @@ Follow the clarification cadence in `<root>/config/shared/clarification-gate.md`
 
 ## Failure Modes
 
-- **No strikethroo root found.** Stop, instruct the user to initialize the
-  project. Do not write any files.
+{{> failure-modes}}
 - **User refuses to answer a clarifying question that blocks planning.**
   Report `needs-clarification` and stop. Do not produce a plan.
-- **Plan ID script fails.** Re-check the resolved root and re-run. If it
-  continues to fail, surface stderr to the user and stop — do not guess an ID.
 - **Plan directory already exists for the allocated ID.** Re-run the
   next-plan-id script (a concurrent run may have advanced it) and retry once.
   If the conflict persists, stop and report.

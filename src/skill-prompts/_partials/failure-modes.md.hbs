@@ -1,0 +1,22 @@
+{{!--
+  The Failure Modes bullets shared by st-create-plan, st-generate-tasks,
+  st-execute-blueprint and st-full-workflow. The call site owns the
+  `## Failure Modes` heading and appends its own skill-specific bullets on the
+  line immediately after the partial tag.
+
+  These two bullets previously existed as four copies whose wording had drifted:
+  one forbade writing files, another forbade executing tasks, a third forbade
+  both. The resolution is the union of what those copies forbid, so the shared
+  bullet is at least as restrictive as the strictest copy it replaces. The
+  disagreement is settled here, not turned into a hash arg — parameterizing it
+  would encode the accident. A skill that genuinely needs different wording
+  overrides at its own call site; this partial never gains a conditional.
+
+  st-execute-task and st-refine-plan deliberately do not call this partial. Their
+  no-root bullets forbid different things ("Do not execute the task." / "Do not
+  read or write any plan files.") and both must keep rendering unchanged.
+--}}- **No strikethroo root found.** Stop and instruct the user to initialize the
+  project. Do not write any files or execute any tasks.
+- **Plan ID script fails.** Re-check the resolved root and re-run. If it
+  continues to fail, surface the script's stderr to the user and stop. Do not
+  guess an ID and do not write any files.

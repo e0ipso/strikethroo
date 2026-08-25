@@ -43,10 +43,7 @@ prompt the user instead.
 
 ## Failure Modes
 
-- **No strikethroo root found.** Stop, instruct the user to initialize the
-  project. Do not write any files.
-- **Plan ID does not resolve.** Stop and surface the script's stderr to the
-  user. Do not guess a different ID and do not write any files.
+{{> failure-modes}}
 - **User declines to clarify a blocking ambiguity.** Mark the affected tasks
   with `status: "needs-clarification"` and document the open question in the
   task's "Implementation Notes". Do not invent answers.

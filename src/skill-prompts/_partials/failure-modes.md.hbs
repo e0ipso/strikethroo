@@ -4,6 +4,11 @@
   `## Failure Modes` heading and appends its own skill-specific bullets on the
   line immediately after the partial tag.
 
+  The second bullet names both conditions because they are the same condition
+  seen from two skills: st-create-plan allocates an ID and sees the script fail,
+  while the other three resolve an existing ID and see it not resolve. Both are
+  the script exiting non-zero, so one bullet covers them, but it has to say so.
+
   These two bullets previously existed as four copies whose wording had drifted:
   one forbade writing files, another forbade executing tasks, a third forbade
   both. The resolution is the union of what those copies forbid, so the shared
@@ -17,6 +22,6 @@
   read or write any plan files.") and both must keep rendering unchanged.
 --}}- **No strikethroo root found.** Stop and instruct the user to initialize the
   project. Do not write any files or execute any tasks.
-- **Plan ID script fails.** Re-check the resolved root and re-run. If it
-  continues to fail, surface the script's stderr to the user and stop. Do not
-  guess an ID and do not write any files.
+- **Plan ID does not resolve, or the plan-ID script fails.** Re-check the
+  resolved root and re-run. If it continues to fail, surface the script's
+  stderr to the user and stop. Do not guess an ID and do not write any files.

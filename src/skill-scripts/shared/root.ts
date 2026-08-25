@@ -56,7 +56,7 @@ const checkWorkspaceSchema = (metadataPath: string): void => {
   } else {
     process.stderr.write(
       `This skill (built for workspace schema v${EXPECTED_SCHEMA}) is older than the workspace (v${actual}). ` +
-        'Re-run `npx skills add e0ipso/strikethroo` to update skills.\n'
+        'Re-run `npx strikethroo init` with the latest CLI to reinstall the skills.\n'
     );
   }
   process.exit(1);

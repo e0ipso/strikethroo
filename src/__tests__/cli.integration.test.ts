@@ -3,8 +3,7 @@
  *
  * Tests CLI behaviour for the skills-only architecture.
  * The CLI bootstraps `.ai/strikethroo/` and deploys per-harness
- * agent files. Task skills are installed separately via
- * `npx skills add e0ipso/strikethroo`.
+ * agent files and workflow skills in a single `init` run.
  */
 
 import { execSync } from 'child_process';
@@ -105,6 +104,19 @@ describe('CLI Integration', () => {
       await verifyStrikethrooBootstrap(testDir);
       expect(await fs.pathExists(path.join(testDir, '.claude/agents'))).toBe(true);
       expect(await fs.pathExists(path.join(testDir, '.claude/agents/plan-creator.md'))).toBe(true);
+      expect(
+        await fs.pathExists(path.join(testDir, '.claude/skills/st-create-plan/SKILL.md'))
+      ).toBe(true);
+    });
+
+    it('installs skills without hash-tracking them in .init-metadata.json', async () => {
+      const result = executeCommand(`node "${cliPath}" init --harnesses claude`);
+      expect(result.exitCode).toBe(0);
+
+      const metadata = await fs.readJson(path.join(testDir, '.ai/strikethroo/.init-metadata.json'));
+      const trackedPaths = Object.keys(metadata.files ?? {});
+      expect(trackedPaths.length).toBeGreaterThan(0);
+      expect(trackedPaths.filter(p => p.includes('skills'))).toEqual([]);
     });
   });
 
@@ -115,7 +127,6 @@ describe('CLI Integration', () => {
       );
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('Strikethroo initialized successfully!');
-      expect(result.stdout).toContain('npx skills add');
 
       await verifyStrikethrooBootstrap(testDir);
 
@@ -126,12 +137,40 @@ describe('CLI Integration', () => {
       expect(await fs.pathExists(path.join(testDir, '.opencode/agents/plan-creator.md'))).toBe(
         true
       );
+
+      // Skills land verbatim in each harness's skills directory. `.agents/skills`
+      // is Codex's vendor-neutral location — the row most easily mistyped.
+      expect(
+        await fs.pathExists(path.join(testDir, '.gemini/skills/st-create-plan/SKILL.md'))
+      ).toBe(true);
+      expect(
+        await fs.pathExists(path.join(testDir, '.agents/skills/st-create-plan/SKILL.md'))
+      ).toBe(true);
+      expect(await fs.pathExists(path.join(testDir, '.agents/skills/st-create-plan/scripts'))).toBe(
+        true
+      );
+      expect(
+        await fs.pathExists(path.join(testDir, '.cursor/skills/st-code-review/SKILL.md'))
+      ).toBe(true);
+      expect(
+        await fs.pathExists(path.join(testDir, '.github/skills/st-refine-plan/SKILL.md'))
+      ).toBe(true);
+      expect(
+        await fs.pathExists(path.join(testDir, '.opencode/skills/st-execute-task/SKILL.md'))
+      ).toBe(true);
     });
 
-    it('emits a skill-install notice', async () => {
-      const result = executeCommand(`node "${cliPath}" init --harnesses gemini`);
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('npx skills add');
+    it('warns about replaced skills only when skills were actually replaced', async () => {
+      const first = executeCommand(`node "${cliPath}" init --harnesses gemini`);
+      expect(first.exitCode).toBe(0);
+      expect(first.stdout).toContain('gemini Skills:');
+      expect(first.stdout).not.toContain('Replaced existing skills');
+
+      const second = executeCommand(`node "${cliPath}" init --harnesses gemini --force`);
+      expect(second.exitCode).toBe(0);
+      expect(second.stdout).toContain('Replaced existing skills');
+      expect(second.stdout).toContain(path.join(testDir, '.gemini/skills'));
+      expect(second.stdout).toContain('Strikethroo initialized successfully!');
     });
   });
 

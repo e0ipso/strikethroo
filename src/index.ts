@@ -19,7 +19,7 @@ import {
 } from './metadata';
 import { detectConflicts } from './conflict-detector';
 import { promptForConflicts } from './prompts';
-import { HarnessRegistry } from './harnesses';
+import { HarnessRegistry, SkillInstallResult } from './harnesses';
 import { prepareProfileImport, PreparedProfileImport, ProfileManifest } from './profiles';
 
 // Visual formatting constants
@@ -87,6 +87,25 @@ async function collectFiles(dir: string): Promise<string[]> {
 
   await walk(dir);
   return files.sort();
+}
+
+/**
+ * Reduce an installed-skill file list to one absolute path per skill directory.
+ *
+ * A skills install writes dozens of files per harness (every skill's `SKILL.md`
+ * plus its bundled scripts), and six harnesses of that would bury the rest of
+ * the Created Files section. One line per skill directory is the useful
+ * granularity: it is what the user would open.
+ */
+function skillDirectories(result: SkillInstallResult): string[] {
+  const dirs = new Set<string>();
+  for (const file of result.files) {
+    const [skillName] = path.relative(result.skillsDir, file).split(path.sep);
+    if (skillName) {
+      dirs.add(path.join(result.skillsDir, skillName));
+    }
+  }
+  return [...dirs].sort();
 }
 
 /**
@@ -166,6 +185,8 @@ export async function init(options: InitOptions): Promise<CommandResult> {
 
     // Create harness-specific directories and copy templates via the registry
     const allCreatedAgentFiles: Map<string, string[]> = new Map();
+    const allCreatedSkillDirs: Map<string, string[]> = new Map();
+    const replacedSkillDirs: string[] = [];
     for (const harness of harnesses) {
       console.log(`  ${chalk.green('✓')} Setting up ${harness} harness configuration`);
       const adapter = HarnessRegistry.get(harness);
@@ -175,6 +196,14 @@ export async function init(options: InitOptions): Promise<CommandResult> {
       const created = await adapter.install(baseDir);
       if (created.length > 0) {
         allCreatedAgentFiles.set(harness, created);
+      }
+
+      const skills = await adapter.installSkills(baseDir);
+      if (skills.files.length > 0) {
+        allCreatedSkillDirs.set(harness, skillDirectories(skills));
+      }
+      if (skills.replacedExisting) {
+        replacedSkillDirs.push(skills.skillsDir);
       }
     }
 
@@ -195,13 +224,30 @@ export async function init(options: InitOptions): Promise<CommandResult> {
       }
     }
 
+    for (const [harness, dirs] of allCreatedSkillDirs) {
+      console.log(chalk.cyan(`  ${harness} Skills:`));
+      for (const dir of dirs) {
+        console.log(`    ${chalk.blue('●')} ${dir}`);
+      }
+    }
+
+    // Skill artifacts are release-owned build output, not user-editable config,
+    // so they are overwritten without a conflict prompt. Say so when it happens.
+    // Informational only: never prompts, never affects the exit code.
+    for (const dir of replacedSkillDirs) {
+      console.log(
+        `\n${chalk.yellow('!')} Replaced existing skills in ${dir}. ` +
+          'Local edits to installed skills are not preserved — they are build output, ' +
+          'overwritten on every init.'
+      );
+    }
+
     // ========== FOOTER SECTION ==========
     console.log(`\n${chalk.green('✓')} Strikethroo initialized successfully!`);
     console.log(chalk.gray(DIVIDER));
 
-    // Post-init nudge directing users to install the task skills
     console.log(
-      '\nNext: run `npx skills add e0ipso/strikethroo` to install the task skills for your harness(es).'
+      '\nWorkflow skills installed. Ask your assistant to plan, decompose, then execute.'
     );
 
     // Add documentation link
@@ -468,9 +514,6 @@ export async function isInitialized(baseDir?: string): Promise<boolean> {
 async function displayWorkflowHelp(): Promise<void> {
   console.log(formatSectionHeader('Suggested Workflow'));
 
-  console.log(`  ${chalk.cyan('●')} Install the task skills:`);
-  console.log(`      ${chalk.gray('npx skills add e0ipso/strikethroo')}`);
-  console.log('');
   console.log(`  ${chalk.cyan('●')} Ask your AI to plan, decompose, then execute.`);
   console.log(
     `    The skills cover plan creation, refinement, task generation, and blueprint execution.`

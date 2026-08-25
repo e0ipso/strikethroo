@@ -92,47 +92,20 @@ Using the Plan ID extracted from Step 1:
 
 Using the Plan ID from the previous phases:
 
-#### 1. Resolve the plan and validate readiness
-
-Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` to obtain the plan file path. Also query:
-
-- `planDir` — absolute path of the plan directory
-- `taskCount` — number of existing task files
-- `blueprintExists` — `yes` or `no`
-
-If the script exits non-zero, stop and report the error.
-
-#### 2. Auto-generate tasks and blueprint if missing
-
-If `taskCount` is 0 or `blueprintExists` is `no`:
-
-- Notify the user: "Tasks or execution blueprint not found. Generating tasks automatically..."
-- Execute the full task generation procedure from Step 2 for this plan ID.
-- After generation completes, re-run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` (and the other fields) to refresh the resolved paths and counts.
-- If generation still leaves the plan without tasks or a blueprint, stop and report failure. Do not attempt execution without a valid blueprint.
-
-#### 3. Optionally create a feature branch
-
-Run `scripts/create-feature-branch.cjs <plan-id>` once before phase execution. Branch creation is best-effort: when the script reports that it skipped creation (for example, not on `main`/`master`), continue on the current branch and do not retry or create a branch manually. Uncommitted or untracked changes are permitted only when every change is inside the repository-root `.ai/strikethroo` subtree, so a newly generated plan and tasks can remain uncommitted before execution. When the script exits with an error—including changes anywhere outside that subtree or an inability to inspect Git status on `main`/`master`—halt and report the error. Do not treat a skipped branch as a failure or spend effort working around a skip.
-
-After the branch step, run `scripts/capture-base-commit.cjs <plan-id>` once. It records the commit the review gate diffs against. A `skipped` result is not a failure — continue execution and note that the review gate will skip. Only an `error` result halts.
-
-#### 4. Load execution blueprint
-
-Read these files in order:
-
-- `<root>/config/STRIKETHROO.md` — directory conventions and project context.
-- The plan document.
-- The plan's Execution Blueprint section — this defines the phase groupings and task dispatch order.
-- `<root>/config/shared/verification-gate.md` — apply in the phase loop below.
-
-#### 5. Execute phases in order
-
-{{> phase-execution-loop heading="#####" phase_step="5"}}
-
-#### 6. Post-execution validation
-
-{{> post-execution-archive heading="#####" heading_parent="####" summary_step="7" archive_step="8"}}
+{{#> procedure-execute-blueprint
+     heading="####"
+     heading_child="#####"
+     step_resolve="1"
+     step_validate="2"
+     step_generate="3"
+     step_branch="4"
+     step_context="5"
+     step_phases="6"
+     step_post="7"
+     summary_step="8"
+     archive_step="9"}}
+{{#*inline "auto_generate_dispatch"}}Execute the full task generation procedure from Step 2 for this plan ID.{{/inline}}
+{{/procedure-execute-blueprint}}
 
 **Progress**: `⬛⬛⬛ 100% - Step 3/3: Blueprint Execution Complete`
 

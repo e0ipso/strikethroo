@@ -48,7 +48,7 @@ No. It works within your existing AI assistant subscriptions (Claude Pro/Max, Ge
 
 **How long does setup take?**
 
-Under 30 seconds. Run `npx strikethroo init --harnesses claude` followed by `npx skills add e0ipso/strikethroo`, and the workspace is ready.
+Under 30 seconds. Run `npx strikethroo init --harnesses claude` and the workspace and skills are ready.
 
 **Does it work with existing projects?**
 

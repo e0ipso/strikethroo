@@ -60,18 +60,12 @@ Every codebase has its own conventions, and Strikethroo bends to them instead of
 
 ## Quick Start
 
-<div class="st-cards st-cards--2" markdown="0">
+<div class="st-cards" markdown="0">
 <div class="st-card">
 <span class="st-card__icon st-card__icon--package" aria-hidden="true"></span>
-<p class="st-card__title">1. Bootstrap the workspace</p>
-<p>Create the shared <code>.ai/strikethroo/</code> workspace and copy the harness agents.</p>
+<p class="st-card__title">Bootstrap the workspace</p>
+<p>One command creates the shared <code>.ai/strikethroo/</code> workspace, copies the harness agents, and installs the workflow skills into each harness's skills directory.</p>
 <pre class="highlight"><code>npx strikethroo init --harnesses claude</code></pre>
-</div>
-<div class="st-card">
-<span class="st-card__icon st-card__icon--puzzle" aria-hidden="true"></span>
-<p class="st-card__title">2. Install the workflow skills</p>
-<p>Add the harness-agnostic skills that drive plan, task, and execution.</p>
-<pre class="highlight"><code>npx skills add e0ipso/strikethroo</code></pre>
 </div>
 </div>
 
@@ -156,7 +150,7 @@ This will open a web page that will help you navigate your plans and their tasks
 </a>
 <a class="st-card" href="{{ '/migration.html' | relative_url }}">
 <span class="st-card__icon st-card__icon--circle-arrow-up" aria-hidden="true"></span>
-<p class="st-card__title">Migrating from 1.x</p>
-<p>Upgrade from slash commands to Agent Skills.</p>
+<p class="st-card__title">Migration guides</p>
+<p>Upgrade from slash commands to Agent Skills, and from the standalone skills installer to <code>init</code>.</p>
 </a>
 </div>

@@ -3,12 +3,12 @@ layout: default
 title: CLI Reference
 parent: Reference
 nav_order: 2
-description: "Command reference for the Strikethroo CLI and skills installer"
+description: "Command reference for the Strikethroo CLI"
 ---
 
 # CLI Reference
 
-Strikethroo has two distribution channels: the **CLI** (workspace bootstrapping) and the **skills installer** (workflow delivery). They are independently re-runnable; the only coupling point is the workspace schema version.
+Strikethroo ships as a single CLI. `init` bootstraps the shared workspace **and** installs the workflow skills, so there is no separate installer to run or keep in step.
 
 ## Workspace Initialization
 
@@ -16,7 +16,7 @@ Strikethroo has two distribution channels: the **CLI** (workspace bootstrapping)
 npx strikethroo init --harnesses <harness>[,<harness>...] [options]
 ```
 
-Creates the shared `.ai/strikethroo/` directory (plans, archive, config, hooks, templates) and copies harness-specific artifacts (e.g., `.claude/agents/` for Claude).
+Creates the shared `.ai/strikethroo/` directory (plans, archive, config, hooks, templates), copies harness-specific artifacts (e.g., `.claude/agents/` for Claude), and installs the workflow skills into each named harness's skills directory (`.claude/skills/` for Claude, `.agents/skills/` for Codex, `.cursor/skills/` for Cursor, `.gemini/skills/` for Gemini, `.github/skills/` for Copilot, `.opencode/skills/` for OpenCode). The skills are CLI-owned artifacts, not user configuration: every `init` run overwrites them in place, without a conflict prompt, so re-running `init` is also how you update them.
 
 **Required flag:**
 
@@ -87,34 +87,6 @@ Separately, the **Self Review** action (`POST /api/self-review`) writes nothing 
 | `--port <n>` | Port to bind. Defaults to `4317`. |
 | `--no-open` | Do not open the browser on start. |
 | `--workspace <path>` | Override workspace root discovery. |
-
-## Skill Installation
-
-```bash
-npx skills add e0ipso/strikethroo
-```
-
-Installs the Agent Skills that implement the workflow, resolved through the `.claude-plugin/plugin.json` manifest. Without a pin, the installer reads the repository's default branch, which always carries the current released skills.
-
-**Pin a specific version** — note the `#`, not `@`:
-
-```bash
-npx skills add e0ipso/strikethroo#v3.19.0
-```
-
-An `@` suffix means something different: it filters by skill name, so `e0ipso/strikethroo@v3.19.0` does not pin a version.
-
-**Update skills:**
-
-Re-run the same command to pull the latest version.
-
-## Skill Removal
-
-```bash
-npx skills remove e0ipso/strikethroo
-```
-
-Removes the installed Agent Skills. The `.ai/strikethroo/` workspace, plans, and configuration are not affected.
 
 ## Shipped Skills
 

@@ -19,7 +19,7 @@ Reference material for Strikethroo:
 <a class="st-card" href="{{ '/cli-reference.html' | relative_url }}">
 <span class="st-card__icon st-card__icon--terminal" aria-hidden="true"></span>
 <p class="st-card__title">CLI Reference</p>
-<p>Commands for the Strikethroo CLI and the skills installer.</p>
+<p>Every command the Strikethroo CLI exposes, and the skills it installs.</p>
 </a>
 </div>
 

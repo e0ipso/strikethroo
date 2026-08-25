@@ -1,16 +1,15 @@
-# Build output and vendored files that must stay tracked.
+# Build output and vendored files that a diff should not present as source.
 #
-# These cannot be gitignored: `@semantic-release/git` force-adds them into the
-# release commit, because `npx skills add e0ipso/strikethroo@<tag>` reads
-# `templates/` straight from the tagged ref. Marking them here instead gives
-# the two behaviours we actually want while they stay committable by CI:
+# The skill artifacts under templates/harness/skills/ are gitignored and no
+# longer tracked at any ref — they ship in the npm tarball. The markers still
+# apply, because `git check-attr` resolves attributes from these rules alone,
+# independently of whether a path is tracked:
 #
-#   - GitHub collapses them in pull requests, so a reviewer sees source rather
-#     than generated churn.
-#   - The code review gate excludes them from the reviewed diff. Applying a fix
-#     to build output would be erased by the next `npm run build`, and the
-#     re-review would raise the same finding again until the round budget ran
-#     out.
+#   - The code review gate drops them from the reviewed diff. A finding against
+#     build output is unactionable by construction: the mandatory POST_EXECUTION
+#     rebuild regenerates the file and erases the fix.
+#   - GitHub collapses them in pull requests if they ever surface in one, so a
+#     reviewer sees source rather than generated churn.
 #
 # Change the source, never these files. `.husky/pre-commit` rejects them when
 # staged by hand.

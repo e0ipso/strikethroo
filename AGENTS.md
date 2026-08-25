@@ -18,11 +18,11 @@ npm test              # Full gate: unit (Vitest) then e2e (@playwright/test)
 npm run lint:fix      # Auto-fix style
 ```
 
-`init` bootstraps the `.ai/strikethroo/` workspace (and copies Claude agents); it does **not** install skills. It uses SHA-256 hash tracking in `.ai/strikethroo/.init-metadata.json` to detect and protect user-modified files; `--force` bypasses the prompts for automation.
+`init` bootstraps the `.ai/strikethroo/` workspace, copies each selected harness's sub-agents, and installs the seven workflow skills into that harness's skills directory. It uses SHA-256 hash tracking in `.ai/strikethroo/.init-metadata.json` to detect and protect user-modified files; `--force` bypasses the prompts for automation. Installed skills are deliberately outside that tracking — see [Skill installation](#skill-installation).
 
 The CLI registers four commands (`src/cli.ts`): `init`, the nested `export profile`, `serve`, and `validate`. Every action stays thin — it parses flags, delegates to a module, and owns only the reporting and the exit code.
 
-The workflow itself ships as **Agent Skills** (harness-agnostic — one `SKILL.md` works on any harness supporting the format). Install once with `npx skills add e0ipso/strikethroo` (append `#<tag>` to pin — `#` selects the git ref, `@` selects a skill name); the matching skill auto-loads on intent.
+The workflow itself ships as **Agent Skills** (harness-agnostic — one `SKILL.md` works on any harness supporting the format). They travel inside the npm package, and `npx strikethroo init --harnesses <list>` installs them into every harness named; the matching skill auto-loads on intent. There is no separate install step.
 
 ---
 
@@ -84,6 +84,27 @@ Each step is an Agent Skill that auto-loads when the user's request matches its 
 Skills live under `templates/harness/skills/<name>/` (no top-level `skills/` dir; flat, no nesting). Each skill's `SKILL.md` and its compiled `.cjs` bundle under `scripts/` are assembled/bundled at build time — source and output share the same per-skill tree.
 
 The seven shipping skills are the workflow skills listed above (`st-create-plan`, `st-generate-tasks`, `st-execute-blueprint`, `st-refine-plan`, `st-execute-task`, `st-full-workflow`, `st-code-review`).
+
+### Skill installation
+
+`npx strikethroo init --harnesses <list>` installs all seven skills into every harness named, copying them out of the packaged `templates/harness/skills/` tree. Each harness reads skills from a different directory:
+
+| Harness | Skills directory | Source |
+| --- | --- | --- |
+| `claude` | `.claude/skills` | `kenkeep/src/harnesses/claude/install.ts:22,25` |
+| `codex` | `.agents/skills` | `kenkeep/src/harnesses/codex/install.ts:22` — vendor-neutral, **not** `.codex/skills` |
+| `cursor` | `.cursor/skills` | `kenkeep/src/harnesses/cursor/install.ts:11,15` |
+| `copilot` | `.github/skills` | `kenkeep/src/harnesses/copilot/install.ts:43` |
+| `opencode` | `.opencode/skills` | `kenkeep/src/harnesses/opencode/install.ts:18,24` |
+| `gemini` | `.gemini/skills` | **unverified** — pattern-matched from `.gemini/agents`; no source was read |
+
+This table is the reference; `skillsDirectory` in `getAgentFormat` (`src/utils.ts`) is where the code says the same thing. Change them together.
+
+**The `gemini` row is an accepted risk, not a verified fact.** If `.gemini/skills` is wrong, `init` reports success and gemini users get no skills — a silent miss, not an error. A gemini bug report about missing skills starts here rather than in the build.
+
+**The ownership cost.** Strikethroo now carries six harnesses' installation conventions, work `vercel-labs/skills` used to absorb. A harness that relocates its skills directory becomes a release-blocking obligation for this project: the correction reaches users only in a new version. Keeping every path in one table is what makes that correction a one-line change.
+
+**Installed skills are the one class of `init`-written files outside SHA-256 hash tracking, and that is the design.** They are overwrite-always build output: copied unconditionally on every run, given no `.init-metadata.json` entry, never raising a conflict prompt. Hash tracking exists to protect *user modifications* to user-editable configuration. Users are told never to edit an installed skill, and the next `npm run build` plus `init` overwrites it regardless — so a conflict prompt would be theatre over a file nobody can usefully own. Do not read the divergence from `copyCommonTemplates` as an oversight and "fix" it by adding skills to the metadata `files` map. `init` does print a warning when it **replaced** existing skill files (and not on a fresh install), so the overwrite is visible rather than silent.
 
 ### TypeScript source of truth
 
@@ -249,24 +270,28 @@ React + Vite + Tailwind v4 SPA built by `npm run build:web` (`vite.config.mts`) 
 3. `build:skills` (`scripts/build-skills.cjs`, esbuild) bundles each registered entrypoint into a self-contained `.cjs` emitted directly into `templates/harness/skills/<skill>/scripts/`.
 4. `build:skill-prompts` (`scripts/build-skill-prompts.cjs`) compiles each `src/skill-prompts/skills/<name>/SKILL.md.hbs` with Handlebars (partials registered from `src/skill-prompts/_partials/`) under a render-in-place constraint, writing only `templates/harness/skills/<name>/SKILL.md` and touching no other path under `templates/` — unlike the kenkeep reference this is modelled on, which wipes and copies its destination wholesale, a strategy that would delete `templates/strikethroo/` and `templates/harness/agents/` (both committed source) plus the `.cjs` bundles `build:skills` wrote one step earlier in this same chain. Post-build validation fails on an unresolved `{{…}}` marker, missing frontmatter, or an absent `## Operating Procedure` heading.
 
-**Adding a skill:** drop a TS entrypoint under `src/skill-scripts/`, add it to `SKILL_ENTRYPOINTS` (top of `build-skills.cjs`) as a four-element entry or (optionally) a five-element entry with a `banner` field to inject a header comment into the compiled bundle, add the path to `.claude-plugin/plugin.json`, create `src/skill-prompts/skills/<name>/SKILL.md.hbs` with frontmatter carrying only `name` + `description`. No other plumbing needed.
+**Adding a skill:** drop a TS entrypoint under `src/skill-scripts/`, add it to `SKILL_ENTRYPOINTS` (top of `build-skills.cjs`) as a four-element entry or (optionally) a five-element entry with a `banner` field to inject a header comment into the compiled bundle, create `src/skill-prompts/skills/<name>/SKILL.md.hbs` with frontmatter carrying only `name` + `description`. No other plumbing needed — `init` installs whatever the built directory contains, so there is no manifest to register a new skill in.
 
-**Generated artifacts force-added into the release commit** by `@semantic-release/git` (via `git add --force`, since they are git-ignored on `main`): the `.cjs` bundles under `templates/harness/skills/*/scripts/` and the assembled `SKILL.md` files under `templates/harness/skills/*/`. These must live on `main`, because a bare `npx skills add e0ipso/strikethroo` shallow-clones the repository's **default branch** and reads `templates/` from it. Because release commits land on `main`, the force-add is what puts them there; the tag is incidental. A pinned `npx skills add e0ipso/strikethroo#<tag>` reads that tag instead. The prebuilt SPA `dist-web/` is **not** committed to git — it ships only via the npm package's `files: ["dist-web/"]` entry, built fresh by `prepublishOnly`/CI. Skill bundles/prompts also ship via `files: ["templates/"]`.
+**Generated artifacts live in the npm tarball and in no git tree.** The `.cjs` bundles under `templates/harness/skills/*/scripts/` and the assembled `SKILL.md` files under `templates/harness/skills/*/` are gitignored and untracked, and release automation force-adds nothing. They reach users through exactly one channel: `files: ["dist/", "dist-web/", "templates/", "LICENSE"]` in `package.json`, built fresh by `prepublishOnly`/CI, from which `init` copies them into each harness. The prebuilt SPA `dist-web/` is no longer the exception to a rule — it is the same rule. Everything this project generates ships in the tarball and nothing generated ships in git.
 
-**Never commit either by hand.** Release automation owns both, so a hand-committed copy is churn at best and a lost edit at worst — `npm run build` overwrites each file wholesale, so a change made to a `SKILL.md` or a `.cjs` disappears at the next build. Edit `src/skill-prompts/` for prompts and `src/skill-scripts/` for bundles. Two guards enforce this, and they are the answer to "why aren't these just gitignored": they cannot be, because CI must be able to commit them.
+**Never commit either by hand.** `npm run build` overwrites each file wholesale, so an edit made directly to a `SKILL.md` or a `.cjs` disappears at the next build — churn at best, a lost edit at worst. Edit `src/skill-prompts/` for prompts and `src/skill-scripts/` for bundles. Because both paths are ignored, the only way one lands in a commit now is a deliberate `git add -f`. Two guards survive that change of premise:
 
 - `.husky/pre-commit` rejects either artifact when staged, and names the source directory to edit instead.
-- `.gitattributes` marks them `linguist-generated=true` (and the vendored `config/schemas/*.xsd` `linguist-vendored=true`). GitHub collapses them in pull requests, and the code review gate reads the same markers to drop them from the reviewed diff.
+- `.gitattributes` marks them `linguist-generated=true` (and the vendored `config/schemas/*.xsd` `linguist-vendored=true`). The ignore rules already keep them out of the code review gate's diff, so this is now the second of two independent reasons the gate never reviews them, and it is what keeps GitHub collapsing them if one ever does reach a diff.
 
-Local rebuilds therefore leave a permanently dirty working tree for these paths. That is the intended steady state — leave them dirty.
+The invariant that follows: on a clean checkout, `npm run build` leaves `git status --porcelain -- 'templates/harness/skills/'` empty. The paths are ignored and untracked, so regenerating them produces no diff at all. Non-empty output means one of these artifacts has become tracked and needs `git rm --cached`.
 
 ---
 
 ## Distribution
 
-Skills are distributed via [vercel-labs/skills](https://github.com/vercel-labs/skills), which reads `.claude-plugin/plugin.json` at the repo root — a JSON manifest whose `skills:` array lists `./templates/harness/skills/<name>` entries (leading `./` required). Users run `npx skills add e0ipso/strikethroo`, which shallow-clones the repository's **default branch** — not the latest release tag. The installer takes a git ref only from a `#` fragment (`npx skills add e0ipso/strikethroo#v3.19.0`); an `@` suffix is parsed as a *skill-name filter*, not a version, so `…/strikethroo@v3.19.0` silently clones `main` and then looks for a skill literally named `v3.19.0`. Verify against `parseFragmentRef` and the `atSkillMatch` branch of `parseSource` in the `skills` package before changing anything that depends on ref resolution.
+Skills are distributed by npm and by nothing else. `files: ["templates/", …]` puts `templates/harness/skills/` in the published tarball, and `npx strikethroo init --harnesses <list>` copies it into each harness's skills directory (paths in [Skill installation](#skill-installation)). The CLI, the workspace, and the skills therefore arrive together at one version: a user on a given package version has the matching skills by construction, with nothing else to run and no way for the two to drift.
 
-Note the two sibling directories under `templates/harness/`: `skills/` is install-time content read by `npx skills add`; `agents/` is init-time content copied into `.claude/agents/` by `npx . init`. The CLI's `init` does not read `skills/`.
+Both sibling directories under `templates/harness/` are init-time content and `init` reads both: `skills/` becomes each harness's installed skills, `agents/` becomes its sub-agent files.
+
+**`npx skills add e0ipso/strikethroo` is retired.** The reason is worth recording, because the channel looks convenient enough that a future contributor may try to restore it. That installer resolved a bare `<user>/<repo>` to the repository's **default branch**, never to a release tag — which is why built artifacts had to be committed to `main` for the front door to work at all. Worse, a `@<tag>` suffix read like a version pin but was parsed as a skill-name *filter*, so the obvious way to ask for a specific release silently installed `main` instead. Distribution was resting on undocumented third-party resolution semantics; npm's are documented, versioned, and already the channel the CLI shipped through.
+
+**`.claude-plugin/plugin.json` was deleted with it.** Its only consumer was that installer. Keeping it would have left a tracked manifest pointing at paths that now exist at no git ref — kenkeep's known-broken state, reproduced here for no benefit.
 
 ---
 
@@ -276,8 +301,10 @@ Note the two sibling directories under `templates/harness/`: `skills/` is instal
 
 Skills bake `EXPECTED_WORKSPACE_SCHEMA_VERSION` into each `.cjs` via esbuild's `define`. At runtime `src/skill-scripts/shared/root.ts` compares the workspace value against the baked value:
 
-- **Workspace older than skill:** re-run `npx strikethroo init` with the latest CLI.
-- **Workspace newer than skill:** re-run `npx skills add e0ipso/strikethroo` to update skills.
+- **Workspace older than skill:** the workspace is behind — "Re-run `npx strikethroo init` with the latest CLI to update."
+- **Workspace newer than skill:** the installed skills are behind — "Re-run `npx strikethroo init` with the latest CLI to reinstall the skills."
+
+Both remedies are the same command, because one command writes both sides; the two messages differ only in naming which side had fallen behind. The quoted strings are the ones `checkWorkspaceSchema` actually prints.
 
 Absent values in older metadata are backfilled to `1` on read (both sides), so deployed workspaces aren't broken by the field's introduction. Bump the constant only on genuine incompatible shape changes; the upgrade path is re-running `init` (no `migrate` subcommand). A post-build smoke assertion in `build-skills.cjs` fails the build if the literal `EXPECTED_WORKSPACE_SCHEMA_VERSION` survives substitution into any bundle.
 
@@ -285,16 +312,16 @@ Absent values in older metadata are backfilled to `1` on read (both sides), so d
 
 ## GitHub Releases
 
-`semantic-release` via `.github/workflows/release.yml`, triggered on push to `main`. The workflow runs `npm ci && npm run build && npx playwright install --with-deps chromium && npm test` (the browser install is needed because `npm test`'s e2e half runs against a real Chromium), then `npx semantic-release` (analyze commits → bump → publish to npm → GitHub release + tag). The `@semantic-release/git` `assets` glob force-adds `templates/harness/skills/*/scripts/*.cjs` and `templates/harness/skills/*/SKILL.md`; `dist-web/` is deliberately **not** in the glob. Release commits are labeled `chore(release):` and carry `[skip ci]`.
+`semantic-release` via `.github/workflows/release.yml`, triggered on push to `main`. The workflow runs `npm ci && npm run build && npx playwright install --with-deps chromium && npm test` (the browser install is needed because `npm test`'s e2e half runs against a real Chromium), then `npx semantic-release` (analyze commits → bump → publish to npm → GitHub release + tag). The `@semantic-release/git` `assets` list is `CHANGELOG.md`, `package.json`, and `package-lock.json` — release metadata only. No build output is committed: the skill bundles, the assembled `SKILL.md` files, and `dist-web/` are all gitignored and all ship through `npm publish`. Release commits are labeled `chore(release):` and carry `[skip ci]`.
 
-Verify the invariant:
+Verify the invariant — nothing generated is tracked, everything generated is packed:
 
 ```bash
-git ls-tree -r origin/main -- 'templates/harness/skills/*/SKILL.md'   # expect: prompts listed (the bare install reads this)
-git ls-tree -r v<tag> -- 'templates/harness/skills/*/scripts/*.cjs'   # expect: bundles listed
-git ls-tree -r v<tag> -- 'templates/harness/skills/*/SKILL.md'        # expect: prompts listed
-git ls-tree -r v<tag> -- 'dist-web/*'                                 # expect: EMPTY (SPA ships via npm)
-npm pack --dry-run | grep dist-web                                    # expect: SPA assets in the tarball
+git ls-files 'templates/harness/skills/*/SKILL.md' \
+             'templates/harness/skills/*/scripts/*.cjs'   # expect: EMPTY
+npm pack --dry-run | grep -E 'SKILL\.md|scripts/.*\.cjs'  # expect: every skill artifact listed
+npm pack --dry-run | grep dist-web                        # expect: SPA assets listed
+git status --porcelain -- 'templates/harness/skills/'     # expect: EMPTY, after npm run build
 ```
 
 ---
@@ -336,7 +363,9 @@ project/
 │   │                              #   copy — npm drops or renames a literal .gitignore in transit,
 │   │                              #   so nothing under templates/ may carry that name.
 │   └── runtime/                   # Gitignored dispatch cache (30m available / 5m unavailable)
-└── .claude/agents/                # Claude-only sub-agents copied by `init`
+├── .claude/agents/                # Sub-agents copied by `init` (per-harness; `.claude/` shown)
+└── .claude/skills/                # Workflow skills installed by `init` (per-harness path —
+                                   #   see the Skill installation table)
 ```
 
 Manual archival after completion: `mv .ai/strikethroo/plans/25--completed-plan .ai/strikethroo/archive/`. Continuous ID numbering across active + archived plans prevents conflicts.

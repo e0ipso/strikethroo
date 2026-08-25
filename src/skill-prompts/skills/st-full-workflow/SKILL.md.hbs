@@ -63,7 +63,7 @@ require you to apply it.
 
 Using the Plan ID extracted from Step 1:
 
-{{> procedure-generate-tasks
+{{#> procedure-generate-tasks
      heading="####"
      step_resolve="1"
      step_context="2"
@@ -81,6 +81,8 @@ Using the Plan ID extracted from Step 1:
      summary_heading="Emit the Step 2 structured summary"
      summary_lead_in="Conclude Step 2 with exactly this block:"
      summary_closing="Parse the `Tasks` count from this output and pass it to Step 3 for progress tracking."}}
+{{#*inline "plan_resolution_failure"}}{{> plan-resolution-generated-failure}}{{/inline}}
+{{/procedure-generate-tasks}}
 
 **Progress**: `⬛⬛⬜ 66% - Step 2/3: Task Generation Complete`
 
@@ -104,6 +106,7 @@ Using the Plan ID from the previous phases:
      step_post="7"
      summary_step="8"
      archive_step="9"}}
+{{#*inline "plan_resolution_failure"}}{{> plan-resolution-generated-failure}}{{/inline}}
 {{#*inline "auto_generate_dispatch"}}Execute the full task generation procedure from Step 2 for this plan ID.{{/inline}}
 {{/procedure-execute-blueprint}}
 

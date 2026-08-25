@@ -1,4 +1,9 @@
-Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` to obtain the
+{{!--
+  plan_resolution_failure is a required block slot. Standalone skills receive
+  a plan ID from the user, while st-full-workflow receives the ID from its own
+  preceding step. Their failure actions differ and stay visible at each call
+  site rather than branching here.
+--}}Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` to obtain the
 absolute path of the plan file. The same script also accepts these field
 names (single-field output mode) and exposes them on demand:
 
@@ -8,5 +13,5 @@ names (single-field output mode) and exposes them on demand:
 - `taskManagerRoot` — absolute path of `<root>`
 - `planId` — the resolved numeric plan ID
 
-If the script exits non-zero, stop and ask the user to confirm the plan ID.
+{{> plan_resolution_failure}}
 Do not guess a different ID.

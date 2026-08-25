@@ -64,7 +64,7 @@ slot two different ways, and
 that declares it.
 
 **Compile options** — `Handlebars.compile(source, { noEscape: true,
-ignoreStandalone: true })`:
+ignoreStandalone: true, strict: true })`:
 
 - `noEscape: true` — this is Markdown, not HTML. Without it, `&`, `<`, and
   `>` in substituted values become entity references, and these prompts are
@@ -74,6 +74,8 @@ ignoreStandalone: true })`:
   a partial tag along with the blank lines around it. That silently reformats
   Markdown spacing (list/heading adjacency) in ways that are easy to miss in
   review. Disabling it keeps authored spacing intact.
+- `strict: true` — an unknown variable or misspelled hash argument fails the
+  build instead of rendering as an empty string and deleting prompt text.
 
 **Frontmatter** is exactly `name` + `description`, passed through verbatim —
 it is exactly what ships, so the renderer treats the whole file as one

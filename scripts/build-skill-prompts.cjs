@@ -46,8 +46,13 @@ const TEMPLATE_FILENAME = 'SKILL.md.hbs';
 
 // Markdown and shell text, not HTML: `&`, `<`, and `>` must reach the output
 // verbatim. ignoreStandalone keeps a partial tag from swallowing the blank
-// lines it sits between, so spacing stays exactly as authored.
-const COMPILE_OPTIONS = { noEscape: true, ignoreStandalone: true };
+// lines it sits between, so spacing stays exactly as authored. strict turns a
+// missing hash argument into a build error instead of silently deleting text.
+const COMPILE_OPTIONS = {
+  noEscape: true,
+  ignoreStandalone: true,
+  strict: true,
+};
 
 const HTML_ENTITIES = ['&lt;', '&gt;', '&amp;'];
 

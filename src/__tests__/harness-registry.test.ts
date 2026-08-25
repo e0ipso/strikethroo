@@ -69,4 +69,57 @@ describe('HarnessRegistry', () => {
       expect(await fs.pathExists(file)).toBe(true);
     }
   });
+
+  describe('installSkills', () => {
+    it('copies every packaged skill verbatim, SKILL.md and the scripts subtree', async () => {
+      const result = await HarnessRegistry.get('claude')!.installSkills(tempDir);
+
+      const skillsDir = path.join(tempDir, '.claude/skills');
+      expect(result.skillsDir).toBe(skillsDir);
+      expect(result.files.length).toBeGreaterThan(0);
+
+      const skillMd = path.join(skillsDir, 'st-create-plan/SKILL.md');
+      const bundle = path.join(skillsDir, 'st-create-plan/scripts/get-next-plan-id.cjs');
+      expect(await fs.pathExists(skillMd)).toBe(true);
+      expect(await fs.pathExists(bundle)).toBe(true);
+      expect(result.files).toContain(skillMd);
+      expect(result.files).toContain(bundle);
+
+      const sourceRoot = path.join(__dirname, '..', '..', 'templates', 'harness', 'skills');
+      expect(await fs.readFile(skillMd, 'utf-8')).toBe(
+        await fs.readFile(path.join(sourceRoot, 'st-create-plan/SKILL.md'), 'utf-8')
+      );
+    });
+
+    it('uses the vendor-neutral .agents/skills directory for codex', async () => {
+      const result = await HarnessRegistry.get('codex')!.installSkills(tempDir);
+
+      expect(result.skillsDir).toBe(path.join(tempDir, '.agents/skills'));
+      expect(
+        await fs.pathExists(path.join(tempDir, '.agents/skills/st-create-plan/SKILL.md'))
+      ).toBe(true);
+      expect(await fs.pathExists(path.join(tempDir, '.codex/skills'))).toBe(false);
+    });
+
+    it('reports replacedExisting false on a fresh install and true on a re-install', async () => {
+      const adapter = HarnessRegistry.get('claude')!;
+
+      const first = await adapter.installSkills(tempDir);
+      expect(first.replacedExisting).toBe(false);
+
+      const second = await adapter.installSkills(tempDir);
+      expect(second.replacedExisting).toBe(true);
+      expect(new Set(second.files)).toEqual(new Set(first.files));
+    });
+
+    it('ignores unrelated skills already present in the target directory', async () => {
+      const foreign = path.join(tempDir, '.claude/skills/some-other/SKILL.md');
+      await fs.outputFile(foreign, '# unrelated third-party skill\n', 'utf-8');
+
+      const result = await HarnessRegistry.get('claude')!.installSkills(tempDir);
+
+      expect(result.replacedExisting).toBe(false);
+      expect(await fs.readFile(foreign, 'utf-8')).toBe('# unrelated third-party skill\n');
+    });
+  });
 });

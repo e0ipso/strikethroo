@@ -10,5 +10,5 @@
 import './agent-adapter';
 
 export { HarnessRegistry, registerHarnessAdapter } from './registry';
-export type { HarnessAdapter } from './registry';
+export type { HarnessAdapter, SkillInstallResult } from './registry';
 export { createAgentAdapter } from './agent-adapter';

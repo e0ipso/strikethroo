@@ -6,7 +6,7 @@
  */
 
 import { parseHarnesses, validateHarnesses, convertAgentMdToToml, getAgentFormat } from '../utils';
-import { Harness } from '../types';
+import { Harness, SUPPORTED_HARNESSES } from '../types';
 
 describe('Critical Utils Business Logic', () => {
   describe('parseHarnesses', () => {
@@ -97,6 +97,7 @@ describe('Critical Utils Business Logic', () => {
         format: 'toml',
         extension: '.toml',
         directory: '.codex/agents',
+        skillsDirectory: '.agents/skills',
       });
     });
 
@@ -105,6 +106,7 @@ describe('Critical Utils Business Logic', () => {
         format: 'md',
         extension: '.md',
         directory: '.github/agents',
+        skillsDirectory: '.github/skills',
       });
     });
 
@@ -113,7 +115,23 @@ describe('Critical Utils Business Logic', () => {
         format: 'md',
         extension: '.md',
         directory: '.claude/agents',
+        skillsDirectory: '.claude/skills',
       });
+    });
+
+    it('returns a skills directory for every supported harness', () => {
+      const expected: Record<Harness, string> = {
+        claude: '.claude/skills',
+        codex: '.agents/skills',
+        cursor: '.cursor/skills',
+        copilot: '.github/skills',
+        gemini: '.gemini/skills',
+        opencode: '.opencode/skills',
+      };
+
+      for (const harness of SUPPORTED_HARNESSES) {
+        expect(getAgentFormat(harness).skillsDirectory).toBe(expected[harness]);
+      }
     });
   });
 });

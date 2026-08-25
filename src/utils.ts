@@ -159,6 +159,13 @@ export interface AgentFormatInfo {
   format: 'md' | 'toml';
   extension: string;
   directory: string;
+  /**
+   * Project-relative directory the harness reads Agent Skills from.
+   *
+   * Note `codex`: it reads the vendor-neutral `.agents/skills`, not
+   * `.codex/skills`. That asymmetry with `directory` is intentional.
+   */
+  skillsDirectory: string;
 }
 
 /**
@@ -167,16 +174,46 @@ export interface AgentFormatInfo {
 export function getAgentFormat(harness: Harness): AgentFormatInfo {
   switch (harness) {
     case 'codex':
-      return { format: 'toml', extension: '.toml', directory: '.codex/agents' };
+      return {
+        format: 'toml',
+        extension: '.toml',
+        directory: '.codex/agents',
+        skillsDirectory: '.agents/skills',
+      };
     case 'copilot':
-      return { format: 'md', extension: '.md', directory: '.github/agents' };
+      return {
+        format: 'md',
+        extension: '.md',
+        directory: '.github/agents',
+        skillsDirectory: '.github/skills',
+      };
     case 'claude':
-      return { format: 'md', extension: '.md', directory: '.claude/agents' };
+      return {
+        format: 'md',
+        extension: '.md',
+        directory: '.claude/agents',
+        skillsDirectory: '.claude/skills',
+      };
     case 'gemini':
-      return { format: 'md', extension: '.md', directory: '.gemini/agents' };
+      return {
+        format: 'md',
+        extension: '.md',
+        directory: '.gemini/agents',
+        skillsDirectory: '.gemini/skills',
+      };
     case 'cursor':
-      return { format: 'md', extension: '.md', directory: '.cursor/agents' };
+      return {
+        format: 'md',
+        extension: '.md',
+        directory: '.cursor/agents',
+        skillsDirectory: '.cursor/skills',
+      };
     case 'opencode':
-      return { format: 'md', extension: '.md', directory: '.opencode/agents' };
+      return {
+        format: 'md',
+        extension: '.md',
+        directory: '.opencode/agents',
+        skillsDirectory: '.opencode/skills',
+      };
   }
 }

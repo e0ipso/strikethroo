@@ -1,0 +1,102 @@
+{{!--
+  The plan-creation procedure. Rendered by st-create-plan and by st-full-workflow's
+  Step 1. Call sites supply: heading, action_verb_phrase, summary_heading,
+  summary_lead_in, summary_closing.
+
+  Two slots, clarification_gate_context and clarification_gate, carry the one genuine
+  divergence: st-create-plan runs under the approval gate in
+  <root>/config/shared/clarification-gate.md, st-full-workflow runs hands-off. Each call
+  site supplies both as {{#*inline}} block partials, so the branch is readable at the
+  call site instead of being a conditional the agent has to evaluate here.
+
+  Whitespace contract for a slot: the tag sits on its own line with no blank line above
+  or below it. Filled slot content carries its own surrounding newlines (which is what an
+  {{#*inline}} block written on its own lines produces); an empty slot then collapses
+  without leaving a double blank line.
+--}}{{heading}} 1. Locate the strikethroo root
+
+{{> root-discovery action_verb_phrase=action_verb_phrase}}
+
+{{heading}} 2. Load project context
+
+Read `<root>/config/STRIKETHROO.md` for the directory structure conventions
+this project uses. Read `<root>/config/hooks/PRE_PLAN.md` and execute the
+instructions it contains before proceeding. Read
+`<root>/config/templates/PLAN_TEMPLATE.md` so the plan you emit conforms
+to its structure.
+{{> clarification_gate_context}}
+{{heading}} 3. Analyze the work order
+
+Identify:
+
+- Objective and end goal.
+- Scope and explicit boundaries.
+- Success criteria.
+- Dependencies, prerequisites, blockers.
+- Technical requirements and constraints.
+
+{{heading}} 4. Clarification loop
+
+If any critical context is missing, ask the user targeted questions. Keep
+looping until you have no further questions. Explicitly confirm whether
+backwards compatibility is required. Never invent answers; never paper over
+a missing answer.
+
+If the user declines to clarify a blocking question, stop and report the
+plan as needing clarification. Do not produce a partial plan.
+{{> clarification_gate}}
+Apply `<root>/config/shared/anti-rationalization.md` to this rationalization table:
+
+| You catch yourself thinking… | The binding rule |
+| --- | --- |
+| "I can reasonably assume the answer." | An assumption is not an answer. Ask the question; never invent answers. |
+| "Asking again is annoying." | A question the user can decline is recoverable; a silent wrong assumption is not. Ask. |
+| "The user implied it, so it's settled." | An implication is not a confirmation. Surface it as a question and get an explicit answer. |
+
+{{heading}} 5. Allocate the next plan ID
+
+Run `scripts/get-next-plan-id.cjs` to obtain the next available plan ID.
+Pass `<root>` as the first argument when invoking the script from a working
+directory that is not inside the project, otherwise no argument is required.
+The script prints a single integer.
+
+Compute the zero-padded form for directory naming (`{padded-id}--{slug}`)
+and use the unpadded integer in the plan frontmatter and the final summary.
+
+{{heading}} 6. Emit the plan
+
+Write the plan to:
+
+```
+<root>/plans/{padded-id}--{slug}/plan-{padded-id}--{slug}.md
+```
+
+The output must:
+
+- Conform to `<root>/config/templates/PLAN_TEMPLATE.md`, including required
+  YAML frontmatter fields (at minimum `id`, `summary`, `created`).
+- Contain the standard sections from the template body.
+- Use Markdown, not free-form prose.
+- Avoid time estimates, task lists, or code samples — those belong to the
+  later task-generation step.
+
+The `<slug>` is derived from the plan summary: lowercase, alphanumeric and
+hyphens only, collapsed, trimmed.
+
+{{heading}} 7. Run post-plan hook
+
+Execute `<root>/config/hooks/POST_PLAN.md` after the plan file is written.
+
+{{heading}} 8. {{summary_heading}}
+
+{{summary_lead_in}}
+
+```
+---
+
+Plan Summary:
+- Plan ID: [numeric-id]
+- Plan File: [absolute-path-to-plan-file]
+```
+
+{{summary_closing}}

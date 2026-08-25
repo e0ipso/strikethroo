@@ -40,65 +40,18 @@ These indicators are purely informational. Do not pause or wait for user input w
 
 **Progress**: `⬛⬜⬜ 33% - Step 1/3: Starting Plan Creation`
 
-#### 1. Locate the strikethroo root
-
-{{> root-discovery action_verb_phrase="execute the full workflow"}}
-
-#### 2. Load project context
-
-Read `<root>/config/STRIKETHROO.md` for directory structure conventions. Read `<root>/config/hooks/PRE_PLAN.md` and execute its instructions before proceeding. Read `<root>/config/templates/PLAN_TEMPLATE.md` so the plan conforms to the project's template.
-
-#### 3. Analyze the work order
-
-Identify:
-
-- Objective and end goal.
-- Scope and explicit boundaries.
-- Success criteria.
-- Dependencies, prerequisites, and blockers.
-- Technical requirements and constraints.
-
-#### 4. Clarification loop
-
-If any critical context is missing, ask the user targeted questions. Loop until no further questions remain. Explicitly confirm whether backwards compatibility is required. Never invent answers.
-
-If the user declines to clarify a blocking question, stop and report the plan as needing clarification. Do not produce a partial plan.
-
-#### 5. Allocate the next plan ID
-
-Run `scripts/get-next-plan-id.cjs` to obtain the next available plan ID. The script prints a single integer.
-
-Compute the zero-padded form for directory naming (`{padded-id}--{slug}`) and use the unpadded integer in the plan frontmatter and the final summary.
-
-#### 6. Emit the plan
-
-Write the plan to:
-
-```
-<root>/plans/{padded-id}--{slug}/plan-{padded-id}--{slug}.md
-```
-
-The output must conform to `<root>/config/templates/PLAN_TEMPLATE.md`, including required YAML frontmatter fields (`id`, `summary`, `created`). Avoid time estimates, task lists, or code samples — those belong to the later task-generation step.
-
-The `<slug>` is derived from the plan summary: lowercase, alphanumeric and hyphens only, collapsed, trimmed.
-
-#### 7. Run post-plan hook
-
-Execute `<root>/config/hooks/POST_PLAN.md` after the plan file is written.
-
-#### 8. Emit the Step 1 structured summary
-
-Conclude Step 1 with exactly this block:
-
-```
----
-
-Plan Summary:
-- Plan ID: [numeric-id]
-- Plan File: [absolute-path-to-plan-file]
-```
-
-Parse the `Plan ID` value from this output and pass it to Step 2.
+{{#> procedure-create-plan
+     heading="####"
+     action_verb_phrase="execute the full workflow"
+     summary_heading="Emit the Step 1 structured summary"
+     summary_lead_in="Conclude Step 1 with exactly this block:"
+     summary_closing="Parse the `Plan ID` value from this output and pass it to Step 2."}}
+{{#*inline "clarification_gate_context"}}
+Also read `<root>/config/shared/anti-rationalization.md`. The steps below
+require you to apply it.
+{{/inline}}
+{{#*inline "clarification_gate"}}{{!-- Hands-off orchestration: the interactive approval gate is deliberately absent. --}}{{/inline}}
+{{/procedure-create-plan}}
 
 **Progress**: `⬛⬜⬜ 33% - Step 1/3: Plan Creation Complete`
 

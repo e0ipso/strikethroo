@@ -333,10 +333,11 @@ The summary is consumed by downstream automation; keep the format exact.
 
 ## Failure Modes
 
-- **No strikethroo root found.** Stop, instruct the user to initialize the
-  project. Do not write any files.
-- **Plan ID does not resolve.** Stop and surface the script's stderr to the
-  user. Do not guess a different ID and do not write any files.
+- **No strikethroo root found.** Stop and instruct the user to initialize the
+  project. Do not write any files or execute any tasks.
+- **Plan ID does not resolve, or the plan-ID script fails.** Re-check the
+  resolved root and re-run. If it continues to fail, surface the script's
+  stderr to the user and stop. Do not guess an ID and do not write any files.
 - **User declines to clarify a blocking ambiguity.** Mark the affected tasks
   with `status: "needs-clarification"` and document the open question in the
   task's "Implementation Notes". Do not invent answers.

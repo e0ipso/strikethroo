@@ -224,8 +224,11 @@ Preserve the entire folder structure (including all tasks and subdirectories) to
 
 ## Failure Modes
 
-- **No strikethroo root found.** Stop and instruct the user to initialize the project. Do not execute any tasks.
-- **Plan ID does not resolve.** Stop and surface the script's stderr to the user. Do not guess a different ID.
+- **No strikethroo root found.** Stop and instruct the user to initialize the
+  project. Do not write any files or execute any tasks.
+- **Plan ID does not resolve, or the plan-ID script fails.** Re-check the
+  resolved root and re-run. If it continues to fail, surface the script's
+  stderr to the user and stop. Do not guess an ID and do not write any files.
 - **Missing blueprint after auto-generation.** If the `st-generate-tasks` skill fails to produce tasks or a blueprint, stop and report failure. Do not attempt execution without a blueprint.
 - **Hook failure.** If `PRE_PHASE.md`, `POST_PHASE.md`, or `POST_EXECUTION.md` fails, halt execution. The plan remains in `plans/` for debugging and potential re-execution.
 - **Execution errors.** If a task fails, read `<root>/config/hooks/POST_ERROR_DETECTION.md`, document the error in Noteworthy Events, halt the phase, and request user direction before continuing.

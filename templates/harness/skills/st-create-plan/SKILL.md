@@ -123,12 +123,13 @@ The summary is consumed by downstream automation; keep the format exact.
 
 ## Failure Modes
 
-- **No strikethroo root found.** Stop, instruct the user to initialize the
-  project. Do not write any files.
+- **No strikethroo root found.** Stop and instruct the user to initialize the
+  project. Do not write any files or execute any tasks.
+- **Plan ID does not resolve, or the plan-ID script fails.** Re-check the
+  resolved root and re-run. If it continues to fail, surface the script's
+  stderr to the user and stop. Do not guess an ID and do not write any files.
 - **User refuses to answer a clarifying question that blocks planning.**
   Report `needs-clarification` and stop. Do not produce a plan.
-- **Plan ID script fails.** Re-check the resolved root and re-run. If it
-  continues to fail, surface stderr to the user and stop — do not guess an ID.
 - **Plan directory already exists for the allocated ID.** Re-run the
   next-plan-id script (a concurrent run may have advanced it) and retry once.
   If the conflict persists, stop and report.

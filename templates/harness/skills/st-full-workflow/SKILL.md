@@ -55,7 +55,14 @@ For every subsequent step, treat the path printed by this script as `<root>`.
 
 #### 2. Load project context
 
-Read `<root>/config/STRIKETHROO.md` for directory structure conventions. Read `<root>/config/hooks/PRE_PLAN.md` and execute its instructions before proceeding. Read `<root>/config/templates/PLAN_TEMPLATE.md` so the plan conforms to the project's template.
+Read `<root>/config/STRIKETHROO.md` for the directory structure conventions
+this project uses. Read `<root>/config/hooks/PRE_PLAN.md` and execute the
+instructions it contains before proceeding. Read
+`<root>/config/templates/PLAN_TEMPLATE.md` so the plan you emit conforms
+to its structure.
+
+Also read `<root>/config/shared/anti-rationalization.md`. The steps below
+require you to apply it.
 
 #### 3. Analyze the work order
 
@@ -64,20 +71,36 @@ Identify:
 - Objective and end goal.
 - Scope and explicit boundaries.
 - Success criteria.
-- Dependencies, prerequisites, and blockers.
+- Dependencies, prerequisites, blockers.
 - Technical requirements and constraints.
 
 #### 4. Clarification loop
 
-If any critical context is missing, ask the user targeted questions. Loop until no further questions remain. Explicitly confirm whether backwards compatibility is required. Never invent answers.
+If any critical context is missing, ask the user targeted questions. Keep
+looping until you have no further questions. Explicitly confirm whether
+backwards compatibility is required. Never invent answers; never paper over
+a missing answer.
 
-If the user declines to clarify a blocking question, stop and report the plan as needing clarification. Do not produce a partial plan.
+If the user declines to clarify a blocking question, stop and report the
+plan as needing clarification. Do not produce a partial plan.
+
+Apply `<root>/config/shared/anti-rationalization.md` to this rationalization table:
+
+| You catch yourself thinking… | The binding rule |
+| --- | --- |
+| "I can reasonably assume the answer." | An assumption is not an answer. Ask the question; never invent answers. |
+| "Asking again is annoying." | A question the user can decline is recoverable; a silent wrong assumption is not. Ask. |
+| "The user implied it, so it's settled." | An implication is not a confirmation. Surface it as a question and get an explicit answer. |
 
 #### 5. Allocate the next plan ID
 
-Run `scripts/get-next-plan-id.cjs` to obtain the next available plan ID. The script prints a single integer.
+Run `scripts/get-next-plan-id.cjs` to obtain the next available plan ID.
+Pass `<root>` as the first argument when invoking the script from a working
+directory that is not inside the project, otherwise no argument is required.
+The script prints a single integer.
 
-Compute the zero-padded form for directory naming (`{padded-id}--{slug}`) and use the unpadded integer in the plan frontmatter and the final summary.
+Compute the zero-padded form for directory naming (`{padded-id}--{slug}`)
+and use the unpadded integer in the plan frontmatter and the final summary.
 
 #### 6. Emit the plan
 
@@ -87,9 +110,17 @@ Write the plan to:
 <root>/plans/{padded-id}--{slug}/plan-{padded-id}--{slug}.md
 ```
 
-The output must conform to `<root>/config/templates/PLAN_TEMPLATE.md`, including required YAML frontmatter fields (`id`, `summary`, `created`). Avoid time estimates, task lists, or code samples — those belong to the later task-generation step.
+The output must:
 
-The `<slug>` is derived from the plan summary: lowercase, alphanumeric and hyphens only, collapsed, trimmed.
+- Conform to `<root>/config/templates/PLAN_TEMPLATE.md`, including required
+  YAML frontmatter fields (at minimum `id`, `summary`, `created`).
+- Contain the standard sections from the template body.
+- Use Markdown, not free-form prose.
+- Avoid time estimates, task lists, or code samples — those belong to the
+  later task-generation step.
+
+The `<slug>` is derived from the plan summary: lowercase, alphanumeric and
+hyphens only, collapsed, trimmed.
 
 #### 7. Run post-plan hook
 
@@ -121,15 +152,31 @@ Using the Plan ID extracted from Step 1:
 
 #### 1. Resolve the plan
 
-Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` to obtain the absolute path of the plan file. If the script exits non-zero, stop and report the error. Do not guess a different ID.
+Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` to obtain the
+absolute path of the plan file. The same script also accepts these field
+names (single-field output mode) and exposes them on demand:
+
+- `planDir` — absolute path of the plan directory
+- `taskCount` — number of existing task files in that plan's `tasks/`
+- `blueprintExists` — `yes` or `no`
+- `taskManagerRoot` — absolute path of `<root>`
+- `planId` — the resolved numeric plan ID
+
+If the script exits non-zero, surface its stderr to the user and stop the
+workflow.
+Do not guess a different ID.
 
 #### 2. Load project context
 
-Read these files in order:
+Read these files, in order:
 
-- `<root>/config/STRIKETHROO.md` — directory conventions.
-- The plan body at the path returned above — this is the contract for what tasks must exist.
-- `<root>/config/templates/TASK_TEMPLATE.md` — every task file must conform to this template.
+- `<root>/config/STRIKETHROO.md` — directory conventions for plans, tasks,
+  and the archive layout.
+- The plan body at the path returned by step 1 — this is the contract for
+  what tasks must exist.
+- `<root>/config/templates/TASK_TEMPLATE.md` — every task file you emit must
+  conform to this template's frontmatter schema and section structure.
+- `<root>/config/shared/anti-rationalization.md` — apply in step 3.
 
 #### 3. Analyze and decompose the plan
 
@@ -158,6 +205,15 @@ Decompose each deliverable into atomic tasks only when genuinely needed.
 - Adding tasks for "future extensibility" or "best practices" the plan does
   not mention.
 - Comprehensive test suites for trivial functionality.
+
+Apply `<root>/config/shared/anti-rationalization.md` to this rationalization table:
+
+| You catch yourself thinking… | The binding rule |
+| --- | --- |
+| "One extra task won't hurt." | It violates the 20–30% minimization target. Every task traces to an **explicitly stated** deliverable or it does not exist. |
+| "This edge case deserves its own task." | Fold it into the task that owns the behavior. Do not split trivially small operations into separate units. |
+| "I'll add a test suite to be safe." | Comprehensive tests for trivial functionality are gold-plating. Follow the test philosophy — meaningful tests only. |
+| "Future extensibility justifies this task." | YAGNI. The plan does not mention it, so it is not a task. |
 
 #### 4. Apply granularity and skill rules
 
@@ -217,10 +273,12 @@ in that task's "Implementation Notes" so the executing agent applies it.
 
 For each task, identify:
 
-- Hard dependencies — tasks that MUST complete before this one can start.
-- Soft dependencies — tasks that SHOULD complete for optimal execution.
+- **Hard dependencies**: tasks that MUST complete before this one can start.
+- **Soft dependencies**: tasks that SHOULD complete for optimal execution.
 
-A task B depends on A if B requires A's output or artifacts, modifies code created by A, or tests functionality implemented by A. Validate that the final dependency graph is acyclic.
+A task B depends on A if B requires A's output or artifacts, modifies code
+created by A, or tests functionality implemented by A. Validate that the
+final dependency graph is acyclic.
 
 #### 7. Complexity analysis
 
@@ -259,9 +317,13 @@ blocker to the user.
 
 #### 8. Allocate task IDs
 
-Run `scripts/get-next-task-id.cjs <plan-id>` to obtain the first available task ID. Allocate subsequent IDs by incrementing in-process. Use the unpadded integer in the task frontmatter `id` field and the zero-padded form (`{padded-id}--{slug}`) for the filename.
+Run `scripts/get-next-task-id.cjs <plan-id>` to obtain the first available
+task ID. Allocate subsequent IDs by incrementing in-process; do not invoke
+the script repeatedly. Use the unpadded integer in the task frontmatter `id`
+field and the zero-padded form (`{padded-id}--{slug}`) for the filename.
 
-The slug derives from a short task title: lowercase, alphanumeric and hyphens only, collapsed, trimmed.
+The slug derives from a short task title: lowercase, alphanumeric and
+hyphens only, collapsed, trimmed.
 
 #### 9. Emit the task files
 
@@ -365,10 +427,15 @@ target into task frontmatter or task bodies.
 
 #### 12. Run the POST_TASK_GENERATION_ALL hook
 
-Read `<root>/config/hooks/POST_TASK_GENERATION_ALL.md` and follow its instructions. Run it only after routing succeeded or reported routing off. This typically requires:
+Read `<root>/config/hooks/POST_TASK_GENERATION_ALL.md` and follow its
+instructions. Run it only after routing succeeded or reported routing off.
+This typically requires:
 
-- Appending an Execution Blueprint section to the plan document, including a Mermaid dependency diagram and explicit phase groupings.
-- Use `<root>/config/templates/BLUEPRINT_TEMPLATE.md` for structure.
+- Appending an Execution Blueprint section to the plan document, including a
+  Mermaid dependency diagram and explicit phase groupings (Phase 1 contains
+  zero-dependency tasks; each subsequent phase contains tasks whose
+  dependencies all live in earlier phases). Use
+  `<root>/config/templates/BLUEPRINT_TEMPLATE.md` for structure.
 
 #### 13. Emit the Step 2 structured summary
 
@@ -394,50 +461,61 @@ Parse the `Tasks` count from this output and pass it to Step 3 for progress trac
 
 Using the Plan ID from the previous phases:
 
-#### 1. Resolve the plan and validate readiness
+#### 1. Resolve the plan
 
-Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` to obtain the plan file path. Also query:
+Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` to obtain the
+absolute path of the plan file. The same script also accepts these field
+names (single-field output mode) and exposes them on demand:
 
 - `planDir` — absolute path of the plan directory
-- `taskCount` — number of existing task files
+- `taskCount` — number of existing task files in that plan's `tasks/`
 - `blueprintExists` — `yes` or `no`
+- `taskManagerRoot` — absolute path of `<root>`
+- `planId` — the resolved numeric plan ID
 
-If the script exits non-zero, stop and report the error.
+If the script exits non-zero, surface its stderr to the user and stop the
+workflow.
+Do not guess a different ID.
 
-#### 2. Auto-generate tasks and blueprint if missing
+#### 2. Validate tasks and blueprint existence
+
+Inspect the `taskCount` and `blueprintExists` values returned by the validation script.
+
+#### 3. Auto-generate tasks and blueprint if missing
 
 If `taskCount` is 0 or `blueprintExists` is `no`:
 
 - Notify the user: "Tasks or execution blueprint not found. Generating tasks automatically..."
 - Execute the full task generation procedure from Step 2 for this plan ID.
 - After generation completes, re-run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` (and the other fields) to refresh the resolved paths and counts.
-- If generation still leaves the plan without tasks or a blueprint, stop and report failure. Do not attempt execution without a valid blueprint.
 
-#### 3. Optionally create a feature branch
+If generation still leaves the plan without tasks or a blueprint, stop and report failure. Do not attempt execution without a valid blueprint.
+
+#### 4. Optionally create a feature branch
 
 Run `scripts/create-feature-branch.cjs <plan-id>` once before phase execution. Branch creation is best-effort: when the script reports that it skipped creation (for example, not on `main`/`master`), continue on the current branch and do not retry or create a branch manually. Uncommitted or untracked changes are permitted only when every change is inside the repository-root `.ai/strikethroo` subtree, so a newly generated plan and tasks can remain uncommitted before execution. When the script exits with an error—including changes anywhere outside that subtree or an inability to inspect Git status on `main`/`master`—halt and report the error. Do not treat a skipped branch as a failure or spend effort working around a skip.
 
 After the branch step, run `scripts/capture-base-commit.cjs <plan-id>` once. It records the commit the review gate diffs against. A `skipped` result is not a failure — continue execution and note that the review gate will skip. Only an `error` result halts.
 
-#### 4. Load execution blueprint
+#### 5. Load project context and execution blueprint
 
-Read these files in order:
+Read these files, in order:
 
 - `<root>/config/STRIKETHROO.md` — directory conventions and project context.
-- The plan document.
+- The plan document at the path returned by step 1.
 - The plan's Execution Blueprint section — this defines the phase groupings and task dispatch order.
-- `<root>/config/shared/verification-gate.md` — apply in the phase loop below.
+- `<root>/config/shared/verification-gate.md` and `<root>/config/shared/anti-rationalization.md` — apply in the phase loop below.
 
-#### 5. Execute phases in order
+#### 6. Execute phases in order
 
 Use an internal task or todo tracker to monitor progress. For each phase defined in the Execution Blueprint:
 
-##### 5a. Phase pre-execution
+##### 6a. Phase pre-execution
 Run `scripts/check-phase-readiness.cjs <plan-id> <phase-number>`. If the script exits non-zero, halt the phase and report the blocking issues before continuing.
 
 Read `<root>/config/hooks/PRE_PHASE.md` and execute its instructions before starting the phase.
 
-##### 5b. Task dispatch
+##### 6b. Task dispatch
 Identify all tasks scheduled for this phase whose dependencies are fully satisfied. Read `<root>/config/hooks/PRE_TASK_ASSIGNMENT.md` and follow its instructions for agent selection before dispatching tasks.
 
 Resolve every selected task's execution route first. Invoke one resolver per selected
@@ -489,19 +567,27 @@ Deploy all remaining native agents simultaneously using your internal Task tool.
 
 Maximize parallelism within each phase. Run every task that is ready at the same time.
 
-##### 5c. Phase completion verification
+##### 6c. Phase completion verification
 Ensure every task in the phase has status `completed`. Collect and review all task outputs. Document any issues or exceptions encountered.
 
 Do not accept a subagent's report of success as proof. Apply the evidence gate in `<root>/config/shared/verification-gate.md` before marking the phase complete. Do not mark a phase complete on an unverified claim.
 
-##### 5d. Phase post-execution
+##### 6d. Phase post-execution
 Read `<root>/config/hooks/POST_PHASE.md` and execute its instructions. Do not proceed to the next phase until this hook succeeds.
 
 Update the phase status to `completed` in the plan's Execution Blueprint section.
 
 Repeat for the next phase until all phases are complete.
 
-#### 6. Post-execution validation
+Apply `<root>/config/shared/anti-rationalization.md` to this rationalization table:
+
+| You catch yourself thinking… | The binding rule |
+| --- | --- |
+| "The subagent reported success, so the task is done." | A report is a claim, not evidence. Apply the verification gate before marking the phase complete. |
+| "The tests probably pass." | "Probably" is a red flag. Run the proving command, read its output and exit code, then state the result. |
+| "I'll verify later, after the next phase." | A phase is not complete until `POST_PHASE.md` succeeds against verified evidence. Verify now; do not advance on an unverified phase. |
+
+#### 7. Post-execution validation
 
 Read `<root>/config/hooks/POST_EXECUTION.md` and execute its instructions. If validation fails, halt execution. The plan remains in `plans/` for debugging.
 
@@ -549,7 +635,7 @@ Hard rules:
 - The review runs once. Do not re-run the gate to check your own fixes.
 - A certified review is not a correctness guarantee. It reduces the exposure a human PR approval reduces, and it leaves the same exposure behind.
 
-#### 7. Append execution summary
+#### 8. Append execution summary
 
 Append an execution summary section to the plan document using the format described in `<root>/config/templates/EXECUTION_SUMMARY_TEMPLATE.md`. Populate:
 
@@ -559,7 +645,7 @@ Append an execution summary section to the plan document using the format descri
 - **Noteworthy Events**: all decisions, issues, and outcomes encountered during execution. Always record the review gate's outcome here: the reviewer harness, the finding counts, and which findings you acted on versus ignored and why. When the gate did not run, record its `reason` and `detail` verbatim. If nothing else occurred, state "No significant issues encountered." after the review outcome.
 - **Necessary follow-ups**: any follow-up actions or optimizations
 
-#### 8. Archive the plan
+#### 9. Archive the plan
 
 Move the completed plan directory from `<root>/plans/<plan-folder>` to `<root>/archive/<plan-folder>`.
 
@@ -569,11 +655,13 @@ Preserve the entire folder structure (including all tasks and subdirectories) to
 
 ## Failure Modes
 
-- **No strikethroo root found.** Stop and instruct the user to initialize the project. Do not write any files or execute any tasks.
+- **No strikethroo root found.** Stop and instruct the user to initialize the
+  project. Do not write any files or execute any tasks.
+- **Plan ID does not resolve, or the plan-ID script fails.** Re-check the
+  resolved root and re-run. If it continues to fail, surface the script's
+  stderr to the user and stop. Do not guess an ID and do not write any files.
 - **User refuses to answer a clarifying question that blocks planning in Step 1.** Report `needs-clarification` and stop. Do not produce a partial plan.
-- **Plan ID script fails.** Re-check the resolved root and re-run. If it continues to fail, surface stderr to the user and stop — do not guess an ID.
 - **Plan directory already exists for the allocated ID in Step 1.** Re-run the next-plan-id script and retry once. If the conflict persists, stop and report.
-- **Plan ID does not resolve in Step 2 or 3.** Stop and surface the script's stderr. Do not guess a different ID.
 - **Execution routing fails in Step 2.** Surface the routing helper's JSON errors and stop before blueprint generation. Do not guess profile assignments, hand-write `execution_profile`, or continue with partially routed tasks.
 - **Missing blueprint after auto-generation in Step 3.** If automatic task generation fails to produce tasks or a blueprint, stop and report failure. Do not attempt execution without a blueprint.
 - **Hook failure during execution.** If `PRE_PHASE.md`, `POST_PHASE.md`, or `POST_EXECUTION.md` fails, halt execution. The plan remains in `plans/` for debugging and potential re-execution.

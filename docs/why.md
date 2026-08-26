@@ -78,7 +78,7 @@ differently, so a second model is an independent sample, not a cheaper one.
 | A missing validator is a distinct failure, not a pass | `validateAgainstSchema`, `src/skill-scripts/shared/review-findings.ts` |
 | Reviewer can't be the implementer's harness | `discoverHarnesses`, `src/skill-scripts/shared/harness-discovery.ts` |
 | Subagent reports aren't proof | `config/shared/verification-gate.md` |
-| Reviewer detects, never fixes | Role section, `src/skill-prompts/st-code-review.md` |
+| Reviewer detects, never fixes | Role section, `src/skill-prompts/skills/st-code-review/SKILL.md.hbs` |
 | Human approval gates the plan | `config/shared/clarification-gate.md` |
 
 Next: the [Workflow Guide](workflow.html), or [Customization](customization.html).

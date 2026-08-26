@@ -24,7 +24,9 @@ user instead.
 
 ### 2. Resolve the plan
 
-{{> plan-resolution}}
+{{#> plan-resolution}}
+{{#*inline "plan_resolution_failure"}}{{> plan-resolution-user-failure}}{{/inline}}
+{{/plan-resolution}}
 
 ### 3. Load project context
 

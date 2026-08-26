@@ -22,7 +22,7 @@ prompt the user instead.
 
 {{> root-discovery action_verb_phrase="generate tasks"}}
 
-{{> procedure-generate-tasks
+{{#> procedure-generate-tasks
      heading="###"
      step_resolve="2"
      step_context="3"
@@ -40,6 +40,8 @@ prompt the user instead.
      summary_heading="Emit the structured summary"
      summary_lead_in="Conclude with exactly this block as the final output:"
      summary_closing="The summary is consumed by downstream automation; keep the format exact."}}
+{{#*inline "plan_resolution_failure"}}{{> plan-resolution-user-failure}}{{/inline}}
+{{/procedure-generate-tasks}}
 
 ## Failure Modes
 

@@ -52,7 +52,9 @@ clarifying questions — prompt the user instead.
 
 ### 2. Resolve the plan
 
-{{> plan-resolution}}
+{{#> plan-resolution}}
+{{#*inline "plan_resolution_failure"}}{{> plan-resolution-user-failure}}{{/inline}}
+{{/plan-resolution}}
 
 Treat the plan directory path returned by this script as `<plan-dir>`.
 

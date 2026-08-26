@@ -36,6 +36,7 @@ The user supplies the numeric plan ID conversationally. Treat it as the only aut
      step_post="8"
      summary_step="9"
      archive_step="10"}}
+{{#*inline "plan_resolution_failure"}}{{> plan-resolution-user-failure}}{{/inline}}
 {{#*inline "auto_generate_dispatch"}}Follow the `st-generate-tasks` skill for this plan ID. Execute its operating procedure in full, including running `POST_TASK_GENERATION_ALL.md` to write the Execution Blueprint.{{/inline}}
 {{/procedure-execute-blueprint}}
 

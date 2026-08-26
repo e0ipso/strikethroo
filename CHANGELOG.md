@@ -1,3 +1,7 @@
+## <small>3.19.1 (2026-08-26)</small>
+
+* refactor(skill-prompts): compose prompts with Handlebars and extract every duplicated procedure (#84 ([250c0c9](https://github.com/e0ipso/strikethroo/commit/250c0c9)), closes [#84](https://github.com/e0ipso/strikethroo/issues/84)
+
 ## 3.19.0 (2026-08-21)
 
 * feat: configure local harness invocation (#83) ([ae2a9ca](https://github.com/e0ipso/strikethroo/commit/ae2a9ca)), closes [#83](https://github.com/e0ipso/strikethroo/issues/83)

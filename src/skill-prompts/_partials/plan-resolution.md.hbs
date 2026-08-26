@@ -1,8 +1,6 @@
 {{!--
-  plan_resolution_failure is a required block slot. Standalone skills receive
-  a plan ID from the user, while st-full-workflow receives the ID from its own
-  preceding step. Their failure actions differ and stay visible at each call
-  site rather than branching here.
+  plan_resolution_failure is required. Standalone skills and st-full-workflow
+  supply different failure actions at their call sites.
 --}}Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` to obtain the
 absolute path of the plan file. The same script also accepts these field
 names (single-field output mode) and exposes them on demand:

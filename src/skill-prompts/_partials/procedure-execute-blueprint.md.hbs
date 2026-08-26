@@ -1,37 +1,10 @@
 {{!--
-  The blueprint-execution procedure. Rendered by st-execute-blueprint and by
-  st-full-workflow's Step 3. Call sites supply: heading, heading_child, the seven
-  step numbers (step_resolve through step_post), and the two trailing step numbers
-  that post-execution-archive already names (summary_step, archive_step).
+  Shared by st-execute-blueprint and st-full-workflow Step 3. Call sites supply
+  heading levels, step numbers, plan-resolution failure behavior, and task
+  generation dispatch. Root discovery remains at each call site.
 
-  "Locate the strikethroo root" is deliberately absent, for the same reason it is
-  absent from procedure-generate-tasks: st-execute-blueprint owns it as its own step
-  1, while st-full-workflow's Step 3 inherits the root from Step 1. That is why the
-  two call sites number 2-8 and 1-7, and why every step number is a hash arg rather
-  than a literal. step_resolve is also referenced in prose, so it stays in sync by
-  construction.
-
-  One slot, auto_generate_dispatch, carries the one genuine divergence: when tasks
-  are missing, st-execute-blueprint dispatches across to the st-generate-tasks skill
-  while st-full-workflow re-runs the procedure it already rendered as its own Step 2.
-  Each call site supplies the slot as an {{#*inline}} block partial, so the branch is
-  readable at the call site instead of being a conditional the agent has to evaluate
-  here.
-
-  Whitespace contract for this slot: it is one list item's text, not a block. The tag
-  sits after the "- " marker on a bullet line and each {{#*inline}} definition is
-  written on a single line carrying no newlines of its own, so the three-bullet list
-  stays tight. procedure-create-plan's block slots use the opposite convention — tag
-  alone on its own line, content carrying its own surrounding newlines — because an
-  omitted block slot there has to collapse cleanly. This slot is never omitted; both
-  call sites fill it, and an unfilled partial reference fails the build loudly.
-
-  phase-execution-loop and post-execution-archive are called from here rather than
-  from the templates. They keep their own heading / heading_parent / phase_step /
-  summary_step / archive_step argument names; heading_child is the level one deeper
-  than this procedure's own step headings, which is where both of them render their
-  sub-headings. No arithmetic or string helper is registered, so both heading levels
-  arrive as separate hash args.
+  auto_generate_dispatch renders inside a list item and must not add line
+  breaks. heading_child applies to the nested execution and archive partials.
 --}}{{heading}} {{step_resolve}}. Resolve the plan
 
 {{> plan-resolution}}

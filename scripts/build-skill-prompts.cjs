@@ -2,32 +2,13 @@
 /**
  * Renders SKILL.md files from Handlebars source templates.
  *
- * Source layout mirrors the output layout, which is what lets the output path
- * be derived rather than declared:
- *
  *   src/skill-prompts/_partials/<name>.md.hbs   shared, never shipped
  *   src/skill-prompts/skills/<skill>/SKILL.md.hbs
  *     -> templates/harness/skills/<skill>/SKILL.md
  *
- * Partials register under their path relative to `_partials/` with `.md.hbs`
- * stripped, so a template pulls one in with `{{> name}}` and parameterizes it
- * with call-site hash arguments (`{{> name arg="value"}}`).
- *
- * Frontmatter is pass-through: the source carries exactly `name` +
- * `description`, which is exactly what ships, so the whole file is one template
- * and there is nothing to parse and reconstruct.
- *
- * RENDER IN PLACE. Unlike the kenkeep reference implementation this is modelled
- * on, this script must never wipe or copy its destination. `templates/` is
- * mostly committed source (`templates/strikethroo/`, `templates/harness/agents/`),
- * and the per-skill `scripts/` bundles under `templates/harness/skills/` are
- * written by `build:skills` immediately before this script runs in the
- * `npm run build` chain. The only
- * write target here is `templates/harness/skills/<skill>/SKILL.md`. Any
- * `rmSync`, `cpSync`, or `mkdirSync` against `templates/` is a defect.
- *
- * `_partials/` is never shipped, and that is structural rather than enforced:
- * partials live only under `src/`, and nothing copies them.
+ * Partial names are relative to `_partials/` with `.md.hbs` removed.
+ * Frontmatter passes through unchanged. The only write target is the rendered
+ * SKILL.md file; target directories and script bundles must already exist.
  */
 
 const fs = require('fs');
@@ -44,10 +25,7 @@ const SHIPPED_ROOT = path.join(REPO_ROOT, 'templates');
 const PARTIAL_EXTENSION = '.md.hbs';
 const TEMPLATE_FILENAME = 'SKILL.md.hbs';
 
-// Markdown and shell text, not HTML: `&`, `<`, and `>` must reach the output
-// verbatim. ignoreStandalone keeps a partial tag from swallowing the blank
-// lines it sits between, so spacing stays exactly as authored. strict turns a
-// missing hash argument into a build error instead of silently deleting text.
+// Preserve Markdown symbols and spacing. Reject unknown variables.
 const COMPILE_OPTIONS = {
   noEscape: true,
   ignoreStandalone: true,
@@ -75,15 +53,7 @@ function walkFiles(dir) {
 // Partial registration
 // ---------------------------------------------------------------------------
 
-/**
- * Registers every `_partials/**\/*.md.hbs` under its path relative to
- * `_partials/` with the extension stripped.
- *
- * Bodies are trimEnd()ed so authoring a trailing newline never shifts rendered
- * output.
- *
- * @returns {string[]} Registered partial bodies, for the escaping tripwire.
- */
+/** Registers partials and returns their bodies for output validation. */
 function registerPartials() {
   if (!fs.existsSync(PARTIALS_DIR)) {
     throw new Error(`Partials directory not found: ${PARTIALS_DIR}`);
@@ -117,9 +87,7 @@ function registerPartials() {
 // Validation
 // ---------------------------------------------------------------------------
 
-/**
- * Splits a rendered file into { frontmatter, body }.
- */
+/** Splits a rendered file into frontmatter and body. */
 function splitFrontmatter(content) {
   if (!content.startsWith('---')) {
     throw new Error('Missing YAML frontmatter (file must start with ---)');
@@ -131,12 +99,7 @@ function splitFrontmatter(content) {
   return { frontmatter: content.slice(4, end), body: content.slice(end + 4) };
 }
 
-/**
- * Strips fenced code blocks (``` ... ```) so template-like syntax inside code
- * examples does not trigger false positives. The kenkeep reference scans the
- * whole file; several prompts here carry literal `{{...}}`-looking text in
- * fenced examples, so that simpler check would report them.
- */
+/** Excludes literal template syntax in fenced examples from validation. */
 function stripFencedCodeBlocks(content) {
   return content.replace(/^```[\s\S]*?^```/gm, '');
 }
@@ -190,8 +153,7 @@ function validate(content, skillName, corpus) {
     );
   }
 
-  // Tripwire for a missing `noEscape`: an entity reference in the output that
-  // no source file contains was manufactured by the templating engine.
+  // Reject HTML entities introduced during rendering.
   for (const entity of HTML_ENTITIES) {
     if (content.includes(entity) && !corpus.includes(entity)) {
       throw new Error(

@@ -1,18 +1,7 @@
 {{!--
-  The plan-creation procedure. Rendered by st-create-plan and by st-full-workflow's
-  Step 1. Call sites supply: heading, action_verb_phrase, summary_heading,
-  summary_lead_in, summary_closing.
-
-  Two slots, clarification_gate_context and clarification_gate, carry the one genuine
-  divergence: st-create-plan runs under the approval gate in
-  <root>/config/shared/clarification-gate.md, st-full-workflow runs hands-off. Each call
-  site supplies both as {{#*inline}} block partials, so the branch is readable at the
-  call site instead of being a conditional the agent has to evaluate here.
-
-  Whitespace contract for a slot: the tag sits on its own line with no blank line above
-  or below it. Filled slot content carries its own surrounding newlines (which is what an
-  {{#*inline}} block written on its own lines produces); an empty slot then collapses
-  without leaving a double blank line.
+  Shared by st-create-plan and st-full-workflow Step 1. Call sites supply the
+  heading, action and summary text, clarification context, and gate behavior.
+  Block slot content owns its surrounding line breaks.
 --}}{{heading}} 1. Locate the strikethroo root
 
 {{> root-discovery action_verb_phrase=action_verb_phrase}}

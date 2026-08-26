@@ -1,25 +1,8 @@
 {{!--
-  The task-generation procedure. Rendered by st-generate-tasks and by
-  st-full-workflow's Step 2. Call sites supply: heading, the thirteen step numbers
-  (step_resolve through step_summary), and the three structured-summary strings
-  introduced by procedure-create-plan (summary_heading, summary_lead_in,
-  summary_closing).
-
-  "Locate the strikethroo root" is deliberately absent. st-generate-tasks owns it as
-  its own step 1; st-full-workflow's Step 2 inherits the root from Step 1. That is
-  why the two call sites number 2-14 and 1-13, and why every step number is a hash
-  arg rather than a literal. Two of those numbers are also referenced in prose
-  (step_resolve and step_decompose), so they must stay in sync by construction.
-
-  The eight nested partials take no parameters; none of them mentions a step number
-  or a heading level, so nothing is threaded through. root-discovery, the one nested
-  partial that does take an argument, is called from st-generate-tasks' template.
-
-  Whitespace contract: heading arrives as the hash marks alone ("###") and each step
-  number as a bare integer string, so a heading line reads
-  "{{heading}} {{step_x}}. Title". Nested partial bodies are trimEnd()ed at
-  registration, so every {{> ...}} tag sits on its own line with one blank line above
-  and below it.
+  Shared by st-generate-tasks and st-full-workflow Step 2. Call sites supply the
+  heading, step numbers, summary text, and plan-resolution failure behavior.
+  Root discovery remains at each call site. Nested partial tags occupy their own
+  lines to preserve Markdown spacing.
 --}}{{heading}} {{step_resolve}}. Resolve the plan
 
 {{> plan-resolution}}

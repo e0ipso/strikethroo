@@ -64,7 +64,7 @@ Every codebase has its own conventions, and Strikethroo bends to them instead of
 <div class="st-card">
 <span class="st-card__icon st-card__icon--package" aria-hidden="true"></span>
 <p class="st-card__title">Bootstrap the workspace</p>
-<p>One command creates the shared <code>.ai/strikethroo/</code> workspace, copies the harness agents, and installs the workflow skills into each harness's skills directory.</p>
+<p>Creates the shared workspace, harness agents, and workflow skills.</p>
 <pre class="highlight"><code>npx strikethroo init --harnesses claude</code></pre>
 </div>
 </div>
@@ -151,6 +151,6 @@ This will open a web page that will help you navigate your plans and their tasks
 <a class="st-card" href="{{ '/migration.html' | relative_url }}">
 <span class="st-card__icon st-card__icon--circle-arrow-up" aria-hidden="true"></span>
 <p class="st-card__title">Migration guides</p>
-<p>Upgrade from slash commands to Agent Skills, and from the standalone skills installer to <code>init</code>.</p>
+<p>Upgrade from slash commands or the retired skills installer.</p>
 </a>
 </div>

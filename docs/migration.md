@@ -1,8 +1,8 @@
 ---
 layout: default
-title: Migration Guides
+title: Migration guides
 nav_order: 8
-description: "Upgrade from AI Task Manager to Strikethroo, and from the retired skills installer to init-installed skills"
+description: "Upgrade older Strikethroo installations"
 ---
 
 # Upgrade from AI Task Manager to Strikethroo
@@ -49,7 +49,7 @@ mv .ai/task-manager .ai/strikethroo
 npx strikethroo@latest init --harnesses claude
 ```
 
-Replace `claude` with your harness(es), e.g. `claude,gemini,opencode`. This one command creates the workspace **and** installs the workflow skills into each harness's skills directory &mdash; there is no second install step.
+Replace `claude` with your harnesses, such as `claude,gemini,opencode`. `init` creates the workspace and installs the workflow skills.
 
 ## What changed
 
@@ -73,13 +73,11 @@ Replace `claude` with your harness(es), e.g. `claude,gemini,opencode`. This one 
 
 # Upgrade from the retired skills installer to `init`
 
-Older versions of Strikethroo installed the workflow skills separately, with `npx skills add e0ipso/strikethroo`. That step is gone: `npx strikethroo init --harnesses <list>` now installs the skills itself, from the published npm package, and overwrites them on every run.
-
-If you never ran the old installer, there is nothing to do here.
+Older versions used `npx skills add e0ipso/strikethroo`. If you ran it, remove its stale copies after running `npx strikethroo init --harnesses <list>`.
 
 ## Where each installer wrote
 
-The old installer's project-local destination depended on the harness you selected, and for every harness except Claude Code it was the shared `.agents/skills/` directory &mdash; not a harness-specific one. `init` writes harness-specific directories instead, so the two agree in only two cases.
+Project installs used `.claude/skills/` for Claude and `.agents/skills/` for every other harness. `init` uses these harness-specific directories:
 
 | Harness | `init` writes | `npx skills add` wrote | `npx skills add --global` wrote | Collides? |
 |---------|---------------|------------------------|---------------------------------|-----------|
@@ -91,15 +89,13 @@ The old installer's project-local destination depended on the harness you select
 | `opencode` | `.opencode/skills/` | `.agents/skills/` | `$XDG_CONFIG_HOME/opencode/skills/` (default `~/.config/opencode/skills/`) | No |
 
 {% capture stale_copies %}
-Where the two locations **do not** collide, running `init` does not replace the old copy &mdash; it adds a second one. You now have two sets of `st-*` skills on disk, the harness may load either, **and there is no error and no way to tell from the outside which one it picked.** The old copy is frozen at whatever version you last installed, so the two will drift. Delete the stale copy.
-
-`--global` installs never collide, for any harness: `init` only ever writes inside the project.
+If the locations differ, `init` leaves the old copy in place. The harness may load that stale copy without warning, so delete it. Global installs also remain because `init` writes only inside the project.
 {% endcapture %}
 {% include callout.html variant="warning" title="TWO COPIES, SILENTLY" content=stale_copies %}
 
 ## Remove the stale copies
 
-Run this from the repository root **only if you did not pass `codex` to `init`** &mdash; `.agents/skills/` is where `init` puts the Codex copy, so for a Codex workspace those directories are the current ones and must stay:
+Run this from the repository root only if you did not pass `codex` to `init`. Codex uses `.agents/skills/`, so those directories are current and must stay in a Codex workspace.
 
 ```bash
 rm -rf .agents/skills/st-create-plan \
@@ -114,7 +110,7 @@ rmdir .agents/skills .agents 2>/dev/null
 
 The old installer also recorded project installs in `skills-lock.json` at the repository root. Delete its `st-*` entries, or the whole file if Strikethroo was the only thing it tracked.
 
-For a global install, the same seven directories live under the per-harness global path in the table above &mdash; for example:
+For a global install, remove the same seven directories under the global path in the table. For example:
 
 ```bash
 rm -rf ~/.claude/skills/st-create-plan \
@@ -126,7 +122,7 @@ rm -rf ~/.claude/skills/st-create-plan \
   ~/.claude/skills/st-code-review
 ```
 
-{% include callout.html variant="note" content="The seven directories are listed by name on purpose. `rm -rf .agents/skills/st-*` would also take any unrelated skill of yours whose name happens to start with `st-`." %}
+{% include callout.html variant="note" content="The command names all seven directories to avoid deleting an unrelated skill whose name starts with `st-`." %}
 
 ## Verify
 
@@ -134,4 +130,4 @@ rm -rf ~/.claude/skills/st-create-plan \
 find . -maxdepth 3 -type d -name st-create-plan -not -path "./node_modules/*"
 ```
 
-Expect one hit per harness you initialized, each under that harness's directory from the `init` column. Any other path is a leftover copy. Repeat with your global paths if you ever installed with `--global`.
+Expect one result under each initialized harness's directory. Any other result is stale. Check the global paths too if you used `--global`.

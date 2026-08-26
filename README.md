@@ -101,7 +101,7 @@ Hooks, templates, and a project-context file are all plain Markdown -- nothing t
 npx strikethroo init --harnesses claude
 ```
 
-That one command creates the shared `.ai/strikethroo/` workspace and installs the workflow skills into each harness's skills directory.
+This creates the shared `.ai/strikethroo/` workspace and installs the workflow skills.
 
 Requires Node.js 22+ and an assistant that supports the Agent Skills format.
 
@@ -173,4 +173,4 @@ After blueprint execution, an optional automated code review gate runs when a se
 - [Reference](https://strikethroo.canpicasoft.com/reference.html) -- Glossary and CLI reference
 - [FAQ](https://strikethroo.canpicasoft.com/faq.html) -- Answers to common questions
 - [Visualizations](https://strikethroo.canpicasoft.com/visualizations.html) -- See plans, tasks, and the dependency graph
-- [Migration Guides](https://strikethroo.canpicasoft.com/migration.html) -- Upgrade from slash commands to Agent Skills, and from the standalone skills installer to `init`
+- [Migration Guides](https://strikethroo.canpicasoft.com/migration.html) -- Upgrade from slash commands or the retired skills installer

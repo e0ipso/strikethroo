@@ -8,7 +8,7 @@ description: "Command reference for the Strikethroo CLI"
 
 # CLI Reference
 
-Strikethroo ships as a single CLI. `init` bootstraps the shared workspace **and** installs the workflow skills, so there is no separate installer to run or keep in step.
+`init` creates the workspace and installs the workflow skills. No separate installer is required.
 
 ## Workspace Initialization
 
@@ -16,7 +16,7 @@ Strikethroo ships as a single CLI. `init` bootstraps the shared workspace **and*
 npx strikethroo init --harnesses <harness>[,<harness>...] [options]
 ```
 
-Creates the shared `.ai/strikethroo/` directory (plans, archive, config, hooks, templates), copies harness-specific artifacts (e.g., `.claude/agents/` for Claude), and installs the workflow skills into each named harness's skills directory (`.claude/skills/` for Claude, `.agents/skills/` for Codex, `.cursor/skills/` for Cursor, `.gemini/skills/` for Gemini, `.github/skills/` for Copilot, `.opencode/skills/` for OpenCode). The skills are CLI-owned artifacts, not user configuration: every `init` run overwrites them in place, without a conflict prompt, so re-running `init` is also how you update them.
+Creates `.ai/strikethroo/` and copies each selected harness's agents and workflow skills. Re-running `init` updates installed skills without a conflict prompt, so local edits to those files are overwritten.
 
 **Required flag:**
 

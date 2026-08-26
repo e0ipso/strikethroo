@@ -1,0 +1,125 @@
+---
+name: st-full-workflow
+description: Use when the user asks to run the complete end-to-end Strikethroo workflow for a work order in one shot in this repository — triggers include full workflow, end-to-end, plan and execute, do everything, run the whole strikethroo workflow. Do not use when the user wants only one stage (create a plan, generate tasks, or execute a blueprint); use the dedicated skill for that stage instead.
+---
+
+# st-full-workflow
+
+Drive the complete end-to-end Strikethroo workflow from initial plan creation through final blueprint execution and archival. The skill is assistant-agnostic and self-contained: every script it invokes lives under this skill's `scripts/` directory and is referenced by relative path.
+
+## Critical Rule
+
+Execute all three steps sequentially without waiting for user input between them. This is a fully automated orchestration workflow. Progress indicators are for user visibility only and do not pause execution.
+
+## Inputs
+
+The user supplies the work order conversationally. Treat it as the only authoritative source of intent. Do not invent answers to clarifying questions — prompt the user instead.
+
+## Context Passing Between Steps
+
+Information flows through the workflow via structured output parsing:
+
+1. **Step 1 → Step 2**: Extract the numeric `Plan ID` from the Step 1 structured summary output. Use this exact ID to drive Step 2.
+2. **Step 2 → Step 3**: Extract the `Tasks` count from the Step 2 structured summary output. Use this count for progress tracking during Step 3.
+
+Do not proceed to the next step until the structured output from the current step has been successfully parsed.
+
+## Progress Indicators
+
+Display progress indicators at key transition points to provide visual feedback without interrupting execution:
+
+- `⬛⬜⬜ 33%` — Step 1: Plan Creation Complete
+- `⬛⬛⬜ 66%` — Step 2: Task Generation Complete
+- `⬛⬛⬛ 100%` — Step 3: Blueprint Execution Complete
+
+These indicators are purely informational. Do not pause or wait for user input when displaying them.
+
+## Operating Procedure
+
+### Step 1: Plan Creation
+
+**Progress**: `⬛⬜⬜ 33% - Step 1/3: Starting Plan Creation`
+
+{{#> procedure-create-plan
+     heading="####"
+     action_verb_phrase="execute the full workflow"
+     summary_heading="Emit the Step 1 structured summary"
+     summary_lead_in="Conclude Step 1 with exactly this block:"
+     summary_closing="Parse the `Plan ID` value from this output and pass it to Step 2."}}
+{{#*inline "clarification_gate_context"}}
+Also read `<root>/config/shared/anti-rationalization.md`. The steps below
+require you to apply it.
+{{/inline}}
+{{#*inline "clarification_gate"}}{{!-- Hands-off workflow has no approval gate. --}}{{/inline}}
+{{/procedure-create-plan}}
+
+**Progress**: `⬛⬜⬜ 33% - Step 1/3: Plan Creation Complete`
+
+---
+
+### Step 2: Task Generation
+
+**Progress**: `⬛⬜⬜ 33% - Step 2/3: Starting Task Generation`
+
+Using the Plan ID extracted from Step 1:
+
+{{#> procedure-generate-tasks
+     heading="####"
+     step_resolve="1"
+     step_context="2"
+     step_decompose="3"
+     step_granularity="4"
+     step_test_philosophy="5"
+     step_dependencies="6"
+     step_complexity="7"
+     step_task_ids="8"
+     step_emit="9"
+     step_validation="10"
+     step_routing="11"
+     step_hook="12"
+     step_summary="13"
+     summary_heading="Emit the Step 2 structured summary"
+     summary_lead_in="Conclude Step 2 with exactly this block:"
+     summary_closing="Parse the `Tasks` count from this output and pass it to Step 3 for progress tracking."}}
+{{#*inline "plan_resolution_failure"}}{{> plan-resolution-generated-failure}}{{/inline}}
+{{/procedure-generate-tasks}}
+
+**Progress**: `⬛⬛⬜ 66% - Step 2/3: Task Generation Complete`
+
+---
+
+### Step 3: Blueprint Execution
+
+**Progress**: `⬛⬛⬜ 66% - Step 3/3: Starting Blueprint Execution`
+
+Using the Plan ID from the previous phases:
+
+{{#> procedure-execute-blueprint
+     heading="####"
+     heading_child="#####"
+     step_resolve="1"
+     step_validate="2"
+     step_generate="3"
+     step_branch="4"
+     step_context="5"
+     step_phases="6"
+     step_post="7"
+     summary_step="8"
+     archive_step="9"}}
+{{#*inline "plan_resolution_failure"}}{{> plan-resolution-generated-failure}}{{/inline}}
+{{#*inline "auto_generate_dispatch"}}Execute the full task generation procedure from Step 2 for this plan ID.{{/inline}}
+{{/procedure-execute-blueprint}}
+
+**Progress**: `⬛⬛⬛ 100% - Step 3/3: Blueprint Execution Complete`
+
+## Failure Modes
+
+{{> failure-modes}}
+- **User refuses to answer a clarifying question that blocks planning in Step 1.** Report `needs-clarification` and stop. Do not produce a partial plan.
+- **Plan directory already exists for the allocated ID in Step 1.** Re-run the next-plan-id script and retry once. If the conflict persists, stop and report.
+- **Execution routing fails in Step 2.** Surface the routing helper's JSON errors and stop before blueprint generation. Do not guess profile assignments, hand-write `execution_profile`, or continue with partially routed tasks.
+- **Missing blueprint after auto-generation in Step 3.** If automatic task generation fails to produce tasks or a blueprint, stop and report failure. Do not attempt execution without a blueprint.
+- **Hook failure during execution.** If `PRE_PHASE.md`, `POST_PHASE.md`, or `POST_EXECUTION.md` fails, halt execution. The plan remains in `plans/` for debugging and potential re-execution.
+- **Execution errors.** If a task fails, read `<root>/config/hooks/POST_ERROR_DETECTION.md`, document the error in Noteworthy Events, halt the phase, and request user direction before continuing.
+
+{{> execution-summary}}

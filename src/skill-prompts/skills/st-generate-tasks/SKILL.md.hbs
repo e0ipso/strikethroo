@@ -1,0 +1,57 @@
+---
+name: st-generate-tasks
+description: Use when the user asks to decompose, break down, or generate tasks for an existing Strikethroo plan ID in this repository — triggers include generate tasks, break down the plan, decompose plan, create the task blueprint. Do not use to create a new plan, to execute tasks, or for generic project planning outside Strikethroo.
+---
+
+# st-generate-tasks
+
+Drive the end-to-end decomposition of an existing Strikethroo plan into
+atomic Markdown task files. The skill is assistant-agnostic and self-contained:
+every script it invokes lives under this skill's `scripts/` directory and is
+referenced by relative path.
+
+## Inputs
+
+The user supplies the numeric plan ID conversationally. Treat it as the only
+authoritative source of intent. Do not invent answers to clarifying questions —
+prompt the user instead.
+
+## Operating Procedure
+
+### 1. Locate the strikethroo root
+
+{{> root-discovery action_verb_phrase="generate tasks"}}
+
+{{#> procedure-generate-tasks
+     heading="###"
+     step_resolve="2"
+     step_context="3"
+     step_decompose="4"
+     step_granularity="5"
+     step_test_philosophy="6"
+     step_dependencies="7"
+     step_complexity="8"
+     step_task_ids="9"
+     step_emit="10"
+     step_validation="11"
+     step_routing="12"
+     step_hook="13"
+     step_summary="14"
+     summary_heading="Emit the structured summary"
+     summary_lead_in="Conclude with exactly this block as the final output:"
+     summary_closing="The summary is consumed by downstream automation; keep the format exact."}}
+{{#*inline "plan_resolution_failure"}}{{> plan-resolution-user-failure}}{{/inline}}
+{{/procedure-generate-tasks}}
+
+## Failure Modes
+
+{{> failure-modes}}
+- **User declines to clarify a blocking ambiguity.** Mark the affected tasks
+  with `status: "needs-clarification"` and document the open question in the
+  task's "Implementation Notes". Do not invent answers.
+- **A helper script fails unexpectedly.** Surface stderr to the user and
+  stop — do not fall back to manual ID allocation or path discovery.
+- **Execution routing fails.** Surface the routing helper's JSON errors and
+  stop before blueprint generation. Do not guess profile assignments, do not
+  hand-write `execution_profile` or `execution` frontmatter, and do not continue with partially
+  routed tasks.

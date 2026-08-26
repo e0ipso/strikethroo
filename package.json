@@ -116,6 +116,7 @@
     "eslint": "^9.34.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
+    "handlebars": "^4.7.9",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.7",
     "lucide-react": "^0.460.0",

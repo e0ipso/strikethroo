@@ -1,0 +1,44 @@
+---
+name: st-create-plan
+description: Use when the user asks to draft, scope, or write up a new Strikethroo plan for a work order, feature, or initiative in this repository — triggers include create plan, new plan, plan this, scope a plan, strikethroo plan. Do not use to decompose an existing plan into tasks, to execute a plan, or for generic brainstorming outside Strikethroo.
+---
+
+# st-create-plan
+
+Drive the end-to-end creation of a new Strikethroo plan for the user's
+repository. The skill is assistant-agnostic and self-contained: every script
+it invokes lives under this skill's `scripts/` directory and is referenced
+by relative path.
+
+## Inputs
+
+The user's request supplies the work order. Treat it as the only authoritative
+source of intent. Do not invent answers to clarifying questions — prompt the
+user instead.
+
+## Operating Procedure
+
+{{#> procedure-create-plan
+     heading="###"
+     action_verb_phrase="create a plan"
+     summary_heading="Emit the structured summary"
+     summary_lead_in="Conclude with exactly this block as the final output:"
+     summary_closing="The summary is consumed by downstream automation; keep the format exact."}}
+{{#*inline "clarification_gate_context"}}
+Also read `<root>/config/shared/clarification-gate.md` and
+`<root>/config/shared/anti-rationalization.md`. The steps below require you to
+apply them.
+{{/inline}}
+{{#*inline "clarification_gate"}}
+Follow the clarification cadence in `<root>/config/shared/clarification-gate.md`.
+{{/inline}}
+{{/procedure-create-plan}}
+
+## Failure Modes
+
+{{> failure-modes}}
+- **User refuses to answer a clarifying question that blocks planning.**
+  Report `needs-clarification` and stop. Do not produce a plan.
+- **Plan directory already exists for the allocated ID.** Re-run the
+  next-plan-id script (a concurrent run may have advanced it) and retry once.
+  If the conflict persists, stop and report.

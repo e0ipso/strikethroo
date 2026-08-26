@@ -1,0 +1,50 @@
+---
+name: st-execute-blueprint
+description: Use when the user asks to run, execute, implement, or carry out a Strikethroo plan or its blueprint by plan ID in this repository — triggers include execute blueprint, run the plan, implement plan, build the plan. Do not use to create a plan, to only generate tasks, to run a single task, or for generic development outside Strikethroo.
+---
+
+# st-execute-blueprint
+
+Drive the end-to-end execution of an existing Strikethroo plan blueprint. The skill is assistant-agnostic and self-contained: every script it invokes lives under this skill's `scripts/` directory and is referenced by relative path.
+
+## Critical Rules
+
+1. **Never skip validation gates** — a phase is not complete until `POST_PHASE.md` succeeds.
+2. **Preserve dependency order** — never execute a task before all of its dependencies are completed.
+3. **Maximize parallelism within each phase** — run all tasks whose dependencies are satisfied simultaneously.
+4. **Fail safely and document everything** — halt on unrecoverable errors, and record all decisions, issues, and outcomes under "Noteworthy Events" in the execution summary.
+
+## Inputs
+
+The user supplies the numeric plan ID conversationally. Treat it as the only authoritative source of intent. Do not invent answers to clarifying questions — prompt the user instead.
+
+## Operating Procedure
+
+### 1. Locate the strikethroo root
+
+{{> root-discovery action_verb_phrase="execute a plan"}}
+
+{{#> procedure-execute-blueprint
+     heading="###"
+     heading_child="####"
+     step_resolve="2"
+     step_validate="3"
+     step_generate="4"
+     step_branch="5"
+     step_context="6"
+     step_phases="7"
+     step_post="8"
+     summary_step="9"
+     archive_step="10"}}
+{{#*inline "plan_resolution_failure"}}{{> plan-resolution-user-failure}}{{/inline}}
+{{#*inline "auto_generate_dispatch"}}Follow the `st-generate-tasks` skill for this plan ID. Execute its operating procedure in full, including running `POST_TASK_GENERATION_ALL.md` to write the Execution Blueprint.{{/inline}}
+{{/procedure-execute-blueprint}}
+
+## Failure Modes
+
+{{> failure-modes}}
+- **Missing blueprint after auto-generation.** If the `st-generate-tasks` skill fails to produce tasks or a blueprint, stop and report failure. Do not attempt execution without a blueprint.
+- **Hook failure.** If `PRE_PHASE.md`, `POST_PHASE.md`, or `POST_EXECUTION.md` fails, halt execution. The plan remains in `plans/` for debugging and potential re-execution.
+- **Execution errors.** If a task fails, read `<root>/config/hooks/POST_ERROR_DETECTION.md`, document the error in Noteworthy Events, halt the phase, and request user direction before continuing.
+
+{{> execution-summary}}

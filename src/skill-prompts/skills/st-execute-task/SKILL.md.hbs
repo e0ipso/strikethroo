@@ -1,9 +1,6 @@
 ---
 name: st-execute-task
-description: "Use when the user asks to run, execute, or implement one specific task ID within a Strikethroo plan in this repository — triggers include execute task, run task, implement task, do task N. Do not use to execute a whole plan or blueprint, to generate tasks, or for generic development outside Strikethroo."
-target: st-execute-task
-vars:
-  action_verb_phrase: "execute a task"
+description: Use when the user asks to run, execute, or implement one specific task ID within a Strikethroo plan in this repository — triggers include execute task, run task, implement task, do task N. Do not use to execute a whole plan or blueprint, to generate tasks, or for generic development outside Strikethroo.
 ---
 
 # st-execute-task
@@ -51,11 +48,13 @@ clarifying questions — prompt the user instead.
 
 ### 1. Locate the strikethroo root
 
-{{include sections/root-discovery.md}}
+{{> root-discovery action_verb_phrase="execute a task"}}
 
 ### 2. Resolve the plan
 
-{{include sections/plan-resolution.md}}
+{{#> plan-resolution}}
+{{#*inline "plan_resolution_failure"}}{{> plan-resolution-user-failure}}{{/inline}}
+{{/plan-resolution}}
 
 Treat the plan directory path returned by this script as `<plan-dir>`.
 

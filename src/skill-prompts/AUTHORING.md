@@ -1,8 +1,7 @@
-# Authoring Strikethroo Skill Prompts — House Style
+# Authoring Strikethroo skill prompts
 
-*How* to write prompt source under `src/skill-prompts/`; for assembly mechanics
-(`{{include}}`/`{{variable}}`, build steps) see [`README.md`](./README.md). Read
-this before editing prompts.
+This file defines the writing rules for `src/skill-prompts/`. See
+[`README.md`](./README.md) for Handlebars syntax and build behavior.
 
 ## Form follows failure
 
@@ -28,19 +27,22 @@ Prefer steps, checkpoints, and checkable rules over paragraphs of advice.
   triggering conditions + keywords, add a short "Do not use…" guard, and omit the
   workflow recitation. Keep it tight.
 - **Shared vs inline vs runtime.** Three levels of reuse:
-  - *Build-time include* (`{{include sections/*.md}}`) — procedural blocks reused
-    by 2+ templates; inlined into each `SKILL.md` at build.
+  - *Build-time partial* (`_partials/*.md.hbs`, called as `{{> name}}`) —
+    content used by two or more templates. Pass values with hash arguments.
+    Pass different instructions with block-partial slots.
   - *Runtime config* (`config/hooks/*.md`, `config/shared/*.md`, required by the
     workspace schema) — cross-skill enforcement disciplines a project should be
     able to customize. **Runtime config is instructions only** — no meta about
     init, hash tracking, or how the file is loaded; put customization notes in
     `docs/customization.md` / `AGENTS.md`.
-  - *Inline* — genuinely skill-specific content (e.g. a skill's own rationalization
-    rows). The `vars` parser is single-line only, so multi-row tables cannot be
-    `{{variable}}` values; keep them inline.
+  - *Inline* — genuinely skill-specific content that only one template ever
+    uses, such as a skill's own rationalization rows.
   Put heavy detail behind `<details>`.
+
+- **The slot rule.** Supply different instructions as named block partials at
+  each call site. Do not put `{{#if}}` branches in shared partials.
 
 ## After editing
 
 Run `npm run build`; confirm the affected `SKILL.md` reassembles with no
-unresolved `{{…}}` directives and an intact `## Operating Procedure` heading.
+unresolved `{{…}}` marker and an intact `## Operating Procedure` heading.

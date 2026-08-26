@@ -1,9 +1,6 @@
 ---
 name: st-refine-plan
-description: "Use when the user asks to review, refine, improve, interrogate, pressure-test, or update an existing Strikethroo plan by plan ID in this repository — triggers include refine plan, improve plan, review plan, red-team the plan, update plan. Do not use to create a new plan, to generate tasks, or for generic brainstorming outside Strikethroo."
-target: st-refine-plan
-vars:
-  action_verb_phrase: "refine a plan"
+description: Use when the user asks to review, refine, improve, interrogate, pressure-test, or update an existing Strikethroo plan by plan ID in this repository — triggers include refine plan, improve plan, review plan, red-team the plan, update plan. Do not use to create a new plan, to generate tasks, or for generic brainstorming outside Strikethroo.
 ---
 
 # st-refine-plan
@@ -23,11 +20,13 @@ user instead.
 
 ### 1. Locate the strikethroo root
 
-{{include sections/root-discovery.md}}
+{{> root-discovery action_verb_phrase="refine a plan"}}
 
 ### 2. Resolve the plan
 
-{{include sections/plan-resolution.md}}
+{{#> plan-resolution}}
+{{#*inline "plan_resolution_failure"}}{{> plan-resolution-user-failure}}{{/inline}}
+{{/plan-resolution}}
 
 ### 3. Load project context
 

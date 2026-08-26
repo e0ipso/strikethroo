@@ -1,0 +1,9 @@
+{{!--
+  Shared by st-create-plan, st-generate-tasks, st-execute-blueprint, and
+  st-full-workflow. Call sites own the heading and append specific failures.
+  st-execute-task and st-refine-plan keep their distinct rules inline.
+--}}- **No strikethroo root found.** Stop and instruct the user to initialize the
+  project. Do not write any files or execute any tasks.
+- **Plan ID does not resolve, or the plan-ID script fails.** Re-check the
+  resolved root and re-run. If it continues to fail, surface the script's
+  stderr to the user and stop. Do not guess an ID and do not write any files.

@@ -1,0 +1,104 @@
+{{!--
+  Shared by st-generate-tasks and st-full-workflow Step 2. Call sites supply the
+  heading, step numbers, summary text, and plan-resolution failure behavior.
+  Root discovery remains at each call site. Nested partial tags occupy their own
+  lines to preserve Markdown spacing.
+--}}{{heading}} {{step_resolve}}. Resolve the plan
+
+{{> plan-resolution}}
+
+{{heading}} {{step_context}}. Load project context
+
+Read these files, in order:
+
+- `<root>/config/STRIKETHROO.md` — directory conventions for plans, tasks,
+  and the archive layout.
+- The plan body at the path returned by step {{step_resolve}} — this is the contract for
+  what tasks must exist.
+- `<root>/config/templates/TASK_TEMPLATE.md` — every task file you emit must
+  conform to this template's frontmatter schema and section structure.
+- `<root>/config/shared/anti-rationalization.md` — apply in step {{step_decompose}}.
+
+{{heading}} {{step_decompose}}. Analyze and decompose the plan
+
+{{> task-minimization}}
+
+Apply `<root>/config/shared/anti-rationalization.md` to this rationalization table:
+
+| You catch yourself thinking… | The binding rule |
+| --- | --- |
+| "One extra task won't hurt." | It violates the 20–30% minimization target. Every task traces to an **explicitly stated** deliverable or it does not exist. |
+| "This edge case deserves its own task." | Fold it into the task that owns the behavior. Do not split trivially small operations into separate units. |
+| "I'll add a test suite to be safe." | Comprehensive tests for trivial functionality are gold-plating. Follow the test philosophy — meaningful tests only. |
+| "Future extensibility justifies this task." | YAGNI. The plan does not mention it, so it is not a task. |
+
+{{heading}} {{step_granularity}}. Apply granularity and skill rules
+
+{{> granularity-skill-rules}}
+
+{{heading}} {{step_test_philosophy}}. Test philosophy: "write a few tests, mostly integration"
+
+{{> test-philosophy}}
+
+{{heading}} {{step_dependencies}}. Dependency analysis
+
+For each task, identify:
+
+- **Hard dependencies**: tasks that MUST complete before this one can start.
+- **Soft dependencies**: tasks that SHOULD complete for optimal execution.
+
+A task B depends on A if B requires A's output or artifacts, modifies code
+created by A, or tests functionality implemented by A. Validate that the
+final dependency graph is acyclic.
+
+{{heading}} {{step_complexity}}. Complexity analysis
+
+{{> task-complexity-analysis}}
+
+{{heading}} {{step_task_ids}}. Allocate task IDs
+
+Run `scripts/get-next-task-id.cjs <plan-id>` to obtain the first available
+task ID. Allocate subsequent IDs by incrementing in-process; do not invoke
+the script repeatedly. Use the unpadded integer in the task frontmatter `id`
+field and the zero-padded form (`{padded-id}--{slug}`) for the filename.
+
+The slug derives from a short task title: lowercase, alphanumeric and
+hyphens only, collapsed, trimmed.
+
+{{heading}} {{step_emit}}. Emit the task files
+
+{{> task-file-output}}
+
+{{heading}} {{step_validation}}. Validation checklist
+
+{{> validation-checklist}}
+
+{{heading}} {{step_routing}}. Route task execution
+
+{{> task-execution-routing}}
+
+{{heading}} {{step_hook}}. Run the POST_TASK_GENERATION_ALL hook
+
+Read `<root>/config/hooks/POST_TASK_GENERATION_ALL.md` and follow its
+instructions. Run it only after routing succeeded or reported routing off.
+This typically requires:
+
+- Appending an Execution Blueprint section to the plan document, including a
+  Mermaid dependency diagram and explicit phase groupings (Phase 1 contains
+  zero-dependency tasks; each subsequent phase contains tasks whose
+  dependencies all live in earlier phases). Use
+  `<root>/config/templates/BLUEPRINT_TEMPLATE.md` for structure.
+
+{{heading}} {{step_summary}}. {{summary_heading}}
+
+{{summary_lead_in}}
+
+```
+---
+Task Generation Summary:
+- Plan ID: [numeric-id]
+- Tasks: [count]
+- Status: Ready for execution
+```
+
+{{summary_closing}}

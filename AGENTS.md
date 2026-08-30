@@ -95,6 +95,8 @@ The main `tsconfig.json` lists `src/skill-scripts/**` under `exclude`, but read 
 
 Each `SKILL.md` is built from `src/skill-prompts/skills/<name>/SKILL.md.hbs`. Shared procedures live in `src/skill-prompts/_partials/`; values use hash arguments and behavioral differences use block-partial slots at their call sites. Frontmatter contains only `name` and `description`. Read `src/skill-prompts/README.md` and `src/skill-prompts/AUTHORING.md` before editing prompts.
 
+The shared execution procedure keeps the terminal lifecycle visible at its call site: POST_EXECUTION validation, `code-review-gate.md.hbs`, then `summary-and-archive.md.hbs`. The gate partial consumes the compiled result instead of recreating its decision table. Both execution skills use this same sequence.
+
 Enforcement disciplines shared **across** skills are not baked into each `SKILL.md`; they ship as required, project-customizable files under `config/shared/` (copied into the workspace by `init`, hash-tracked like hooks) and the skills read them **at runtime**. The three files: `verification-gate.md` (evidence-before-claims gate, applied at `st-execute-blueprint`/`st-full-workflow` phase-completion and post-execution), `clarification-gate.md` (one-question-at-a-time, multiple-choice-first, pre-emit approval, used by `st-create-plan`/`st-refine-plan`), and `anti-rationalization.md` (the excuse → red-flag framing; each consuming skill — `st-create-plan`, `st-generate-tasks`, `st-execute-blueprint` — supplies its own skill-specific rationalization table inline and points the agent at this shared framing). Because these files are required workspace shape, `CURRENT_WORKSPACE_SCHEMA_VERSION` is bumped; older workspaces must rerun `npx strikethroo init` before using updated skills. This mirrors how the `PRE_TASK_EXECUTION` TDD hook is shared.
 
 ### Execution routing (dispatch-time target selection)
@@ -112,6 +114,8 @@ Availability outcomes are cached under the gitignored `.ai/strikethroo/runtime/`
 ### Code Review Gate (terminal, report-only, optional-by-absence)
 
 After `POST_EXECUTION` reports green, an optional review runs once before the execution summary and archival. When a second harness is discovered and the `CODE_REVIEW.md` hook is present and non-empty, `st-code-review` critiques the cumulative diff on the discovered harness and emits findings as schema-validated `review.xml`.
+
+Every emitted `ReviewResult` has top-level `action` and `detail`. The shared classifier makes `action: "continue"` equivalent to exit code 0. Reviewed results keep only `verdict.kind` as their certification discriminator and expose top-level `counts` only for `review-recorded`; delivery diagnostics such as `findingsGate` and `reviewFilePresent` do not enter the stdout contract. The execution prompt copies the JSON line into the summary and follows `action` directly.
 
 Reviewer discovery uses the same local invocation configuration and one-request readiness check as task routing. It excludes the current harness and passes its `cli_args` into review dispatch. Those arguments may give the CLI source-write capability, but the review contract stays report-only: the prompt prohibits source changes, the reviewer prints XML to stdout, and the orchestrator alone writes the findings artifact. There are no reviewer-specific argument layers.
 

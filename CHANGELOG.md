@@ -1,3 +1,7 @@
+## 3.20.0 (2026-08-30)
+
+* feat: serve skills from a root release mirror (#86) ([bb56121](https://github.com/e0ipso/strikethroo/commit/bb56121)), closes [#86](https://github.com/e0ipso/strikethroo/issues/86) [#85](https://github.com/e0ipso/strikethroo/issues/85) [#85](https://github.com/e0ipso/strikethroo/issues/85)
+
 ## <small>3.19.1 (2026-08-26)</small>
 
 * refactor(skill-prompts): compose prompts with Handlebars and extract every duplicated procedure (#84 ([250c0c9](https://github.com/e0ipso/strikethroo/commit/250c0c9)), closes [#84](https://github.com/e0ipso/strikethroo/issues/84)

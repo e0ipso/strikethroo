@@ -62,16 +62,25 @@ var SUPPORTED_HARNESSES = [
 
 // src/skill-scripts/shared/git-utils.ts
 var import_child_process = require("child_process");
+var GIT_OUTPUT_LIMIT = 64 * 1024 * 1024;
 var execGit = (command2) => {
   try {
-    return (0, import_child_process.execSync)(command2, { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }).trim();
+    return (0, import_child_process.execSync)(command2, {
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "pipe"],
+      maxBuffer: GIT_OUTPUT_LIMIT
+    }).trim();
   } catch (_error) {
     return null;
   }
 };
 var execGitDiffAllowingChanges = (command2) => {
   try {
-    return (0, import_child_process.execSync)(command2, { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
+    return (0, import_child_process.execSync)(command2, {
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "pipe"],
+      maxBuffer: GIT_OUTPUT_LIMIT
+    });
   } catch (error) {
     const failure = error;
     if (failure.status === 1 && typeof failure.stdout === "string") return failure.stdout;
@@ -3473,7 +3482,9 @@ var attributeExcluded = (workspace, files) => {
   return excluded;
 };
 var excludedPaths = (workspace, baseCommit) => {
-  const changed = execGit(`git -C ${JSON.stringify(workspace)} diff --name-only ${baseCommit} --`);
+  const changed = execGit(
+    `git -C ${JSON.stringify(workspace)} diff --no-renames --name-only ${baseCommit} --`
+  );
   if (changed === null || changed.trim() === "") return [];
   const files = changed.split("\n").filter((line) => line.trim() !== "");
   return [...attributeExcluded(workspace, files)];

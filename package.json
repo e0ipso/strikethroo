@@ -1,6 +1,6 @@
 {
   "name": "strikethroo",
-  "version": "3.19.1",
+  "version": "3.20.0",
   "description": "Task management for AI coding assistants",
   "main": "dist/index.js",
   "bin": {

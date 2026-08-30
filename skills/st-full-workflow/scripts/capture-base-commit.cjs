@@ -41,9 +41,14 @@ var path4 = __toESM(require("path"));
 
 // src/skill-scripts/shared/git-utils.ts
 var import_child_process = require("child_process");
+var GIT_OUTPUT_LIMIT = 64 * 1024 * 1024;
 var execGit = (command) => {
   try {
-    return (0, import_child_process.execSync)(command, { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }).trim();
+    return (0, import_child_process.execSync)(command, {
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "pipe"],
+      maxBuffer: GIT_OUTPUT_LIMIT
+    }).trim();
   } catch (_error) {
     return null;
   }

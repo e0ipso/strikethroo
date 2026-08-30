@@ -27,8 +27,8 @@
 
     Changes from v1:
     - <comment> gained two optional attributes, severity and confidence,
-      so an automated consumer can threshold on findings instead of
-      applying all of them or none of them. See CommentType.
+      so a human reader can triage findings instead of treating them all
+      as equally consequential. See CommentType.
   -->
 
   <!-- ===== Root element ===== -->
@@ -143,8 +143,9 @@
         The category child says what kind of finding this is. The severity
         and confidence attributes say how much weight to put on it: severity
         is how consequential the finding is if it is real, confidence is how
-        sure the author is that it is real. They are independent, and an
-        automated consumer is expected to threshold on both.
+        sure the author is that it is real. They are independent advisory
+        labels for a human reader to triage by, not a gate a consumer
+        branches on.
       </xs:documentation>
     </xs:annotation>
     <xs:sequence>
@@ -233,11 +234,10 @@
           Judge the impact of the problem, not how confident you are that
           the problem exists, and not how much work the fix is.
 
-          This attribute has no schema default on purpose. When it is
-          absent, a consumer must treat the comment as falling below any
-          severity floor it applies, i.e. absent never satisfies a
-          threshold. Comments written by a human in the self-review UI
-          normally carry no severity.
+          This attribute has no schema default on purpose: absence is
+          meaningful and must not be read as any particular severity.
+          Comments written by a human in the self-review UI normally carry
+          no severity.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -253,14 +253,12 @@
           constraint that is not visible in the diff, on a caller that was
           not read, or on a failure scenario that was imagined rather than
           traced, is low confidence however plausible its prose sounds.
-          LLM reviewers systematically overstate certainty here; a
-          consumer thresholding on this attribute is relying on it being
-          lowered honestly.
+          LLM reviewers systematically overstate certainty here; a reader
+          triaging by this attribute is relying on it being lowered
+          honestly.
 
-          This attribute has no schema default on purpose. When it is
-          absent, a consumer must treat the comment as falling below any
-          confidence floor it applies, i.e. absent never satisfies a
-          threshold.
+          This attribute has no schema default on purpose: absence is
+          meaningful and must not be read as any particular confidence.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>

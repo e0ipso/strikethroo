@@ -39,10 +39,11 @@ export type SchemaValidation =
  * `spawn`, never `exec`: no shell, arguments passed as argv, so a path with
  * spaces or shell metacharacters cannot become a command.
  *
- * Three outcomes, kept distinct on purpose. An invalid document is a round
- * failure that names the document; a validator that could not produce a verdict
- * — not installed, not executable, or hung — is a round failure that names the
- * validator. Neither is ever reported as a clean review.
+ * Three outcomes, kept distinct on purpose. An invalid document is an
+ * uncertified review that names the document; a validator that could not
+ * produce a verdict — not installed, not executable, or hung — is an
+ * uncertified review that names the validator. Neither is ever reported as
+ * a clean review.
  */
 export const validateAgainstSchema = (
   xsdFile: string,

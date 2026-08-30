@@ -69,7 +69,7 @@ Each step is an Agent Skill that auto-loads when the user's request matches its 
 - `st-refine-plan` — plan refinement loop: a second assistant "red teams" an existing plan, asks questions, and applies refinements. Bridges plan creation and task generation.
 - `st-execute-task` — single-task execution.
 - `st-full-workflow` — end-to-end chaining of plan → tasks → blueprint for hands-off runs.
-- `st-code-review` — terminal review gate that runs after blueprint execution, critiques the cumulative diff on a discovered second harness, and drives bounded automatic remediation.
+- `st-code-review` — terminal review gate that runs after blueprint execution, critiques the cumulative diff on a discovered second harness, and reports schema-validated findings for the implementer to act on.
 
 ### Key Design Principles
 

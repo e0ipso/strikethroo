@@ -26,7 +26,7 @@ code-review.cjs <plan-id> <current-harness>
 <details>
 <summary>Acting on the findings</summary>
 
-`<plan-dir>/review/review.xml` is the reviewer's document and `<plan-dir>/review/findings.json` is the same findings as data. Read them and use your own judgement: the reviewer is a second opinion on a diff you know better than it does, and it has neither run the tests nor read the whole codebase.
+`<plan-dir>/review/review.xml` is the reviewer's document. Read it and use your own judgement: the reviewer is a second opinion on a diff you know better than it does, and it has neither run the tests nor read the whole codebase.
 
 Fix what is a genuine requirement gap or defect. Ignore what is wrong, out of scope, or already handled elsewhere, and say in the execution summary which findings you ignored and why. `severity` and `confidence` are the reviewer's own triage labels, useful for sorting and never binding; a `low` confidence finding is one the reviewer could not trace, so read it with that in mind.
 

@@ -115,9 +115,7 @@ After `POST_EXECUTION` reports green, an optional code review gate runs if a sec
 
 1. **Detect** — Reviewer harness examines the base commit through working tree, emitting findings as XML
 2. **Certify** — The findings are validated against the vendored schema; an uncertified review is never reported as a clean one
-3. **Fix** — High-confidence findings are dispatched to the implementer route for local text replacements
-4. **Re-verify** — Full `POST_EXECUTION` re-runs (lint, tests, validation) before the reviewer re-checks
-5. **Bounded** — Rounds are limited (default 3); exhaustion halts and leaves the plan with findings recorded
+3. **Report** — The gate reports; it does not decide. There are no severity or confidence floors and nothing is applied automatically — you read the findings and choose what to act on
 
 The review never creates task files and never mutates the execution blueprint. Findings are written to the plan directory under `review/` and are visible via `serve`.
 

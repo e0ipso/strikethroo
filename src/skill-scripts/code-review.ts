@@ -39,9 +39,9 @@ const XSD_RELATIVE_PATH = path.join('config', 'schemas', 'self-review-v2.xsd');
 const REVIEW_DIR_NAME = 'review';
 const BASE_COMMIT_FILE_NAME = 'base-commit.json';
 const REVIEW_FILE_NAME = 'review.xml';
-/** The recorded-versus-actionable partition, written beside each round's review.xml. */
+/** The recorded findings and the reason a review did not certify, beside review.xml. */
 const FINDINGS_FILE_NAME = 'findings.json';
-/** The reviewer's captured transcript, written only when a round does not certify. */
+/** The reviewer's captured transcript, written only when a review does not certify. */
 const TRANSCRIPT_FILE_NAME = 'reviewer-output.txt';
 const SHA_RE = /^[0-9a-f]{40}$/i;
 
@@ -57,14 +57,14 @@ const readFileOrNull = (filePath: string): string | null => {
 };
 
 /**
- * The reviewer's captured transcript, for a round that did not certify.
+ * The reviewer's captured transcript, for a review that did not certify.
  *
  * Best-effort on purpose, and deliberately asymmetric with `record`: the
- * findings partition throws when it cannot be written, because success criterion
- * 8 requires below-floor findings to be inspectable. This is a diagnostic. A
- * transcript that cannot be written is a lost diagnostic, never a changed
- * verdict — turning a decided round into an infrastructure failure would trade
- * the outcome the gate just computed for the artifact that explains it.
+ * findings record throws when it cannot be written, because the findings are the
+ * whole product of the gate. This is a diagnostic. A transcript that cannot be
+ * written is a lost diagnostic, never a changed outcome — turning a decided
+ * review into an infrastructure failure would trade the outcome the gate just
+ * computed for the artifact that explains it.
  */
 const writeTranscript = (reviewDir: string, transcript: string | undefined): void => {
   if (transcript === undefined || transcript === '') return;
@@ -98,13 +98,13 @@ export interface FindingsEvaluationContext {
 }
 
 /**
- * The verdict on one round's emitted findings.
+ * The outcome of evaluating the reviewer's emitted findings.
  *
  * Every failure mode is a distinct member, and none of them is a permissive
  * default. A document that does not validate, a document that was never
  * written, and a validator that could not be run are three different problems
  * with three different fixes, and **not one of them is "no findings above the
- * floor"**. Reporting any of them as a clean round would turn a broken reviewer
+ * floor"**. Reporting any of them as a clean review would turn a broken reviewer
  * into a silent green gate, which is precisely the misread this gate exists to
  * prevent.
  *
@@ -124,17 +124,16 @@ export type FindingsGateOutcome =
       findingsFile: string;
     };
 
-/** Supply this to evaluate a round's emitted findings. */
+/** Supply this to evaluate the reviewer's emitted findings. */
 export type FindingsGate = (context: FindingsEvaluationContext) => Promise<FindingsGateOutcome>;
 
 /**
- * The findings gate: validate, partition, record. Built per round from the
- * mandate the hook states, so the floors a user edits are the floors applied.
+ * The findings gate: validate, record.
  *
- * The partition is written to `<plan-dir>/review/round-<n>/findings.json` before
- * this returns, on every outcome including the failures. Every finding is
- * recorded, none is discarded, and a failed review leaves behind the reason it
- * failed rather than an empty directory.
+ * The findings are written to `<plan-dir>/review/findings.json` before this
+ * returns, on every outcome including the failures. Every finding is recorded,
+ * none is discarded, and a failed review leaves behind the reason it failed
+ * rather than an empty directory.
  */
 export const createFindingsGate =
   (): FindingsGate =>
@@ -161,14 +160,14 @@ export const createFindingsGate =
     // it printed to the canonical path so it meets the XSD at the one
     // `validateAgainstSchema` call below. There is no second parser and no
     // short-circuit into `parseReviewFindings`, whose linear tag scan is only safe
-    // behind validation. `runReviewRound` removed this exact path before dispatch,
+    // behind validation. `runReview` removed this exact path before dispatch,
     // so nothing here can certify a document from an earlier invocation.
     const delivered = _extractReviewDocument(context.reviewerStdout, context.deliveryToken);
     if (delivered === null) {
       const detail =
         "The reviewer printed no complete findings document between this dispatch's " +
-        'delimiters. A round with no findings document cannot be read as a round with no ' +
-        'findings.';
+        'delimiters. A review with no findings document cannot be read as a review with ' +
+        'no findings.';
       record({ ...base, status: 'findings-absent', detail, findings: [] });
       return { kind: 'findings-absent', detail };
     }
@@ -222,27 +221,39 @@ export const createFindingsGate =
   };
 
 /**
- * Whether the review can be trusted, which is the only thing left to decide.
+ * What the orchestrator does next.
  *
- * `review-recorded` means a reviewer ran and its findings were certified against
- * the schema, however many findings there were. `review-failed` means the
- * findings were never certified, and that is never reported as a clean review.
+ * Two values, because the gate makes exactly one decision: the plan proceeds, or
+ * it stops. Every result carries it, and it is derived — see `_classify` — so it
+ * can never disagree with the exit code.
  */
-export type ReviewVerdict =
-  | { kind: 'review-recorded'; detail: string }
-  | { kind: 'review-failed'; detail: string };
+export type ReviewAction = 'continue' | 'halt';
 
-export type ReviewResult =
+/** Whether the reviewed findings were certified and recorded. */
+export type ReviewVerdict = { kind: 'review-recorded' } | { kind: 'review-failed' };
+
+/**
+ * A result before its action is compiled onto it.
+ *
+ * Every variant states `detail` at the top level, so a caller never has to know
+ * which variant it holds to say why the gate ended the way it did. The reviewed
+ * variant carries only the verdict discriminator and nothing else about how the
+ * document arrived: the delivery diagnostics stay in `findings.json`, where they
+ * are evidence, rather than in the emitted result, where they would invite an
+ * orchestrator to re-derive a decision this gate already made.
+ */
+export type ReviewOutcome =
   | { kind: 'skipped'; reason: ReviewSkipReason; detail: string }
-  | {
+  | ({
       kind: 'reviewed';
       harness: Harness;
       baseCommit: string;
       reviewFile: string;
-      reviewFilePresent: boolean;
-      findingsGate: FindingsGateOutcome;
-      verdict: ReviewVerdict;
-    }
+      detail: string;
+    } & (
+      | { verdict: { kind: 'review-recorded' }; counts: FindingCounts }
+      | { verdict: { kind: 'review-failed' } }
+    ))
   | {
       kind: 'launched-failure';
       harness: Harness;
@@ -252,6 +263,51 @@ export type ReviewResult =
     }
   | { kind: 'fallback'; harness: Harness; reason: string; detail: string }
   | { kind: 'infrastructure-failure'; detail: string };
+
+type WithAction<T> = T extends unknown ? T & { action: ReviewAction } : never;
+
+/** What the gate emits: one outcome, plus the action compiled from it. */
+export type ReviewResult = WithAction<ReviewOutcome>;
+
+/**
+ * The one classification. Both the action a caller reads and the exit code the
+ * process leaves behind come from here, so they cannot drift into two decision
+ * trees that disagree about the same outcome.
+ *
+ * Exit codes mirror `dispatch-task-execution.cjs`: 2 for infrastructure, 1 for a
+ * launched failure or a review that could not be certified, 0 for everything the
+ * caller can proceed past — including a pre-launch fallback, which means the gate
+ * did not run rather than that it failed. Findings themselves never move it,
+ * because the gate does not judge them.
+ */
+export interface ReviewClassification {
+  action: ReviewAction;
+  exitCode: 0 | 1 | 2;
+}
+
+const CONTINUE: ReviewClassification = { action: 'continue', exitCode: 0 };
+const HALT_REVIEW: ReviewClassification = { action: 'halt', exitCode: 1 };
+const HALT_INFRASTRUCTURE: ReviewClassification = { action: 'halt', exitCode: 2 };
+
+export const _classify = (outcome: ReviewOutcome): ReviewClassification => {
+  switch (outcome.kind) {
+    case 'infrastructure-failure':
+      return HALT_INFRASTRUCTURE;
+    case 'launched-failure':
+      return HALT_REVIEW;
+    case 'reviewed':
+      return outcome.verdict.kind === 'review-recorded' ? CONTINUE : HALT_REVIEW;
+    case 'skipped':
+    case 'fallback':
+      return CONTINUE;
+  }
+};
+
+/** Compile an outcome into a result by stamping its action onto it. */
+const decide = <T extends ReviewOutcome>(outcome: T): T & { action: ReviewAction } => ({
+  ...outcome,
+  action: _classify(outcome).action,
+});
 
 export interface ReviewRequest {
   /** Plan id or absolute plan-file path, as accepted by `resolvePlan`. */
@@ -296,9 +352,8 @@ export const _readBaseCommit = (filePath: string): string | null => {
 
 /**
  * The plan's cumulative diff: the recorded base commit against the current
- * working tree. Two-dot and HEAD-free on purpose — `POST_EXECUTION`'s cleanup
- * and any fix an earlier round applied are uncommitted when the gate runs, and
- * `<base>...HEAD` would see none of them.
+ * working tree. Two-dot and HEAD-free on purpose — `POST_EXECUTION`'s cleanup is
+ * uncommitted when the gate runs, and `<base>...HEAD` would see none of it.
  *
  * Untracked files are in scope, and the gate does not write to the index to get
  * them there. Plain `git diff` sees only what git already tracks, which made the
@@ -323,11 +378,9 @@ export const _readBaseCommit = (filePath: string): string | null => {
  * way: git emits a one-line "Binary files differ" instead of their contents.
  *
  * Build output and vendored files are removed from the scope. A finding against
- * generated code is unfixable by construction: the suggestion is applied as a
- * text replacement, the mandatory full `POST_EXECUTION` re-run rebuilds the
- * file, the fix disappears, and the next round raises the identical finding
- * because its source was never touched — a fix/erase/re-find loop that spends
- * an unactionable finding every time. Vendored files carry the same problem for a
+ * generated code is unactionable by construction: acting on it edits a file the
+ * mandatory full `POST_EXECUTION` re-run regenerates, so the change disappears
+ * while its source stays untouched. Vendored files carry the same problem for a
  * different reason: they must stay byte-identical to upstream.
  *
  * The exclusion is driven by `.gitattributes` rather than a hard-coded list,
@@ -418,7 +471,7 @@ export const _readCumulativeDiff = (workspace: string, baseCommit: string): stri
   // Only the tracked read proves the repository is readable at all; a failure
   // there is the infrastructure failure the caller reports. An untracked path
   // that fails to diff is dropped rather than escalated, so one unreadable file
-  // cannot sink a round.
+  // cannot sink the review.
   if (tracked === null) return null;
   const added = untrackedPaths(workspace)
     .map(file => untrackedDiff(workspace, file))
@@ -475,7 +528,7 @@ const ANSI_PATTERN = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
 
 /**
  * Read the delivered findings document out of captured reviewer stdout. This is
- * the only channel the document arrives on, so this runs on every round.
+ * the only channel the document arrives on, so this runs on every review.
  *
  * Takes the LAST complete token-bearing region, because a harness may print the
  * block more than once and the final emission is the reviewer's actual answer.
@@ -586,11 +639,8 @@ export const buildReviewerPrompt = (input: ReviewerPromptInput): string =>
     '',
   ].join('\n');
 
-const skip = (reason: ReviewSkipReason, detail: string): ReviewResult => ({
-  kind: 'skipped',
-  reason,
-  detail,
-});
+const skip = (reason: ReviewSkipReason, detail: string): ReviewResult =>
+  decide({ kind: 'skipped', reason, detail });
 
 interface ReviewContext {
   strikethrooRoot: string;
@@ -615,10 +665,10 @@ const resolveReviewContext = (
   if (!strikethrooRoot) {
     return {
       kind: 'ended',
-      result: {
+      result: decide({
         kind: 'infrastructure-failure',
         detail: `No Strikethroo workspace was found from ${startPath}.`,
-      },
+      }),
     };
   }
 
@@ -658,10 +708,10 @@ const resolveReviewContext = (
   }
 
   // `xmllint` is a soft dependency. Findings are validated by shelling out to
-  // it, so without it no round can be certified — but a missing system package
+  // it, so without it no review can be certified — but a missing system package
   // must never turn an otherwise successful plan into a failure. Absence joins
   // the clean-skip set rather than halting, and is checked here, before a
-  // reviewer is dispatched, so no external harness is spent on a round that
+  // reviewer is dispatched, so no external harness is spent on a review that
   // could not have been certified anyway.
   //
   // A skip is not a pass. It records that the gate did not run, and the
@@ -709,10 +759,10 @@ export const runReview = async (
 
   const resolved = resolvePlan(request.plan, startPath);
   if (!resolved) {
-    return {
+    return decide({
       kind: 'infrastructure-failure',
       detail: `Plan "${request.plan}" was not found or is invalid.`,
-    };
+    });
   }
   const { planDir, planFile, planId } = resolved;
 
@@ -732,12 +782,12 @@ export const runReview = async (
     currentHarness: request.currentHarness,
   });
   if (discovery.configurationErrors !== undefined) {
-    return {
+    return decide({
       kind: 'infrastructure-failure',
       detail: `Harness invocation configuration is invalid: ${discovery.configurationErrors.join(
         ' '
       )}`,
-    };
+    });
   }
   const harness = discovery.reviewerCandidates[0];
   if (harness === undefined) {
@@ -750,15 +800,15 @@ export const runReview = async (
 
   const diff = dependencies.readDiff(workspace, baseCommit);
   if (diff === null) {
-    return {
+    return decide({
       kind: 'infrastructure-failure',
       detail:
         `git diff ${baseCommit} failed in ${workspace}. The base commit was recorded, so this ` +
         'is a real failure rather than an absent-scope skip.',
-    };
+    });
   }
 
-  // An empty scope is reported, never certified. A round dispatched with nothing
+  // An empty scope is reported, never certified. A reviewer dispatched with nothing
   // to read comes back with no findings, which is indistinguishable from a clean
   // review — so the one observable symptom of a collapsed scope would be a pass.
   // Whatever the cause, saying so is the only honest outcome.
@@ -766,7 +816,7 @@ export const runReview = async (
     return skip(
       'empty-diff',
       `The diff from ${baseCommit} to the working tree in ${workspace} is empty, so there was ` +
-        'nothing to review. No reviewer was dispatched, and no round was certified.'
+        'nothing to review. No reviewer was dispatched, and nothing was certified.'
     );
   }
 
@@ -775,24 +825,24 @@ export const runReview = async (
   try {
     fs.mkdirSync(reviewDir, { recursive: true });
   } catch (error) {
-    return {
+    return decide({
       kind: 'infrastructure-failure',
       detail: `Could not create the review directory ${reviewDir}: ${errorMessage(error)}`,
-    };
+    });
   }
 
   // Defensive, now that the gate performs the only write: no foreign document
-  // survives into the round, so what ends up at these paths is always this
+  // survives into the review, so what ends up at these paths is always this
   // invocation's. Remove the two exact paths this invocation may write and
   // nothing else: never glob for XML, never read `.self-review.yaml`, never
   // follow a custom output name.
   //
   // The transcript joins the removal for a reason `findings.json` does not:
-  // `record` rewrites the partition on every outcome, so it can never be stale,
-  // while the transcript is written only when a round fails to certify. Re-run a
-  // round number that failed and then certified, and a transcript from the
-  // earlier attempt would sit beside a freshly certified `review.xml` — reading
-  // exactly like a round that had failed. Prior `findings.json` still stays put
+  // `record` rewrites the findings record on every outcome, so it can never be stale,
+  // while the transcript is written only when a review fails to certify. Re-run a
+  // review that failed and then certified, and a transcript from the earlier
+  // attempt would sit beside a freshly certified `review.xml` — reading exactly
+  // like a review that had failed. Prior `findings.json` still stays put
   // as evidence of the earlier attempt. `force: true` makes absence a no-op,
   // which is the common case for both.
   const staleArtifacts = [reviewFile, path.join(reviewDir, TRANSCRIPT_FILE_NAME)];
@@ -800,10 +850,10 @@ export const runReview = async (
     try {
       fs.rmSync(stale, { force: true });
     } catch (error) {
-      return {
+      return decide({
         kind: 'infrastructure-failure',
         detail: `Could not remove the stale review artifact ${stale}: ${errorMessage(error)}`,
-      };
+      });
     }
   }
 
@@ -835,28 +885,28 @@ export const runReview = async (
         }),
   });
   if (dispatched.kind === 'infrastructure-failure') {
-    return { kind: 'infrastructure-failure', detail: dispatched.detail };
+    return decide({ kind: 'infrastructure-failure', detail: dispatched.detail });
   }
   if (dispatched.kind === 'fallback') {
-    return {
+    return decide({
       kind: 'fallback',
       harness,
       reason: dispatched.reason,
       detail: dispatched.detail,
-    };
+    });
   }
   if (dispatched.kind === 'launched-failure') {
     // The darkest case: this branch returns before the findings gate runs, so a
     // reviewer that reviewed, printed a valid document, and then exited non-zero
     // would otherwise leave nothing at all behind.
     writeTranscript(reviewDir, dispatched.stdout);
-    return {
+    return decide({
       kind: 'launched-failure',
       harness,
       reviewFile,
       exitCode: dispatched.exitCode,
       detail: `The ${harness} reviewer exited ${dispatched.exitCode}.`,
-    };
+    });
   }
 
   // The gate is not optional. An override may replace it; nothing removes it.
@@ -874,38 +924,54 @@ export const runReview = async (
 
   // Every non-certifying outcome — `findings-absent`, `schema-invalid`,
   // `validator-unavailable`, and the injected-gate `not-evaluated` seam — leaves
-  // the transcript that explains it. A certified round does not.
+  // the transcript that explains it. A certified review does not.
   if (findingsGate.kind !== 'evaluated') {
     writeTranscript(reviewDir, dispatched.stdout);
   }
 
-  return {
+  return decide({
     kind: 'reviewed',
     harness,
     baseCommit,
     reviewFile,
-    reviewFilePresent: fs.existsSync(reviewFile),
-    verdict: _verdictFor(findingsGate),
-    findingsGate,
-  };
+    ...reviewedFieldsFor(findingsGate),
+  });
 };
 
 /**
- * Whether the review can be trusted.
+ * The certification-status discriminator, read off the findings gate.
  *
- * Only an `evaluated` outcome certifies. Every other outcome is a failed review:
- * the findings were never validated, and an uncertified review is not a clean
- * one. How many findings there were changes nothing here; reading them and
- * deciding what to fix is the implementer's job, not this gate's.
+ * Only an `evaluated` outcome records a review. Every other outcome failed
+ * certification and is never reported as clean. The verdict carries no detail;
+ * every result has that explanation at the top level.
  */
-export const _verdictFor = (outcome: FindingsGateOutcome): ReviewVerdict => {
+type VerdictFor<T extends FindingsGateOutcome> = T extends { kind: 'evaluated' }
+  ? { kind: 'review-recorded' }
+  : { kind: 'review-failed' };
+
+export const _verdictFor = <T extends FindingsGateOutcome>(outcome: T): VerdictFor<T> =>
+  (outcome.kind === 'evaluated'
+    ? { kind: 'review-recorded' }
+    : { kind: 'review-failed' }) as VerdictFor<T>;
+
+/**
+ * Record-worthy reviewed fields. Counts exist only after certification, so a
+ * caller cannot read a tally that no schema ever backed.
+ */
+const reviewedFieldsFor = (
+  outcome: FindingsGateOutcome
+):
+  | { verdict: { kind: 'review-recorded' }; counts: FindingCounts; detail: string }
+  | { verdict: { kind: 'review-failed' }; detail: string } => {
   if (outcome.kind !== 'evaluated') {
-    return { kind: 'review-failed', detail: outcome.detail };
+    return { verdict: _verdictFor(outcome), detail: outcome.detail };
   }
+
   const { counts, findingsFile } = outcome;
   if (counts.total === 0) {
     return {
-      kind: 'review-recorded',
+      verdict: _verdictFor(outcome),
+      counts,
       detail: `The reviewer raised no findings. See ${findingsFile}.`,
     };
   }
@@ -914,46 +980,35 @@ export const _verdictFor = (outcome: FindingsGateOutcome): ReviewVerdict => {
     .concat(counts.unlabelled > 0 ? [`${counts.unlabelled} unlabelled`] : [])
     .join(', ');
   return {
-    kind: 'review-recorded',
+    verdict: _verdictFor(outcome),
+    counts,
     detail:
       `The reviewer raised ${counts.total} finding(s) (${byLabel}). They are recorded, not ` +
       `applied: read them and decide which to act on. See ${findingsFile}.`,
   };
 };
 
-const emit = (result: ReviewResult, exitCode: number): never => {
-  process.stdout.write(`${JSON.stringify(result)}\n`);
-  process.exit(exitCode);
+/** The gate's entire stdout: one JSON line, and nothing else, ever. */
+export const _resultLine = (result: ReviewResult): string => `${JSON.stringify(result)}\n`;
+
+const emit = (result: ReviewResult): never => {
+  process.stdout.write(_resultLine(result));
+  process.exit(_classify(result).exitCode);
 };
 
-/**
- * Exit codes mirror `dispatch-task-execution.cjs`: 2 for infrastructure, 1 for a
- * launched failure, 0 for everything the caller can proceed past — including a
- * pre-launch fallback, which means the gate did not run rather than that it
- * failed.
- *
- * A review the gate could not certify exits 1: it halts exactly as any other
- * mechanical gate failure does. Findings themselves never change the exit code,
- * because the gate does not judge them.
- */
-export const _exitCodeFor = (result: ReviewResult): number => {
-  if (result.kind === 'infrastructure-failure') return 2;
-  if (result.kind === 'launched-failure') return 1;
-  if (result.kind === 'reviewed') return result.verdict.kind === 'review-failed' ? 1 : 0;
-  return 0;
-};
+/** The exit code for a result, from the same classification that set its action. */
+export const _exitCodeFor = (result: ReviewResult): number => _classify(result).exitCode;
 
 const main = async (startPath: string = process.cwd()): Promise<void> => {
   const [planArg, harnessArg] = process.argv.slice(2);
   if (!planArg || !harnessArg || !SUPPORTED_HARNESSES.includes(harnessArg as Harness)) {
     emit(
-      {
+      decide({
         kind: 'infrastructure-failure',
         detail:
           'Usage: code-review.cjs <plan-id-or-path> <current-harness>. ' +
           `<current-harness> is one of: ${SUPPORTED_HARNESSES.join(', ')}.`,
-      },
-      2
+      })
     );
   }
   // `emit` never returns, but a `never`-returning arrow behind an unannotated
@@ -964,17 +1019,16 @@ const main = async (startPath: string = process.cwd()): Promise<void> => {
     currentHarness: harnessArg as Harness,
     startPath,
   });
-  emit(result, _exitCodeFor(result));
+  emit(result);
 };
 
 if (require.main === module) {
   main().catch(error => {
     emit(
-      {
+      decide({
         kind: 'infrastructure-failure',
         detail: `Code review gate infrastructure failed: ${errorMessage(error)}`,
-      },
-      2
+      })
     );
   });
 }

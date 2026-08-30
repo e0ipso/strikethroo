@@ -101,15 +101,15 @@ Five reasons it may skip cleanly:
 
 Any of these routes to a clean skip with a note in the execution summary. No error.
 
-**The gate ran but the round failed. What does that mean?**
+**The gate ran but did not certify. What does that mean?**
 
-A failed round is not a skip: the gate ran and could not certify the result, so execution halts rather than reporting a clean review. The reviewer's findings reach the gate on its own output: the reviewer prints the document, the gate extracts it from that output, writes it to the expected path, and validates it against the same schema. So a round that still fails means the reviewer could not perform the review: it could not inspect the repository, or it produced no valid findings document. When that happens, look at `review/round-<n>/reviewer-output.txt` -- it holds the reviewer's captured output for exactly this case, so you can see what it actually did. Read the reported detail, fix the cause, and re-run the gate.
+An uncertified review is not a skip: the gate ran and could not certify the result, so it exits non-zero rather than reporting a clean review. The reviewer's findings reach the gate on its own output: the reviewer prints the document, the gate extracts it from that output, writes it to the expected path, and validates it against the same schema. So an uncertified review means the reviewer could not perform the review: it could not inspect the repository, or it produced no valid findings document. When that happens, look at `review/reviewer-output.txt` -- it holds the reviewer's captured output for exactly this case, so you can see what it actually did. Read the reported detail, fix the cause, and re-run the gate.
 
 **How do I disable code review?**
 
 Edit or delete `.ai/strikethroo/config/hooks/CODE_REVIEW.md`. The gate skips cleanly on next run. No error.
 
-**Can I configure the thresholds?**
+**Can I configure how findings are graded?**
 
 Yes. Edit `CODE_REVIEW.md` to change the mandate: which finding categories are in scope, and how the reviewer should grade `severity` and `confidence`. Those labels are advisory, so the gate never filters or applies anything on them; you decide what to act on when you read the review.
 

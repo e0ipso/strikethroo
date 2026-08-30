@@ -22,7 +22,7 @@ npm run lint:fix      # Auto-fix style
 
 The CLI registers four commands (`src/cli.ts`): `init`, the nested `export profile`, `serve`, and `validate`. Every action stays thin — it parses flags, delegates to a module, and owns only the reporting and the exit code.
 
-The workflow ships as harness-agnostic **Agent Skills**. Install them with `npx skills add e0ipso/strikethroo`. Append `#<tag>` to pin a git ref; `@<name>` filters by skill name.
+The workflow ships as harness-agnostic **Agent Skills**, installed with `npx skills add e0ipso/strikethroo` — see [Distribution](#distribution) for how the Git tree serves this. Append `#<git-ref>` to install from a specific branch or tag (e.g. `#v3.19.1`) using the installer's own Git-ref syntax; `@<name>` filters by skill name.
 
 ---
 
@@ -81,7 +81,7 @@ Each step is an Agent Skill that auto-loads when the user's request matches its 
 
 ## Skills Layer
 
-Skills live under `templates/harness/skills/<name>/` (no top-level `skills/` dir; flat, no nesting). Each skill's `SKILL.md` and its compiled `.cjs` bundle under `scripts/` are assembled/bundled at build time — source and output share the same per-skill tree.
+Skills live under `templates/harness/skills/<name>/` (flat, no nesting; the tracked root `skills/` directory is the release mirror described in [Distribution](#distribution), never a place to author anything). Each skill's `SKILL.md` and its compiled `.cjs` bundle under `scripts/` are assembled/bundled at build time — source and output share the same per-skill tree.
 
 The seven shipping skills are the workflow skills listed above (`st-create-plan`, `st-generate-tasks`, `st-execute-blueprint`, `st-refine-plan`, `st-execute-task`, `st-full-workflow`, `st-code-review`).
 
@@ -251,22 +251,25 @@ React + Vite + Tailwind v4 SPA built by `npm run build:web` (`vite.config.mts`) 
 
 **Adding a skill:** add its TypeScript entrypoint to `src/skill-scripts/` and `SKILL_ENTRYPOINTS`, add it to `.claude-plugin/plugin.json`, and create `src/skill-prompts/skills/<name>/SKILL.md.hbs` with `name` and `description` frontmatter.
 
-**Generated artifacts are force-added to release commits** by `@semantic-release/git`: `.cjs` bundles under `templates/harness/skills/*/scripts/` and assembled `SKILL.md` files under `templates/harness/skills/*/`. Unpinned installs read them from `main`; pinned installs read the selected tag. `dist-web/` ships only in the npm package.
+**`templates/harness/skills/` is gitignored, untracked local build output.** `npm run build` overwrites it wholesale on every run and nothing commits it; the npm tarball packs it from disk at publish time (`package.json`'s `files` allowlist), and `init` never reads it. The tracked root `skills/` mirror is a separate generated artifact with a different writer: see [Distribution](#distribution) for the mirror itself, and `node scripts/sync-skills-mirror.cjs`, run only by the release workflow, for how it is populated. `dist-web/` ships only in the npm package.
 
-**Never commit either by hand.** Release automation owns both, so a hand-committed copy is churn at best and a lost edit at worst — `npm run build` overwrites each file wholesale, so a change made to a `SKILL.md` or a `.cjs` disappears at the next build. Edit `src/skill-prompts/` for prompts and `src/skill-scripts/` for bundles. Two guards enforce this, and they are the answer to "why aren't these just gitignored": they cannot be, because CI must be able to commit them.
+**Never hand-edit or hand-commit either generated tree.** Edit `src/skill-prompts/` for prompts and `src/skill-scripts/` for bundles — both `templates/harness/skills/` and the root `skills/` mirror are overwritten wholesale by the build or the mirror sync, so a hand-made change disappears at the next run. Two guards enforce this:
 
-- `.husky/pre-commit` rejects either artifact when staged, and names the source directory to edit instead.
-- `.gitattributes` marks them `linguist-generated=true` (and the vendored `config/schemas/*.xsd` `linguist-vendored=true`). GitHub collapses them in pull requests, and the code review gate reads the same markers to drop them from the reviewed diff.
+- `.husky/pre-commit` rejects staged changes to `templates/harness/skills/*/SKILL.md`, `templates/harness/skills/*/scripts/*.cjs`, `skills/*/SKILL.md`, and `skills/*/scripts/*.cjs`, and names the source directory to edit instead. The release workflow runs with `HUSKY=0`, so the guard never blocks the release commit that legitimately writes the mirror.
+- `.gitattributes` marks all four path patterns `linguist-generated=true` (and the vendored `config/schemas/*.xsd` `linguist-vendored=true`). GitHub collapses them in pull requests, and the code review gate reads the same markers to drop them from the reviewed diff.
 
-Local rebuilds therefore leave a permanently dirty working tree for these paths. That is the intended steady state — leave them dirty.
+A local `npm run build` therefore never dirties Git status: `templates/harness/skills/` is ignored, and the root `skills/` mirror is untouched by the build. Only the release workflow's sync step changes the mirror.
 
 ---
 
 ## Distribution
 
-Skills are distributed through [vercel-labs/skills](https://github.com/vercel-labs/skills), using the entries in `.claude-plugin/plugin.json`. A bare source reads the default branch, `#<tag>` selects a git ref, and `@<name>` filters by skill name.
+Two channels ship skill content, and neither reads the other:
 
-Note the two sibling directories under `templates/harness/`: `skills/` is install-time content read by `npx skills add`; `agents/` is init-time content copied into `.claude/agents/` by `npx . init`. The CLI's `init` does not read `skills/`.
+- **npm tarball** — `package.json`'s `files` allowlist (`dist/`, `dist-web/`, `templates/`, `LICENSE`) packs `templates/` for `init`'s workspace, agent, and template needs. `templates/harness/skills/` rides along inside that tree but `init` never installs skills from it; only `templates/strikethroo/` (workspace) and `templates/harness/agents/` (per-harness sub-agents) are read at init time.
+- **Git tree** — [vercel-labs/skills](https://github.com/vercel-labs/skills)' bare installer (`npx skills add e0ipso/strikethroo`) reads the repository directly. It walks a root `skills/` directory up to three levels deep, ahead of every per-harness project directory and of `.claude-plugin/plugin.json`, keeping the first skill found per name. Strikethroo tracks that discovery target as the root `skills/` mirror — the seven `st-*` skill directories checked into Git. `#<git-ref>` selects a standard branch or tag on the same repository, so a valid install at any ref requires a complete mirror at that ref. `.claude-plugin/plugin.json` still lists the same seven skills at `./skills/st-*` for Claude plugin tooling that reads the manifest directly; it is redundant for the upstream installer's own discovery.
+
+The mirror is release-only content: `scripts/sync-skills-mirror.cjs` replaces `skills/` with the just-built `templates/harness/skills/` tree and verifies byte-for-byte parity, the release workflow runs it after the build-and-test gate and before `npx semantic-release`, and `@semantic-release/git` stages the result as `skills/**` into the tagged release commit. No other step writes to `skills/` — `npm run build` never calls the sync script, so only release automation is a normal writer of the mirror. See [Build Pipeline](#build-pipeline) for the guards (`.gitattributes`, `.husky/pre-commit`) that reject a hand-staged change to either generated tree.
 
 ---
 
@@ -285,17 +288,18 @@ Absent values in older metadata are backfilled to `1` on read (both sides), so d
 
 ## GitHub Releases
 
-`semantic-release` via `.github/workflows/release.yml`, triggered on push to `main`. The workflow runs `npm ci && npm run build && npx playwright install --with-deps chromium && npm test` (the browser install is needed because `npm test`'s e2e half runs against a real Chromium), then `npx semantic-release` (analyze commits → bump → publish to npm → GitHub release + tag). The `@semantic-release/git` `assets` glob force-adds `templates/harness/skills/*/scripts/*.cjs` and `templates/harness/skills/*/SKILL.md`; `dist-web/` is deliberately **not** in the glob. Release commits are labeled `chore(release):` and carry `[skip ci]`.
+`semantic-release` via `.github/workflows/release.yml`, triggered on push to `main`. The workflow runs `npm ci && npm run build && npx playwright install --with-deps chromium && npm test` (the browser install is needed because `npm test`'s e2e half runs against a real Chromium), then `node scripts/sync-skills-mirror.cjs` to replace and parity-verify the root `skills/` mirror from the fresh build, then `npx semantic-release` with `HUSKY=0` (analyze commits → bump → publish to npm → GitHub release + tag). The `@semantic-release/git` `assets` list is `CHANGELOG.md`, `package.json`, `package-lock.json`, and `skills/**`; `templates/harness/skills/` and `dist-web/` are deliberately excluded — the templates tree is gitignored local build output that ships only through the npm tarball, and the SPA ships only through npm. Release commits are labeled `chore(release):` and carry `[skip ci]`.
 
 Verify the invariant:
 
 ```bash
-git ls-tree -r origin/main -- 'templates/harness/skills/*/SKILL.md'   # expect: prompts listed (the bare install reads this)
-git ls-tree -r v<tag> -- 'templates/harness/skills/*/scripts/*.cjs'   # expect: bundles listed
-git ls-tree -r v<tag> -- 'templates/harness/skills/*/SKILL.md'        # expect: prompts listed
-git ls-tree -r v<tag> -- 'dist-web/*'                                 # expect: EMPTY (SPA ships via npm)
-npm pack --dry-run | grep dist-web                                    # expect: SPA assets in the tarball
+git ls-files 'templates/harness/skills/*/SKILL.md' 'templates/harness/skills/*/scripts/*.cjs'  # expect: EMPTY (never tracked)
+git ls-files 'skills/*/SKILL.md' | wc -l                                                        # expect: 7 (mirror tracked, one per skill)
+npm pack --dry-run 2>&1 | grep -c 'templates/harness/skills/.*SKILL\.md'                        # expect: 7 (npm channel unchanged)
+npm pack --dry-run 2>&1 | awk '{print $NF}' | grep -c '^skills/'                                # expect: 0 (mirror is Git-tree only, never packed)
 ```
+
+`npm pack --dry-run`'s tarball listing is written to stderr, so `2>&1` is required — a bare `| grep` silently matches nothing.
 
 ---
 

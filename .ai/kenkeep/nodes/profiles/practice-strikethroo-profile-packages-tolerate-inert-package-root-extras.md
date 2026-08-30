@@ -13,7 +13,8 @@ kk_schema_version: 3
 kk_id: practice-strikethroo-profile-packages-tolerate-inert-package-root-extras
 kk_derived_from:
   - '67ec33eb-6c26-4c0a-8c3f-e117dc130acf:practice:0'
-kk_relates_to: []
+kk_relates_to:
+  - practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace
 kk_depends_on: []
 kk_confidence: high
 ---
@@ -30,3 +31,9 @@ Note that a strikethroo profile is a setup package imported at `init`, distinct 
 
 [1] [67ec33eb-6c26-4c0a-8c3f-e117dc130acf:practice:0](67ec33eb-6c26-4c0a-8c3f-e117dc130acf:practice:0)
 <!-- kk:citations:end -->
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace](/practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md)
+<!-- kk:related:end -->

@@ -89,8 +89,7 @@
           "CHANGELOG.md",
           "package.json",
           "package-lock.json",
-          "templates/harness/skills/*/scripts/*.cjs",
-          "templates/harness/skills/*/SKILL.md"
+          "skills/**"
         ],
         "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
       }

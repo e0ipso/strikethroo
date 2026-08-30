@@ -1,24 +1,31 @@
-# Generated skill artifacts are built in CI: the release workflow rebuilds
-# them and @semantic-release/git force-adds them to the release commit
-# (which runs with HUSKY=0, so this guard never blocks the release).
-# Local rebuilds dirty the tracked copies and a broad `git add` sweeps
-# them in silently — reject that here.
+# Generated skill artifacts live in two trees, and neither is edited by hand.
 #
-# Both the esbuild bundles and the assembled SKILL.md files are covered:
-# each is overwritten wholesale by `npm run build`, so a change made to
-# either is lost at the next build. Edit the source instead —
-# src/skill-scripts/ for the bundles, src/skill-prompts/ for the prompts.
-# They are marked linguist-generated in .gitattributes for the same reason.
-staged_artifacts=$(git diff --cached --name-only -- \
+# `templates/harness/skills/` is local build output, gitignored and overwritten
+# wholesale by `npm run build`. The root `skills/` mirror is tracked, but it
+# records the last released build: the release workflow's sync step
+# (scripts/sync-skills-mirror.cjs) is its only normal writer, so a hand-edit
+# there is erased by the next release. That workflow runs with HUSKY=0, so this
+# guard never blocks the release commit.
+#
+# Both the esbuild bundles and the assembled SKILL.md files are covered, in both
+# trees. Edit the source instead — src/skill-scripts/ for the bundles,
+# src/skill-prompts/ for the prompts. They are marked linguist-generated in
+# .gitattributes for the same reason.
+#
+# --diff-filter=d excludes deletions: dropping generated files from the index is
+# always legitimate, so only added or modified content is rejected.
+staged_artifacts=$(git diff --cached --name-only --diff-filter=d -- \
+  'skills/*/SKILL.md' \
+  'skills/*/scripts/*.cjs' \
   'templates/harness/skills/*/scripts/*.cjs' \
   'templates/harness/skills/*/SKILL.md')
 if [ -n "$staged_artifacts" ]; then
-  echo "✗ Generated skill artifacts are staged; they are built and committed by the release workflow:" >&2
+  echo "✗ Generated skill artifacts are staged:" >&2
   echo "$staged_artifacts" >&2
+  echo "templates/harness/skills/ is written by \`npm run build\`; skills/ is written by the" >&2
+  echo "release mirror sync. Anything staged here is overwritten." >&2
   echo "Edit the source instead: src/skill-scripts/ (bundles) or src/skill-prompts/ (prompts)." >&2
-  echo "Unstage and discard with:" >&2
-  echo "  git restore --staged 'templates/harness/skills/*/scripts/*.cjs' 'templates/harness/skills/*/SKILL.md'" >&2
-  echo "  git checkout -- 'templates/harness/skills/*/scripts/*.cjs' 'templates/harness/skills/*/SKILL.md'" >&2
+  echo "Unstage each path above with: git restore --staged <path>" >&2
   exit 1
 fi
 

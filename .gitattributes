@@ -1,16 +1,16 @@
-# Build output and vendored files that must stay tracked.
+# Build output and vendored files.
 #
-# These cannot be gitignored: `@semantic-release/git` force-adds them into the
-# release commit, because `npx skills add e0ipso/strikethroo@<tag>` reads
-# `templates/` straight from the tagged ref. Marking them here instead gives
-# the two behaviours we actually want while they stay committable by CI:
+# The skill artifacts exist in two trees. `templates/harness/skills/` is local
+# build output and is gitignored; the tracked root `skills/` mirror records the
+# last released build, written only by the release workflow's sync step
+# (`scripts/sync-skills-mirror.cjs`) and committed through `@semantic-release/git`.
+# Both are generated, so both are marked here, which gives two behaviours:
 #
 #   - GitHub collapses them in pull requests, so a reviewer sees source rather
 #     than generated churn.
-#   - The code review gate excludes them from the reviewed diff. Applying a fix
-#     to build output would be erased by the next `npm run build`, and the
-#     re-review would raise the same finding again until the round budget ran
-#     out.
+#   - The code review gate excludes them from the reviewed diff. It resolves
+#     attributes with `git check-attr` on changed paths, and a fix applied to
+#     build output is erased by the next `npm run build` or mirror sync.
 #
 # Change the source, never these files. `.husky/pre-commit` rejects them when
 # staged by hand.
@@ -20,6 +20,10 @@ templates/harness/skills/*/SKILL.md linguist-generated=true
 
 # Bundled by scripts/build-skills.cjs (esbuild) from src/skill-scripts/.
 templates/harness/skills/*/scripts/*.cjs linguist-generated=true
+
+# Released mirror of the two trees above, synced by scripts/sync-skills-mirror.cjs.
+skills/*/SKILL.md linguist-generated=true
+skills/*/scripts/*.cjs linguist-generated=true
 
 # Vendored verbatim from e0ipso/self-review (MIT). Must stay byte-identical to
 # upstream, so it is never a legitimate target for a review finding.

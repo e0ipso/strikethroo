@@ -7,7 +7,7 @@ description: >-
   does not reach the other.
 tags:
   - blueprint
-  - phases
+  - phase
   - serve
   - derivation
   - skill-scripts

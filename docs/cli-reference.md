@@ -94,15 +94,15 @@ Separately, the **Self Review** action (`POST /api/self-review`) writes nothing 
 npx skills add e0ipso/strikethroo
 ```
 
-Installs the Agent Skills listed in `.claude-plugin/plugin.json` from the repository's default branch.
+Installs the seven shipped Agent Skills from the repository's default branch. The upstream `skills` CLI discovers them by walking the repository's root `skills/` directory directly; `.claude-plugin/plugin.json` lists the same skills for Claude plugin tooling but is not what the bare installer consults first.
 
-**Pin a version:**
+**Install a specific branch or tag:**
 
 ```bash
 npx skills add e0ipso/strikethroo#v3.19.0
 ```
 
-`@<name>` filters by skill name; it does not select a version.
+`#<git-ref>` is the installer's own Git-ref syntax, not a Strikethroo-specific feature — any branch or tag name works. `@<name>` filters by skill name; it does not select a version.
 
 **Update skills:**
 

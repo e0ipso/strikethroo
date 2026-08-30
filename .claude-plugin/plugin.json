@@ -1,12 +1,12 @@
 {
   "name": "strikethroo",
   "skills": [
-    "./templates/harness/skills/st-code-review",
-    "./templates/harness/skills/st-create-plan",
-    "./templates/harness/skills/st-execute-blueprint",
-    "./templates/harness/skills/st-execute-task",
-    "./templates/harness/skills/st-full-workflow",
-    "./templates/harness/skills/st-generate-tasks",
-    "./templates/harness/skills/st-refine-plan"
+    "./skills/st-code-review",
+    "./skills/st-create-plan",
+    "./skills/st-execute-blueprint",
+    "./skills/st-execute-task",
+    "./skills/st-full-workflow",
+    "./skills/st-generate-tasks",
+    "./skills/st-refine-plan"
   ]
 }

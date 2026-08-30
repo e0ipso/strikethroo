@@ -360,9 +360,18 @@ const attributeExcluded = (workspace: string, files: readonly string[]): Set<str
   return excluded;
 };
 
-/** Paths in the tracked diff that `.gitattributes` marks as generated or vendored. */
+/**
+ * Paths in the tracked diff that `.gitattributes` marks as generated or
+ * vendored. `--no-renames` matters: with rename detection on, `--name-only`
+ * lists only a rename's destination, so a generated file moved between two
+ * generated locations would contribute one side to the exclusion list —
+ * and excluding the destination breaks the pairing in the scope diff, where
+ * the source then re-materializes as a full deletion of generated content.
+ */
 const excludedPaths = (workspace: string, baseCommit: string): string[] => {
-  const changed = execGit(`git -C ${JSON.stringify(workspace)} diff --name-only ${baseCommit} --`);
+  const changed = execGit(
+    `git -C ${JSON.stringify(workspace)} diff --no-renames --name-only ${baseCommit} --`
+  );
   if (changed === null || changed.trim() === '') return [];
   const files = changed.split('\n').filter(line => line.trim() !== '');
   return [...attributeExcluded(workspace, files)];

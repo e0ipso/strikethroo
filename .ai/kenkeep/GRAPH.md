@@ -1,11 +1,11 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:ff554b98c8ac05ceb54a28e5de37ac3da50bb410f0bd710bd38d49d7f82ebf31'
-node_count: 86
+nodes_hash: 'sha256:d841244564106a7938606d7474a5ba0b7d432bfd462723132d76a0b4d62e9674'
+node_count: 85
 ---
 # kenkeep Graph
 
-Total nodes: 86
+Total nodes: 85
 
 ## map-archive-ui-control-confirmation-gated-archive-button-on-done-plans
 
@@ -26,7 +26,7 @@ Total nodes: 86
 ## map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed
 
 - **kind:** map
-- **title:** CLI exposes only init and serve commands
+- **title:** CLI exposes four thin commands and no plan-management surface
 - **path:** skills/map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md
 - **tags:** cli, architecture
 - **relates_to:** map-skills-are-auto-loaded-by-intent-matching-not-slash-command-prefix
@@ -137,7 +137,7 @@ Total nodes: 86
 - **kind:** map
 - **title:** Phase derivation is implemented twice — viewer path and execution path
 - **path:** serve/map-phase-derivation-is-implemented-twice-viewer-path-and-execution-path.md
-- **tags:** blueprint, phases, serve, derivation, skill-scripts
+- **tags:** blueprint, phase, serve, derivation, skill-scripts
 - **relates_to:** map-parseblueprintphases-slices-blueprint-section-to-end-of-document, practice-plan-detail-blueprint-markdown-vs-tasks-frontmatter
 - **derived_from:** ecba74ac-907e-4ecc-bb2b-60c89a695f4a:map:0
 
@@ -190,10 +190,10 @@ Total nodes: 86
 ## map-src-skill-prompts-is-the-authored-source-of-truth-for-skill-md-content
 
 - **kind:** map
-- **title:** Skill-prompt build system — src/skill-prompts/ source, assembler, shared sections
+- **title:** Skill-prompt build system — src/skill-prompts/ Handlebars source, assembler, shared partials
 - **path:** skills/prompts/map-src-skill-prompts-is-the-authored-source-of-truth-for-skill-md-content.md
-- **tags:** build, skill-prompts, source-of-truth, assembler, sections
-- **relates_to:** practice-exclude-readme-md-from-skill-prompt-template-processing-in-the-assembler, practice-use-build-time-composition-to-eliminate-cross-skill-prompt-duplication
+- **tags:** build, skill-prompts, source-of-truth, assembler, handlebars
+- **relates_to:** practice-use-build-time-composition-to-eliminate-cross-skill-prompt-duplication
 
 ## map-src-tests-fixtures-serve-workspace-committed-fixture-workspace-for-tests
 
@@ -337,13 +337,6 @@ Total nodes: 86
 - **path:** testing/practice-eslint-test-block-must-include-browser-globals-for-page-evaluate-callbacks.md
 - **tags:** linting, eslint, globals, testing, e2e
 
-## practice-exclude-readme-md-from-skill-prompt-template-processing-in-the-assembler
-
-- **kind:** practice
-- **title:** Exclude README.md from skill-prompt template processing in the assembler
-- **path:** skills/prompts/practice-exclude-readme-md-from-skill-prompt-template-processing-in-the-assembler.md
-- **tags:** build, skill-prompts, assembler
-
 ## practice-hot-reload-dev-loop-requires-three-concurrent-processes
 
 - **kind:** practice
@@ -410,7 +403,7 @@ Total nodes: 86
 ## practice-never-hand-commit-generated-skill-artifacts
 
 - **kind:** practice
-- **title:** Never hand-commit generated skill artifacts; they cannot be gitignored
+- **title:** Never hand-commit generated skill artifacts in either tree
 - **path:** practice-never-hand-commit-generated-skill-artifacts.md
 - **tags:** build, skills, git, gitattributes, review-gate, generated-artifacts
 - **relates_to:** practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime, map-src-skill-prompts-is-the-authored-source-of-truth-for-skill-md-content
@@ -568,6 +561,7 @@ Total nodes: 86
 - **title:** Strikethroo profile packages tolerate inert package-root extras
 - **path:** profiles/practice-strikethroo-profile-packages-tolerate-inert-package-root-extras.md
 - **tags:** profiles, init, validation, security
+- **relates_to:** practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace
 - **derived_from:** 67ec33eb-6c26-4c0a-8c3f-e117dc130acf:practice:0
 
 ## practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace

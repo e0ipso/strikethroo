@@ -81,7 +81,7 @@ Each step is an Agent Skill that auto-loads when the user's request matches its 
 
 ## Skills Layer
 
-Skills live under `templates/harness/skills/<name>/` (no top-level `skills/` dir; flat, no nesting). Each skill's `SKILL.md` and its compiled `.cjs` bundle under `scripts/` are assembled/bundled at build time — source and output share the same per-skill tree.
+Skills live under `templates/harness/skills/<name>/` (flat, no nesting; the tracked root `skills/` directory is the release mirror described in [Distribution](#distribution), never a place to author anything). Each skill's `SKILL.md` and its compiled `.cjs` bundle under `scripts/` are assembled/bundled at build time — source and output share the same per-skill tree.
 
 The seven shipping skills are the workflow skills listed above (`st-create-plan`, `st-generate-tasks`, `st-execute-blueprint`, `st-refine-plan`, `st-execute-task`, `st-full-workflow`, `st-code-review`).
 

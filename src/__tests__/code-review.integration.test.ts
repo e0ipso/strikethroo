@@ -386,6 +386,64 @@ describe('cumulative diff scope: generated and vendored files', () => {
     expect(diff).toContain('export const a = 1;');
     expect(diff).toContain('export const b = 2;');
   });
+
+  /**
+   * A generated file moved between two generated locations must vanish from the
+   * scope entirely. Git's rename detection lists only the destination under
+   * `--name-only`, so an exclusion list built from that listing covers one side;
+   * excluding the destination then breaks the rename pairing and the source
+   * re-materializes as a full deletion of generated content.
+   */
+  it('drops both sides of a generated file renamed across generated trees', () => {
+    fs.writeFileSync(
+      path.join(repo, '.gitattributes'),
+      'out-a/*.cjs linguist-generated=true\nout-b/*.cjs linguist-generated=true\n'
+    );
+    fs.mkdirSync(path.join(repo, 'out-a'));
+    fs.writeFileSync(path.join(repo, 'out-a/bundle.cjs'), 'RELOCATED_GENERATED_CONTENT\n');
+    git('add -A');
+    git('commit -q -m generated-at-old-home');
+    const base = baseSha();
+
+    fs.mkdirSync(path.join(repo, 'out-b'));
+    git('mv out-a/bundle.cjs out-b/bundle.cjs');
+    fs.writeFileSync(path.join(repo, 'src.ts'), 'export const real = 1;\n');
+    git('add src.ts');
+    git('commit -q -m relocate');
+
+    const diff = _readCumulativeDiff(repo, base);
+
+    expect(diff).toContain('export const real = 1;');
+    expect(diff).not.toContain('RELOCATED_GENERATED_CONTENT');
+    expect(diff).not.toContain('out-a/bundle.cjs');
+    expect(diff).not.toContain('out-b/bundle.cjs');
+  });
+
+  /**
+   * The scope deliberately has no size cap, so a diff larger than execSync's
+   * default 1 MiB buffer must come back whole instead of collapsing into the
+   * `null` the caller reports as an infrastructure failure — and an untracked
+   * file past the same limit must not silently drop out of the scope.
+   */
+  it('survives a scope larger than one megabyte, tracked and untracked', () => {
+    const base = baseSha();
+    const bulk = Array.from({ length: 40000 }, (_, i) => `export const line${i} = ${i};`).join(
+      '\n'
+    );
+    fs.writeFileSync(path.join(repo, 'tracked-big.ts'), `${bulk}\nexport const TRACKED_END = 1;\n`);
+    git('add tracked-big.ts');
+    git('commit -q -m big');
+    fs.writeFileSync(
+      path.join(repo, 'untracked-big.ts'),
+      `${bulk}\nexport const UNTRACKED_END = 2;\n`
+    );
+
+    const diff = _readCumulativeDiff(repo, base);
+
+    expect(diff).not.toBeNull();
+    expect(diff).toContain('TRACKED_END');
+    expect(diff).toContain('UNTRACKED_END');
+  });
 });
 
 /**

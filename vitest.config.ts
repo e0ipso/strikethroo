@@ -30,6 +30,7 @@ export default defineConfig({
       'src/__tests__/serve-archive.integration.test.ts',
       'src/__tests__/serve-server.integration.test.ts',
       'src/__tests__/skill-scripts.test.ts',
+      'src/__tests__/skills-mirror.test.ts',
       'src/__tests__/st-full-workflow.skill.test.ts',
       'src/__tests__/st-generate-tasks.skill.test.ts',
       'src/__tests__/validation-metadata-gate.test.ts',

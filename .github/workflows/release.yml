@@ -43,6 +43,9 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Sync skills release mirror
+        run: node scripts/sync-skills-mirror.cjs
+
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

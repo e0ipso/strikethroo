@@ -1,0 +1,249 @@
+---
+name: st-execute-blueprint
+description: Use when the user asks to run, execute, implement, or carry out a Strikethroo plan or its blueprint by plan ID in this repository — triggers include execute blueprint, run the plan, implement plan, build the plan. Do not use to create a plan, to only generate tasks, to run a single task, or for generic development outside Strikethroo.
+---
+
+# st-execute-blueprint
+
+Drive the end-to-end execution of an existing Strikethroo plan blueprint. The skill is assistant-agnostic and self-contained: every script it invokes lives under this skill's `scripts/` directory and is referenced by relative path.
+
+## Critical Rules
+
+1. **Never skip validation gates** — a phase is not complete until `POST_PHASE.md` succeeds.
+2. **Preserve dependency order** — never execute a task before all of its dependencies are completed.
+3. **Maximize parallelism within each phase** — run all tasks whose dependencies are satisfied simultaneously.
+4. **Fail safely and document everything** — halt on unrecoverable errors, and record all decisions, issues, and outcomes under "Noteworthy Events" in the execution summary.
+
+## Inputs
+
+The user supplies the numeric plan ID conversationally. Treat it as the only authoritative source of intent. Do not invent answers to clarifying questions — prompt the user instead.
+
+## Operating Procedure
+
+### 1. Locate the strikethroo root
+
+Run `scripts/find-strikethroo-root.cjs` from the user's working directory.
+The script walks up looking for `.ai/strikethroo/.init-metadata.json` and
+prints the absolute path of the resolved root on success.
+
+If the script exits non-zero, the working directory is not inside an
+initialized strikethroo workspace. Stop and ask the user to run the project
+initializer (e.g. `npx strikethroo init`) before continuing. Do
+not attempt to execute a plan outside of a valid root.
+
+For every subsequent step, treat the path printed by this script as `<root>`.
+
+### 2. Resolve the plan
+
+Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` to obtain the
+absolute path of the plan file. The same script also accepts these field
+names (single-field output mode) and exposes them on demand:
+
+- `planDir` — absolute path of the plan directory
+- `taskCount` — number of existing task files in that plan's `tasks/`
+- `blueprintExists` — `yes` or `no`
+- `taskManagerRoot` — absolute path of `<root>`
+- `planId` — the resolved numeric plan ID
+
+If the script exits non-zero, stop and ask the user to confirm the plan ID.
+Do not guess a different ID.
+
+### 3. Validate tasks and blueprint existence
+
+Inspect the `taskCount` and `blueprintExists` values returned by the validation script.
+
+### 4. Auto-generate tasks and blueprint if missing
+
+If `taskCount` is 0 or `blueprintExists` is `no`:
+
+- Notify the user: "Tasks or execution blueprint not found. Generating tasks automatically..."
+- Follow the `st-generate-tasks` skill for this plan ID. Execute its operating procedure in full, including running `POST_TASK_GENERATION_ALL.md` to write the Execution Blueprint.
+- After generation completes, re-run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` (and the other fields) to refresh the resolved paths and counts.
+
+If generation still leaves the plan without tasks or a blueprint, stop and report failure. Do not attempt execution without a valid blueprint.
+
+### 5. Optionally create a feature branch
+
+Run `scripts/create-feature-branch.cjs <plan-id>` once before phase execution. Branch creation is best-effort: when the script reports that it skipped creation (for example, not on `main`/`master`), continue on the current branch and do not retry or create a branch manually. Uncommitted or untracked changes are permitted only when every change is inside the repository-root `.ai/strikethroo` subtree, so a newly generated plan and tasks can remain uncommitted before execution. When the script exits with an error—including changes anywhere outside that subtree or an inability to inspect Git status on `main`/`master`—halt and report the error. Do not treat a skipped branch as a failure or spend effort working around a skip.
+
+After the branch step, run `scripts/capture-base-commit.cjs <plan-id>` once. It records the commit the review gate diffs against. A `skipped` result is not a failure — continue execution and note that the review gate will skip. Only an `error` result halts.
+
+### 6. Load project context and execution blueprint
+
+Read these files, in order:
+
+- `<root>/config/STRIKETHROO.md` — directory conventions and project context.
+- The plan document at the path returned by step 2.
+- The plan's Execution Blueprint section — this defines the phase groupings and task dispatch order.
+- `<root>/config/shared/verification-gate.md` and `<root>/config/shared/anti-rationalization.md` — apply in the phase loop below.
+
+### 7. Execute phases in order
+
+Use an internal task or todo tracker to monitor progress. For each phase defined in the Execution Blueprint:
+
+#### 7a. Phase pre-execution
+Run `scripts/check-phase-readiness.cjs <plan-id> <phase-number>`. If the script exits non-zero, halt the phase and report the blocking issues before continuing.
+
+Read `<root>/config/hooks/PRE_PHASE.md` and execute its instructions before starting the phase.
+
+#### 7b. Task dispatch
+Identify all tasks scheduled for this phase whose dependencies are fully satisfied. Read `<root>/config/hooks/PRE_TASK_ASSIGNMENT.md` and follow its instructions for agent selection before dispatching tasks.
+
+Resolve every selected task's execution route first. Invoke one resolver per selected
+task simultaneously in a single parallel tool operation:
+
+```text
+scripts/dispatch-task-execution.cjs resolve <task-file> <current-harness> <workspace> <plan-id> <task-id>
+```
+
+Resolvers never launch external processes. After interpreting all route results, issue
+all `external-override` executions and all native Task-tool agents **together in one
+parallel tool operation**. External execution uses:
+
+```text
+scripts/dispatch-task-execution.cjs execute <handoff> <task-file> <current-harness> <workspace> <plan-id> <task-id>
+```
+
+`<handoff>` is the exact opaque `handoff` string returned by that task's
+`external-override` resolver result. Never reconstruct it, reuse it for another
+task, or rerun resolution after launches begin. Execute validates the handoff
+and does not reread routing configuration, so configuration changes cannot
+alter an already selected target.
+
+This two-step protocol is mandatory: do not execute external tasks during route
+resolution, do not serialize external commands, and do not wait for external completion
+before launching ready native agents. If an execute-time pre-flight returns `fallback`,
+record its reason and immediately launch the ordinary native path without override prose.
+
+`<current-harness>` is the exact supported harness identifier running this
+skill and `<workspace>` is the project working directory. Interpret its JSON
+result before choosing a route: `native-default` uses ordinary native dispatch;
+`native-override` uses native dispatch with explicit exact-model prose and
+reasoning-effort prose only when returned; `fallback` visibly records its
+reason then uses ordinary native dispatch with no override prose;
+`launched-success` has already completed externally and receives normal status
+and evidence review; `launched-failure` is a failed task and must enter the
+existing error-hook/status path without any native retry; `infrastructure-failure`
+is also a failed task, must be marked failed, and must run
+`<root>/config/hooks/POST_ERROR_DETECTION.md` without native retry. The command
+always emits exactly one JSON line; exit code `2` identifies entrypoint/infrastructure
+failure while exit code `1` identifies a launched task failure.
+
+Deploy all remaining native agents simultaneously using your internal Task tool. Each agent MUST:
+
+1. Read and execute `<root>/config/hooks/PRE_TASK_EXECUTION.md` before starting any implementation work.
+2. Execute the task according to its requirements.
+3. Monitor execution progress and capture outputs and artifacts.
+4. Update task status in real-time.
+
+Maximize parallelism within each phase. Run every task that is ready at the same time.
+
+#### 7c. Phase completion verification
+Ensure every task in the phase has status `completed`. Collect and review all task outputs. Document any issues or exceptions encountered.
+
+Do not accept a subagent's report of success as proof. Apply the evidence gate in `<root>/config/shared/verification-gate.md` before marking the phase complete. Do not mark a phase complete on an unverified claim.
+
+#### 7d. Phase post-execution
+Read `<root>/config/hooks/POST_PHASE.md` and execute its instructions. Do not proceed to the next phase until this hook succeeds.
+
+Update the phase status to `completed` in the plan's Execution Blueprint section.
+
+Repeat for the next phase until all phases are complete.
+
+Apply `<root>/config/shared/anti-rationalization.md` to this rationalization table:
+
+| You catch yourself thinking… | The binding rule |
+| --- | --- |
+| "The subagent reported success, so the task is done." | A report is a claim, not evidence. Apply the verification gate before marking the phase complete. |
+| "The tests probably pass." | "Probably" is a red flag. Run the proving command, read its output and exit code, then state the result. |
+| "I'll verify later, after the next phase." | A phase is not complete until `POST_PHASE.md` succeeds against verified evidence. Verify now; do not advance on an unverified phase. |
+
+### 8. Post-execution validation
+
+Read `<root>/config/hooks/POST_EXECUTION.md` and execute its instructions. If validation fails, halt execution. The plan remains in `plans/` for debugging.
+
+Before declaring execution complete, apply the evidence gate in `<root>/config/shared/verification-gate.md` to the plan's Success Criteria and Self Validation steps.
+
+#### Run the code review gate
+
+After `POST_EXECUTION.md` reports green and before appending the execution summary, follow the `st-code-review` skill and run its bundled mechanism once:
+
+```text
+code-review.cjs <plan-id> <current-harness>
+```
+
+`code-review.cjs` ships with the `st-code-review` skill and lives in that skill's own `scripts` directory, a sibling of this one. Resolve it there; it is not bundled with this skill. If the `st-code-review` skill is not installed on this harness, record that as the review outcome in the execution summary and continue to the summary and archival.
+
+`<current-harness>` is the exact supported harness identifier running this skill. The command runs one review and emits exactly one JSON line on stdout. Reviewer output is captured and teed to stderr, so stdout carries the verdict JSON line and nothing else. Read its `kind`, then, when `kind` is `reviewed`, its `verdict.kind`, and do exactly what the matching row states.
+
+| Result | What you do |
+| --- | --- |
+| `skipped` | The gate is disabled or unconfigured. Record `reason` and `detail` verbatim in the execution summary, then continue to the summary and archival. A skip is never a failure. |
+| `reviewed`, `verdict.kind` = `review-recorded` | A reviewer ran and its findings were certified. Record `verdict.detail` and the `findingsGate.counts` in the execution summary, then read `<plan-dir>/review/review.xml` and decide for yourself which findings to act on. Nothing was applied for you. |
+| `reviewed`, `verdict.kind` = `review-failed` | The findings were not certified: the document was absent or invalid, or no validator was available. Halt and report `verdict.detail`. Never report an uncertified review as clean. |
+| `launched-failure` | The reviewer harness exited non-zero. Halt and report `detail`. |
+| `fallback` | The reviewer never ran, because the harness was unavailable or authentication failed. Record `reason` and `detail` verbatim in the execution summary, then continue to the summary and archival. |
+| `infrastructure-failure` | A real error. Halt and report `detail`. Do not retry on a different route. |
+
+<details>
+<summary>Acting on the findings</summary>
+
+`<plan-dir>/review/review.xml` is the reviewer's document and `<plan-dir>/review/findings.json` is the same findings as data. Read them and use your own judgement: the reviewer is a second opinion on a diff you know better than it does, and it has neither run the tests nor read the whole codebase.
+
+Fix what is a genuine requirement gap or defect. Ignore what is wrong, out of scope, or already handled elsewhere, and say in the execution summary which findings you ignored and why. `severity` and `confidence` are the reviewer's own triage labels, useful for sorting and never binding; a `low` confidence finding is one the reviewer could not trace, so read it with that in mind.
+
+Dispatch any fix you decide to make on the implementer route.
+
+</details>
+
+Hard rules:
+
+- The gate creates no task files.
+- The gate never mutates the Execution Blueprint.
+- The gate is terminal only, never per phase and never per task.
+- The reviewer never fixes its own findings. Detection runs on the reviewer route, fixes run on the implementer route.
+- Any fix you apply invalidates the green build that preceded it. Re-run `POST_EXECUTION.md` in full (lint, tests, and Self Validation) before declaring execution complete. Never re-verify against the prior green build.
+- The review runs once. Do not re-run the gate to check your own fixes.
+- A certified review is not a correctness guarantee. It reduces the exposure a human PR approval reduces, and it leaves the same exposure behind.
+
+### 9. Append execution summary
+
+Append an execution summary section to the plan document using the format described in `<root>/config/templates/EXECUTION_SUMMARY_TEMPLATE.md`. Populate:
+
+- **Status**: Completed Successfully
+- **Completed Date**: current date
+- **Results**: brief summary of deliverables
+- **Noteworthy Events**: all decisions, issues, and outcomes encountered during execution. Always record the review gate's outcome here: the reviewer harness, the finding counts, and which findings you acted on versus ignored and why. When the gate did not run, record its `reason` and `detail` verbatim. If nothing else occurred, state "No significant issues encountered." after the review outcome.
+- **Necessary follow-ups**: any follow-up actions or optimizations
+
+### 10. Archive the plan
+
+Move the completed plan directory from `<root>/plans/<plan-folder>` to `<root>/archive/<plan-folder>`.
+
+Preserve the entire folder structure (including all tasks and subdirectories) to maintain referential integrity. If the move fails, log the error but do not fail the overall execution — the implementation work is complete.
+
+## Failure Modes
+
+- **No strikethroo root found.** Stop and instruct the user to initialize the
+  project. Do not write any files or execute any tasks.
+- **Plan ID does not resolve, or the plan-ID script fails.** Re-check the
+  resolved root and re-run. If it continues to fail, surface the script's
+  stderr to the user and stop. Do not guess an ID and do not write any files.
+- **Missing blueprint after auto-generation.** If the `st-generate-tasks` skill fails to produce tasks or a blueprint, stop and report failure. Do not attempt execution without a blueprint.
+- **Hook failure.** If `PRE_PHASE.md`, `POST_PHASE.md`, or `POST_EXECUTION.md` fails, halt execution. The plan remains in `plans/` for debugging and potential re-execution.
+- **Execution errors.** If a task fails, read `<root>/config/hooks/POST_ERROR_DETECTION.md`, document the error in Noteworthy Events, halt the phase, and request user direction before continuing.
+
+## Execution Summary
+
+Conclude with exactly this block as the final output:
+
+```
+---
+Execution Summary:
+- Plan ID: [numeric-id]
+- Status: Archived
+- Location: [absolute path to archive directory]
+---
+```
+
+The summary is consumed by downstream automation; keep the format exact.

@@ -1,11 +1,10 @@
 ---
 type: practice
 title: >-
-  Serve SPA is read-only; archive is the only workspace mutation (self-review
-  writes nothing)
+  Serve SPA has two sanctioned workspace mutations; self-review writes nothing
 description: >-
-  The serve SPA is read-only except archive: POST /api/plans/:id/archive moves
-  done plans to archive/. Self-review spawns a process but writes no files.
+  Archive moves done plans into archive/. Config writes overwrite one existing
+  allowlisted file. Self-review spawns a process but writes no files.
 tags:
   - serve
   - web
@@ -21,8 +20,9 @@ kk_relates_to: []
 kk_depends_on: []
 kk_confidence: high
 ---
-The `serve` SPA is a read-only workspace viewer. Plans are not created from the app. The only write-back is the archive action: moving a completed (`done`-state) plan directory from `.ai/strikethroo/plans/` to `.ai/strikethroo/archive/` via `POST /api/plans/:id/archive`. This is the manual escape hatch for done-but-unarchived plans. It does not replace `st-execute-blueprint`'s automatic archival on successful completion.
+The `serve` SPA is a read-mostly workspace viewer. Plans are not created from the app. The server permits exactly two workspace mutations:
 
-The serve layer's mutation invariant: **the archive endpoint is the only HTTP route that writes to the workspace filesystem**. `POST /api/self-review` is also a non-GET route but it spawns an external process without writing any workspace files.
+- `POST /api/plans/:key/archive` moves a `done` plan directory from `plans/` to `archive/` with an atomic rename. It is the manual escape hatch for done-but-unarchived plans and does not replace `st-execute-blueprint`'s automatic archival.
+- `PUT /api/config/:kind/:id` overwrites one existing allowlisted config file. `hooks` and `templates` map to a flat Markdown child; `workspace/config` maps to `config/config.yaml`. It never creates, deletes, or renames a config file.
 
-Integration tests that audit the mutation surface should assert this honest invariant rather than a literal count of non-GET routes.
+`POST /api/self-review` is another non-GET route, but it only spawns an external process. It does not write workspace files. Tests that audit the mutation boundary should distinguish HTTP methods from filesystem effects.

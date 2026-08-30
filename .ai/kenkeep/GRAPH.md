@@ -1,6 +1,6 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:e2db3046858241ae15e0ce25ba53698d04c08b62a7b7684099363405266a3338'
+nodes_hash: 'sha256:d82dfc99e1fe2597355e1204ccbdfed1ea913c227f820bfe2924f88747b94501'
 node_count: 85
 ---
 # kenkeep Graph
@@ -498,14 +498,14 @@ Total nodes: 85
 ## practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files
 
 - **kind:** practice
-- **title:** Serve SPA is read-only; archive is the only workspace mutation (self-review writes nothing)
+- **title:** Serve SPA has two sanctioned workspace mutations; self-review writes nothing
 - **path:** serve/practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files.md
 - **tags:** serve, web, spa, architecture, testing, mutation
 
 ## practice-serve-layer-uses-discriminated-union-result-types-not-custom-error-classes
 
 - **kind:** practice
-- **title:** Serve layer uses discriminated-union result types, not custom error classes
+- **title:** Serve layer uses discriminated-union result types for guarded operations
 - **path:** serve/practice-serve-layer-uses-discriminated-union-result-types-not-custom-error-classes.md
 - **tags:** serve, architecture, error-handling
 

@@ -2,8 +2,8 @@
 type: map
 title: src/serve/archive.ts — archivePlan() operation
 description: >-
-  Pure discriminated-result function: validates plan exists, is under plans/, is
-  in derived done state, then does atomic fs.rename into archive/.
+  Guarded discriminated-result function: validates plan exists, is under
+  plans/, is in derived done state, then does atomic fs.rename into archive/.
 tags:
   - serve
   - archive
@@ -17,9 +17,9 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-`src/serve/archive.ts` exports `archivePlan(planId, root)` which: (1) verifies the plan directory exists under `<root>/plans/`; (2) checks the plan is in derived `done` state via the workspace model; (3) performs a single atomic `fs.rename` into `<root>/archive/`; (4) refuses to overwrite an existing destination; (5) returns an `ArchiveResult` discriminated union.
+`src/serve/archive.ts` exports `archivePlan(root, name)`, where `name` is the composite `{id}--{slug}` directory key. It resolves the plan through `getPlanDetail()`, verifies that it exists under `<root>/plans/`, checks the derived state is `done`, refuses to overwrite an existing archive destination, and performs one atomic `fs.rename` into `<root>/archive/`. It returns an `ArchiveResult` discriminated union and re-reads the moved plan on success.
 
-The route `POST /api/plans/:id/archive` in `src/serve/server.ts` maps the result to HTTP 200/404/409/500.
+The route `POST /api/plans/:key/archive` in `src/serve/server.ts` accepts only the composite-key grammar and maps the result to HTTP 200, 404, 409, or 500.
 
 <!-- kk:related:start -->
 # Related

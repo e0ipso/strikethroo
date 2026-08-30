@@ -19,43 +19,12 @@ kk_depends_on: []
 kk_confidence: high
 ---
 
-Harness discovery (via `src/skill-scripts/shared/harness-discovery.ts`) returns the set of installed, responsive harnesses by probing each known harness with a cheap non-interactive request. It returns a harness identifier like `"claude"` or `"gemini"`, **not** a model id.
+`src/skill-scripts/shared/harness-discovery.ts` loads the local harness invocation configuration, checks every supported harness, and returns responsive harness identifiers such as `"claude"` or `"gemini"`. The current harness is excluded from reviewer candidates. Discovery also returns the exact configured `cli_args` that made each external candidate ready, but it does not choose a model.
 
-When a second harness is discovered, `st-code-review` constructs a reviewer dispatch command **without `--model`**:
+`src/skill-scripts/shared/harness-availability.ts` runs external readiness with the same adapter and ordered `cli_args` as dispatch. The probe uses a disposable Git workspace and asks the harness to create a nonce-bearing file. A zero exit without that exact file is unavailable. The probe omits a model because it proves that the configured harness invocation can act, not that a particular model id is accepted.
 
-```typescript
-// Reviewer dispatch (optional model)
-const reviewerCommand = [
-  harness, 'agent', '--skill', skillPath,
-  '--model-optional'  // ← note: no --model flag
-];
+`runReview()` chooses the first reviewer candidate and passes its `cli_args` to `dispatchReview()`. `ReviewDispatchRequest` has no model or reasoning-effort fields, so `buildReviewCommand()` lets the external CLI use its configured default model. There is no `--model-optional` flag.
 
-// Execution routing dispatch (required model)
-const routingCommand = [
-  harness, 'agent', '--skill', skillPath,
-  '--model', configuredModelId  // ← always present
-];
-```
+Task execution keeps a stricter contract. `RoutedDispatchRequest` requires an exact `model`, and the task-routing call site cannot omit it. `external-dispatch.ts` uses one adapter table for both paths and adds `--model <id>` only when the request contains a model.
 
-**Why the reviewer omits `--model`:**
-
-1. **Harness probes already work this way.** `src/skill-scripts/shared/harness-availability.ts` documents its own reasoning:
-   > A probe proves harness access, not selected-model access, so each probe invokes the harness non-interactively with no explicit model override, letting the CLI use its own configured/default model.
-
-2. **Discovery yields a harness, not a model.** If discovery found `gemini`, it proved `gemini` is installed and responsive. It proved nothing about which specific model ids that harness accepts. Pinning a model id and having it retire is precisely the failure mode the probe design avoids.
-
-3. **Let the harness CLI choose.** Each harness (Claude Code, Gemini, Codex, etc.) maintains its own model registry and default. Telling `claude` to use a specific model that `claude` doesn't accept is a dispatch failure. Omitting `--model` lets `claude` use whatever default the user configured, or the harness's fallback.
-
-**Execution routing is unchanged.** Tasks with `execution_profile` still dispatch with exact model ids:
-
-```typescript
-// execution_routing still requires exact model
-routingResult = dispatchWithModel(
-  target.harness,
-  target.model  // ← required, exact id
-);
-```
-
-This additive optionality is why `ExternalDispatchRequest.model` became `model?: string` (optional). Reviewer dispatch passes `undefined` for model; routing dispatch passes a configured value. The adapters in `external-dispatch.ts` handle both cases.
-
-**Cache and probe logic unchanged.** Harness discovery reuses the existing cache in `.ai/strikethroo/runtime/harness-availability.json` with the same 30-minute available and 5-minute unavailable lifetimes, and the same 20-second probe timeout.
+Discovery reuses `.ai/strikethroo/runtime/harness-availability.json`. Available results live for 30 minutes and unavailable results for 5 minutes; probes time out after 20 seconds. The cache identity includes the harness, resolved executable, ordered-argument hash, configuration normalization version, and probe-registry version.

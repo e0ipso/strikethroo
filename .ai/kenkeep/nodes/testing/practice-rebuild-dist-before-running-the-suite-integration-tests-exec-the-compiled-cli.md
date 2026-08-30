@@ -27,9 +27,9 @@ The CLI integration suite does not import the CLI — `src/__tests__/cli.integra
 
 When `dist/` predates a source change, the suite reports failures whose entire cause is the stale build, and no source edit will fix them. The failures look like genuine defects: assertions on freshly implemented behavior that the source plainly satisfies.
 
-Run `npm run build` before `npm test`, and before trusting a pre-commit gate failure. When an integration test fails on behavior the source clearly implements, compare the mtime of `dist/` against the commit that introduced the behavior before investigating the code.
+Run `npm run build` before `npm test`, and before trusting a pre-commit gate failure. When an integration test fails on behavior the source clearly implements, check whether `dist/cli.js` predates the source change before investigating the implementation.
 
-The rebuild leaves `templates/harness/skills/*/{SKILL.md,scripts/*.cjs}` dirty in the working tree. That is the intended steady state — leave them dirty; the pre-commit hook rejects them if staged.
+The rebuild writes `dist/`, `dist-web/`, and `templates/harness/skills/`, all of which are ignored local output. It does not update the tracked root `skills/` release mirror. A normal local build should therefore leave tracked files clean.
 
 <!-- kk:related:start -->
 # Related

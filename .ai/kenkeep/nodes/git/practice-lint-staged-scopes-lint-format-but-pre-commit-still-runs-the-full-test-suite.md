@@ -20,7 +20,9 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-The `.husky/pre-commit` hook runs `npx lint-staged` followed by `npm test`. lint-staged runs `eslint --fix` and `prettier --write` on `src/**/*.{ts,tsx}` and `prettier --write` on `src/**/*.css`. This means lint/format is fast and scoped, but commit time is still dominated by the full test suite. lint-staged alone does not speed up commits.
+The `.husky/pre-commit` hook first rejects staged generated skill artifacts from either `skills/` or `templates/harness/skills/`. It then runs `npx lint-staged`, followed by `npm test`.
+
+lint-staged runs `eslint --fix` and `prettier --write` on `src/**/*.{ts,tsx}` and `prettier --write` on `src/**/*.css`. A commit containing only Kenkeep Markdown skips those formatters, but it still runs the full unit and end-to-end suite. Commit time is therefore dominated by `npm test`, not lint-staged.
 
 lint-staged config in package.json:
 ```json

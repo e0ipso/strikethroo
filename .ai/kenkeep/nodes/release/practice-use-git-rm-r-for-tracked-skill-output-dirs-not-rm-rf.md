@@ -2,8 +2,9 @@
 type: practice
 title: 'Use git rm -r for tracked skill output dirs, not rm -rf'
 description: >-
-  Release commits force-add skill bundles and SKILL.md files, making them
-  tracked at HEAD. Removing them requires git rm -r, not rm -rf.
+  The root skills/ mirror is tracked generated output. Removing tracked
+  generated files requires staging the deletion (git rm -r), not rm -rf;
+  for the mirror, release automation handles this via the sync step.
 tags:
   - git
   - tracked-files
@@ -16,4 +17,6 @@ kk_relates_to: []
 kk_depends_on: []
 kk_confidence: high
 ---
-The `templates/harness/skills/*/` directories contain `.gitignore`-excluded content (`scripts/` and `SKILL.md`), but release commits force-add those files via `@semantic-release/git`. As a result they are tracked at HEAD. When renaming or deleting skill directories as part of a rebrand or restructure, use `git rm -r` rather than `rm -rf` to correctly stage the removal of tracked files.
+The generated `templates/harness/skills/` tree is gitignored and untracked, so plain filesystem removal is fine there. The tracked generated tree is the root `skills/` release mirror. When a tracked generated file has to leave Git, the deletion must be staged — `git rm -r` (or a plain `rm` followed by staging the deletion), never a bare `rm -rf` that leaves the index untouched.
+
+For the mirror this is normally not a manual concern: `scripts/sync-skills-mirror.cjs` deletes stale files on disk during the release sync, and `@semantic-release/git` stages those deletions (`git ls-files -m -o` lists unstaged deletions and `git add --force` records them). Hand-staged mirror changes are rejected by the pre-commit guard; deletions are the one staged change it deliberately lets through (`--diff-filter=d`), which is how an untracking migration commits.

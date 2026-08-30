@@ -2,8 +2,8 @@
 type: practice
 title: Use build-time composition to eliminate cross-skill prompt duplication
 description: >-
-  Shared procedural blocks in SKILL.md files must live as include-resolved
-  sections under src/skill-prompts/sections/, not copy-pasted per skill.
+  Shared procedural blocks in SKILL.md files must live as Handlebars partials
+  under src/skill-prompts/_partials/, not copy-pasted per skill.
 tags:
   - build
   - skill-prompts
@@ -16,8 +16,8 @@ kk_relates_to: []
 kk_depends_on: []
 kk_confidence: high
 ---
-Approximately 60–70% of the total SKILL.md corpus is duplicated text (root discovery, plan resolution, test philosophy, phase execution loop, etc.). Rather than maintaining these in sync manually across 6 files, the canonical text lives once under `src/skill-prompts/sections/` and is assembled at build time via `{{include sections/<name>.md}}` directives.
+A large share of the SKILL.md corpus is shared procedure (root discovery, plan resolution, test philosophy, phase execution loop, etc.). Rather than maintaining these in sync manually across seven skills, the canonical text lives once as Handlebars partials under `src/skill-prompts/_partials/`, referenced from each skill's `SKILL.md.hbs`; values differ via hash arguments and behavior differs via block-partial slots.
 
-The build step reads source templates from `src/skill-prompts/`, resolves include directives recursively, substitutes `{{variable}}` placeholders from per-template frontmatter `vars`, and writes assembled `SKILL.md` files to `templates/harness/skills/*/`. Generated `SKILL.md` files are git-ignored on `main` and force-added into release commits by `@semantic-release/git`.
+The build step (`scripts/build-skill-prompts.cjs`) compiles `src/skill-prompts/skills/<name>/SKILL.md.hbs` and writes assembled `SKILL.md` files to `templates/harness/skills/<name>/` — gitignored, untracked build output. The Git-tree channel serves the tracked root `skills/` release mirror instead, refreshed only by the release workflow's sync step.
 
 The biggest win is eliminating drift risk: a change to the phase execution loop updates all consumers in one edit.

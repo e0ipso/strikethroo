@@ -7,7 +7,7 @@
 > This index only orients you; leaves hold the durable guidance. Open at least one relevant leaf before acting.
 
 ## Subfolders
-- Load [`prompts/`](prompts/index.md) for more information on building SKILL.md from src/skill-prompts/ source templates — shared sections, the assembler, and the source-of-truth convention.
+- Load [`prompts/`](prompts/index.md) for more information on building SKILL.md from src/skill-prompts/ Handlebars sources — shared partials, the assembler, and the source-of-truth convention.
 
 ## Conventions (how we build)
 - Open [**Use resolveWorkspaceRoot, not findStrikethrooRoot, outside skill bundles**](practice-use-resolveworkspaceroot-not-findstrikethrooroot-outside-skill-bundles.md) to learn about: findStrikethrooRoot calls process.exit(1) on schema-version skew; resolveWorkspaceRoot returns a typed result and never exits. #workspace-root #cli #skill-scripts #serve #gotcha
@@ -15,17 +15,17 @@
 ## Components (what exists)
 - Open [**Skills are auto-loaded by intent matching, not slash-command prefix**](map-skills-are-auto-loaded-by-intent-matching-not-slash-command-prefix.md) to learn about: Users do not type /st-create-plan; the harness matches the user's intent to the skill description and auto-loads it. #skills #invocation #harness
 - Open [**find-strikethroo-root.ts — skill-scripts utility that locates the .ai/strikethroo workspace root**](map-find-strikethroo-root-ts-skill-scripts-utility-that-locates-the-ai-strikethroo-workspace-root.md) to learn about: Entry point under src/skill-scripts/ that finds the .ai/strikethroo root. Listed in SKILL_ENTRYPOINTS in scripts/build-skills.cjs. #skill-scripts #workspace-root
-- Open [**CLI exposes only init and serve commands**](map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md) to learn about: Running strikethroo --help lists only init and serve; there are no visualization/management (status, plan) commands. #cli #architecture
+- Open [**CLI exposes four thin commands and no plan-management surface**](map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md) to learn about: src/cli.ts registers init, export profile, serve, and validate; there are no visualization/management (status, plan) commands. #cli #architecture
 - Open [**Cross-harness code abstraction centralized in ~54 lines across 3 locations**](map-cross-harness-code-abstraction-centralized-in-54-lines-across-3-locations.md) to learn about: All harness-specific logic lives in src/types.ts (union type), src/utils.ts (VALID_HARNESSES + getAgentFormat), and src/index.ts (createHarnessStructure). Skills are harness-agnostic. #architecture #harness #skills
 
 ## By topic
 
 ### #architecture
 - Open [**Serve layer uses discriminated-union result types, not custom error classes**](../serve/practice-serve-layer-uses-discriminated-union-result-types-not-custom-error-classes.md) — AGENTS.md's FileSystemError/ConfigError classes are aspirational; the actual serve convention is a discriminated ArchiveResult/LaunchResult union.
-- Open [**CLI exposes only init and serve commands**](map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md) — Running strikethroo --help lists only init and serve; there are no visualization/management (status, plan) commands.
+- Open [**CLI exposes four thin commands and no plan-management surface**](map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md) — src/cli.ts registers init, export profile, serve, and validate; there are no visualization/management (status, plan) commands.
 - Open [**Serve SPA is read-only; archive is the only workspace mutation (self-review writes nothing)**](../serve/practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files.md) — The serve SPA is read-only except archive: POST /api/plans/:id/archive moves done plans to archive/. Self-review spawns a process but writes no files.
 ### #cli
-- Open [**CLI exposes only init and serve commands**](map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md) — Running strikethroo --help lists only init and serve; there are no visualization/management (status, plan) commands.
+- Open [**CLI exposes four thin commands and no plan-management surface**](map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md) — src/cli.ts registers init, export profile, serve, and validate; there are no visualization/management (status, plan) commands.
 - Open [**Rebuild dist/ before running the suite — integration tests exec the compiled CLI**](../testing/practice-rebuild-dist-before-running-the-suite-integration-tests-exec-the-compiled-cli.md) — cli.integration.test.ts shells out to dist/cli.js, so a stale dist/ makes the suite fail against source that is already correct.
 - Open [**Use resolveWorkspaceRoot, not findStrikethrooRoot, outside skill bundles**](practice-use-resolveworkspaceroot-not-findstrikethrooroot-outside-skill-bundles.md) — findStrikethrooRoot calls process.exit(1) on schema-version skew; resolveWorkspaceRoot returns a typed result and never exits.
 ### #harness

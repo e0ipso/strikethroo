@@ -35,7 +35,7 @@ _None._
 ### #report-only
 - Open [**The review gate reports; it never fixes. Re-run POST_EXECUTION after acting on a finding**](practice-review-gate-reports-it-does-not-fix.md) — The gate runs once after POST_EXECUTION, records findings, and applies nothing. If you act on a finding, re-run POST_EXECUTION in full before declaring complete.
 ### #review-gate
-- Open [**Never hand-commit generated skill artifacts; they cannot be gitignored**](../practice-never-hand-commit-generated-skill-artifacts.md) — SKILL.md and .cjs bundles are build output force-added by CI, so .gitattributes and a pre-commit guard cover them and the review gate skips them.
+- Open [**Never hand-commit generated skill artifacts in either tree**](../practice-never-hand-commit-generated-skill-artifacts.md) — templates/harness/skills is gitignored build output; the root skills/ mirror is tracked but written only by the release sync. .gitattributes and the pre-commit guard cover both trees and the review gate skips them.
 - Open [**The review gate reports; it never fixes. Re-run POST_EXECUTION after acting on a finding**](practice-review-gate-reports-it-does-not-fix.md) — The gate runs once after POST_EXECUTION, records findings, and applies nothing. If you act on a finding, re-run POST_EXECUTION in full before declaring complete.
 ### #schema-version
 - Open [**Optional-by-absence pattern: new workspace files do not bump schema version**](practice-optional-by-absence-new-files-absent-means-feature-off.md) — CODE_REVIEW.md and self-review-v2.xsd are both optional by absence; their presence/absence gates the feature. v4 workspaces keep working unchanged.

@@ -1,0 +1,29 @@
+{{!--
+  The terminal review gate shared by both execution skills. The compiled
+  result's top-level action owns the halt/continue decision. Keep this prompt
+  limited to consuming that contract and the three rules fields cannot express.
+--}}{{heading}} Run the code review gate
+
+After `POST_EXECUTION.md` reports green, follow the `st-code-review` skill and run its bundled mechanism:
+
+```text
+code-review.cjs <plan-id> <current-harness>
+```
+
+Resolve `code-review.cjs` from the `st-code-review` skill's sibling `scripts` directory. Pass the exact supported harness identifier running this skill. The command emits exactly one JSON line on stdout; reviewer output goes to stderr.
+
+If the `st-code-review` skill is not installed, record that outcome in the execution summary and continue to summary and archival.
+
+Handle the JSON line in this order:
+
+1. Copy it verbatim into the execution summary's review outcome. Do not reformat it or omit fields.
+2. Follow its top-level `action`. If it is `halt`, stop and report the top-level `detail`; execution is incomplete. If it is `continue`, proceed to the execution summary and archival.
+3. Only when `verdict.kind` is `review-recorded`, read `<plan-dir>/review/review.xml` and `<plan-dir>/review/findings.json`, then decide which findings to act on. `severity` and `confidence` are advisory labels, not instructions.
+
+The compiled top-level `action` and exit status control the decision. Do not re-derive `action` from another field. Never report an uncertified review as clean.
+
+Hard rules:
+
+- The review runs once. Do not re-run the gate to check a fix.
+- Detection uses the reviewer route. Dispatch each fix on the implementer route; the reviewer does not fix its findings.
+- After any fix, re-run `POST_EXECUTION.md` in full before declaring execution complete. The earlier green result no longer applies.

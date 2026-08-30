@@ -1,0 +1,19 @@
+{{!--
+  Plan-document summary and archival, shared by st-execute-blueprint and
+  st-full-workflow. Runs last, after the review gate. `heading` is the caller's
+  own level, because both sections are steps of the caller's procedure.
+--}}{{heading}} {{summary_step}}. Append execution summary
+
+Append an execution summary section to the plan document using the format described in `<root>/config/templates/EXECUTION_SUMMARY_TEMPLATE.md`. Populate:
+
+- **Status**: Completed Successfully
+- **Completed Date**: current date
+- **Results**: brief summary of deliverables
+- **Noteworthy Events**: all decisions, issues, and outcomes encountered during execution. Always record the review gate's outcome here: the gate's JSON line verbatim, then which findings you acted on versus ignored and why. If nothing else occurred, state "No significant issues encountered." after the review outcome.
+- **Necessary follow-ups**: any follow-up actions or optimizations
+
+{{heading}} {{archive_step}}. Archive the plan
+
+Move the completed plan directory from `<root>/plans/<plan-folder>` to `<root>/archive/<plan-folder>`.
+
+Preserve the entire folder structure (including all tasks and subdirectories) to maintain referential integrity. If the move fails, log the error but do not fail the overall execution — the implementation work is complete.

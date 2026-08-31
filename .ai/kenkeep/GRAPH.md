@@ -1,6 +1,6 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:d82dfc99e1fe2597355e1204ccbdfed1ea913c227f820bfe2924f88747b94501'
+nodes_hash: 'sha256:92d500e1ba5f3bf0c36de5d4d1efb97615fd03e583d46a1b411f120ce0c8073e'
 node_count: 85
 ---
 # kenkeep Graph
@@ -560,7 +560,7 @@ Total nodes: 85
 
 - **kind:** practice
 - **title:** Strikethroo profile packages tolerate inert package-root extras
-- **path:** profiles/practice-strikethroo-profile-packages-tolerate-inert-package-root-extras.md
+- **path:** practice-strikethroo-profile-packages-tolerate-inert-package-root-extras.md
 - **tags:** profiles, init, validation, security
 - **relates_to:** practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace
 - **derived_from:** 67ec33eb-6c26-4c0a-8c3f-e117dc130acf:practice:0

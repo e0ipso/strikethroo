@@ -18,7 +18,23 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-The `src/skill-scripts/` entrypoints are named after their function: `find-strikethroo-root.ts`, `check-task-dependencies.ts`, `create-feature-branch.ts`, `get-next-plan-id.ts`, `get-next-task-id.ts`, `validate-plan-blueprint.ts`. Each is bundled by `scripts/build-skills.cjs` and the bundle filename is referenced by the relevant `SKILL.md` prompts.
+`find-strikethroo-root.ts` is a reusable skill-script entrypoint that locates the initialized `.ai/strikethroo` root. `scripts/build-skills.cjs` registers it for every workflow skill that needs root discovery, and esbuild emits a separate `find-strikethroo-root.cjs` bundle inside each consuming skill.
+
+The current top-level entrypoints under `src/skill-scripts/` are:
+
+- `capture-base-commit.ts`
+- `check-phase-readiness.ts`
+- `check-task-dependencies.ts`
+- `code-review.ts`
+- `create-feature-branch.ts`
+- `dispatch-task-execution.ts`
+- `find-strikethroo-root.ts`
+- `get-next-plan-id.ts`
+- `get-next-task-id.ts`
+- `route-task-execution.ts`
+- `validate-plan-blueprint.ts`
+
+Every one appears in `SKILL_ENTRYPOINTS` in `scripts/build-skills.cjs`. The registry is many-to-many: shared entrypoints are bundled into several skills, while skill-specific entrypoints appear once.
 
 <!-- kk:related:start -->
 # Related

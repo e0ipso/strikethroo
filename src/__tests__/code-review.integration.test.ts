@@ -1,14 +1,7 @@
 /**
- * Integration tests for the review round mechanism (`code-review.ts`): the
- * fail-safe skip reasons, the diff scoping, and the round-budget bounding.
- *
- * Every dependency the round would otherwise use to reach a real harness
- * (`discover`, `dispatch`) or a real diff (`readDiff`) is injected here — a
- * test that depends on a harness CLI being installed, or on a real git
- * repository, is not a test of this module's own logic. The workspace shape
- * (hook / XSD / base-commit presence) is real filesystem state, built by the
- * shared `makeReviewGateWorkspace` factory, because that shape is exactly
- * what `resolveReviewContext` reads.
+ * Review gate integration tests: skip reasons, diff scoping, and the compiled
+ * result contract. Harness and diff dependencies are injected; the workspace
+ * shape is real filesystem state from `makeReviewGateWorkspace`.
  */
 
 import { execSync } from 'child_process';
@@ -17,11 +10,13 @@ import * as os from 'os';
 import * as path from 'path';
 
 import {
-  _exitCodeFor,
+  _classify,
   _readCumulativeDiff,
+  _resultLine,
   runReview,
   type FindingsGate,
   type ReviewDependencies,
+  type ReviewResult,
 } from '../skill-scripts/code-review';
 import { buildReviewXml, FAKE_SHA, makeReviewGateWorkspace } from './fixtures/review-gate';
 
@@ -56,7 +51,7 @@ describe('code review gate — fail-safe skips', () => {
           stubDeps()
         );
         expect(result).toMatchObject({ kind: 'skipped', reason });
-        expect(_exitCodeFor(result)).toBe(0);
+        expect(_classify(result).exitCode).toBe(0);
         expect(stderrSpy).not.toHaveBeenCalled();
       } finally {
         stderrSpy.mockRestore();
@@ -74,7 +69,7 @@ describe('code review gate — fail-safe skips', () => {
         stubDeps({ discover: async () => ({ outcomes: [], reviewerCandidates: [] }) })
       );
       expect(result).toMatchObject({ kind: 'skipped', reason: 'no-reviewer-candidate' });
-      expect(_exitCodeFor(result)).toBe(0);
+      expect(_classify(result).exitCode).toBe(0);
       expect(stderrSpy).not.toHaveBeenCalled();
     } finally {
       stderrSpy.mockRestore();
@@ -82,11 +77,7 @@ describe('code review gate — fail-safe skips', () => {
     }
   });
 
-  /**
-   * A round dispatched with an empty diff returns no findings, which reads
-   * exactly like a clean review — so an empty scope would surface as a pass. It
-   * has to be reported instead, and no reviewer spent on it.
-   */
+  /** An empty diff would otherwise come back as a clean review. */
   it('skips on empty-diff without dispatching a reviewer', async () => {
     const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
@@ -103,7 +94,7 @@ describe('code review gate — fail-safe skips', () => {
         })
       );
       expect(result).toMatchObject({ kind: 'skipped', reason: 'empty-diff' });
-      expect(_exitCodeFor(result)).toBe(0);
+      expect(_classify(result).exitCode).toBe(0);
       expect(dispatched).toBe(false);
       expect(stderrSpy).not.toHaveBeenCalled();
     } finally {
@@ -126,7 +117,7 @@ describe('code review gate — fail-safe skips', () => {
   });
 });
 
-describe('code review gate — the verdict reports, it does not judge', () => {
+describe('code review gate — the gate reports, it does not judge', () => {
   it('dispatches the reviewer with the exact invocation proven during discovery', async () => {
     const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
     const dispatch = vi.fn(async () => ({ kind: 'launched-success', exitCode: 0 }) as const);
@@ -173,9 +164,11 @@ describe('code review gate — the verdict reports, it does not judge', () => {
       );
       expect(result).toMatchObject({
         kind: 'reviewed',
-        verdict: { kind: 'review-recorded', detail: expect.stringContaining('no findings') },
+        verdict: { kind: 'review-recorded' },
+        detail: expect.stringContaining('no findings'),
+        counts: { total: 0 },
       });
-      expect(_exitCodeFor(result)).toBe(0);
+      expect(_classify(result).exitCode).toBe(0);
     } finally {
       ws.cleanup();
     }
@@ -184,8 +177,8 @@ describe('code review gate — the verdict reports, it does not judge', () => {
   it('reports findings without acting on them, whatever their labels', async () => {
     const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
     try {
-      // Two `critical` findings would once have forced a fix round. Now they
-      // are counted, named, and handed to the implementer to judge.
+      // Findings are counted and named, then handed to the implementer to
+      // judge. Their labels move nothing here.
       const loud: FindingsGate = async () => ({
         kind: 'evaluated',
         counts: { total: 3, critical: 2, major: 0, minor: 0, info: 0, unlabelled: 1 },
@@ -197,13 +190,12 @@ describe('code review gate — the verdict reports, it does not judge', () => {
       );
       expect(result).toMatchObject({
         kind: 'reviewed',
-        verdict: {
-          kind: 'review-recorded',
-          detail: expect.stringContaining('2 critical, 1 unlabelled'),
-        },
+        verdict: { kind: 'review-recorded' },
+        detail: expect.stringContaining('2 critical, 1 unlabelled'),
+        counts: { total: 3, critical: 2, unlabelled: 1 },
       });
       // Findings never change the exit code: the gate does not judge them.
-      expect(_exitCodeFor(result)).toBe(0);
+      expect(_classify(result).exitCode).toBe(0);
     } finally {
       ws.cleanup();
     }
@@ -223,8 +215,10 @@ describe('code review gate — the verdict reports, it does not judge', () => {
       expect(result).toMatchObject({
         kind: 'reviewed',
         verdict: { kind: 'review-failed' },
+        detail: expect.stringContaining('does not validate'),
       });
-      expect(_exitCodeFor(result)).toBe(1);
+      expect(result).not.toHaveProperty('counts');
+      expect(_classify(result).exitCode).toBe(1);
     } finally {
       ws.cleanup();
     }
@@ -336,13 +330,13 @@ describe('cumulative diff scope: generated and vendored files', () => {
     git('commit -q -m ignore');
     const base = baseSha();
     fs.mkdirSync(path.join(repo, 'review'));
-    fs.writeFileSync(path.join(repo, 'review/round-1.xml'), 'PRIOR_ROUND_FINDINGS\n');
+    fs.writeFileSync(path.join(repo, 'review/review.xml'), 'PRIOR_REVIEW_FINDINGS\n');
     fs.writeFileSync(path.join(repo, 'real.ts'), 'export const real = 1;\n');
 
     const diff = _readCumulativeDiff(repo, base);
 
     expect(diff).toContain('export const real = 1;');
-    expect(diff).not.toContain('PRIOR_ROUND_FINDINGS');
+    expect(diff).not.toContain('PRIOR_REVIEW_FINDINGS');
   });
 
   it('drops untracked paths marked generated, as it does tracked ones', () => {
@@ -446,12 +440,7 @@ describe('cumulative diff scope: generated and vendored files', () => {
   });
 });
 
-/**
- * `xmllint` is a soft dependency. Without it no round can be certified, but a
- * missing system package must never turn an otherwise successful plan into a
- * failure — so absence skips cleanly, before any reviewer is dispatched, and is
- * never reported as a review that passed.
- */
+/** `xmllint` is a soft dependency: absence skips cleanly before dispatch. */
 describe('code review gate — xmllint is a soft dependency', () => {
   it('skips with validator-absent: exit 0, empty stderr, no reviewer dispatched', async () => {
     const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
@@ -463,10 +452,10 @@ describe('code review gate — xmllint is a soft dependency', () => {
         stubDeps({ dispatch, validatorAvailable: () => false })
       );
       expect(result).toMatchObject({ kind: 'skipped', reason: 'validator-absent' });
-      expect(_exitCodeFor(result)).toBe(0);
+      expect(_classify(result).exitCode).toBe(0);
       expect(stderrSpy).not.toHaveBeenCalled();
       // The point of checking before dispatch: no external harness is spent on
-      // a round that could not have been certified.
+      // a review that could not have been certified.
       expect(dispatch).not.toHaveBeenCalled();
     } finally {
       stderrSpy.mockRestore();
@@ -501,14 +490,14 @@ describe('code review gate — xmllint is a soft dependency', () => {
  * Stdout is the only delivery channel: the reviewer prints its findings document
  * between this dispatch's delimiters, and the mechanism — never the reviewer —
  * writes it to the canonical path. There is no on-disk channel to prefer, so a
- * round certifies from a transcript or not at all.
+ * review certifies from a transcript or not at all.
  *
  * These cases deliberately do **not** inject `evaluateFindings`. Extraction lives
  * inside `createFindingsGate`, so the override every suite above uses is
  * precisely what would leave it untested. The real gate runs here, against the
  * real vendored XSD through the real `xmllint` — which is what proves a delivered
  * document is held to the schema, and that an undelivered one degrades to a
- * failed round rather than a clean one.
+ * uncertified review rather than a clean one.
  */
 describe('code review gate — single-channel stdout delivery', () => {
   const reviewDirOf = (ws: ReturnType<typeof makeReviewGateWorkspace>) =>
@@ -520,7 +509,7 @@ describe('code review gate — single-channel stdout delivery', () => {
     `<<<BEGIN REVIEW XML ${token}>>>\n${xml}\n<<<END REVIEW XML ${token}>>>\n`;
 
   /**
-   * `runReviewRound` mints the collision token internally, so a stub cannot know
+   * `runReview` mints the collision token internally, so a stub cannot know
    * it in advance — it is read back out of the prompt the stub receives. The
    * regex doubles as an assertion that the prompt carries the delimiters at all:
    * a drift between the prompt and the extractor would silently disable
@@ -541,7 +530,7 @@ describe('code review gate — single-channel stdout delivery', () => {
     return { dispatch, prompt: () => seen };
   };
 
-  const runRound = (ws: ReturnType<typeof makeReviewGateWorkspace>, dispatch: unknown) =>
+  const runGate = (ws: ReturnType<typeof makeReviewGateWorkspace>, dispatch: unknown) =>
     runReview(
       { plan: '1', currentHarness: 'claude', startPath: ws.root },
       stubDeps({ dispatch: dispatch as ReviewDependencies['dispatch'] })
@@ -555,24 +544,22 @@ describe('code review gate — single-channel stdout delivery', () => {
     // assertion below is only that no reviewer text is among them.
     const stdoutSpy = vi.spyOn(process.stdout, 'write');
     try {
-      const result = await runRound(ws, dispatch);
+      const result = await runGate(ws, dispatch);
 
       expect(result).toMatchObject({
         kind: 'reviewed',
-        reviewFilePresent: true,
-        findingsGate: { kind: 'evaluated' },
         verdict: { kind: 'review-recorded' },
       });
-      expect(_exitCodeFor(result)).toBe(0);
+      expect(_classify(result).exitCode).toBe(0);
       const { reviewFile } = result as { reviewFile: string };
       expect(fs.readFileSync(reviewFile, 'utf8').trim()).toBe(xml.trim());
       expect(prompt()).toMatch(TOKEN_PATTERN);
-      // The partition is the round's own record that it was evaluated, not just
+      // `findings.json` is the review's own record that it was evaluated, not just
       // that a document arrived.
-      const partition: unknown = JSON.parse(
+      const findingsRecord: unknown = JSON.parse(
         fs.readFileSync(path.join(reviewDirOf(ws), 'findings.json'), 'utf8')
       );
-      expect(partition).toMatchObject({ status: 'evaluated' });
+      expect(findingsRecord).toMatchObject({ status: 'evaluated' });
 
       // Capture is a channel back into this mechanism, not a passthrough. The
       // launcher tees the child's output to stderr; nothing reviewer-shaped may
@@ -636,7 +623,7 @@ describe('code review gate — single-channel stdout delivery', () => {
           // Echo after the answer: the LAST token-bearing region in the transcript
           // is the placeholder, so certifying this document requires the anti-echo
           // guard to reject this region *and* the backwards scan to keep walking
-          // past it. Delete either one and the round stops certifying.
+          // past it. Delete either one and the review stops certifying.
           block(placeholder),
           `${dim}tokens used: 41,233 · duration 92s${reset}`,
           '',
@@ -645,14 +632,13 @@ describe('code review gate — single-channel stdout delivery', () => {
     };
 
     try {
-      const result = await runRound(ws, dispatch);
+      const result = await runGate(ws, dispatch);
 
       expect(result).toMatchObject({
         kind: 'reviewed',
-        findingsGate: { kind: 'evaluated' },
         verdict: { kind: 'review-recorded' },
       });
-      expect(_exitCodeFor(result)).toBe(0);
+      expect(_classify(result).exitCode).toBe(0);
       // Byte equality with the payload is the whole assertion: the chatter, the
       // escapes — including the ones inside the region — and both echoed blocks
       // were excluded from what was written and validated.
@@ -673,14 +659,14 @@ describe('code review gate — single-channel stdout delivery', () => {
       '<?xml version="1.0"?><review xmlns="urn:self-review:v2"><nonsense/></review>'
     );
     try {
-      const result = await runRound(ws, dispatch);
+      const result = await runGate(ws, dispatch);
 
       expect(result).toMatchObject({
         kind: 'reviewed',
-        findingsGate: { kind: 'schema-invalid' },
         verdict: { kind: 'review-failed' },
+        detail: expect.stringContaining('does not validate'),
       });
-      expect(_exitCodeFor(result)).toBe(1);
+      expect(_classify(result).exitCode).toBe(1);
     } finally {
       ws.cleanup();
     }
@@ -703,16 +689,16 @@ describe('code review gate — single-channel stdout delivery', () => {
     for (const dispatch of [silent, echoing]) {
       const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
       try {
-        const result = await runRound(ws, dispatch);
+        const result = await runGate(ws, dispatch);
 
         expect(result).toMatchObject({
           kind: 'reviewed',
-          findingsGate: { kind: 'findings-absent' },
           verdict: { kind: 'review-failed' },
+          detail: expect.stringContaining('no complete findings document'),
         });
-        const { findingsGate } = result as { findingsGate: { kind: string } };
-        expect(findingsGate.kind).not.toBe('evaluated');
-        expect(_exitCodeFor(result)).toBe(1);
+        // Delivery diagnostics stay in `findings.json`.
+        expect(result).not.toHaveProperty('findingsGate');
+        expect(_classify(result).exitCode).toBe(1);
       } finally {
         ws.cleanup();
       }
@@ -734,11 +720,10 @@ describe('code review gate — single-channel stdout delivery', () => {
 
     const { dispatch } = emitting(fresh);
     try {
-      const result = await runRound(ws, dispatch);
+      const result = await runGate(ws, dispatch);
 
       expect(result).toMatchObject({
         kind: 'reviewed',
-        findingsGate: { kind: 'evaluated' },
         verdict: { kind: 'review-recorded' },
       });
       expect(fs.readFileSync(path.join(reviewDir, 'review.xml'), 'utf8').trim()).toBe(fresh.trim());
@@ -746,52 +731,43 @@ describe('code review gate — single-channel stdout delivery', () => {
       // on, byte for byte: the removal must target the exact canonical path and
       // never glob for XML or follow a custom output name. `findings.json` is
       // only asserted to still exist, because the gate rewrites it for the
-      // current round by design — its seeded content is *expected* to be gone,
+      // current review by design — its seeded content is *expected* to be gone,
       // so it cannot witness non-deletion.
       expect(fs.readFileSync(path.join(reviewDir, 'custom-review.xml'), 'utf8')).toBe(custom);
       expect(fs.existsSync(path.join(reviewDir, 'findings.json'))).toBe(true);
-      const partition = fs.readFileSync(path.join(reviewDir, 'findings.json'), 'utf8');
-      expect(partition).toContain('fresh.ts');
-      expect(partition).not.toContain('stale.ts');
+      const findingsRecord = fs.readFileSync(path.join(reviewDir, 'findings.json'), 'utf8');
+      expect(findingsRecord).toContain('fresh.ts');
+      expect(findingsRecord).not.toContain('stale.ts');
     } finally {
       ws.cleanup();
     }
   });
 
-  /**
-   * With one channel, a round that does not certify leaves no document at all —
-   * so without the transcript there is nothing to debug it from. It is written on
-   * every non-certifying outcome, including the non-zero exit that returns before
-   * the gate runs, and deliberately not on a round that certified: there the
-   * `review.xml` is the artifact, and the transcript would only be noise.
-   */
+  /** The transcript is the only diagnostic when no document was delivered. */
   it('keeps the reviewer transcript on a review that did not certify, and only then', async () => {
     const transcriptOf = (ws: ReturnType<typeof makeReviewGateWorkspace>) =>
       path.join(reviewDirOf(ws), 'reviewer-output.txt');
-    // No token-bearing region anywhere, so the round cannot certify from it.
+    // No token-bearing region anywhere, so the review cannot certify from it.
     const noise = 'reviewing…\ntool: shell(git status)\nI could not read the repository.\n';
 
     const undelivered = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
     try {
-      const result = await runRound(undelivered, async () => ({
+      const result = await runGate(undelivered, async () => ({
         kind: 'launched-success',
         exitCode: 0,
         stdout: noise,
       }));
-      expect(result).toMatchObject({
-        kind: 'reviewed',
-        findingsGate: { kind: 'findings-absent' },
-      });
+      expect(result).toMatchObject({ kind: 'reviewed', verdict: { kind: 'review-failed' } });
       expect(fs.readFileSync(transcriptOf(undelivered), 'utf8')).toBe(noise);
     } finally {
       undelivered.cleanup();
     }
 
     // The darkest case: this branch returns before the gate runs, so without the
-    // write here a non-zero reviewer would leave the round directory empty.
+    // write here a non-zero reviewer would leave the review directory empty.
     const crashed = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
     try {
-      const result = await runRound(crashed, async () => ({
+      const result = await runGate(crashed, async () => ({
         kind: 'launched-failure',
         exitCode: 3,
         stdout: noise,
@@ -806,10 +782,9 @@ describe('code review gate — single-channel stdout delivery', () => {
     try {
       const xml = buildReviewXml([{ file: 'src/x.ts', severity: 'minor', confidence: 'low' }]);
       const { dispatch } = emitting(xml);
-      const result = await runRound(certified, dispatch);
+      const result = await runGate(certified, dispatch);
       expect(result).toMatchObject({
         kind: 'reviewed',
-        findingsGate: { kind: 'evaluated' },
         verdict: { kind: 'review-recorded' },
       });
       expect(fs.existsSync(transcriptOf(certified))).toBe(false);
@@ -818,39 +793,214 @@ describe('code review gate — single-channel stdout delivery', () => {
     }
   });
 
-  /**
-   * The transcript is written only when a round fails to certify, so unlike the
-   * partition — which `record` rewrites on every outcome — it can go stale. Re-run
-   * a round number that failed and then certified, and a transcript from the
-   * earlier attempt would sit beside a freshly certified `review.xml`, reading
-   * exactly like a round that had failed. The pre-dispatch removal is what stops
-   * the round directory from describing an attempt that is no longer the one it
-   * holds.
-   */
+  /** A stale transcript beside a certified review.xml would read as a failure. */
   it("drops a previous attempt's transcript when the review is re-run and certifies", async () => {
     const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
     const transcript = path.join(reviewDirOf(ws), 'reviewer-output.txt');
     try {
-      const failed = await runRound(ws, async () => ({
+      const failed = await runGate(ws, async () => ({
         kind: 'launched-success',
         exitCode: 0,
         stdout: 'I could not read the repository.\n',
       }));
-      expect(failed).toMatchObject({ findingsGate: { kind: 'findings-absent' } });
+      expect(failed).toMatchObject({ kind: 'reviewed', verdict: { kind: 'review-failed' } });
       expect(fs.existsSync(transcript)).toBe(true);
 
       const xml = buildReviewXml([{ file: 'src/x.ts', severity: 'minor', confidence: 'low' }]);
       const { dispatch } = emitting(xml);
-      const rerun = await runRound(ws, dispatch);
+      const rerun = await runGate(ws, dispatch);
 
-      expect(rerun).toMatchObject({
-        kind: 'reviewed',
-        findingsGate: { kind: 'evaluated' },
-        verdict: { kind: 'review-recorded' },
-      });
+      expect(rerun).toMatchObject({ kind: 'reviewed', verdict: { kind: 'review-recorded' } });
       expect(fs.existsSync(transcript)).toBe(false);
     } finally {
       ws.cleanup();
+    }
+  });
+});
+
+/**
+ * Every variant carries `action` and `detail`, and `action === 'continue'` is
+ * exactly exit code 0.
+ */
+describe('code review gate — the compiled result contract', () => {
+  const certifying: FindingsGate = async () => ({
+    kind: 'evaluated',
+    counts: { total: 2, critical: 0, major: 1, minor: 1, info: 0, unlabelled: 0 },
+    findingsFile: '/tmp/findings.json',
+  });
+  const uncertifying: FindingsGate = async () => ({
+    kind: 'validator-unavailable',
+    detail: 'xmllint could not be run.',
+  });
+
+  /** Each variant is produced by a real run, never hand-built as a literal. */
+  const variants: [
+    label: string,
+    produce: () => Promise<{ result: ReviewResult; cleanup: () => void }>,
+    expected: { kind: string; action: 'continue' | 'halt'; exitCode: number },
+  ][] = [
+    [
+      'certified review',
+      async () => {
+        const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+        return {
+          result: await runReview(
+            { plan: '1', currentHarness: 'claude', startPath: ws.root },
+            stubDeps({ evaluateFindings: certifying })
+          ),
+          cleanup: ws.cleanup,
+        };
+      },
+      { kind: 'reviewed', action: 'continue', exitCode: 0 },
+    ],
+    [
+      'uncertified review',
+      async () => {
+        const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+        return {
+          result: await runReview(
+            { plan: '1', currentHarness: 'claude', startPath: ws.root },
+            stubDeps({ evaluateFindings: uncertifying })
+          ),
+          cleanup: ws.cleanup,
+        };
+      },
+      { kind: 'reviewed', action: 'halt', exitCode: 1 },
+    ],
+    [
+      'skipped gate',
+      async () => {
+        const ws = makeReviewGateWorkspace({ hook: 'absent' });
+        return {
+          result: await runReview(
+            { plan: '1', currentHarness: 'claude', startPath: ws.root },
+            stubDeps()
+          ),
+          cleanup: ws.cleanup,
+        };
+      },
+      { kind: 'skipped', action: 'continue', exitCode: 0 },
+    ],
+    [
+      'pre-launch fallback',
+      async () => {
+        const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+        return {
+          result: await runReview(
+            { plan: '1', currentHarness: 'claude', startPath: ws.root },
+            stubDeps({
+              dispatch: async () => ({
+                kind: 'fallback',
+                reason: 'executable-unavailable',
+                detail: 'The codex executable is not on PATH.',
+              }),
+            })
+          ),
+          cleanup: ws.cleanup,
+        };
+      },
+      { kind: 'fallback', action: 'continue', exitCode: 0 },
+    ],
+    [
+      'launched failure',
+      async () => {
+        const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+        return {
+          result: await runReview(
+            { plan: '1', currentHarness: 'claude', startPath: ws.root },
+            stubDeps({ dispatch: async () => ({ kind: 'launched-failure', exitCode: 3 }) })
+          ),
+          cleanup: ws.cleanup,
+        };
+      },
+      { kind: 'launched-failure', action: 'halt', exitCode: 1 },
+    ],
+    [
+      'infrastructure failure',
+      async () => {
+        const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+        return {
+          result: await runReview(
+            { plan: '404', currentHarness: 'claude', startPath: ws.root },
+            stubDeps()
+          ),
+          cleanup: ws.cleanup,
+        };
+      },
+      { kind: 'infrastructure-failure', action: 'halt', exitCode: 2 },
+    ],
+  ];
+
+  it.each(variants)(
+    'compiles %s into one action and one exit code',
+    async (_label, produce, expected) => {
+      const { result, cleanup } = await produce();
+      try {
+        expect(result.kind).toBe(expected.kind);
+        expect(result.action).toBe(expected.action);
+        expect(result.detail.length).toBeGreaterThan(0);
+        expect(_classify(result).exitCode).toBe(expected.exitCode);
+        // The invariant the orchestrator depends on, asserted on every variant
+        // rather than on the two that happen to be interesting.
+        expect(result.action === 'continue').toBe(_classify(result).exitCode === 0);
+      } finally {
+        cleanup();
+      }
+    }
+  );
+
+  it.each(variants)('emits %s as exactly one JSON line', async (_label, produce) => {
+    const { result, cleanup } = await produce();
+    try {
+      const line = _resultLine(result);
+      expect(line.endsWith('\n')).toBe(true);
+      expect(line.trimEnd()).not.toContain('\n');
+      expect(JSON.parse(line)).toEqual(result);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('emits the exact reviewed shapes and exposes counts only after certification', async () => {
+    const certified = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    const uncertified = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    try {
+      const good = await runReview(
+        { plan: '1', currentHarness: 'claude', startPath: certified.root },
+        stubDeps({ evaluateFindings: certifying })
+      );
+      const bad = await runReview(
+        { plan: '1', currentHarness: 'claude', startPath: uncertified.root },
+        stubDeps({ evaluateFindings: uncertifying })
+      );
+
+      expect(good).toEqual({
+        kind: 'reviewed',
+        harness: 'codex',
+        baseCommit: FAKE_SHA,
+        reviewFile: path.join(certified.planDir, 'review', 'review.xml'),
+        verdict: { kind: 'review-recorded' },
+        counts: { total: 2, critical: 0, major: 1, minor: 1, info: 0, unlabelled: 0 },
+        action: 'continue',
+        detail: expect.stringContaining('/tmp/findings.json'),
+      });
+      expect(bad).toEqual({
+        kind: 'reviewed',
+        harness: 'codex',
+        baseCommit: FAKE_SHA,
+        reviewFile: path.join(uncertified.planDir, 'review', 'review.xml'),
+        verdict: { kind: 'review-failed' },
+        action: 'halt',
+        detail: 'xmllint could not be run.',
+      });
+      // Delivery diagnostics stay in `findings.json`.
+      for (const result of [good, bad]) {
+        expect(result).not.toHaveProperty('findingsGate');
+        expect(result).not.toHaveProperty('reviewFilePresent');
+      }
+    } finally {
+      certified.cleanup();
+      uncertified.cleanup();
     }
   });
 });

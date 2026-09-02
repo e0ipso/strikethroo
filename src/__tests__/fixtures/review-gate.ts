@@ -5,8 +5,8 @@
  *
  * Two factories: a minimal v4 workspace whose hook/XSD/base-commit presence is
  * independently switchable (so each fail-safe skip reason is one toggle away),
- * and a `<review>` XML builder so partition/validation tests describe findings
- * as data instead of hand-written XML.
+ * and a `<review>` XML builder so certification/validation tests describe
+ * findings as data instead of hand-written XML.
  */
 
 import * as fs from 'fs';

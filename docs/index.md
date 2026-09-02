@@ -96,7 +96,7 @@ flowchart LR
 |-------------|---------------------------------|---------------------------------------------------------|
 | **Plan**    | `/st-create-plan <your prompt>` | `.ai/strikethroo/plans/64--auth/plan-64--auth.md`       |
 | **Execute** | `/st-execute-blueprint 64`      | Task blueprint, then working code, one commit per phase |
-| **Review**  | Automatic (optional)            | Findings validated against schema; bounded fixes        |
+| **Review**  | Automatic (optional)            | Findings validated against schema; report-only           |
 
 `st-execute-blueprint` decomposes the plan into atomic tasks and builds the dependency-mapped blueprint itself when one does not exist yet. Run `/st-generate-tasks 64` on its own only when you want to inspect or hand-tune the blueprint before execution starts.
 

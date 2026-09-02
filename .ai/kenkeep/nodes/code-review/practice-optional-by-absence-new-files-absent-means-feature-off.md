@@ -19,18 +19,18 @@ kk_depends_on: []
 kk_confidence: high
 ---
 
-The code review gate adds two workspace files:
+The code review gate depends on two optional workspace files:
 - `.ai/strikethroo/config/hooks/CODE_REVIEW.md` (user-editable mandate)
 - `.ai/strikethroo/config/schemas/self-review-v2.xsd` (vendored XSD)
 
-**Both files are optional by absence.** When either is missing or empty, `st-code-review` routes to one documented fail-safe skip branch:
+**Both files are optional by absence.** A missing hook, an empty hook, or a missing XSD routes to a documented clean skip. An empty XSD is present, so it reaches schema validation and fails certification instead of disabling the feature.
 
 ```
 const skipReasons = [
   'hook-absent',        // CODE_REVIEW.md does not exist
   'hook-empty',         // CODE_REVIEW.md exists but is empty
   'xsd-absent',         // self-review-v2.xsd does not exist
-  'validator-absent',   // xmllint not on PATH, so no round can be certified
+  'validator-absent',   // xmllint not on PATH, so no review can be certified
   'base-commit-absent', // Not a git repo or no commits
   'no-reviewer-candidate', // Only current harness reachable
   'empty-diff'          // Nothing changed between base and working tree
@@ -47,14 +47,13 @@ All of them route to: skip cleanly, note it in the execution summary, exit 0, pr
 - Preserves the schema-version contract — the constant changes only on genuine shape incompatibility
 - Reuses the fail-safe branch that must exist anyway (an emptied hook should skip)
 
-The three absence conditions are handled identically:
+The workspace-shape guards are direct:
 
 ```typescript
-// src/skill-scripts/code-review.ts (simplified)
-if (!codeReviewHook || !vendoredXsd || !baseCommit) {
-  logCleanSkip('hook-absent'); // or appropriate reason
-  return { status: 'skipped', findings: [] };
-}
+// src/skill-scripts/code-review.ts, simplified
+if (!exists(hook)) return skip('hook-absent');
+if (read(hook).trim() === '') return skip('hook-empty');
+if (!exists(xsd)) return skip('xsd-absent');
 ```
 
 This is the pattern established by `PRE_TASK_EXECUTION`, which ships a default test-first discipline that existing workspaces can keep or override on re-run.

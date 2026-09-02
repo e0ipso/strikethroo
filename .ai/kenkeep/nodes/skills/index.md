@@ -21,9 +21,9 @@
 ## By topic
 
 ### #architecture
-- Open [**Serve layer uses discriminated-union result types, not custom error classes**](../serve/practice-serve-layer-uses-discriminated-union-result-types-not-custom-error-classes.md) — AGENTS.md's FileSystemError/ConfigError classes are aspirational; the actual serve convention is a discriminated ArchiveResult/LaunchResult union.
+- Open [**Serve layer uses discriminated-union result types for guarded operations**](../serve/practice-serve-layer-uses-discriminated-union-result-types-not-custom-error-classes.md) — Archive, config-write, and self-review operations return typed result unions; route handlers map their variants to HTTP responses.
 - Open [**CLI exposes four thin commands and no plan-management surface**](map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md) — src/cli.ts registers init, export profile, serve, and validate; there are no visualization/management (status, plan) commands.
-- Open [**Serve SPA is read-only; archive is the only workspace mutation (self-review writes nothing)**](../serve/practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files.md) — The serve SPA is read-only except archive: POST /api/plans/:id/archive moves done plans to archive/. Self-review spawns a process but writes no files.
+- Open [**Serve SPA has two sanctioned workspace mutations; self-review writes nothing**](../serve/practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files.md) — Archive moves done plans into archive/. Config writes overwrite one existing allowlisted file. Self-review spawns a process but writes no files.
 ### #cli
 - Open [**CLI exposes four thin commands and no plan-management surface**](map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md) — src/cli.ts registers init, export profile, serve, and validate; there are no visualization/management (status, plan) commands.
 - Open [**Rebuild dist/ before running the suite — integration tests exec the compiled CLI**](../testing/practice-rebuild-dist-before-running-the-suite-integration-tests-exec-the-compiled-cli.md) — cli.integration.test.ts shells out to dist/cli.js, so a stale dist/ makes the suite fail against source that is already correct.

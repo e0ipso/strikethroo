@@ -4,7 +4,9 @@
   generation dispatch. Root discovery remains at each call site.
 
   auto_generate_dispatch renders inside a list item and must not add line
-  breaks. heading_child applies to the nested execution and archive partials.
+  breaks. heading_child applies to the nested phase-loop and review partials;
+  the summary and archive sections are steps of the caller's own procedure and
+  take heading.
 --}}{{heading}} {{step_resolve}}. Resolve the plan
 
 {{> plan-resolution}}
@@ -52,4 +54,10 @@ Apply `<root>/config/shared/anti-rationalization.md` to this rationalization tab
 
 {{heading}} {{step_post}}. Post-execution validation
 
-{{> post-execution-archive heading=heading_child heading_parent=heading summary_step=summary_step archive_step=archive_step}}
+Read `<root>/config/hooks/POST_EXECUTION.md` and execute its instructions. If validation fails, halt execution. The plan remains in `plans/` for debugging.
+
+Before declaring execution complete, apply the evidence gate in `<root>/config/shared/verification-gate.md` to the plan's Success Criteria and Self Validation steps.
+
+{{> code-review-gate heading=heading_child}}
+
+{{> summary-and-archive heading=heading summary_step=summary_step archive_step=archive_step}}

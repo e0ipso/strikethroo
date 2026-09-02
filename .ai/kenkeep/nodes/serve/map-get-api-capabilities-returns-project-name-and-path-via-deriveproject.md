@@ -19,11 +19,11 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-`GET /api/capabilities` in `src/serve/server.ts` returns `{ selfReview: boolean, project: { name: string, path: string } }`. The `project` field is populated by `deriveProject(root)`, which resolves the project directory as two levels up from the `.ai/strikethroo` workspace root.
+`GET /api/capabilities` in `src/serve/server.ts` returns `{ selfReview: boolean, project: { name: string, path: string } }`. The `project` field comes from `deriveProject(root)`, which resolves the project directory two levels above a standard `.ai/strikethroo` workspace root.
 
 `deriveProject` returns the directory's `name` (basename) and absolute `path`. For non-standard layouts (e.g. shallow test fixtures), it falls back to the root itself. The `name` is displayed in the Sidebar footer; the `path` is the hover tooltip.
 
-The `Capabilities` type in `src/web/data/api.ts` includes `project?: { name: string; path: string }`. The SPA reads it via `useCapabilities()` in the Sidebar component.
+`src/web/data/api.ts` models this with `ProjectInfo` and an optional `Capabilities.project` field so the SPA remains compatible with a server that returns only `selfReview`. `Sidebar` reads it through `useCapabilities()` and displays `.ai/strikethroo/` until project data is available.
 
 <!-- kk:related:start -->
 # Related

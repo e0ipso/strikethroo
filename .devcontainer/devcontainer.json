@@ -71,6 +71,7 @@
   "remoteUser": "node",
   "mounts": [
     "source=opencode-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
+    "source=${localEnv:HOME}/.gnupg/public-keys.d/proton.asc,target=/run/proton-public.asc,readonly,type=bind,consistency=cached",
 
     "source=${localEnv:HOME}/.agents/AGENTS.md,target=/home/node/.agents/AGENTS.md,readonly,type=bind,consistency=cached",
     "source=${localEnv:HOME}/.agents/agents,target=/home/node/.agents/agents,readonly,type=bind,consistency=cached",

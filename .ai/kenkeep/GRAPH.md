@@ -1,6 +1,6 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:d841244564106a7938606d7474a5ba0b7d432bfd462723132d76a0b4d62e9674'
+nodes_hash: 'sha256:92d500e1ba5f3bf0c36de5d4d1efb97615fd03e583d46a1b411f120ce0c8073e'
 node_count: 85
 ---
 # kenkeep Graph
@@ -493,18 +493,19 @@ Total nodes: 85
 - **path:** code-review/practice-review-gate-reports-it-does-not-fix.md
 - **tags:** review-gate, ordering, mechanical-gates, report-only
 - **relates_to:** map-model-optional-dispatch-reviewer-harness-omits-model, practice-optional-by-absence-new-files-absent-means-feature-off, practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore
+- **derived_from:** .ai/strikethroo/plans/116--streamline-review-gate-contract-and-prompt/tasks/03--clean-review-gate-terminology.md
 
 ## practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files
 
 - **kind:** practice
-- **title:** Serve SPA is read-only; archive is the only workspace mutation (self-review writes nothing)
+- **title:** Serve SPA has two sanctioned workspace mutations; self-review writes nothing
 - **path:** serve/practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files.md
 - **tags:** serve, web, spa, architecture, testing, mutation
 
 ## practice-serve-layer-uses-discriminated-union-result-types-not-custom-error-classes
 
 - **kind:** practice
-- **title:** Serve layer uses discriminated-union result types, not custom error classes
+- **title:** Serve layer uses discriminated-union result types for guarded operations
 - **path:** serve/practice-serve-layer-uses-discriminated-union-result-types-not-custom-error-classes.md
 - **tags:** serve, architecture, error-handling
 
@@ -559,7 +560,7 @@ Total nodes: 85
 
 - **kind:** practice
 - **title:** Strikethroo profile packages tolerate inert package-root extras
-- **path:** profiles/practice-strikethroo-profile-packages-tolerate-inert-package-root-extras.md
+- **path:** practice-strikethroo-profile-packages-tolerate-inert-package-root-extras.md
 - **tags:** profiles, init, validation, security
 - **relates_to:** practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace
 - **derived_from:** 67ec33eb-6c26-4c0a-8c3f-e117dc130acf:practice:0

@@ -43,7 +43,7 @@ Correcting a plan costs a sentence. Correcting the same misunderstanding in a di
 
 ### Guarantees are compiled, not requested
 
-A rule in Markdown is a request; a rule in TypeScript is a guarantee. Hooks and templates are yours to edit. Termination bounds, safety floors, and fail-safe defaults are compiled -- `MAX_REVIEW_ROUNDS` can be tightened by config and raised by nothing.
+A rule in Markdown is a request; a rule in TypeScript is a guarantee. Hooks and templates are yours to edit. The certification rule -- an uncertified review is never reported as a clean one -- is compiled and cannot be loosened by editing a hook.
 
 </td>
 </tr>
@@ -54,7 +54,7 @@ A rule in Markdown is a request; a rule in TypeScript is a guarantee. Hooks and 
 
 ### Nobody marks their own homework
 
-The optional review gate runs on a *different* harness than the one that wrote the code -- the current harness is structurally excluded from the candidate set, not merely deprioritized. The reviewer detects and never fixes; remediation is dispatched separately.
+The optional review gate runs on a *different* harness than the one that wrote the code -- the current harness is structurally excluded from the candidate set, not merely deprioritized. The reviewer detects and never fixes; findings are reported for you to act on.
 
 </td>
 <td width="50%" valign="top">
@@ -130,11 +130,11 @@ flowchart LR
 |-------------|---------------------------------|---------------------------------------------------------|
 | **Plan**    | `/st-create-plan <your prompt>` | `.ai/strikethroo/plans/64--auth/plan-64--auth.md`       |
 | **Execute** | `/st-execute-blueprint 64`      | Task blueprint, then working code, one commit per phase |
-| **Review**  | Automatic (optional)            | Findings validated against schema; bounded fixes        |
+| **Review**  | Automatic (optional)            | Findings validated against schema; report-only           |
 
 `st-execute-blueprint` decomposes the plan into atomic tasks and builds the dependency-mapped blueprint itself when one does not exist yet. Run `/st-generate-tasks 64` on its own only when you want to inspect or hand-tune the blueprint before execution starts.
 
-Your review lands on the plan, before any code exists -- that is where a correction costs a sentence. Each step runs with clean context: the planning agent sees only the work order, and each execution sub-agent receives only its specific task. After execution, an optional automated review gate runs on a discovered second harness, critiques the cumulative diff, and drives bounded remediation if findings exceed configured thresholds.
+Your review lands on the plan, before any code exists -- that is where a correction costs a sentence. Each step runs with clean context: the planning agent sees only the work order, and each execution sub-agent receives only its specific task. After execution, an optional automated review gate runs once on a discovered second harness, critiques the cumulative diff, and reports schema-validated findings for you to act on.
 
 See the [Workflow Guide](https://strikethroo.canpicasoft.com/workflow.html) for the full step-by-step with advanced patterns. Once a plan exists, visualize its plans, tasks, and dependency graph in [Visualizations](https://strikethroo.canpicasoft.com/visualizations.html).
 
@@ -161,7 +161,7 @@ Reads your workspace and reports internal inconsistencies -- missing or malforme
 
 ## Optional Code Review Gate
 
-After blueprint execution, an optional automated code review gate runs when a second harness is discovered. The reviewer critiques the cumulative diff against the plan's requirements, emits findings validated against a schema, and hands high-confidence findings to the implementer for remediation. Any applied fix forces a full re-run of tests and validation before re-verification.
+After blueprint execution, an optional automated code review gate runs once when a second harness is discovered. The reviewer critiques the cumulative diff against the plan's requirements and emits findings validated against a schema. The gate reports; it does not decide -- there are no severity or confidence floors, and nothing is applied automatically. You read the findings and choose what to act on.
 
 **To disable:** Edit `.ai/strikethroo/config/hooks/CODE_REVIEW.md` to empty or delete it. The gate skips cleanly with a note in the execution summary.
 

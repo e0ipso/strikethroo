@@ -26,9 +26,8 @@
       XSD 1.0 and is enforced by the application.
 
     Changes from v1:
-    - <comment> gained two optional attributes, severity and confidence,
-      so an automated consumer can threshold on findings instead of
-      applying all of them or none of them. See CommentType.
+    - <comment> gained optional severity and confidence attributes.
+      See CommentType.
   -->
 
   <!-- ===== Root element ===== -->
@@ -140,11 +139,9 @@
         Exactly one pair (old or new) should be present for line-level
         comments. Both pairs absent = file-level comment.
 
-        The category child says what kind of finding this is. The severity
-        and confidence attributes say how much weight to put on it: severity
-        is how consequential the finding is if it is real, confidence is how
-        sure the author is that it is real. They are independent, and an
-        automated consumer is expected to threshold on both.
+        The category child says what kind of finding this is. Severity and
+        confidence are independent advisory labels for a human reader;
+        nothing branches on them.
       </xs:documentation>
     </xs:annotation>
     <xs:sequence>
@@ -229,38 +226,20 @@
     <xs:attribute name="severity" type="sr:SeverityEnum" use="optional">
       <xs:annotation>
         <xs:documentation>
-          How consequential this finding is if it turns out to be real.
-          Judge the impact of the problem, not how confident you are that
-          the problem exists, and not how much work the fix is.
-
-          This attribute has no schema default on purpose. When it is
-          absent, a consumer must treat the comment as falling below any
-          severity floor it applies, i.e. absent never satisfies a
-          threshold. Comments written by a human in the self-review UI
-          normally carry no severity.
+          How consequential this finding is if real. Judge impact, not
+          confidence and not fix effort. No schema default: absence is
+          meaningful. Human-written comments normally carry none.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="confidence" type="sr:ConfidenceEnum" use="optional">
       <xs:annotation>
         <xs:documentation>
-          How sure the author is that this finding is real, i.e. that it
-          describes an actual defect in the code as written rather than a
-          hypothetical one.
-
-          Confidence is about the evidence, not about how strongly the
-          comment is worded. A finding whose argument depends on a
-          constraint that is not visible in the diff, on a caller that was
-          not read, or on a failure scenario that was imagined rather than
-          traced, is low confidence however plausible its prose sounds.
-          LLM reviewers systematically overstate certainty here; a
-          consumer thresholding on this attribute is relying on it being
-          lowered honestly.
-
-          This attribute has no schema default on purpose. When it is
-          absent, a consumer must treat the comment as falling below any
-          confidence floor it applies, i.e. absent never satisfies a
-          threshold.
+          How sure the author is that this finding is real. Judge the
+          evidence, not the wording: an argument resting on a constraint not
+          visible in the diff, an unread caller, or an untraced scenario is
+          low confidence. LLM reviewers overstate certainty here. No schema
+          default: absence is meaningful.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>

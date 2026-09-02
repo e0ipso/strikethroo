@@ -74,7 +74,7 @@ differently, so a second model is an independent sample, not a cheaper one.
 
 | Claim | Where |
 | --- | --- |
-| An uncertified review is never reported as clean | `_verdictFor`, `src/skill-scripts/code-review.ts` |
+| An uncertified review is never reported as clean | `reviewedFieldsFor` and `_classify`, `src/skill-scripts/code-review.ts` |
 | A missing validator is a distinct failure, not a pass | `validateAgainstSchema`, `src/skill-scripts/shared/review-findings.ts` |
 | Reviewer can't be the implementer's harness | `discoverHarnesses`, `src/skill-scripts/shared/harness-discovery.ts` |
 | Subagent reports aren't proof | `config/shared/verification-gate.md` |

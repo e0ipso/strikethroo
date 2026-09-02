@@ -939,24 +939,12 @@ export const runReview = async (
 };
 
 /**
- * The certification-status discriminator, read off the findings gate.
- *
- * Only an `evaluated` outcome records a review. Every other outcome failed
- * certification and is never reported as clean. The verdict carries no detail;
- * every result has that explanation at the top level.
- */
-type VerdictFor<T extends FindingsGateOutcome> = T extends { kind: 'evaluated' }
-  ? { kind: 'review-recorded' }
-  : { kind: 'review-failed' };
-
-export const _verdictFor = <T extends FindingsGateOutcome>(outcome: T): VerdictFor<T> =>
-  (outcome.kind === 'evaluated'
-    ? { kind: 'review-recorded' }
-    : { kind: 'review-failed' }) as VerdictFor<T>;
-
-/**
- * Record-worthy reviewed fields. Counts exist only after certification, so a
- * caller cannot read a tally that no schema ever backed.
+ * The reviewed fields, read off the findings gate. This is where certification
+ * becomes a verdict: only an `evaluated` outcome is `review-recorded`. Every
+ * other outcome failed certification, stays `review-failed`, and is never
+ * reported as clean. Counts exist only after certification, so a caller cannot
+ * read a tally that no schema ever backed. The verdict carries no detail; every
+ * result has that explanation at the top level.
  */
 const reviewedFieldsFor = (
   outcome: FindingsGateOutcome
@@ -964,13 +952,13 @@ const reviewedFieldsFor = (
   | { verdict: { kind: 'review-recorded' }; counts: FindingCounts; detail: string }
   | { verdict: { kind: 'review-failed' }; detail: string } => {
   if (outcome.kind !== 'evaluated') {
-    return { verdict: _verdictFor(outcome), detail: outcome.detail };
+    return { verdict: { kind: 'review-failed' }, detail: outcome.detail };
   }
 
   const { counts, findingsFile } = outcome;
   if (counts.total === 0) {
     return {
-      verdict: _verdictFor(outcome),
+      verdict: { kind: 'review-recorded' },
       counts,
       detail: `The reviewer raised no findings. See ${findingsFile}.`,
     };
@@ -980,7 +968,7 @@ const reviewedFieldsFor = (
     .concat(counts.unlabelled > 0 ? [`${counts.unlabelled} unlabelled`] : [])
     .join(', ');
   return {
-    verdict: _verdictFor(outcome),
+    verdict: { kind: 'review-recorded' },
     counts,
     detail:
       `The reviewer raised ${counts.total} finding(s) (${byLabel}). They are recorded, not ` +
@@ -995,9 +983,6 @@ const emit = (result: ReviewResult): never => {
   process.stdout.write(_resultLine(result));
   process.exit(_classify(result).exitCode);
 };
-
-/** The exit code for a result, from the same classification that set its action. */
-export const _exitCodeFor = (result: ReviewResult): number => _classify(result).exitCode;
 
 const main = async (startPath: string = process.cwd()): Promise<void> => {
   const [planArg, harnessArg] = process.argv.slice(2);

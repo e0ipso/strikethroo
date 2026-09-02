@@ -17,7 +17,7 @@ import * as os from 'os';
 import * as path from 'path';
 
 import {
-  _exitCodeFor,
+  _classify,
   _readCumulativeDiff,
   _resultLine,
   runReview,
@@ -58,7 +58,7 @@ describe('code review gate — fail-safe skips', () => {
           stubDeps()
         );
         expect(result).toMatchObject({ kind: 'skipped', reason });
-        expect(_exitCodeFor(result)).toBe(0);
+        expect(_classify(result).exitCode).toBe(0);
         expect(stderrSpy).not.toHaveBeenCalled();
       } finally {
         stderrSpy.mockRestore();
@@ -76,7 +76,7 @@ describe('code review gate — fail-safe skips', () => {
         stubDeps({ discover: async () => ({ outcomes: [], reviewerCandidates: [] }) })
       );
       expect(result).toMatchObject({ kind: 'skipped', reason: 'no-reviewer-candidate' });
-      expect(_exitCodeFor(result)).toBe(0);
+      expect(_classify(result).exitCode).toBe(0);
       expect(stderrSpy).not.toHaveBeenCalled();
     } finally {
       stderrSpy.mockRestore();
@@ -105,7 +105,7 @@ describe('code review gate — fail-safe skips', () => {
         })
       );
       expect(result).toMatchObject({ kind: 'skipped', reason: 'empty-diff' });
-      expect(_exitCodeFor(result)).toBe(0);
+      expect(_classify(result).exitCode).toBe(0);
       expect(dispatched).toBe(false);
       expect(stderrSpy).not.toHaveBeenCalled();
     } finally {
@@ -179,7 +179,7 @@ describe('code review gate — the gate reports, it does not judge', () => {
         detail: expect.stringContaining('no findings'),
         counts: { total: 0 },
       });
-      expect(_exitCodeFor(result)).toBe(0);
+      expect(_classify(result).exitCode).toBe(0);
     } finally {
       ws.cleanup();
     }
@@ -206,7 +206,7 @@ describe('code review gate — the gate reports, it does not judge', () => {
         counts: { total: 3, critical: 2, unlabelled: 1 },
       });
       // Findings never change the exit code: the gate does not judge them.
-      expect(_exitCodeFor(result)).toBe(0);
+      expect(_classify(result).exitCode).toBe(0);
     } finally {
       ws.cleanup();
     }
@@ -229,7 +229,7 @@ describe('code review gate — the gate reports, it does not judge', () => {
         detail: expect.stringContaining('does not validate'),
       });
       expect(result).not.toHaveProperty('counts');
-      expect(_exitCodeFor(result)).toBe(1);
+      expect(_classify(result).exitCode).toBe(1);
     } finally {
       ws.cleanup();
     }
@@ -468,7 +468,7 @@ describe('code review gate — xmllint is a soft dependency', () => {
         stubDeps({ dispatch, validatorAvailable: () => false })
       );
       expect(result).toMatchObject({ kind: 'skipped', reason: 'validator-absent' });
-      expect(_exitCodeFor(result)).toBe(0);
+      expect(_classify(result).exitCode).toBe(0);
       expect(stderrSpy).not.toHaveBeenCalled();
       // The point of checking before dispatch: no external harness is spent on
       // a review that could not have been certified.
@@ -566,7 +566,7 @@ describe('code review gate — single-channel stdout delivery', () => {
         kind: 'reviewed',
         verdict: { kind: 'review-recorded' },
       });
-      expect(_exitCodeFor(result)).toBe(0);
+      expect(_classify(result).exitCode).toBe(0);
       const { reviewFile } = result as { reviewFile: string };
       expect(fs.readFileSync(reviewFile, 'utf8').trim()).toBe(xml.trim());
       expect(prompt()).toMatch(TOKEN_PATTERN);
@@ -654,7 +654,7 @@ describe('code review gate — single-channel stdout delivery', () => {
         kind: 'reviewed',
         verdict: { kind: 'review-recorded' },
       });
-      expect(_exitCodeFor(result)).toBe(0);
+      expect(_classify(result).exitCode).toBe(0);
       // Byte equality with the payload is the whole assertion: the chatter, the
       // escapes — including the ones inside the region — and both echoed blocks
       // were excluded from what was written and validated.
@@ -682,7 +682,7 @@ describe('code review gate — single-channel stdout delivery', () => {
         verdict: { kind: 'review-failed' },
         detail: expect.stringContaining('does not validate'),
       });
-      expect(_exitCodeFor(result)).toBe(1);
+      expect(_classify(result).exitCode).toBe(1);
     } finally {
       ws.cleanup();
     }
@@ -715,7 +715,7 @@ describe('code review gate — single-channel stdout delivery', () => {
         // The delivery diagnostics stay in `findings.json`; the emitted result
         // carries the verdict discriminator and nothing else about the channel.
         expect(result).not.toHaveProperty('findingsGate');
-        expect(_exitCodeFor(result)).toBe(1);
+        expect(_classify(result).exitCode).toBe(1);
       } finally {
         ws.cleanup();
       }
@@ -975,10 +975,10 @@ describe('code review gate — the compiled result contract', () => {
         expect(result.kind).toBe(expected.kind);
         expect(result.action).toBe(expected.action);
         expect(result.detail.length).toBeGreaterThan(0);
-        expect(_exitCodeFor(result)).toBe(expected.exitCode);
+        expect(_classify(result).exitCode).toBe(expected.exitCode);
         // The invariant the orchestrator depends on, asserted on every variant
         // rather than on the two that happen to be interesting.
-        expect(result.action === 'continue').toBe(_exitCodeFor(result) === 0);
+        expect(result.action === 'continue').toBe(_classify(result).exitCode === 0);
       } finally {
         cleanup();
       }

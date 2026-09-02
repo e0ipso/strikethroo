@@ -1,3 +1,7 @@
+## 3.21.0 (2026-09-02)
+
+* feat: streamline review gate contract (#87) ([7316b1b](https://github.com/e0ipso/strikethroo/commit/7316b1b)), closes [#87](https://github.com/e0ipso/strikethroo/issues/87)
+
 ## 3.20.0 (2026-08-30)
 
 * feat: serve skills from a root release mirror (#86) ([bb56121](https://github.com/e0ipso/strikethroo/commit/bb56121)), closes [#86](https://github.com/e0ipso/strikethroo/issues/86) [#85](https://github.com/e0ipso/strikethroo/issues/85) [#85](https://github.com/e0ipso/strikethroo/issues/85)

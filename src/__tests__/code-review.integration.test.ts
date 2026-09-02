@@ -1,14 +1,7 @@
 /**
- * Integration tests for the review gate mechanism (`code-review.ts`): the
- * fail-safe skip reasons, the diff scoping, and the compiled result contract.
- *
- * Every dependency the review would otherwise use to reach a real harness
- * (`discover`, `dispatch`) or a real diff (`readDiff`) is injected here — a
- * test that depends on a harness CLI being installed, or on a real git
- * repository, is not a test of this module's own logic. The workspace shape
- * (hook / XSD / base-commit presence) is real filesystem state, built by the
- * shared `makeReviewGateWorkspace` factory, because that shape is exactly
- * what `resolveReviewContext` reads.
+ * Review gate integration tests: skip reasons, diff scoping, and the compiled
+ * result contract. Harness and diff dependencies are injected; the workspace
+ * shape is real filesystem state from `makeReviewGateWorkspace`.
  */
 
 import { execSync } from 'child_process';
@@ -84,11 +77,7 @@ describe('code review gate — fail-safe skips', () => {
     }
   });
 
-  /**
-   * A reviewer dispatched with an empty diff returns no findings, which reads
-   * exactly like a clean review — so an empty scope would surface as a pass. It
-   * has to be reported instead, and no reviewer spent on it.
-   */
+  /** An empty diff would otherwise come back as a clean review. */
   it('skips on empty-diff without dispatching a reviewer', async () => {
     const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
@@ -451,12 +440,7 @@ describe('cumulative diff scope: generated and vendored files', () => {
   });
 });
 
-/**
- * `xmllint` is a soft dependency. Without it no review can be certified, but a
- * missing system package must never turn an otherwise successful plan into a
- * failure — so absence skips cleanly, before any reviewer is dispatched, and is
- * never reported as a review that passed.
- */
+/** `xmllint` is a soft dependency: absence skips cleanly before dispatch. */
 describe('code review gate — xmllint is a soft dependency', () => {
   it('skips with validator-absent: exit 0, empty stderr, no reviewer dispatched', async () => {
     const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
@@ -712,8 +696,7 @@ describe('code review gate — single-channel stdout delivery', () => {
           verdict: { kind: 'review-failed' },
           detail: expect.stringContaining('no complete findings document'),
         });
-        // The delivery diagnostics stay in `findings.json`; the emitted result
-        // carries the verdict discriminator and nothing else about the channel.
+        // Delivery diagnostics stay in `findings.json`.
         expect(result).not.toHaveProperty('findingsGate');
         expect(_classify(result).exitCode).toBe(1);
       } finally {
@@ -760,13 +743,7 @@ describe('code review gate — single-channel stdout delivery', () => {
     }
   });
 
-  /**
-   * With one channel, a review that does not certify leaves no document at all —
-   * so without the transcript there is nothing to debug it from. It is written on
-   * every non-certifying outcome, including the non-zero exit that returns before
-   * the gate runs, and deliberately not on a review that certified: there the
-   * `review.xml` is the artifact, and the transcript would only be noise.
-   */
+  /** The transcript is the only diagnostic when no document was delivered. */
   it('keeps the reviewer transcript on a review that did not certify, and only then', async () => {
     const transcriptOf = (ws: ReturnType<typeof makeReviewGateWorkspace>) =>
       path.join(reviewDirOf(ws), 'reviewer-output.txt');
@@ -816,15 +793,7 @@ describe('code review gate — single-channel stdout delivery', () => {
     }
   });
 
-  /**
-   * The transcript is written only when a review fails to certify, so unlike
-   * `findings.json` — which `record` rewrites on every outcome — it can go stale.
-   * Re-run a review that failed and then certified, and a transcript from the
-   * earlier attempt would sit beside a freshly certified `review.xml`, reading
-   * exactly like a review that had failed. The pre-dispatch removal is what stops
-   * the review directory from describing an attempt that is no longer the one it
-   * holds.
-   */
+  /** A stale transcript beside a certified review.xml would read as a failure. */
   it("drops a previous attempt's transcript when the review is re-run and certifies", async () => {
     const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
     const transcript = path.join(reviewDirOf(ws), 'reviewer-output.txt');
@@ -850,13 +819,8 @@ describe('code review gate — single-channel stdout delivery', () => {
 });
 
 /**
- * The emitted contract, compiled from one classification.
- *
- * The orchestrator reads two things off every result: `action`, to decide
- * whether to continue or halt, and `detail`, to say why. Both have to be present
- * on every variant, and `action === 'continue'` has to stay exactly equivalent
- * to exit code 0 — a variant where the two disagree would let a halting gate
- * read as a passing one, or a clean one stop the plan.
+ * Every variant carries `action` and `detail`, and `action === 'continue'` is
+ * exactly exit code 0.
  */
 describe('code review gate — the compiled result contract', () => {
   const certifying: FindingsGate = async () => ({
@@ -1029,9 +993,7 @@ describe('code review gate — the compiled result contract', () => {
         action: 'halt',
         detail: 'xmllint could not be run.',
       });
-      // Delivery diagnostics belong in `findings.json`, never in the emitted
-      // result: an orchestrator that could branch on them would be re-deriving
-      // the verdict this gate already made.
+      // Delivery diagnostics stay in `findings.json`.
       for (const result of [good, bad]) {
         expect(result).not.toHaveProperty('findingsGate');
         expect(result).not.toHaveProperty('reviewFilePresent');

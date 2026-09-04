@@ -1,8 +1,9 @@
 # Build output and vendored files.
 #
-# The skill artifacts exist in two trees. `templates/harness/skills/` is local
-# build output and is gitignored; the tracked root `skills/` mirror records the
-# last released build, written only by the release workflow's sync step
+# The skill artifacts (bundles, assembled prompts, and copied references) exist
+# in two trees. `templates/harness/skills/` is local build output and is
+# gitignored; the tracked root `skills/` mirror records the last released
+# build, written only by the release workflow's sync step
 # (`scripts/sync-skills-mirror.cjs`) and committed through `@semantic-release/git`.
 # Both are generated, so both are marked here, which gives two behaviours:
 #
@@ -21,9 +22,13 @@ templates/harness/skills/*/SKILL.md linguist-generated=true
 # Bundled by scripts/build-skills.cjs (esbuild) from src/skill-scripts/.
 templates/harness/skills/*/scripts/*.cjs linguist-generated=true
 
+# Copied by scripts/build-skill-prompts.cjs from src/skill-prompts/skills/<name>/references/.
+templates/harness/skills/*/references/*.md linguist-generated=true
+
 # Released mirror of the two trees above, synced by scripts/sync-skills-mirror.cjs.
 skills/*/SKILL.md linguist-generated=true
 skills/*/scripts/*.cjs linguist-generated=true
+skills/*/references/*.md linguist-generated=true
 
 # Vendored verbatim from e0ipso/self-review (MIT). Must stay byte-identical to
 # upstream, so it is never a legitimate target for a review finding.

@@ -21,18 +21,6 @@ The user supplies the numeric plan ID and task ID conversationally.
 
 ## Failure Modes
 
-- **No strikethroo root found.** Stop and instruct the user to initialize the
-  project. Do not execute the task.
-- **Plan ID does not resolve.** Stop and surface the script's stderr to the
-  user. Do not guess a different ID.
-- **Task file not found.** Stop and list available tasks in the plan to help
-  the user identify the correct task ID.
-- **Task status blocks execution.** If the task is `completed`,
-  `in-progress`, or `needs-clarification`, halt and provide guidance on
-  resolving the blocker.
-- **Dependency validation failure.** If `scripts/check-task-dependencies.cjs`
-  exits 1, stop and report unresolved dependencies. Do not proceed until they
-  are satisfied.
 - **Execution or hook failure.** If `PRE_TASK_EXECUTION.md`,
   `PRE_TASK_ASSIGNMENT.md`, or `POST_ERROR_DETECTION.md` fails, or the
   implementing agent encounters an unrecoverable error, set the task status

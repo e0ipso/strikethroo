@@ -41,13 +41,8 @@ The user supplies the numeric plan ID conversationally.
 
 ## Failure Modes
 
-{{> failure-modes}}
 - **User declines to clarify a blocking ambiguity.** Mark the affected tasks
   with `status: "needs-clarification"` and document the open question in the
   task's "Implementation Notes". Do not invent answers.
 - **A helper script fails unexpectedly.** Surface stderr to the user and
   stop — do not fall back to manual ID allocation or path discovery.
-- **Execution routing fails.** Surface the routing helper's JSON errors and
-  stop before blueprint generation. Do not guess profile assignments, do not
-  hand-write `execution_profile` or `execution` frontmatter, and do not continue with partially
-  routed tasks.

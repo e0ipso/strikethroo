@@ -157,10 +157,6 @@ The summary is consumed by downstream automation; keep the format exact.
 
 ## Failure Modes
 
-- **No strikethroo root found.** Stop and instruct the user to initialize the
-  project. Do not read or write any plan files.
-- **Plan ID does not resolve.** Stop and surface the script's stderr to the
-  user. Do not guess a different ID and do not read or write any files.
 - **User refuses to answer a clarifying question that blocks refinement.**
   Record the unresolved question in the Plan Clarifications table with
   mitigation notes, proceed with available context, and flag the remaining

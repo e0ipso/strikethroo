@@ -32,9 +32,6 @@ Follow the clarification cadence in `<root>/config/shared/clarification-gate.md`
 
 ## Failure Modes
 
-{{> failure-modes}}
-- **User refuses to answer a clarifying question that blocks planning.**
-  Report `needs-clarification` and stop. Do not produce a plan.
 - **Plan directory already exists for the allocated ID.** Re-run the
   next-plan-id script (a concurrent run may have advanced it) and retry once.
   If the conflict persists, stop and report.

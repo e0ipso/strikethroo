@@ -18,12 +18,6 @@ writing any file. Base the score on these four dimensions:
 - Score 6–7 → either sharpen criteria or split; do not emit without an
   explicit reason.
 
-**Required frontmatter:**
-
-- Every emitted task MUST include `complexity_score` (integer 1–10).
-- Optionally include `complexity_notes` when the score needs justification,
-  such as "Ambiguous API contract" or "Decomposed from a higher-score parent".
-
 **Loop-back rule:**
 
 After applying split, sharpen, or merge, re-run dependency analysis and

@@ -42,9 +42,6 @@ The user supplies the numeric plan ID conversationally.
 
 ## Failure Modes
 
-{{> failure-modes}}
-- **Missing blueprint after auto-generation.** If the `st-generate-tasks` skill fails to produce tasks or a blueprint, stop and report failure. Do not attempt execution without a blueprint.
-- **Hook failure.** If `PRE_PHASE.md`, `POST_PHASE.md`, or `POST_EXECUTION.md` fails, halt execution. The plan remains in `plans/` for debugging and potential re-execution.
 - **Execution errors.** If a task fails, read `<root>/config/hooks/POST_ERROR_DETECTION.md`, document the error in Noteworthy Events, halt the phase, and request user direction before continuing.
 
 {{> execution-summary}}

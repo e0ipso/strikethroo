@@ -46,7 +46,25 @@ Prefer steps, checkpoints, and checkable rules over paragraphs of advice.
     `docs/customization.md` / `AGENTS.md`.
   - *Inline* — genuinely skill-specific content that only one template ever
     uses, such as a skill's own rationalization rows.
-  Put heavy detail behind `<details>`.
+
+- **Inline vs `references/`.** A skill's `references/*.md` files ship next to
+  `SKILL.md` and are read when a step points at them.
+
+  | Stays inline in `SKILL.md` | Moves to `references/` |
+  | --- | --- |
+  | Rationalization rows and excuse counters | Rubric and scoring tables |
+  | Exit criteria and hard rules | Field lists a template already carries |
+  | Structured summary blocks | Worked examples a schema already certifies |
+
+  The test before moving a block: some script or schema must already catch
+  its omission (an unscored task fails `complexityScoresValid`; a malformed
+  findings document fails the XSD). If nothing downstream catches a skipped
+  read, the block is discipline and stays inline regardless of size. Each
+  moved block is replaced by one sentence that names the file and says when
+  to read it. Reference files are plain Markdown, never Handlebars, and carry
+  no frontmatter. A file named from a shared partial lives in `_references/`
+  and is copied into every skill whose rendered prompt points at it; a file
+  named only from one skill's template lives in that skill's `references/`.
 
 - **The slot rule.** Supply different instructions as named block partials at
   each call site. Do not put `{{#if}}` branches in shared partials.

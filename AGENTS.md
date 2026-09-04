@@ -93,7 +93,7 @@ The main `tsconfig.json` lists `src/skill-scripts/**` under `exclude`, but read 
 
 ### Prompt source of truth
 
-Each `SKILL.md` is built from `src/skill-prompts/skills/<name>/SKILL.md.hbs`. Shared procedures live in `src/skill-prompts/_partials/`; values use hash arguments and behavioral differences use block-partial slots at their call sites. Frontmatter contains only `name` and `description`. Read `src/skill-prompts/README.md` and `src/skill-prompts/AUTHORING.md` before editing prompts.
+Each `SKILL.md` is built from `src/skill-prompts/skills/<name>/SKILL.md.hbs`. Shared procedures live in `src/skill-prompts/_partials/`; values use hash arguments and behavioral differences use block-partial slots at their call sites. Frontmatter contains only `name` and `description`. Read `src/skill-prompts/README.md` and `src/skill-prompts/AUTHORING.md` before editing prompts. Lookup material a step consults, such as the complexity rubric and the review document example, lives in `src/skill-prompts/skills/<name>/references/*.md`, or in `src/skill-prompts/_references/*.md` when a shared partial points at it, and is copied verbatim to `templates/harness/skills/<name>/references/` for every skill whose rendered prompt names it; `AUTHORING.md` defines what may move there.
 
 The shared execution procedure keeps the terminal lifecycle visible at its call site: POST_EXECUTION validation, `code-review-gate.md.hbs`, then `summary-and-archive.md.hbs`. The gate partial consumes the compiled result instead of recreating its decision table. Both execution skills use this same sequence.
 
@@ -251,7 +251,7 @@ React + Vite + Tailwind v4 SPA built by `npm run build:web` (`vite.config.mts`) 
 1. `tsc` compiles the CLI domain (including `src/serve/`) into `dist/`.
 2. `build:web` (`vite build`) compiles `src/web/` into `dist-web/` — the static assets `serve` hosts.
 3. `build:skills` (`scripts/build-skills.cjs`, esbuild) bundles each registered entrypoint into a self-contained `.cjs` emitted directly into `templates/harness/skills/<skill>/scripts/`.
-4. `build:skill-prompts` (`scripts/build-skill-prompts.cjs`) compiles the Handlebars sources into `templates/harness/skills/<name>/SKILL.md`. It writes only those files. Validation rejects unresolved markers, invalid frontmatter, and missing `## Operating Procedure` headings.
+4. `build:skill-prompts` (`scripts/build-skill-prompts.cjs`) compiles the Handlebars sources into `SKILL.md`, copies skill-local `references/*.md` and any `_references/*.md` the rendered prompt names beside it, deletes output reference files with no source, and writes nothing else. Validation rejects unresolved markers, invalid frontmatter, and missing `## Operating Procedure` headings.
 
 **Adding a skill:** add its TypeScript entrypoint to `src/skill-scripts/` and `SKILL_ENTRYPOINTS`, add it to `.claude-plugin/plugin.json`, and create `src/skill-prompts/skills/<name>/SKILL.md.hbs` with `name` and `description` frontmatter.
 
@@ -259,10 +259,10 @@ React + Vite + Tailwind v4 SPA built by `npm run build:web` (`vite.config.mts`) 
 
 **Never hand-edit or hand-commit either generated tree.** Edit `src/skill-prompts/` for prompts and `src/skill-scripts/` for bundles — both `templates/harness/skills/` and the root `skills/` mirror are overwritten wholesale by the build or the mirror sync, so a hand-made change disappears at the next run. Two guards enforce this:
 
-- `.husky/pre-commit` rejects staged changes to `templates/harness/skills/*/SKILL.md`, `templates/harness/skills/*/scripts/*.cjs`, `skills/*/SKILL.md`, and `skills/*/scripts/*.cjs`, and names the source directory to edit instead. The release workflow runs with `HUSKY=0`, so the guard never blocks the release commit that legitimately writes the mirror.
-- `.gitattributes` marks all four path patterns `linguist-generated=true` (and the vendored `config/schemas/*.xsd` `linguist-vendored=true`). GitHub collapses them in pull requests, and the code review gate reads the same markers to drop them from the reviewed diff.
+- `.husky/pre-commit` rejects staged changes to `templates/harness/skills/*/SKILL.md`, `templates/harness/skills/*/scripts/*.cjs`, `templates/harness/skills/*/references/*.md`, `skills/*/SKILL.md`, `skills/*/scripts/*.cjs`, and `skills/*/references/*.md`, and names the source directory to edit instead. The release workflow runs with `HUSKY=0`, so the guard never blocks the release commit that legitimately writes the mirror.
+- `.gitattributes` marks all six path patterns `linguist-generated=true` (and the vendored `config/schemas/*.xsd` `linguist-vendored=true`). GitHub collapses them in pull requests, and the code review gate reads the same markers to drop them from the reviewed diff.
 
-A local `npm run build` therefore never dirties Git status: `templates/harness/skills/` is ignored, and the root `skills/` mirror is untouched by the build. Only the release workflow's sync step changes the mirror.
+A local `npm run build` therefore never dirties Git status: `templates/harness/skills/` is ignored across all three of its generated kinds, `scripts/`, `SKILL.md`, and `references/`, and the root `skills/` mirror is untouched by the build. Only the release workflow's sync step changes the mirror.
 
 ---
 
@@ -298,12 +298,14 @@ Verify the invariant:
 
 ```bash
 git ls-files 'templates/harness/skills/*/SKILL.md' 'templates/harness/skills/*/scripts/*.cjs'  # expect: EMPTY (never tracked)
+git ls-files 'templates/harness/skills/*/references/*.md'                                       # expect: EMPTY (never tracked)
 git ls-files 'skills/*/SKILL.md' | wc -l                                                        # expect: 7 (mirror tracked, one per skill)
+git ls-files 'skills/*/references/*.md' | wc -l                                                 # expect: 7 once a release has synced references (0 before that)
 npm pack --dry-run 2>&1 | grep -c 'templates/harness/skills/.*SKILL\.md'                        # expect: 7 (npm channel unchanged)
 npm pack --dry-run 2>&1 | awk '{print $NF}' | grep -c '^skills/'                                # expect: 0 (mirror is Git-tree only, never packed)
 ```
 
-`npm pack --dry-run`'s tarball listing is written to stderr, so `2>&1` is required — a bare `| grep` silently matches nothing.
+`npm pack --dry-run`'s tarball listing is written to stderr, so `2>&1` is required — a bare `| grep` silently matches nothing. The mirror's `references/` directories are written by the same release sync as the rest of the mirror, so their count is `0` until the first release after they were introduced and `7` after it (three each for `st-generate-tasks` and `st-full-workflow`, one for `st-code-review`).
 
 ---
 

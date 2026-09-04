@@ -7,18 +7,20 @@
 # there is erased by the next release. That workflow runs with HUSKY=0, so this
 # guard never blocks the release commit.
 #
-# Both the esbuild bundles and the assembled SKILL.md files are covered, in both
-# trees. Edit the source instead — src/skill-scripts/ for the bundles,
-# src/skill-prompts/ for the prompts. They are marked linguist-generated in
-# .gitattributes for the same reason.
+# The esbuild bundles, the assembled SKILL.md files, and the copied references
+# files are covered, in both trees. Edit the source instead — src/skill-scripts/
+# for the bundles, src/skill-prompts/ for the prompts and references. They are
+# marked linguist-generated in .gitattributes for the same reason.
 #
 # --diff-filter=d excludes deletions: dropping generated files from the index is
 # always legitimate, so only added or modified content is rejected.
 staged_artifacts=$(git diff --cached --name-only --diff-filter=d -- \
   'skills/*/SKILL.md' \
   'skills/*/scripts/*.cjs' \
+  'skills/*/references/*.md' \
   'templates/harness/skills/*/scripts/*.cjs' \
-  'templates/harness/skills/*/SKILL.md')
+  'templates/harness/skills/*/SKILL.md' \
+  'templates/harness/skills/*/references/*.md')
 if [ -n "$staged_artifacts" ]; then
   echo "✗ Generated skill artifacts are staged:" >&2
   echo "$staged_artifacts" >&2

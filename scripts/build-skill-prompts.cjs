@@ -1,14 +1,20 @@
 #!/usr/bin/env node
 /**
- * Renders SKILL.md files from Handlebars source templates.
+ * Renders SKILL.md files from Handlebars source templates and copies the
+ * plain-Markdown reference files each rendered prompt points at.
  *
  *   src/skill-prompts/_partials/<name>.md.hbs   shared, never shipped
+ *   src/skill-prompts/_references/<file>.md     shared lookup files
  *   src/skill-prompts/skills/<skill>/SKILL.md.hbs
  *     -> templates/harness/skills/<skill>/SKILL.md
+ *   src/skill-prompts/skills/<skill>/references/<file>.md
+ *     -> templates/harness/skills/<skill>/references/<file>.md
  *
  * Partial names are relative to `_partials/` with `.md.hbs` removed.
- * Frontmatter passes through unchanged. The only write target is the rendered
- * SKILL.md file; target directories and script bundles must already exist.
+ * Frontmatter passes through unchanged. The write targets are the rendered
+ * SKILL.md file and the skill's references/ directory. The renderer creates no
+ * other directory; the skill directories and script bundles must already
+ * exist. Reference files are copied byte for byte, never compiled.
  */
 
 const fs = require('fs');
@@ -18,12 +24,17 @@ const Handlebars = require('handlebars');
 const REPO_ROOT = path.resolve(__dirname, '..');
 const SRC_DIR = path.join(REPO_ROOT, 'src', 'skill-prompts');
 const PARTIALS_DIR = path.join(SRC_DIR, '_partials');
+const SHARED_REFERENCES_DIR = path.join(SRC_DIR, '_references');
 const TEMPLATES_DIR = path.join(SRC_DIR, 'skills');
 const SKILLS_ROOT = path.join(REPO_ROOT, 'templates', 'harness', 'skills');
 const SHIPPED_ROOT = path.join(REPO_ROOT, 'templates');
 
 const PARTIAL_EXTENSION = '.md.hbs';
 const TEMPLATE_FILENAME = 'SKILL.md.hbs';
+const REFERENCES_DIRNAME = 'references';
+
+// Matches every references/<file>.md pointer in a rendered prompt.
+const POINTER_PATTERN = /references\/([\w.-]+\.md)/g;
 
 // Preserve Markdown symbols and spacing. Reject unknown variables.
 const COMPILE_OPTIONS = {
@@ -47,6 +58,72 @@ function walkFiles(dir) {
     else if (stat.isFile()) files.push(full);
   }
   return files;
+}
+
+/**
+ * Lists the reference files in a source directory. The directory is optional,
+ * and when present it may hold nothing but flat Markdown files.
+ *
+ * @param {string} dir   - Source reference directory
+ * @param {string} label - Directory name used in error messages
+ * @returns {string[]} File names, sorted
+ */
+function listReferenceDir(dir, label) {
+  if (!fs.existsSync(dir)) return [];
+
+  const entries = fs
+    .readdirSync(dir, { withFileTypes: true })
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+
+  const names = [];
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (
+      entry.isDirectory() ||
+      entry.name.startsWith('.') ||
+      !entry.name.endsWith('.md')
+    ) {
+      throw new Error(
+        `${label} may only hold flat *.md files, found ${path.relative(REPO_ROOT, full)}`
+      );
+    }
+    names.push(entry.name);
+  }
+  return names;
+}
+
+/**
+ * Makes a skill's output references/ directory match its resolved sources.
+ * Copies every wanted file, deletes the rest, and removes the directory when
+ * it ends up empty.
+ *
+ * @param {string} skill     - Skill directory name
+ * @param {string} targetDir - Output skill directory
+ * @param {Map<string, string>} toCopy - Output file name -> source path
+ */
+function syncReferences(skill, targetDir, toCopy) {
+  const outDir = path.join(targetDir, REFERENCES_DIRNAME);
+
+  if (fs.existsSync(outDir)) {
+    for (const name of fs.readdirSync(outDir).sort()) {
+      if (toCopy.has(name)) continue;
+      fs.rmSync(path.join(outDir, name), { recursive: true, force: true });
+      process.stdout.write(`  removed ${skill}/references/${name}\n`);
+    }
+  }
+
+  if (toCopy.size === 0) {
+    if (fs.existsSync(outDir) && fs.readdirSync(outDir).length === 0) {
+      fs.rmdirSync(outDir);
+    }
+    return;
+  }
+
+  fs.mkdirSync(outDir, { recursive: true });
+  for (const name of [...toCopy.keys()].sort()) {
+    fs.copyFileSync(toCopy.get(name), path.join(outDir, name));
+    process.stdout.write(`  copied ${skill}/references/${name}\n`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -174,9 +251,9 @@ function assertNoTemplateArtifactsShipped() {
     for (const name of fs.readdirSync(dir)) {
       const full = path.join(dir, name);
       if (fs.statSync(full).isDirectory()) {
-        if (name === '_partials') {
+        if (name === '_partials' || name === '_references') {
           throw new Error(
-            `Partials directory leaked into the shipped tree: ${path.relative(REPO_ROOT, full)}`
+            `Source-only directory leaked into the shipped tree: ${path.relative(REPO_ROOT, full)}`
           );
         }
         stack.push(full);
@@ -204,6 +281,9 @@ function main() {
 
   const partialBodies = registerPartials();
   const partialCorpus = partialBodies.join('\n');
+  const sharedNames = new Set(
+    listReferenceDir(SHARED_REFERENCES_DIR, '_references/')
+  );
 
   const skills = fs
     .readdirSync(TEMPLATES_DIR)
@@ -248,6 +328,29 @@ function main() {
         throw new Error(`${skill}: references missing script scripts/${script}`);
       }
     }
+
+    // Local sources win; a rendered pointer with no local file falls back to
+    // the shared directory. Anything else is a broken pointer.
+    const localDir = path.join(TEMPLATES_DIR, skill, REFERENCES_DIRNAME);
+    const toCopy = new Map();
+    for (const name of listReferenceDir(localDir, `${skill}/references/`)) {
+      if (sharedNames.has(name)) {
+        throw new Error(
+          `${skill}: references/${name} shadows _references/${name}; keep one`
+        );
+      }
+      toCopy.set(name, path.join(localDir, name));
+    }
+
+    for (const [, name] of output.matchAll(POINTER_PATTERN)) {
+      if (toCopy.has(name)) continue;
+      if (!sharedNames.has(name)) {
+        throw new Error(`${skill}: references missing file references/${name}`);
+      }
+      toCopy.set(name, path.join(SHARED_REFERENCES_DIR, name));
+    }
+
+    syncReferences(skill, targetDir, toCopy);
 
     fs.writeFileSync(path.join(targetDir, 'SKILL.md'), output, 'utf8');
     process.stdout.write(`  assembled ${skill}/SKILL.md\n`);

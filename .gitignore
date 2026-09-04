@@ -79,6 +79,9 @@ templates/harness/skills/*/scripts/
 # Generated SKILL.md (assembled from src/skill-prompts/)
 templates/harness/skills/*/SKILL.md
 
+# Generated references/*.md (copied from src/skill-prompts/ by build-skill-prompts.cjs)
+templates/harness/skills/*/references/
+
 # Worktrees
 /worktrees
 review.xml

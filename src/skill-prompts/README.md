@@ -12,11 +12,15 @@ Read [`AUTHORING.md`](./AUTHORING.md) before editing prompt content.
 ```text
 src/skill-prompts/
   _partials/                     # Shared *.md.hbs partials
+  _references/*.md               # Shared lookup files, copied into each skill
+                                 #   whose rendered SKILL.md names them
   skills/
     <name>/SKILL.md.hbs          # One source template per skill
+    <name>/references/*.md       # Skill-local lookup files, copied verbatim
 
 templates/harness/skills/
   <name>/SKILL.md                # Rendered output
+  <name>/references/*.md         # Copied lookup files
 ```
 
 The source skill directory determines the output skill directory.
@@ -38,9 +42,15 @@ The source skill directory determines the output skill directory.
 
 ## Build constraints
 
-The renderer writes only `templates/harness/skills/<name>/SKILL.md`. It does
-not delete, copy, or create paths under `templates/`. `build:skills` must create
-the target skill directories first.
+The renderer writes `templates/harness/skills/<name>/SKILL.md` and that skill's
+`references/*.md`. It resolves a `references/<file>.md` pointer in the rendered
+prompt against the skill's own `references/` first, then against `_references/`.
+It copies every skill-local file, and copies a shared file only into the skills
+whose rendered prompt names it. Copies are byte for byte; the renderer never
+compiles a reference file as Handlebars. It deletes any output reference file
+with no source and removes an output `references/` directory left empty.
+`references/` is the only directory it creates, and it writes nothing else under
+`templates/`. `build:skills` must create the target skill directories first.
 
 Partials remain under `src/` and never ship. Post-render validation rejects:
 
@@ -49,8 +59,11 @@ Partials remain under `src/` and never ship. Post-render validation rejects:
 - a missing `## Operating Procedure` heading;
 - unresolved Handlebars markers outside fenced code blocks;
 - HTML escaping not present in the source;
-- missing referenced scripts; and
-- `.hbs` files or `_partials/` directories under `templates/`.
+- missing referenced scripts;
+- a non-flat or non-`.md` entry in `_references/` or a skill's `references/`;
+- a file name present in both a skill's `references/` and `_references/`;
+- a `references/<file>.md` pointer with no local and no shared source; and
+- `.hbs` files or `_partials/` or `_references/` directories under `templates/`.
 
 ## Editing prompts
 

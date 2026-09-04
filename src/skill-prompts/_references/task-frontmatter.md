@@ -1,0 +1,23 @@
+# Task frontmatter fields
+
+Required frontmatter fields:
+
+- `id` (integer)
+- `group` (string)
+- `dependencies` (array of task IDs, possibly empty)
+- `status` — `pending` for new tasks
+- `created` (YYYY-MM-DD)
+- `skills` (array of 1–2 kebab-case skills)
+
+Required additional frontmatter:
+
+- `complexity_score` (integer 1–10, required on every emitted task)
+
+Optional frontmatter:
+
+- `complexity_notes` (string) — include when the score needs justification,
+  such as "Decomposed from a cross-cutting parent task" or "Ambiguous API
+  contract".
+- `execution_profile` (string) — optional durable routing profile metadata.
+  Omit it during initial task emission; the routing helper writes it only
+  after validating the complete task-to-profile mapping.

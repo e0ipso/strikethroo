@@ -1,3 +1,7 @@
+## <small>3.21.2 (2026-09-04)</small>
+
+* refactor(prompts): extract prompt lookups (#89) ([1dc8b93](https://github.com/e0ipso/strikethroo/commit/1dc8b93)), closes [#89](https://github.com/e0ipso/strikethroo/issues/89)
+
 ## <small>3.21.1 (2026-09-04)</small>
 
 * refactor(prompts): state each contract once (#88) ([302726d](https://github.com/e0ipso/strikethroo/commit/302726d)), closes [#88](https://github.com/e0ipso/strikethroo/issues/88)

@@ -234,21 +234,8 @@ When generating test tasks, keep this constraint:
 and edge cases specific to this application. Test *your* code, not the
 framework or library.
 
-**When TO write tests:**
-
-- Custom business logic and algorithms.
-- Critical user workflows and data transformations.
-- Edge cases and error conditions for core functionality.
-- Integration points between components.
-- Complex validation logic or calculations.
-
-**When NOT to write tests:**
-
-- Third-party library functionality.
-- Framework features.
-- Simple CRUD operations without custom logic.
-- Trivial getters/setters or static configuration.
-- Obvious functionality that would break immediately if incorrect.
+Before writing any test task, read `references/test-philosophy.md`; it lists
+what deserves a test and what does not.
 
 **Test task creation rules:**
 
@@ -258,8 +245,9 @@ framework or library.
 - Avoid one test task per CRUD operation.
 - Question whether simple functions need a dedicated test task.
 
-If any test task is generated, restate this section verbatim or near-verbatim
-in that task's "Implementation Notes" so the executing agent applies it.
+If any test task is generated, restate this section and the reference file
+verbatim or near-verbatim in that task's "Implementation Notes" so the
+executing agent applies them.
 
 #### 6. Dependency analysis
 
@@ -275,14 +263,8 @@ final dependency graph is acyclic.
 #### 7. Complexity analysis
 
 For every candidate task, assign a `complexity_score` (integer 1–10) before
-writing any file. Base the score on these four dimensions:
-
-| Score | Skill breadth | Acceptance-criteria clarity | Integration surface | Decomposition depth |
-| --- | --- | --- | --- | --- |
-| 1–3 | One well-known skill | Criteria are concrete and observable | None or a single file/module | No further split possible |
-| 4–5 | One primary skill plus a familiar adjacent skill | Criteria are clear with few edge cases | One component or API boundary | Already atomic |
-| 6–7 | Two distinct skills, or one skill with ambiguous requirements | Criteria need clarification or have multiple edge cases | Multiple components or contracts | Could still be split |
-| 8–10 | Three or more skills, or cross-cutting design decisions | Criteria are vague, unknown, or depend on unresolved choices | Wide integration surface or external systems | Must be decomposed further |
+writing any file. Read `references/complexity-rubric.md` before scoring; it
+defines the four dimensions each band is judged on.
 
 **Pre-emission sanity rules** — apply these before any task is written:
 
@@ -319,28 +301,9 @@ Write each task to:
 <root>/plans/<plan-dir-name>/tasks/{padded-id}--{slug}.md
 ```
 
-Each file must conform to `<root>/config/templates/TASK_TEMPLATE.md`,
-including required frontmatter fields:
-
-- `id` (integer)
-- `group` (string)
-- `dependencies` (array of task IDs, possibly empty)
-- `status` — `pending` for new tasks
-- `created` (YYYY-MM-DD)
-- `skills` (array of 1–2 kebab-case skills)
-
-Required additional frontmatter:
-
-- `complexity_score` (integer 1–10, required on every emitted task)
-
-Optional frontmatter:
-
-- `complexity_notes` (string) — include when the score needs justification,
-  such as "Decomposed from a cross-cutting parent task" or "Ambiguous API
-  contract".
-- `execution_profile` (string) — optional durable routing profile metadata.
-  Omit it during initial task emission; the routing helper writes it only
-  after validating the complete task-to-profile mapping.
+Each file must conform to `<root>/config/templates/TASK_TEMPLATE.md`. Read
+`references/task-frontmatter.md` when filling the frontmatter; it lists every
+field, its type, and when the optional ones apply.
 
 The body sections (Objective, Skills Required, Acceptance Criteria, Technical
 Requirements, Input Dependencies, Output Artifacts, Implementation Notes)

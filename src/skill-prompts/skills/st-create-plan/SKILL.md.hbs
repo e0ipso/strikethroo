@@ -6,15 +6,11 @@ description: Use when the user asks to draft, scope, or write up a new Strikethr
 # st-create-plan
 
 Drive the end-to-end creation of a new Strikethroo plan for the user's
-repository. The skill is assistant-agnostic and self-contained: every script
-it invokes lives under this skill's `scripts/` directory and is referenced
-by relative path.
+repository.
 
 ## Inputs
 
-The user's request supplies the work order. Treat it as the only authoritative
-source of intent. Do not invent answers to clarifying questions — prompt the
-user instead.
+The user's request supplies the work order.
 
 ## Operating Procedure
 
@@ -36,9 +32,6 @@ Follow the clarification cadence in `<root>/config/shared/clarification-gate.md`
 
 ## Failure Modes
 
-{{> failure-modes}}
-- **User refuses to answer a clarifying question that blocks planning.**
-  Report `needs-clarification` and stop. Do not produce a plan.
 - **Plan directory already exists for the allocated ID.** Re-run the
   next-plan-id script (a concurrent run may have advanced it) and retry once.
   If the conflict persists, stop and report.

@@ -13,28 +13,11 @@ description: Use when the blueprint execution gate asks for an independent secon
 
 Review a Strikethroo plan's cumulative diff as an independent reviewer, running on a different harness than the one that wrote the code. `<root>` is the workspace root the dispatch supplies.
 
-**You detect. You never fix.** Do not edit files, run formatters, or commit. Your output is one findings document plus a count report. Raising nothing is a correct and common result. Report it and stop.
-
 Your findings are recorded, not applied. The implementer reads them and decides what to act on, so write each one to be judged on its evidence rather than to survive a filter.
 
 ## Grading
 
-Severity is impact **if the finding is real**. Confidence is **how sure you are that it is real**. Both are advisory labels that help whoever reads the review sort it. Nothing is filtered on them and nothing is applied automatically, so there is no floor to clear and no reason to inflate either one. Grade honestly. A `low` confidence finding that is marked `low` is useful; the same finding marked `high` is a trap.
-
-| `severity` | Impact if real. Never confidence, never fix cost. |
-| --- | --- |
-| `critical` | Data loss, a security hole, or a crash on a path real usage reaches. |
-| `major` | Wrong behaviour or a broken declared contract on a reached path, or a stated requirement left unmet. |
-| `minor` | Real but bounded. Behaviour is correct today. |
-| `info` | No defect. A recorded observation. |
-
-| `confidence` | An evidentiary test, never a feel. |
-| --- | --- |
-| `high` | Traceable from the diff and the files you read. No assumption about unseen code, unseen callers, or unstated requirements. |
-| `medium` | Exactly one unverified assumption, written out explicitly in the body. |
-| `low` | You imagined the failure rather than traced it, or it rests on two or more unverified assumptions. |
-
-Wording changes nothing. A confident sentence resting on an unread caller is `medium`.
+Grade `severity` and `confidence` per `<root>/config/hooks/CODE_REVIEW.md`, which is authoritative.
 
 ## Anti-rationalization
 
@@ -71,17 +54,15 @@ Emit one document in the `urn:self-review:v2` namespace. It must validate agains
 
 **Never emit a `<suggestion>`.** The element exists so that a human reviewer can hand the implementer exact replacement text, and whatever it contains gets applied verbatim, without anyone reading it first. You are not a human reviewer. Describe the fix in the `<body>` and leave the writing of it to the implementer.
 
-**Delivery.** Print the document between the dispatch's BEGIN/END delimiters, copied exactly, as the last thing you print, with nothing after the closing line. The orchestrator reads that block and nothing else. Never write the document to a file. Never invent a token. Being unable to read the repository is not a reason to emit the block. A review you could not perform is a failed review, so report it as one.
-
 ## Operating Procedure
 
 Each step ends only when its exit criterion holds.
 
 1. **Read `<root>/config/hooks/CODE_REVIEW.md`.** It is authoritative and beats this prompt wherever they disagree. Exit: you can state the finding categories in scope from that file.
 2. **Read the dispatched plan in full.** Exit: you have written down the explicit requirements this diff answers to. Nothing off that list can produce a `requirement-conformance` finding.
-3. **Read the cumulative diff.** Compare the base commit against the **current working tree** using `git diff <base>`, never `<base>..HEAD`, which drops the uncommitted post-execution cleanup that belongs in scope. Read the whole diff. You run once, so never schedule, request, or simulate a second pass. Exit: every changed file is enumerated and will get a `<file>` element.
+3. **Read the cumulative diff.** Compare the base commit against the **current working tree** using `git diff <base>`, never `<base>..HEAD`, which misses uncommitted work. Read the whole diff. You run once, so never schedule, request, or simulate a second pass. Exit: every changed file is enumerated and will get a `<file>` element.
 4. **Run the blast-radius pass.** Take each symbol the diff renamed, resignatured, deleted, or gave new behaviour. Search the repository and read every hit outside the diff. A callsite that now receives a different shape, arity, or error contract is a `defect`, and that callsite is its evidence. This is targeted expansion, not whole-codebase review. Exit: you searched every changed symbol and read every out-of-diff callsite, or noted one as unread in the body of the finding that depends on it.
-5. **Critique each candidate.** Assign one of exactly two categories, and discard the candidate if neither fits. `requirement-conformance` means the code does not do what the plan explicitly asked for. `defect` means it crashes, produces wrong behaviour, violates a contract it declares, opens a security hole, loses data, or breaks something else the plan built. Cite evidence: the file, the line range, and the concrete input or state that produces the failure. Trace it to a requirement from step 2, or to a defect the code demonstrates as written. Grade both attributes. Check the sentence you just wrote against the table above. Attach no `<suggestion>`. Exit: every emitted finding carries a category, evidence, a trace, and both attributes. Drop anything short of that, or grade it honestly as the weak finding it is.
+5. **Critique each candidate.** Assign one of exactly two categories, and discard the candidate if neither fits. `requirement-conformance` means the code does not do what the plan explicitly asked for. `defect` means it crashes, produces wrong behaviour, violates a contract it declares, opens a security hole, loses data, or breaks something else the plan built. Cite evidence: the file, the line range, and the concrete input or state that produces the failure. Trace it to a requirement from step 2, or to a defect the code demonstrates as written. Grade both attributes against the mandate hook read in step 1. Attach no `<suggestion>`. Exit: every emitted finding carries a category, evidence, a trace, and both attributes. Drop anything short of that, or grade it honestly as the weak finding it is.
 6. **Emit the document.** Exit: it declares `urn:self-review:v2`, has one `<file>` per changed file, and every `<comment>` carries both attributes.
 7. **Report** the total number of findings and how many carry each severity label. Exit: the counts match the document. Never claim a clean review without having emitted it.
 

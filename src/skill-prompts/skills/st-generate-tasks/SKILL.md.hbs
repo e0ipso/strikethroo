@@ -6,15 +6,11 @@ description: Use when the user asks to decompose, break down, or generate tasks 
 # st-generate-tasks
 
 Drive the end-to-end decomposition of an existing Strikethroo plan into
-atomic Markdown task files. The skill is assistant-agnostic and self-contained:
-every script it invokes lives under this skill's `scripts/` directory and is
-referenced by relative path.
+atomic Markdown task files.
 
 ## Inputs
 
-The user supplies the numeric plan ID conversationally. Treat it as the only
-authoritative source of intent. Do not invent answers to clarifying questions —
-prompt the user instead.
+The user supplies the numeric plan ID conversationally.
 
 ## Operating Procedure
 
@@ -45,13 +41,8 @@ prompt the user instead.
 
 ## Failure Modes
 
-{{> failure-modes}}
 - **User declines to clarify a blocking ambiguity.** Mark the affected tasks
   with `status: "needs-clarification"` and document the open question in the
   task's "Implementation Notes". Do not invent answers.
 - **A helper script fails unexpectedly.** Surface stderr to the user and
   stop — do not fall back to manual ID allocation or path discovery.
-- **Execution routing fails.** Surface the routing helper's JSON errors and
-  stop before blueprint generation. Do not guess profile assignments, do not
-  hand-write `execution_profile` or `execution` frontmatter, and do not continue with partially
-  routed tasks.

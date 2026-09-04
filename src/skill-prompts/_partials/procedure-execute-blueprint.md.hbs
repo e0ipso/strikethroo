@@ -11,9 +11,13 @@
 
 {{> plan-resolution}}
 
+Run `scripts/validate-plan-blueprint.cjs <plan-id> planDir` and treat the
+printed path as `<plan-dir>`.
+
 {{heading}} {{step_validate}}. Validate tasks and blueprint existence
 
-Inspect the `taskCount` and `blueprintExists` values returned by the validation script.
+Run `scripts/validate-plan-blueprint.cjs <plan-id> taskCount` and
+`scripts/validate-plan-blueprint.cjs <plan-id> blueprintExists`.
 
 {{heading}} {{step_generate}}. Auto-generate tasks and blueprint if missing
 
@@ -21,13 +25,13 @@ If `taskCount` is 0 or `blueprintExists` is `no`:
 
 - Notify the user: "Tasks or execution blueprint not found. Generating tasks automatically..."
 - {{> auto_generate_dispatch}}
-- After generation completes, re-run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` (and the other fields) to refresh the resolved paths and counts.
+- After generation completes, re-run the `planFile`, `planDir`, `taskCount`, and `blueprintExists` queries to refresh the resolved paths and counts.
 
 If generation still leaves the plan without tasks or a blueprint, stop and report failure. Do not attempt execution without a valid blueprint.
 
 {{heading}} {{step_branch}}. Optionally create a feature branch
 
-Run `scripts/create-feature-branch.cjs <plan-id>` once before phase execution. Branch creation is best-effort: when the script reports that it skipped creation (for example, not on `main`/`master`), continue on the current branch and do not retry or create a branch manually. Uncommitted or untracked changes are permitted only when every change is inside the repository-root `.ai/strikethroo` subtree, so a newly generated plan and tasks can remain uncommitted before execution. When the script exits with an error—including changes anywhere outside that subtree or an inability to inspect Git status on `main`/`master`—halt and report the error. Do not treat a skipped branch as a failure or spend effort working around a skip.
+Run `scripts/create-feature-branch.cjs <plan-id>` once before phase execution. Branch creation is best-effort: when the script reports that it skipped creation (for example, not on `main`/`master`), continue on the current branch and do not retry or create a branch manually. Uncommitted or untracked changes are permitted only when every change is inside the repository-root `.ai/strikethroo` subtree. When the script exits with an error—including changes anywhere outside that subtree or an inability to inspect Git status on `main`/`master`—halt and report the error. Do not treat a skipped branch as a failure or spend effort working around a skip.
 
 After the branch step, run `scripts/capture-base-commit.cjs <plan-id>` once. It records the commit the review gate diffs against. A `skipped` result is not a failure — continue execution and note that the review gate will skip. Only an `error` result halts.
 

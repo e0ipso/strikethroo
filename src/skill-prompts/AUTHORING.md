@@ -21,6 +21,15 @@ Prefer steps, checkpoints, and checkable rules over paragraphs of advice.
 
 - **No nuance clauses.** Never soften a hard rule with "unless it matters" or
   "use judgment" — that reopens a negotiation. Name real exceptions explicitly.
+- **Never restate a script's own output.** If a script prints a usage line or
+  a JSON contract, the prompt names the command and, for JSON, the field the
+  step reads. Not the full usage text, not the complete field list. The script
+  is the source of truth for what it prints; a prompt copy is a second copy
+  that can drift from it.
+- **Never carry packaging, install, or build facts.** Where a skill's scripts
+  live, how the skill is installed, or how the project is built are the
+  agent's environment, not something the agent acts on mid-procedure. That
+  belongs in `AGENTS.md` or `README.md`, not in a prompt step.
 - **Imperative phrasing.** "Run the proving command", not "you could run". Give
   the exact command/URL/log that proves the work; "verify it works" is not a check.
 - **Descriptions are triggers, not summaries.** Lead with "Use when…", list

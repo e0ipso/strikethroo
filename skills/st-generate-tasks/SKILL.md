@@ -6,23 +6,17 @@ description: Use when the user asks to decompose, break down, or generate tasks 
 # st-generate-tasks
 
 Drive the end-to-end decomposition of an existing Strikethroo plan into
-atomic Markdown task files. The skill is assistant-agnostic and self-contained:
-every script it invokes lives under this skill's `scripts/` directory and is
-referenced by relative path.
+atomic Markdown task files.
 
 ## Inputs
 
-The user supplies the numeric plan ID conversationally. Treat it as the only
-authoritative source of intent. Do not invent answers to clarifying questions —
-prompt the user instead.
+The user supplies the numeric plan ID conversationally.
 
 ## Operating Procedure
 
 ### 1. Locate the strikethroo root
 
 Run `scripts/find-strikethroo-root.cjs` from the user's working directory.
-The script walks up looking for `.ai/strikethroo/.init-metadata.json` and
-prints the absolute path of the resolved root on success.
 
 If the script exits non-zero, the working directory is not inside an
 initialized strikethroo workspace. Stop and ask the user to run the project
@@ -34,14 +28,8 @@ For every subsequent step, treat the path printed by this script as `<root>`.
 ### 2. Resolve the plan
 
 Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` to obtain the
-absolute path of the plan file. The same script also accepts these field
-names (single-field output mode) and exposes them on demand:
-
-- `planDir` — absolute path of the plan directory
-- `taskCount` — number of existing task files in that plan's `tasks/`
-- `blueprintExists` — `yes` or `no`
-- `taskManagerRoot` — absolute path of `<root>`
-- `planId` — the resolved numeric plan ID
+absolute path of the plan file. Passing a different field name prints that
+field alone.
 
 If the script exits non-zero, stop and ask the user to confirm the plan ID.
 Do not guess a different ID.
@@ -182,12 +170,6 @@ writing any file. Base the score on these four dimensions:
 - Score 6–7 → either sharpen criteria or split; do not emit without an
   explicit reason.
 
-**Required frontmatter:**
-
-- Every emitted task MUST include `complexity_score` (integer 1–10).
-- Optionally include `complexity_notes` when the score needs justification,
-  such as "Ambiguous API contract" or "Decomposed from a higher-score parent".
-
 **Loop-back rule:**
 
 After applying split, sharpen, or merge, re-run dependency analysis and
@@ -265,9 +247,6 @@ Before declaring task generation complete, verify:
   unless it prints `yes`; if it prints `no`, run
   `scripts/validate-plan-blueprint.cjs <plan-id> invalidComplexityTasks` to see
   which files are missing, non-integer, or out-of-range, fix them, and re-run.
-  Every generated task must carry an integer `complexity_score` from 1 to 10.
-- Add `complexity_notes` only when a score needs explanation (typically atomic
-  tasks scoring greater than 4).
 
 ### 12. Route task execution
 
@@ -333,17 +312,8 @@ The summary is consumed by downstream automation; keep the format exact.
 
 ## Failure Modes
 
-- **No strikethroo root found.** Stop and instruct the user to initialize the
-  project. Do not write any files or execute any tasks.
-- **Plan ID does not resolve, or the plan-ID script fails.** Re-check the
-  resolved root and re-run. If it continues to fail, surface the script's
-  stderr to the user and stop. Do not guess an ID and do not write any files.
 - **User declines to clarify a blocking ambiguity.** Mark the affected tasks
   with `status: "needs-clarification"` and document the open question in the
   task's "Implementation Notes". Do not invent answers.
 - **A helper script fails unexpectedly.** Surface stderr to the user and
   stop — do not fall back to manual ID allocation or path discovery.
-- **Execution routing fails.** Surface the routing helper's JSON errors and
-  stop before blueprint generation. Do not guess profile assignments, do not
-  hand-write `execution_profile` or `execution` frontmatter, and do not continue with partially
-  routed tasks.

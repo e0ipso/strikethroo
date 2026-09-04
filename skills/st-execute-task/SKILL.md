@@ -6,9 +6,6 @@ description: Use when the user asks to run, execute, or implement one specific t
 # st-execute-task
 
 Drive the execution of a single task within an existing Strikethroo plan.
-The skill is assistant-agnostic and self-contained: every script it invokes
-lives under this skill's `scripts/` directory and is referenced by relative
-path.
 
 ## Critical Rules
 
@@ -20,24 +17,10 @@ path.
 
 ## Inputs
 
-The user supplies the numeric plan ID and task ID conversationally. Treat them
-as the only authoritative source of intent. Do not invent answers to
-clarifying questions — prompt the user instead.
+The user supplies the numeric plan ID and task ID conversationally.
 
 ## Failure Modes
 
-- **No strikethroo root found.** Stop and instruct the user to initialize the
-  project. Do not execute the task.
-- **Plan ID does not resolve.** Stop and surface the script's stderr to the
-  user. Do not guess a different ID.
-- **Task file not found.** Stop and list available tasks in the plan to help
-  the user identify the correct task ID.
-- **Task status blocks execution.** If the task is `completed`,
-  `in-progress`, or `needs-clarification`, halt and provide guidance on
-  resolving the blocker.
-- **Dependency validation failure.** If `scripts/check-task-dependencies.cjs`
-  exits 1, stop and report unresolved dependencies. Do not proceed until they
-  are satisfied.
 - **Execution or hook failure.** If `PRE_TASK_EXECUTION.md`,
   `PRE_TASK_ASSIGNMENT.md`, or `POST_ERROR_DETECTION.md` fails, or the
   implementing agent encounters an unrecoverable error, set the task status
@@ -49,8 +32,6 @@ clarifying questions — prompt the user instead.
 ### 1. Locate the strikethroo root
 
 Run `scripts/find-strikethroo-root.cjs` from the user's working directory.
-The script walks up looking for `.ai/strikethroo/.init-metadata.json` and
-prints the absolute path of the resolved root on success.
 
 If the script exits non-zero, the working directory is not inside an
 initialized strikethroo workspace. Stop and ask the user to run the project
@@ -62,19 +43,14 @@ For every subsequent step, treat the path printed by this script as `<root>`.
 ### 2. Resolve the plan
 
 Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` to obtain the
-absolute path of the plan file. The same script also accepts these field
-names (single-field output mode) and exposes them on demand:
-
-- `planDir` — absolute path of the plan directory
-- `taskCount` — number of existing task files in that plan's `tasks/`
-- `blueprintExists` — `yes` or `no`
-- `taskManagerRoot` — absolute path of `<root>`
-- `planId` — the resolved numeric plan ID
+absolute path of the plan file. Passing a different field name prints that
+field alone.
 
 If the script exits non-zero, stop and ask the user to confirm the plan ID.
 Do not guess a different ID.
 
-Treat the plan directory path returned by this script as `<plan-dir>`.
+Run `scripts/validate-plan-blueprint.cjs <plan-id> planDir` and treat the
+printed path as `<plan-dir>`.
 
 ### 3. Validate the task file
 
@@ -104,17 +80,6 @@ If execution is blocked, stop and explain why, including guidance on how
 to resolve the blocker (e.g., use execute-blueprint to re-execute a completed
 task, or resolve clarification questions first).
 
-#### Valid Status Transitions
-
-Reference for orchestrators and execution flow:
-
-- `pending` → `in-progress` (execution starts)
-- `in-progress` → `completed` (successful execution)
-- `in-progress` → `failed` (execution error)
-- `failed` → `in-progress` (retry attempt)
-- `pending` → `needs-clarification` (set externally by orchestrator or reviewer)
-- `needs-clarification` → `pending` (clarification resolved, set externally)
-
 ### 5. Validate dependencies
 
 Run `scripts/check-task-dependencies.cjs <plan-id> <task-id>`. The script
@@ -136,41 +101,45 @@ Preserve all other frontmatter fields exactly.
 
 ### 8. Execute the task
 
-Before deploying an agent, resolve the route without launching task work:
+Resolve the route before deploying any agent; resolution launches no task
+work:
 
 ```text
 scripts/dispatch-task-execution.cjs resolve <task-file> <current-harness> <workspace> <plan-id> <task-id>
 ```
 
+External execution uses:
+
+```text
+scripts/dispatch-task-execution.cjs execute <handoff> <task-file> <current-harness> <workspace> <plan-id> <task-id>
+```
+
 `<current-harness>` is the exact supported harness identifier running this
-skill; `<workspace>` is the project working directory. Read the one-line JSON
-result and act exactly once:
+skill; `<workspace>` is the project working directory.
 
-- `native-default`: use the ordinary native Task dispatch below with no
-  execution-setting prose.
-- `native-override`: use native dispatch and explicitly require the subagent
-  to use the exact returned `model`. Mention `reasoningEffort` only when that
-  property is present.
-- `external-override`: invoke the execute operation below with the exact opaque
-  `handoff` returned by resolution. Do not reconstruct the handoff or rerun
-  resolution; execute validates it and does not reread routing configuration.
+Interpret the one-line JSON result and act on its `kind` exactly once:
 
-  ```text
-  scripts/dispatch-task-execution.cjs execute <handoff> <task-file> <current-harness> <workspace> <plan-id> <task-id>
-  ```
+| `kind` | Required action |
+| --- | --- |
+| `native-default` | Dispatch natively with no execution-setting prose. |
+| `native-override` | Dispatch natively, explicitly requiring the exact returned `model`. Require the returned `reasoningEffort` only when that property is present. |
+| `external-override` | Run the `execute` command with the returned `handoff`, then read its result against this same table. |
+| `fallback` | Nothing launched. Record the returned `reason` and `detail` visibly, then dispatch natively with no execution-setting prose. Either command can return it. |
+| `launched-success` | The external process exited zero. Do not dispatch natively; review status and evidence as you would for a native agent. |
+| `launched-failure` | A failed task. Set its status to `failed` and run `<root>/config/hooks/POST_ERROR_DETECTION.md`. Never retry it natively. |
+| `infrastructure-failure` | A failed task. Set its status to `failed` and run `<root>/config/hooks/POST_ERROR_DETECTION.md`. Never retry it natively. |
 
-  Interpret that result using the remaining outcomes below.
-- `fallback`: visibly record the returned reason and detail, then use ordinary
-  native dispatch with no execution-setting prose. This is a pre-launch
-  fallback only.
-- `launched-success`: the external harness has completed the task; do not
-  dispatch a native agent. Continue directly with status and evidence review.
-- `launched-failure` (the script exits 1): treat it as an execution failure.
-  Do not dispatch or retry natively; follow steps 9–11's failed-status and
-  error-hook path.
+Handoff and exit rules:
 
-For either native dispatch outcome, deploy an agent using your internal Task
-tool. The agent MUST perform these steps in order:
+- Pass the exact opaque `handoff` string the resolver returned for that task. Never reconstruct one.
+- Never reuse a handoff for another task, and never rerun resolution after launches begin.
+- `execute` validates the handoff and does not reread routing configuration.
+- The command emits exactly one JSON line. Exit code `2` is an infrastructure failure; exit code `1` is a launched task failure.
+
+Steps 9–11 are this skill's failed-status and error-hook path.
+
+For a native dispatch, deploy an agent using your internal Task tool. The agent
+MUST perform these steps in order:
 
 1. **Pre-flight validation**: Read and execute
    `<root>/config/hooks/PRE_TASK_EXECUTION.md` before starting any

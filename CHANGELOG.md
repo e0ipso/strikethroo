@@ -1,3 +1,8 @@
+## <small>3.21.1 (2026-09-04)</small>
+
+* refactor(prompts): state each contract once (#88) ([302726d](https://github.com/e0ipso/strikethroo/commit/302726d)), closes [#88](https://github.com/e0ipso/strikethroo/issues/88)
+* chore: update routing model matrix defaults ([ced4a45](https://github.com/e0ipso/strikethroo/commit/ced4a45))
+
 ## 3.21.0 (2026-09-02)
 
 * feat: streamline review gate contract (#87) ([7316b1b](https://github.com/e0ipso/strikethroo/commit/7316b1b)), closes [#87](https://github.com/e0ipso/strikethroo/issues/87)

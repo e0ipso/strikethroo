@@ -6,23 +6,17 @@ description: Use when the user asks to draft, scope, or write up a new Strikethr
 # st-create-plan
 
 Drive the end-to-end creation of a new Strikethroo plan for the user's
-repository. The skill is assistant-agnostic and self-contained: every script
-it invokes lives under this skill's `scripts/` directory and is referenced
-by relative path.
+repository.
 
 ## Inputs
 
-The user's request supplies the work order. Treat it as the only authoritative
-source of intent. Do not invent answers to clarifying questions — prompt the
-user instead.
+The user's request supplies the work order.
 
 ## Operating Procedure
 
 ### 1. Locate the strikethroo root
 
 Run `scripts/find-strikethroo-root.cjs` from the user's working directory.
-The script walks up looking for `.ai/strikethroo/.init-metadata.json` and
-prints the absolute path of the resolved root on success.
 
 If the script exits non-zero, the working directory is not inside an
 initialized strikethroo workspace. Stop and ask the user to run the project
@@ -123,13 +117,6 @@ The summary is consumed by downstream automation; keep the format exact.
 
 ## Failure Modes
 
-- **No strikethroo root found.** Stop and instruct the user to initialize the
-  project. Do not write any files or execute any tasks.
-- **Plan ID does not resolve, or the plan-ID script fails.** Re-check the
-  resolved root and re-run. If it continues to fail, surface the script's
-  stderr to the user and stop. Do not guess an ID and do not write any files.
-- **User refuses to answer a clarifying question that blocks planning.**
-  Report `needs-clarification` and stop. Do not produce a plan.
 - **Plan directory already exists for the allocated ID.** Re-run the
   next-plan-id script (a concurrent run may have advanced it) and retry once.
   If the conflict persists, stop and report.

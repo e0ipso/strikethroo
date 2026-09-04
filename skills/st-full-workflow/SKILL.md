@@ -5,7 +5,7 @@ description: Use when the user asks to run the complete end-to-end Strikethroo w
 
 # st-full-workflow
 
-Drive the complete end-to-end Strikethroo workflow from initial plan creation through final blueprint execution and archival. The skill is assistant-agnostic and self-contained: every script it invokes lives under this skill's `scripts/` directory and is referenced by relative path.
+Drive the complete end-to-end Strikethroo workflow from initial plan creation through final blueprint execution and archival.
 
 ## Critical Rule
 
@@ -13,7 +13,7 @@ Execute all three steps sequentially without waiting for user input between them
 
 ## Inputs
 
-The user supplies the work order conversationally. Treat it as the only authoritative source of intent. Do not invent answers to clarifying questions — prompt the user instead.
+The user supplies the work order conversationally.
 
 ## Context Passing Between Steps
 
@@ -43,8 +43,6 @@ These indicators are purely informational. Do not pause or wait for user input w
 #### 1. Locate the strikethroo root
 
 Run `scripts/find-strikethroo-root.cjs` from the user's working directory.
-The script walks up looking for `.ai/strikethroo/.init-metadata.json` and
-prints the absolute path of the resolved root on success.
 
 If the script exits non-zero, the working directory is not inside an
 initialized strikethroo workspace. Stop and ask the user to run the project
@@ -153,14 +151,8 @@ Using the Plan ID extracted from Step 1:
 #### 1. Resolve the plan
 
 Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` to obtain the
-absolute path of the plan file. The same script also accepts these field
-names (single-field output mode) and exposes them on demand:
-
-- `planDir` — absolute path of the plan directory
-- `taskCount` — number of existing task files in that plan's `tasks/`
-- `blueprintExists` — `yes` or `no`
-- `taskManagerRoot` — absolute path of `<root>`
-- `planId` — the resolved numeric plan ID
+absolute path of the plan file. Passing a different field name prints that
+field alone.
 
 If the script exits non-zero, surface its stderr to the user and stop the
 workflow.
@@ -302,12 +294,6 @@ writing any file. Base the score on these four dimensions:
 - Score 6–7 → either sharpen criteria or split; do not emit without an
   explicit reason.
 
-**Required frontmatter:**
-
-- Every emitted task MUST include `complexity_score` (integer 1–10).
-- Optionally include `complexity_notes` when the score needs justification,
-  such as "Ambiguous API contract" or "Decomposed from a higher-score parent".
-
 **Loop-back rule:**
 
 After applying split, sharpen, or merge, re-run dependency analysis and
@@ -385,9 +371,6 @@ Before declaring task generation complete, verify:
   unless it prints `yes`; if it prints `no`, run
   `scripts/validate-plan-blueprint.cjs <plan-id> invalidComplexityTasks` to see
   which files are missing, non-integer, or out-of-range, fix them, and re-run.
-  Every generated task must carry an integer `complexity_score` from 1 to 10.
-- Add `complexity_notes` only when a score needs explanation (typically atomic
-  tasks scoring greater than 4).
 
 #### 11. Route task execution
 
@@ -464,22 +447,20 @@ Using the Plan ID from the previous phases:
 #### 1. Resolve the plan
 
 Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` to obtain the
-absolute path of the plan file. The same script also accepts these field
-names (single-field output mode) and exposes them on demand:
-
-- `planDir` — absolute path of the plan directory
-- `taskCount` — number of existing task files in that plan's `tasks/`
-- `blueprintExists` — `yes` or `no`
-- `taskManagerRoot` — absolute path of `<root>`
-- `planId` — the resolved numeric plan ID
+absolute path of the plan file. Passing a different field name prints that
+field alone.
 
 If the script exits non-zero, surface its stderr to the user and stop the
 workflow.
 Do not guess a different ID.
 
+Run `scripts/validate-plan-blueprint.cjs <plan-id> planDir` and treat the
+printed path as `<plan-dir>`.
+
 #### 2. Validate tasks and blueprint existence
 
-Inspect the `taskCount` and `blueprintExists` values returned by the validation script.
+Run `scripts/validate-plan-blueprint.cjs <plan-id> taskCount` and
+`scripts/validate-plan-blueprint.cjs <plan-id> blueprintExists`.
 
 #### 3. Auto-generate tasks and blueprint if missing
 
@@ -487,13 +468,13 @@ If `taskCount` is 0 or `blueprintExists` is `no`:
 
 - Notify the user: "Tasks or execution blueprint not found. Generating tasks automatically..."
 - Execute the full task generation procedure from Step 2 for this plan ID.
-- After generation completes, re-run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` (and the other fields) to refresh the resolved paths and counts.
+- After generation completes, re-run the `planFile`, `planDir`, `taskCount`, and `blueprintExists` queries to refresh the resolved paths and counts.
 
 If generation still leaves the plan without tasks or a blueprint, stop and report failure. Do not attempt execution without a valid blueprint.
 
 #### 4. Optionally create a feature branch
 
-Run `scripts/create-feature-branch.cjs <plan-id>` once before phase execution. Branch creation is best-effort: when the script reports that it skipped creation (for example, not on `main`/`master`), continue on the current branch and do not retry or create a branch manually. Uncommitted or untracked changes are permitted only when every change is inside the repository-root `.ai/strikethroo` subtree, so a newly generated plan and tasks can remain uncommitted before execution. When the script exits with an error—including changes anywhere outside that subtree or an inability to inspect Git status on `main`/`master`—halt and report the error. Do not treat a skipped branch as a failure or spend effort working around a skip.
+Run `scripts/create-feature-branch.cjs <plan-id>` once before phase execution. Branch creation is best-effort: when the script reports that it skipped creation (for example, not on `main`/`master`), continue on the current branch and do not retry or create a branch manually. Uncommitted or untracked changes are permitted only when every change is inside the repository-root `.ai/strikethroo` subtree. When the script exits with an error—including changes anywhere outside that subtree or an inability to inspect Git status on `main`/`master`—halt and report the error. Do not treat a skipped branch as a failure or spend effort working around a skip.
 
 After the branch step, run `scripts/capture-base-commit.cjs <plan-id>` once. It records the commit the review gate diffs against. A `skipped` result is not a failure — continue execution and note that the review gate will skip. Only an `error` result halts.
 
@@ -526,37 +507,38 @@ scripts/dispatch-task-execution.cjs resolve <task-file> <current-harness> <works
 ```
 
 Resolvers never launch external processes. After interpreting all route results, issue
-all `external-override` executions and all native Task-tool agents **together in one
-parallel tool operation**. External execution uses:
+every external execution and every native Task-tool agent **together in one parallel
+tool operation**. External execution uses:
 
 ```text
 scripts/dispatch-task-execution.cjs execute <handoff> <task-file> <current-harness> <workspace> <plan-id> <task-id>
 ```
 
-`<handoff>` is the exact opaque `handoff` string returned by that task's
-`external-override` resolver result. Never reconstruct it, reuse it for another
-task, or rerun resolution after launches begin. Execute validates the handoff
-and does not reread routing configuration, so configuration changes cannot
-alter an already selected target.
-
 This two-step protocol is mandatory: do not execute external tasks during route
 resolution, do not serialize external commands, and do not wait for external completion
-before launching ready native agents. If an execute-time pre-flight returns `fallback`,
-record its reason and immediately launch the ordinary native path without override prose.
+before launching ready native agents.
 
 `<current-harness>` is the exact supported harness identifier running this
-skill and `<workspace>` is the project working directory. Interpret its JSON
-result before choosing a route: `native-default` uses ordinary native dispatch;
-`native-override` uses native dispatch with explicit exact-model prose and
-reasoning-effort prose only when returned; `fallback` visibly records its
-reason then uses ordinary native dispatch with no override prose;
-`launched-success` has already completed externally and receives normal status
-and evidence review; `launched-failure` is a failed task and must enter the
-existing error-hook/status path without any native retry; `infrastructure-failure`
-is also a failed task, must be marked failed, and must run
-`<root>/config/hooks/POST_ERROR_DETECTION.md` without native retry. The command
-always emits exactly one JSON line; exit code `2` identifies entrypoint/infrastructure
-failure while exit code `1` identifies a launched task failure.
+skill; `<workspace>` is the project working directory.
+
+Interpret the one-line JSON result and act on its `kind` exactly once:
+
+| `kind` | Required action |
+| --- | --- |
+| `native-default` | Dispatch natively with no execution-setting prose. |
+| `native-override` | Dispatch natively, explicitly requiring the exact returned `model`. Require the returned `reasoningEffort` only when that property is present. |
+| `external-override` | Run the `execute` command with the returned `handoff`, then read its result against this same table. |
+| `fallback` | Nothing launched. Record the returned `reason` and `detail` visibly, then dispatch natively with no execution-setting prose. Either command can return it. |
+| `launched-success` | The external process exited zero. Do not dispatch natively; review status and evidence as you would for a native agent. |
+| `launched-failure` | A failed task. Set its status to `failed` and run `<root>/config/hooks/POST_ERROR_DETECTION.md`. Never retry it natively. |
+| `infrastructure-failure` | A failed task. Set its status to `failed` and run `<root>/config/hooks/POST_ERROR_DETECTION.md`. Never retry it natively. |
+
+Handoff and exit rules:
+
+- Pass the exact opaque `handoff` string the resolver returned for that task. Never reconstruct one.
+- Never reuse a handoff for another task, and never rerun resolution after launches begin.
+- `execute` validates the handoff and does not reread routing configuration.
+- The command emits exactly one JSON line. Exit code `2` is an infrastructure failure; exit code `1` is a launched task failure.
 
 Deploy all remaining native agents simultaneously using your internal Task tool. Each agent MUST:
 
@@ -564,8 +546,6 @@ Deploy all remaining native agents simultaneously using your internal Task tool.
 2. Execute the task according to its requirements.
 3. Monitor execution progress and capture outputs and artifacts.
 4. Update task status in real-time.
-
-Maximize parallelism within each phase. Run every task that is ready at the same time.
 
 ##### 6c. Phase completion verification
 Ensure every task in the phase has status `completed`. Collect and review all task outputs. Document any issues or exceptions encountered.
@@ -633,22 +613,13 @@ Append an execution summary section to the plan document using the format descri
 
 Move the completed plan directory from `<root>/plans/<plan-folder>` to `<root>/archive/<plan-folder>`.
 
-Preserve the entire folder structure (including all tasks and subdirectories) to maintain referential integrity. If the move fails, log the error but do not fail the overall execution — the implementation work is complete.
+Preserve the entire folder structure, including all tasks and subdirectories. If the move fails, log the error but do not fail the overall execution.
 
 **Progress**: `⬛⬛⬛ 100% - Step 3/3: Blueprint Execution Complete`
 
 ## Failure Modes
 
-- **No strikethroo root found.** Stop and instruct the user to initialize the
-  project. Do not write any files or execute any tasks.
-- **Plan ID does not resolve, or the plan-ID script fails.** Re-check the
-  resolved root and re-run. If it continues to fail, surface the script's
-  stderr to the user and stop. Do not guess an ID and do not write any files.
-- **User refuses to answer a clarifying question that blocks planning in Step 1.** Report `needs-clarification` and stop. Do not produce a partial plan.
 - **Plan directory already exists for the allocated ID in Step 1.** Re-run the next-plan-id script and retry once. If the conflict persists, stop and report.
-- **Execution routing fails in Step 2.** Surface the routing helper's JSON errors and stop before blueprint generation. Do not guess profile assignments, hand-write `execution_profile`, or continue with partially routed tasks.
-- **Missing blueprint after auto-generation in Step 3.** If automatic task generation fails to produce tasks or a blueprint, stop and report failure. Do not attempt execution without a blueprint.
-- **Hook failure during execution.** If `PRE_PHASE.md`, `POST_PHASE.md`, or `POST_EXECUTION.md` fails, halt execution. The plan remains in `plans/` for debugging and potential re-execution.
 - **Execution errors.** If a task fails, read `<root>/config/hooks/POST_ERROR_DETECTION.md`, document the error in Noteworthy Events, halt the phase, and request user direction before continuing.
 
 ## Execution Summary

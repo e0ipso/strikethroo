@@ -6,15 +6,11 @@ description: Use when the user asks to decompose, break down, or generate tasks 
 # st-generate-tasks
 
 Drive the end-to-end decomposition of an existing Strikethroo plan into
-atomic Markdown task files. The skill is assistant-agnostic and self-contained:
-every script it invokes lives under this skill's `scripts/` directory and is
-referenced by relative path.
+atomic Markdown task files.
 
 ## Inputs
 
-The user supplies the numeric plan ID conversationally. Treat it as the only
-authoritative source of intent. Do not invent answers to clarifying questions —
-prompt the user instead.
+The user supplies the numeric plan ID conversationally.
 
 ## Operating Procedure
 

@@ -1,0 +1,27 @@
+{{!--
+  The dispatch contract of `dispatch-task-execution.cjs`, shared by the phase
+  execution loop and st-execute-task. Both call sites print the resolve and
+  execute commands before calling this partial, and neither restates an outcome
+  kind afterwards. Keyed on the `kind` values the script's own result unions
+  emit; add a row here when a union gains one.
+--}}`<current-harness>` is the exact supported harness identifier running this
+skill; `<workspace>` is the project working directory.
+
+Interpret the one-line JSON result and act on its `kind` exactly once:
+
+| `kind` | Required action |
+| --- | --- |
+| `native-default` | Dispatch natively with no execution-setting prose. |
+| `native-override` | Dispatch natively, explicitly requiring the exact returned `model`. Require the returned `reasoningEffort` only when that property is present. |
+| `external-override` | Run the `execute` command with the returned `handoff`, then read its result against this same table. |
+| `fallback` | Nothing launched. Record the returned `reason` and `detail` visibly, then dispatch natively with no execution-setting prose. Either command can return it. |
+| `launched-success` | The external process exited zero. Do not dispatch natively; review status and evidence as you would for a native agent. |
+| `launched-failure` | A failed task. Set its status to `failed` and run `<root>/config/hooks/POST_ERROR_DETECTION.md`. Never retry it natively. |
+| `infrastructure-failure` | A failed task. Set its status to `failed` and run `<root>/config/hooks/POST_ERROR_DETECTION.md`. Never retry it natively. |
+
+Handoff and exit rules:
+
+- Pass the exact opaque `handoff` string the resolver returned for that task. Never reconstruct one.
+- Never reuse a handoff for another task, and never rerun resolution after launches begin.
+- `execute` validates the handoff and does not reread routing configuration.
+- The command emits exactly one JSON line. Exit code `2` is an infrastructure failure; exit code `1` is a launched task failure.

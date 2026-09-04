@@ -6,9 +6,6 @@ description: Use when the user asks to run, execute, or implement one specific t
 # st-execute-task
 
 Drive the execution of a single task within an existing Strikethroo plan.
-The skill is assistant-agnostic and self-contained: every script it invokes
-lives under this skill's `scripts/` directory and is referenced by relative
-path.
 
 ## Critical Rules
 
@@ -20,9 +17,7 @@ path.
 
 ## Inputs
 
-The user supplies the numeric plan ID and task ID conversationally. Treat them
-as the only authoritative source of intent. Do not invent answers to
-clarifying questions — prompt the user instead.
+The user supplies the numeric plan ID and task ID conversationally.
 
 ## Failure Modes
 
@@ -56,7 +51,8 @@ clarifying questions — prompt the user instead.
 {{#*inline "plan_resolution_failure"}}{{> plan-resolution-user-failure}}{{/inline}}
 {{/plan-resolution}}
 
-Treat the plan directory path returned by this script as `<plan-dir>`.
+Run `scripts/validate-plan-blueprint.cjs <plan-id> planDir` and treat the
+printed path as `<plan-dir>`.
 
 ### 3. Validate the task file
 
@@ -86,17 +82,6 @@ If execution is blocked, stop and explain why, including guidance on how
 to resolve the blocker (e.g., use execute-blueprint to re-execute a completed
 task, or resolve clarification questions first).
 
-#### Valid Status Transitions
-
-Reference for orchestrators and execution flow:
-
-- `pending` → `in-progress` (execution starts)
-- `in-progress` → `completed` (successful execution)
-- `in-progress` → `failed` (execution error)
-- `failed` → `in-progress` (retry attempt)
-- `pending` → `needs-clarification` (set externally by orchestrator or reviewer)
-- `needs-clarification` → `pending` (clarification resolved, set externally)
-
 ### 5. Validate dependencies
 
 Run `scripts/check-task-dependencies.cjs <plan-id> <task-id>`. The script
@@ -118,41 +103,25 @@ Preserve all other frontmatter fields exactly.
 
 ### 8. Execute the task
 
-Before deploying an agent, resolve the route without launching task work:
+Resolve the route before deploying any agent; resolution launches no task
+work:
 
 ```text
 scripts/dispatch-task-execution.cjs resolve <task-file> <current-harness> <workspace> <plan-id> <task-id>
 ```
 
-`<current-harness>` is the exact supported harness identifier running this
-skill; `<workspace>` is the project working directory. Read the one-line JSON
-result and act exactly once:
+External execution uses:
 
-- `native-default`: use the ordinary native Task dispatch below with no
-  execution-setting prose.
-- `native-override`: use native dispatch and explicitly require the subagent
-  to use the exact returned `model`. Mention `reasoningEffort` only when that
-  property is present.
-- `external-override`: invoke the execute operation below with the exact opaque
-  `handoff` returned by resolution. Do not reconstruct the handoff or rerun
-  resolution; execute validates it and does not reread routing configuration.
+```text
+scripts/dispatch-task-execution.cjs execute <handoff> <task-file> <current-harness> <workspace> <plan-id> <task-id>
+```
 
-  ```text
-  scripts/dispatch-task-execution.cjs execute <handoff> <task-file> <current-harness> <workspace> <plan-id> <task-id>
-  ```
+{{> dispatch-outcomes}}
 
-  Interpret that result using the remaining outcomes below.
-- `fallback`: visibly record the returned reason and detail, then use ordinary
-  native dispatch with no execution-setting prose. This is a pre-launch
-  fallback only.
-- `launched-success`: the external harness has completed the task; do not
-  dispatch a native agent. Continue directly with status and evidence review.
-- `launched-failure` (the script exits 1): treat it as an execution failure.
-  Do not dispatch or retry natively; follow steps 9–11's failed-status and
-  error-hook path.
+Steps 9–11 are this skill's failed-status and error-hook path.
 
-For either native dispatch outcome, deploy an agent using your internal Task
-tool. The agent MUST perform these steps in order:
+For a native dispatch, deploy an agent using your internal Task tool. The agent
+MUST perform these steps in order:
 
 1. **Pre-flight validation**: Read and execute
    `<root>/config/hooks/PRE_TASK_EXECUTION.md` before starting any

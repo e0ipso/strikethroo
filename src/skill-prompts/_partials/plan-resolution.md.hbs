@@ -2,14 +2,8 @@
   plan_resolution_failure is required. Standalone skills and st-full-workflow
   supply different failure actions at their call sites.
 --}}Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` to obtain the
-absolute path of the plan file. The same script also accepts these field
-names (single-field output mode) and exposes them on demand:
-
-- `planDir` — absolute path of the plan directory
-- `taskCount` — number of existing task files in that plan's `tasks/`
-- `blueprintExists` — `yes` or `no`
-- `taskManagerRoot` — absolute path of `<root>`
-- `planId` — the resolved numeric plan ID
+absolute path of the plan file. Passing a different field name prints that
+field alone.
 
 {{> plan_resolution_failure}}
 Do not guess a different ID.

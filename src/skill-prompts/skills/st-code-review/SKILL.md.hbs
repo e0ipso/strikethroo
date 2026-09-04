@@ -35,22 +35,7 @@ Read `<root>/config/shared/anti-rationalization.md`. Every row below is an excus
 
 ## Output
 
-Emit one document in the `urn:self-review:v2` namespace. It must validate against `<root>/config/schemas/self-review-v2.xsd`. Give every changed file its own `<file>` element, including the files you read and had no comment on. `path` is repository-relative. `change-type` is `added`, `modified`, `deleted`, or `renamed`. Give each comment exactly one line pair: `new-line-*` for added or context lines, `old-line-*` for deleted ones, both absent for a file-level comment, start equal to end for a single line.
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<review xmlns="urn:self-review:v2" timestamp="2026-07-27T09:41:00Z"
-        git-diff-args="a1b2c3d4" repository="/abs/path/to/repo">
-  <file path="src/parse.ts" change-type="modified" viewed="true">
-    <comment new-line-start="42" new-line-end="42" severity="major" confidence="high">
-      <body>Plan requirement "reject an empty id" is unmet: parseId("") returns
-      `{ ok: true }` because the length guard runs after the early return.</body>
-      <category>requirement-conformance</category>
-    </comment>
-  </file>
-  <file path="src/index.ts" change-type="added" viewed="true" />
-</review>
-```
+Emit one document in the `urn:self-review:v2` namespace. It must validate against `<root>/config/schemas/self-review-v2.xsd`. Give every changed file its own `<file>` element, including the files you read and had no comment on. `path` is repository-relative. `change-type` is `added`, `modified`, `deleted`, or `renamed`. Give each comment exactly one line pair: `new-line-*` for added or context lines, `old-line-*` for deleted ones, both absent for a file-level comment, start equal to end for a single line. Read `references/review-example.xml.md` before emitting; it shows a complete valid document with one commented file and one clean file.
 
 **Never emit a `<suggestion>`.** The element exists so that a human reviewer can hand the implementer exact replacement text, and whatever it contains gets applied verbatim, without anyone reading it first. You are not a human reviewer. Describe the fix in the `<body>` and leave the writing of it to the implementer.
 

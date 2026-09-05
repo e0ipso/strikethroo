@@ -13,7 +13,6 @@ Drive the execution of a single task within an existing Strikethroo plan.
 2. **Validate task status** — never execute tasks that are already completed, in-progress, or needs-clarification.
 3. **Maintain status integrity** — update task status throughout the execution lifecycle.
 4. **Document execution** — record all outcomes and issues encountered.
-5. **Provide structured output** — always emit the structured result block for orchestrator parsing.
 
 ## Inputs
 
@@ -24,8 +23,7 @@ The user supplies the numeric plan ID and task ID conversationally.
 - **Execution or hook failure.** If `PRE_TASK_EXECUTION.md`,
   `PRE_TASK_ASSIGNMENT.md`, or `POST_ERROR_DETECTION.md` fails, or the
   implementing agent encounters an unrecoverable error, set the task status
-  to `failed`, document the error in Noteworthy Events, and emit the
-  structured result with `Exit Code: 1`.
+  to `failed` and record the error in Noteworthy Events.
 
 ## Operating Procedure
 
@@ -109,18 +107,9 @@ scripts/dispatch-task-execution.cjs execute <handoff> <task-file> <current-harne
 Steps 9–11 are this skill's failed-status and error-hook path.
 
 For a native dispatch, deploy an agent using your internal Task tool. The agent
-MUST perform these steps in order:
-
-1. **Pre-flight validation**: Read and execute
-   `<root>/config/hooks/PRE_TASK_EXECUTION.md` before starting any
-   implementation work.
-2. **Execute the task**: Read the complete `<task-file>` and implement
-   according to its requirements, including:
-   - Objective and acceptance criteria
-   - Technical requirements and implementation notes
-   - Input dependencies and expected output artifacts
-3. **Monitor progress**: Capture outputs, artifacts, and any issues
-   encountered during implementation.
+must read and execute `<root>/config/hooks/PRE_TASK_EXECUTION.md` before any
+implementation work. It then reads the complete `<task-file>`, implements it
+against its requirements, and captures outputs and any issues encountered.
 
 ### 9. Update status to completed or failed
 
@@ -153,15 +142,3 @@ If any error occurred during execution, read
 `<root>/config/hooks/POST_ERROR_DETECTION.md` and execute its instructions.
 Document the error in Noteworthy Events and ensure the task status is set to
 `failed` if it is not already.
-
-### 12. Emit structured output
-
-End the session with exactly this block as the final output:
-
-```
----
-Task Execution Result:
-- Plan ID: [numeric-id]
-- Task ID: [numeric-id]
-- Exit Code: [0 for success, 1 for failure]
-```

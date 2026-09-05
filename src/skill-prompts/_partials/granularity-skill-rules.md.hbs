@@ -7,10 +7,7 @@ Each task must be:
   concrete, runnable verification step (a command plus its expected output, or
   another observable signal). Never settle for a vague "works correctly".
 
-Skill assignment (kebab-case, automatically inferred from the task's
-technical requirements):
-
-- 1 skill — single-domain task (e.g. `["css"]`, `["vitest"]`).
-- 2 skills — complementary domains (e.g. `["api-endpoints", "database"]`,
-  `["react-components", "vitest"]`).
-- 3+ skills indicates the task should be broken down further.
+Infer skills in kebab-case from the task's technical requirements. Use one
+skill for a single-domain task and two for complementary domains, such as
+`["api-endpoints", "database"]`. Three or more means the task must be broken
+down further.

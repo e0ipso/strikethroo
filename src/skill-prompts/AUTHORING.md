@@ -54,7 +54,7 @@ Prefer steps, checkpoints, and checkable rules over paragraphs of advice.
   | --- | --- |
   | Rationalization rows and excuse counters | Rubric and scoring tables |
   | Exit criteria and hard rules | Field lists a template already carries |
-  | Structured summary blocks | Worked examples a schema already certifies |
+  | Halt conditions and hook order | Worked examples a schema already certifies |
 
   The test before moving a block: some script or schema must already catch
   its omission (an unscored task fails `complexityScoresValid`; a malformed
@@ -68,6 +68,24 @@ Prefer steps, checkpoints, and checkable rules over paragraphs of advice.
 
 - **The slot rule.** Supply different instructions as named block partials at
   each call site. Do not put `{{#if}}` branches in shared partials.
+
+- **Partial first.** When shortening a prompt, edit the shared partial before
+  any `skills/<name>/SKILL.md.hbs`; one partial edit reaches every consumer,
+  and a per-skill rewrite of shared text creates a second implementation path.
+
+- **The deletion test.** Text goes when it is decorative; restates a template,
+  hook, shared config file, reference file, or a script's printed output that
+  the same step already tells the agent to read; repeats an instruction
+  already given in the procedure; describes what a helper does instead of
+  what the agent does with its result; or constrains a final response
+  nothing parses. Text stays when removing it would leave an operational
+  choice undefined or reopen a documented model failure (rationalization
+  rows, evidence gates, exit criteria, halt conditions).
+
+- **No unconsumed response formats.** Do not prescribe an exact final chat
+  block unless a script or test in this repository parses it; name that
+  consumer in the prompt. Presentation coercion costs bytes and drives
+  nothing.
 
 ## After editing
 

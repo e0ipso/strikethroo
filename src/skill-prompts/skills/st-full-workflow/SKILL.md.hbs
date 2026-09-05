@@ -15,14 +15,6 @@ Execute all three steps sequentially without waiting for user input between them
 
 The user supplies the work order conversationally.
 
-## Context Passing Between Steps
-
-Information flows through the workflow via structured output parsing:
-
-1. **Step 1 → Step 2**: Extract the numeric `Plan ID` from the Step 1 structured summary output. Use this exact ID to drive Step 2.
-
-Do not proceed to the next step until the structured output from the current step has been successfully parsed.
-
 ## Progress Indicators
 
 Display progress indicators at key transition points to provide visual feedback without interrupting execution:
@@ -39,15 +31,9 @@ These indicators are purely informational. Do not pause or wait for user input w
 
 **Progress**: `⬛⬜⬜ 33% - Step 1/3: Starting Plan Creation`
 
-{{#> procedure-create-plan
-     heading="####"
-     action_verb_phrase="execute the full workflow"
-     summary_heading="Emit the Step 1 structured summary"
-     summary_lead_in="Conclude Step 1 with exactly this block:"
-     summary_closing="Parse the `Plan ID` value from this output and pass it to Step 2."}}
+{{#> procedure-create-plan heading="####"}}
 {{#*inline "clarification_gate_context"}}
-Also read `<root>/config/shared/anti-rationalization.md`. The steps below
-require you to apply it.
+Also read `<root>/config/shared/anti-rationalization.md`.
 {{/inline}}
 {{#*inline "clarification_gate"}}{{!-- Hands-off workflow has no approval gate. --}}{{/inline}}
 {{/procedure-create-plan}}
@@ -60,7 +46,7 @@ require you to apply it.
 
 **Progress**: `⬛⬜⬜ 33% - Step 2/3: Starting Task Generation`
 
-Using the Plan ID extracted from Step 1:
+Using the plan ID from Step 1:
 
 {{#> procedure-generate-tasks
      heading="####"

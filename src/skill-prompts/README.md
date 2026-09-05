@@ -30,7 +30,7 @@ The source skill directory determines the output skill directory.
 - **Partials.** Files under `_partials/` register by their relative path with
   `.md.hbs` removed. The renderer applies `trimEnd()` before registration.
 - **Calls.** Use `{{> name}}` for a partial and hash arguments for values, such
-  as `{{> root-discovery action_verb_phrase="create a plan"}}`.
+  as `{{#> procedure-create-plan heading="###"}}`.
 - **Slots.** Put different instructions in named block partials supplied at
   each call site with `{{#*inline "slot_name"}}`. Shared partials must not use
   conditionals for call-site behavior.

@@ -57,6 +57,7 @@ _None._
 - Open [**Avoid */ inside @theme CSS comments to prevent premature comment termination**](practice-avoid-inside-theme-css-comments-to-prevent-premature-comment-termination.md) — A comment containing */ inside a Tailwind @theme block terminates the comment early, producing a cryptic parse error that halts the build.
 ### #comments
 - Open [**Avoid */ inside @theme CSS comments to prevent premature comment termination**](practice-avoid-inside-theme-css-comments-to-prevent-premature-comment-termination.md) — A comment containing */ inside a Tailwind @theme block terminates the comment early, producing a cryptic parse error that halts the build.
+- Open [**Keep comment prose terse and single-sourced**](../../practice-keep-comment-prose-terse-and-single-sourced.md) — Do not write long doc comments or repeat the same rationale across call sites and file copies. State it once where it belongs.
 ### #design-system
 - Open [**Dalia UI design system: vendored into src/web/vendor/, not a package dependency**](map-dalia-ui-design-system-vendored-into-src-web-vendor-not-a-package-dependency.md) — Dalia UI (@dalia/ui 0.1.0) is unpublished. Components and styles are copied into src/web/vendor/styles/ rather than declared as a dependency.
 ### #layout

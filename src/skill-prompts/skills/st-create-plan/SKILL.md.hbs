@@ -5,9 +5,6 @@ description: Use when the user asks to draft, scope, or write up a new Strikethr
 
 # st-create-plan
 
-Drive the end-to-end creation of a new Strikethroo plan for the user's
-repository.
-
 ## Inputs
 
 The user's request supplies the work order.
@@ -27,5 +24,5 @@ Follow the clarification cadence in `<root>/config/shared/clarification-gate.md`
 ## Failure Modes
 
 - **Plan directory already exists for the allocated ID.** Re-run the
-  next-plan-id script (a concurrent run may have advanced it) and retry once.
-  If the conflict persists, stop and report.
+  next-plan-id script and retry once. If the conflict persists, stop and
+  report.

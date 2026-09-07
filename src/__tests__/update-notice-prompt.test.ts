@@ -65,6 +65,9 @@ describe('rendered parent skills compose update notices', () => {
   test.each(PARENT_SKILLS)('%s contains the update check and final-notice placement', skill => {
     const content = readSkill(skill);
     expect(content).toContain('check-for-updates.cjs "<root>"');
+    expect(content).toContain(
+      'Delegated execution workers skip this step and do not emit update notices'
+    );
     expect(content).toContain('Nothing may follow the notice');
     expect(content).toContain('Never pause for permission and never run an update');
   });

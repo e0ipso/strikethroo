@@ -24,15 +24,13 @@ export const STRIKETHROO_WORKFLOW_SKILLS = [
 ] as const;
 
 export const SKILLS_INSTALLER_EXECUTABLE = 'npx';
-// This version's zero-exit failure messages are part of the adapter contract.
-export const SKILLS_INSTALLER_PACKAGE = 'skills@1.5.24';
 export const SKILLS_INSTALLER_STDIO = ['inherit', 'pipe', 'pipe'] as const;
 
 /**
  * Exact installer package and arguments passed to npx.
  */
 export function buildSkillsInstallerArgs(): string[] {
-  return [SKILLS_INSTALLER_PACKAGE, 'update', ...STRIKETHROO_WORKFLOW_SKILLS];
+  return ['skills', 'update', ...STRIKETHROO_WORKFLOW_SKILLS];
 }
 
 function resolvePath(baseDir: string | undefined, ...segments: string[]): string {

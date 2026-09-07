@@ -123,6 +123,7 @@ export interface ExternalHarnessAdapter {
 const taskPrompt = (request: ExternalDispatchRequest): string =>
   `Strikethroo external task dispatch — Plan ${request.planId}, Task ${request.taskId}.\n` +
   `Workspace: ${request.workspace}\nTask file: ${request.taskFile}\n` +
+  `You are a delegated execution worker. Do not run check-for-updates.cjs or emit update notices.\n` +
   `Before implementation, read and execute ${path.join(
     request.workspace,
     '.ai/strikethroo/config/hooks/PRE_TASK_EXECUTION.md'

@@ -15,7 +15,6 @@ import { load } from 'js-yaml';
 import {
   STRIKETHROO_WORKFLOW_SKILLS,
   SKILLS_INSTALLER_STDIO,
-  SKILLS_INSTALLER_PACKAGE,
   buildSkillsInstallerArgs,
 } from '../update';
 
@@ -526,7 +525,7 @@ process.exit(Number(process.env.NPX_EXIT_CODE || '0'));
 
     it('targets the seven workflow skills with interactive input and streamed output', () => {
       expect(buildSkillsInstallerArgs()).toEqual([
-        SKILLS_INSTALLER_PACKAGE,
+        'skills',
         'update',
         ...STRIKETHROO_WORKFLOW_SKILLS,
       ]);
@@ -541,11 +540,7 @@ process.exit(Number(process.env.NPX_EXIT_CODE || '0'));
       expect(result.exitCode).toBe(0);
 
       const log = await fs.readJson(path.join(testDir, 'npx-log.json'));
-      expect(log.argv).toEqual([
-        SKILLS_INSTALLER_PACKAGE,
-        'update',
-        ...STRIKETHROO_WORKFLOW_SKILLS,
-      ]);
+      expect(log.argv).toEqual(['skills', 'update', ...STRIKETHROO_WORKFLOW_SKILLS]);
       expect(log.cwd).toBe(testDir);
 
       const output = result.stdout + result.stderr;

@@ -16,7 +16,7 @@ scripts/dispatch-task-execution.cjs resolve <task-file> <current-harness> <works
 ```
 
 Resolvers never launch external processes. After interpreting all route results, issue
-every external execution and every native Task-tool agent **together in one parallel
+every external execution and every sub-agent **together in one parallel
 tool operation**. External execution uses:
 
 ```text
@@ -25,7 +25,7 @@ scripts/dispatch-task-execution.cjs execute <handoff> <task-file> <current-harne
 
 {{> dispatch-outcomes}}
 
-Deploy all remaining native agents simultaneously using your internal Task tool. Each agent must read and execute `<root>/config/hooks/PRE_TASK_EXECUTION.md` before any implementation work, then execute the task and update its status.
+Deploy all remaining native sub-agents simultaneously. Each sub-agent must read and execute `<root>/config/hooks/PRE_TASK_EXECUTION.md` before any implementation work, then execute the task and update its status.
 
 {{heading}} {{phase_step}}c. Phase completion verification
 Ensure every task in the phase has status `completed` and collect its outputs. Do not accept a subagent's report of success as proof. Apply the evidence gate in `<root>/config/shared/verification-gate.md` before marking the phase complete.

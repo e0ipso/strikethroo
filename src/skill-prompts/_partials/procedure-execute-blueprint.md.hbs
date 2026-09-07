@@ -23,6 +23,8 @@ Run `scripts/validate-plan-blueprint.cjs <plan-id> taskCount` and
 
 If `taskCount` is 0 or `blueprintExists` is `no`:
 
+Notify the user: "Tasks or execution blueprint not found. Generating tasks automatically..."
+
 - {{> auto_generate_dispatch}}
 - Re-run the `planFile`, `planDir`, `taskCount`, and `blueprintExists` queries to refresh the resolved paths and counts.
 

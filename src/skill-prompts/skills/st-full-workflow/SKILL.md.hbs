@@ -17,7 +17,11 @@ The user supplies the work order conversationally.
 
 ### Step 1: Plan Creation
 
-{{#> procedure-create-plan heading="####"}}
+{{#> procedure-create-plan
+     heading="####"
+     summary_heading="Emit the Step 1 structured summary"
+     summary_lead_in="Conclude Step 1 with exactly this block:"
+     summary_closing="Parse the `Plan ID` value from this output and pass it to Step 2."}}
 {{#*inline "clarification_gate_context"}}
 Also read `<root>/config/shared/anti-rationalization.md`.
 {{/inline}}
@@ -69,3 +73,5 @@ Using the plan ID from Step 1:
 
 - **Plan directory already exists for the allocated ID in Step 1.** Re-run the next-plan-id script and retry once. If the conflict persists, stop and report.
 - **Execution errors.** If a task fails, read `<root>/config/hooks/POST_ERROR_DETECTION.md`, document the error in Noteworthy Events, halt the phase, and request user direction before continuing.
+
+{{> execution-summary}}

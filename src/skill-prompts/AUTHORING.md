@@ -73,7 +73,7 @@ Prefer steps, checkpoints, and checkable rules over paragraphs of advice.
   any `skills/<name>/SKILL.md.hbs`; one partial edit reaches every consumer,
   and a per-skill rewrite of shared text creates a second implementation path.
 
-- **The deletion test.** Text goes when it is decorative; restates a template,
+- **The deletion test.** Text goes away when it is decorative; restates a template,
   hook, shared config file, reference file, or a script's printed output that
   the same step already tells the agent to read; repeats an instruction
   already given in the procedure; describes what a helper does instead of
@@ -83,9 +83,12 @@ Prefer steps, checkpoints, and checkable rules over paragraphs of advice.
   rows, evidence gates, exit criteria, halt conditions).
 
 - **No unconsumed response formats.** Do not prescribe an exact final chat
-  block unless a script or test in this repository parses it; name that
-  consumer in the prompt. Presentation coercion costs bytes and drives
-  nothing.
+  block unless something parses it. Presentation coercion costs bytes and
+  drives nothing. The one exception is the terminal summary block each skill
+  ends with (`Plan Summary`, `Task Generation Summary`, `Plan Refinement
+  Summary`, `Task Execution Result`, `Execution Summary`): it names the plan
+  ID, plan file, status, or archive location, and applications outside this
+  repository parse it. Keep those blocks byte for byte.
 
 ## After editing
 

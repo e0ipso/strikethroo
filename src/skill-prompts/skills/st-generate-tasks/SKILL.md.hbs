@@ -29,8 +29,11 @@ The user supplies the numeric plan ID conversationally.
      step_validation="11"
      step_routing="12"
      step_hook="13"}}
+{{#*inline "update_check_startup"}}{{> update-check-default}}{{/inline}}
 {{#*inline "plan_resolution_failure"}}{{> plan-resolution-user-failure}}{{/inline}}
 {{/procedure-generate-tasks}}
+
+{{> update-notice-close}}
 
 ## Failure Modes
 

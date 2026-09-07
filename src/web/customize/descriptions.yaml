@@ -25,3 +25,4 @@ PLAN_TEMPLATE: "The structure every generated plan document conforms to, includi
 TASK_TEMPLATE: "The structure every generated task file conforms to, including frontmatter (id, group, dependencies, status, skills, complexity_score) and sections like Objective and Acceptance Criteria."
 BLUEPRINT_TEMPLATE: "The shape of the execution blueprint appended to a plan, organizing tasks into dependency-ordered phases of parallel work."
 EXECUTION_SUMMARY_TEMPLATE: "The structure of the execution summary appended to a plan after a successful run, recording status, results, noteworthy events, and follow-ups."
+UPDATE_NOTICE_TEMPLATE: "Editable wording for the daily update notice parent workflow skills append after their structured summary; placeholders include {{updateCommand}}."

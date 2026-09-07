@@ -83,6 +83,12 @@
       }
     ],
     [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "npm run build:skills && npm run build:skill-prompts && node scripts/sync-skills-mirror.cjs"
+      }
+    ],
+    [
       "@semantic-release/git",
       {
         "assets": [

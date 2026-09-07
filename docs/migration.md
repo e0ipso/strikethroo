@@ -57,6 +57,16 @@ Replace `claude` with your harness(es), e.g. `claude,gemini,opencode`.
 npx skills add e0ipso/strikethroo
 ```
 
+## Upgrading an existing Strikethroo workspace
+
+If you already use Strikethroo with `.ai/strikethroo/`, prefer a single update command:
+
+```bash
+npx strikethroo@latest update
+```
+
+It refreshes the workspace and updates all seven workflow skills. Workspaces whose `.init-metadata.json` has no saved `harnesses` field must pass `--harnesses` once on `init` or `update`. After updating, start a fresh agent session so parent skills load the new instructions (including daily update notices). Old skill copies cannot notify until you run `update` once.
+
 ## What changed
 
 | AI Task Manager              | Strikethroo                     |

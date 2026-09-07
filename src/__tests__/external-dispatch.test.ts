@@ -49,6 +49,8 @@ describe('external harness adapter registry', () => {
       expect(command).toMatchObject({ executable, argv, cwd: '/workspace/project' });
       expect(command.stdin).toContain('Plan 12, Task 3');
       expect(command.stdin).toContain('PRE_TASK_EXECUTION.md');
+      expect(command.stdin).toContain('You are a delegated execution worker');
+      expect(command.stdin).toContain('Do not run check-for-updates.cjs or emit update notices');
       expect(command.stdin).toContain('# Implement the task');
       expect(command.argv.join(' ')).not.toContain('Implement the task');
     }

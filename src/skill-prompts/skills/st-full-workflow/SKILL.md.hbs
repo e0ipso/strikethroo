@@ -20,8 +20,10 @@ The user supplies the work order conversationally.
 {{#> procedure-create-plan
      heading="####"
      summary_heading="Emit the Step 1 structured summary"
-     summary_lead_in="Conclude Step 1 with exactly this block:"
+     summary_lead_in="Conclude Step 1 with exactly this block (a retained update notice, when present, follows after the workflow's final summary):"
      summary_closing="Parse the `Plan ID` value from this output and pass it to Step 2."}}
+{{#*inline "update_check_startup"}}{{> update-check-default}}{{/inline}}
+{{#*inline "post_summary_actions"}}{{/inline}}
 {{#*inline "clarification_gate_context"}}
 Also read `<root>/config/shared/anti-rationalization.md`.
 {{/inline}}
@@ -46,6 +48,7 @@ Using the plan ID from Step 1:
      step_validation="10"
      step_routing="11"
      step_hook="12"}}
+{{#*inline "update_check_startup"}}{{/inline}}
 {{#*inline "plan_resolution_failure"}}{{> plan-resolution-generated-failure}}{{/inline}}
 {{/procedure-generate-tasks}}
 
@@ -65,6 +68,7 @@ Using the plan ID from Step 1:
      step_post="7"
      summary_step="8"
      archive_step="9"}}
+{{#*inline "update_check_startup"}}{{/inline}}
 {{#*inline "plan_resolution_failure"}}{{> plan-resolution-generated-failure}}{{/inline}}
 {{#*inline "auto_generate_dispatch"}}Execute the full task generation procedure from Step 2 for this plan ID.{{/inline}}
 {{/procedure-execute-blueprint}}

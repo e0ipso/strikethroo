@@ -5,9 +5,10 @@ Primary context source for AI-assisted work in this repository.
 ## Quick Start
 
 ```bash
-# Build, then run any of the four commands
+# Build, then run any of the five commands
 npm run build
 npm start init --harnesses claude --destination-directory /path/to/project   # --force to overwrite all
+node dist/cli.js update --destination-directory /path/to/project              # refresh workspace + skills
 node dist/cli.js export profile --destination-directory /path/to/package
 node dist/cli.js serve                                                       # or: npx strikethroo serve
 node dist/cli.js validate                                                    # --workspace <path>, --json
@@ -18,9 +19,11 @@ npm test              # Full gate: unit (Vitest) then e2e (@playwright/test)
 npm run lint:fix      # Auto-fix style
 ```
 
-`init` bootstraps the `.ai/strikethroo/` workspace (and copies Claude agents); it does **not** install skills. It uses SHA-256 hash tracking in `.ai/strikethroo/.init-metadata.json` to detect and protect user-modified files; `--force` bypasses the prompts for automation.
+`init` bootstraps the `.ai/strikethroo/` workspace (and copies harness-specific agents); it does **not** install skills. It uses SHA-256 hash tracking in `.ai/strikethroo/.init-metadata.json` to detect and protect user-modified files; `--force` bypasses the prompts for automation. The metadata also records a saved `harnesses` field (`string[]`); `--harnesses` is optional on re-init and reuses that selection. Omission of an explicit value does not fall back when the flag is supplied empty or invalid. Legacy metadata without `harnesses` requires `--harnesses` before mutation. There is no filesystem or executable auto-detection.
 
-The CLI registers four commands (`src/cli.ts`): `init`, the nested `export profile`, `serve`, and `validate`. Every action stays thin — it parses flags, delegates to a module, and owns only the reporting and the exit code.
+`update` refreshes an initialized workspace via the same `init` conflict handling (no implicit `--force`), then runs `npx skills update` for the seven workflow skills with `shell: false`, inherited input, and streamed output. The installer chooses installation scope; Strikethroo does not infer it from saved harnesses. Its zero-exit messages for missing installations, skipped skills, cancellations, and check failures count as incomplete updates. Exit 0 requires both workspace refresh and skills update to succeed; a workspace failure skips the installer, and an installer failure after a successful refresh keeps the refreshed workspace and exits 1 with recovery guidance. Users copy `npx strikethroo@latest update`.
+
+The CLI registers five commands (`src/cli.ts`): `init`, `update`, the nested `export profile`, `serve`, and `validate`. Every action stays thin — it parses flags, delegates to a module, and owns only the reporting and the exit code.
 
 The workflow ships as harness-agnostic **Agent Skills**, installed with `npx skills add e0ipso/strikethroo` — see [Distribution](#distribution) for how the Git tree serves this. Append `#<git-ref>` to install from a specific branch or tag (e.g. `#v3.19.1`) using the installer's own Git-ref syntax; `@<name>` filters by skill name.
 
@@ -84,6 +87,8 @@ Each step is an Agent Skill that auto-loads when the user's request matches its 
 Skills live under `templates/harness/skills/<name>/` (flat, no nesting; the tracked root `skills/` directory is the release mirror described in [Distribution](#distribution), never a place to author anything). Each skill's `SKILL.md` and its compiled `.cjs` bundle under `scripts/` are assembled/bundled at build time — source and output share the same per-skill tree.
 
 The seven shipping skills are the workflow skills listed above (`st-create-plan`, `st-generate-tasks`, `st-execute-blueprint`, `st-refine-plan`, `st-execute-task`, `st-full-workflow`, `st-code-review`).
+
+Parent workflow skills (all except `st-code-review`) run `scripts/check-for-updates.cjs` after root discovery, separate from `find-strikethroo-root` stdout. At most one network attempt and one user-facing notice per workspace per 24 hours; state lives in gitignored `.ai/strikethroo/runtime/update-check.json`. An eligible notice is the last sentence of the parent turn, after an intact structured summary fence, using `config/templates/UPDATE_NOTICE_TEMPLATE.md` when present (optional by absence; bundled default ships `{{updateCommand}}`, including the discovered project destination; templates also accept validated `{{latestRelease}}`, `{{workspaceVersion}}`, and `{{skillVersion}}`). When saved harnesses are missing, the notice prompts the agent to obtain `--harnesses` instead of emitting a copyable command with placeholders. Reviewers (`st-code-review`) and delegated execution workers do not check or emit notices; `st-full-workflow` emits at most one parent notice. Old skill copies cannot notify until the user runs `update` once. A running agent may retain previous skill instructions until a fresh session starts.
 
 ### TypeScript source of truth
 
@@ -255,14 +260,14 @@ React + Vite + Tailwind v4 SPA built by `npm run build:web` (`vite.config.mts`) 
 
 **Adding a skill:** add its TypeScript entrypoint to `src/skill-scripts/` and `SKILL_ENTRYPOINTS`, add it to `.claude-plugin/plugin.json`, and create `src/skill-prompts/skills/<name>/SKILL.md.hbs` with `name` and `description` frontmatter.
 
-**`templates/harness/skills/` is gitignored, untracked local build output.** `npm run build` overwrites it wholesale on every run and nothing commits it; the npm tarball packs it from disk at publish time (`package.json`'s `files` allowlist), and `init` never reads it. The tracked root `skills/` mirror is a separate generated artifact with a different writer: see [Distribution](#distribution) for the mirror itself, and `node scripts/sync-skills-mirror.cjs`, run only by the release workflow, for how it is populated. `dist-web/` ships only in the npm package.
+**`templates/harness/skills/` is gitignored, untracked local build output.** `npm run build` overwrites it wholesale on every run and nothing commits it; the npm tarball packs it from disk at publish time (`package.json`'s `files` allowlist), and `init` never reads it. The tracked root `skills/` mirror is a separate generated artifact with a different writer: see [Distribution](#distribution) for the mirror itself, and `node scripts/sync-skills-mirror.cjs`, run from `@semantic-release/exec`'s `prepareCmd` during release, for how it is populated. `dist-web/` ships only in the npm package.
 
 **Never hand-edit or hand-commit either generated tree.** Edit `src/skill-prompts/` for prompts and `src/skill-scripts/` for bundles — both `templates/harness/skills/` and the root `skills/` mirror are overwritten wholesale by the build or the mirror sync, so a hand-made change disappears at the next run. Two guards enforce this:
 
 - `.husky/pre-commit` rejects staged changes to `templates/harness/skills/*/SKILL.md`, `templates/harness/skills/*/scripts/*.cjs`, `templates/harness/skills/*/references/*.md`, `skills/*/SKILL.md`, `skills/*/scripts/*.cjs`, and `skills/*/references/*.md`, and names the source directory to edit instead. The release workflow runs with `HUSKY=0`, so the guard never blocks the release commit that legitimately writes the mirror.
 - `.gitattributes` marks all six path patterns `linguist-generated=true` (and the vendored `config/schemas/*.xsd` `linguist-vendored=true`). GitHub collapses them in pull requests, and the code review gate reads the same markers to drop them from the reviewed diff.
 
-A local `npm run build` therefore never dirties Git status: `templates/harness/skills/` is ignored across all three of its generated kinds, `scripts/`, `SKILL.md`, and `references/`, and the root `skills/` mirror is untouched by the build. Only the release workflow's sync step changes the mirror.
+A local `npm run build` therefore never dirties Git status: `templates/harness/skills/` is ignored across all three of its generated kinds, `scripts/`, `SKILL.md`, and `references/`, and the root `skills/` mirror is untouched by the build. Only release automation's `@semantic-release/exec` sync step changes the mirror.
 
 ---
 
@@ -273,13 +278,13 @@ Two channels ship skill content, and neither reads the other:
 - **npm tarball** — `package.json`'s `files` allowlist (`dist/`, `dist-web/`, `templates/`, `LICENSE`) packs `templates/` for `init`'s workspace, agent, and template needs. `templates/harness/skills/` rides along inside that tree but `init` never installs skills from it; only `templates/strikethroo/` (workspace) and `templates/harness/agents/` (per-harness sub-agents) are read at init time.
 - **Git tree** — [vercel-labs/skills](https://github.com/vercel-labs/skills)' bare installer (`npx skills add e0ipso/strikethroo`) reads the repository directly. It walks a root `skills/` directory up to three levels deep, ahead of every per-harness project directory and of `.claude-plugin/plugin.json`, keeping the first skill found per name. Strikethroo tracks that discovery target as the root `skills/` mirror — the seven `st-*` skill directories checked into Git. `#<git-ref>` selects a standard branch or tag on the same repository, so a valid install at any ref requires a complete mirror at that ref. `.claude-plugin/plugin.json` still lists the same seven skills at `./skills/st-*` for Claude plugin tooling that reads the manifest directly; it is redundant for the upstream installer's own discovery.
 
-The mirror is release-only content: `scripts/sync-skills-mirror.cjs` replaces `skills/` with the just-built `templates/harness/skills/` tree and verifies byte-for-byte parity, the release workflow runs it after the build-and-test gate and before `npx semantic-release`, and `@semantic-release/git` stages the result as `skills/**` into the tagged release commit. No other step writes to `skills/` — `npm run build` never calls the sync script, so only release automation is a normal writer of the mirror. See [Build Pipeline](#build-pipeline) for the guards (`.gitattributes`, `.husky/pre-commit`) that reject a hand-staged change to either generated tree.
+The mirror is release-only content: `scripts/sync-skills-mirror.cjs` replaces `skills/` with the just-built `templates/harness/skills/` tree and verifies byte-for-byte parity. During release, `@semantic-release/exec`'s `prepareCmd` runs `npm run build:skills && npm run build:skill-prompts && node scripts/sync-skills-mirror.cjs` after `@semantic-release/npm` bumps the version, so published bundles embed the new release version via esbuild's `SKILL_RELEASE_VERSION`; `@semantic-release/git` then stages `skills/**` into the tagged release commit. The release workflow itself runs build and test only — it does not sync the mirror before `npx semantic-release`. No other step writes to `skills/` — `npm run build` never calls the sync script, so only release automation is a normal writer of the mirror. See [Build Pipeline](#build-pipeline) for the guards (`.gitattributes`, `.husky/pre-commit`) that reject a hand-staged change to either generated tree.
 
 ---
 
 ## Schema Version Contract
 
-`.ai/strikethroo/.init-metadata.json` carries `workspaceSchemaVersion` (current `4`), distinct from the CLI's `version` string. It changes only when the workspace shape (hook names, required templates, directory structure) changes incompatibly. Single source of truth: `CURRENT_WORKSPACE_SCHEMA_VERSION` in `src/metadata.ts`. Upgrade path: re-run `npx strikethroo init`.
+`.ai/strikethroo/.init-metadata.json` carries `workspaceSchemaVersion` (current `4`) and a saved `harnesses` array, distinct from the CLI's `version` string. Schema version changes only when the workspace shape (hook names, required templates, directory structure) changes incompatibly. Single source of truth: `CURRENT_WORKSPACE_SCHEMA_VERSION` in `src/metadata.ts`. Upgrade path: `npx strikethroo@latest update` (or `npx strikethroo init` with `--harnesses` once when no saved selection exists).
 
 Skills bake `EXPECTED_WORKSPACE_SCHEMA_VERSION` into each `.cjs` via esbuild's `define`. At runtime `src/skill-scripts/shared/root.ts` compares the workspace value against the baked value:
 
@@ -292,7 +297,7 @@ Absent values in older metadata are backfilled to `1` on read (both sides), so d
 
 ## GitHub Releases
 
-`semantic-release` via `.github/workflows/release.yml`, triggered on push to `main`. The workflow runs `npm ci && npm run build && npx playwright install --with-deps chromium && npm test` (the browser install is needed because `npm test`'s e2e half runs against a real Chromium), then `node scripts/sync-skills-mirror.cjs` to replace and parity-verify the root `skills/` mirror from the fresh build, then `npx semantic-release` with `HUSKY=0` (analyze commits → bump → publish to npm → GitHub release + tag). The `@semantic-release/git` `assets` list is `CHANGELOG.md`, `package.json`, `package-lock.json`, and `skills/**`; `templates/harness/skills/` and `dist-web/` are deliberately excluded — the templates tree is gitignored local build output that ships only through the npm tarball, and the SPA ships only through npm. Release commits are labeled `chore(release):` and carry `[skip ci]`.
+`semantic-release` via `.github/workflows/release.yml`, triggered on push to `main`. The workflow runs `npm ci && npm run build && npx playwright install --with-deps chromium && npm test` (the browser install is needed because `npm test`'s e2e half runs against a real Chromium), then `npx semantic-release` with `HUSKY=0`. Inside semantic-release **prepare**, `@semantic-release/npm` bumps `package.json`, then `@semantic-release/exec`'s `prepareCmd` runs `npm run build:skills && npm run build:skill-prompts && node scripts/sync-skills-mirror.cjs` so skill bundles and the root `skills/` mirror carry the new release version via esbuild's `SKILL_RELEASE_VERSION`, then `@semantic-release/git` commits `CHANGELOG.md`, `package.json`, `package-lock.json`, and `skills/**`. **Publish** follows: npm packs that rebuilt tree and GitHub creates the release. `templates/harness/skills/` and `dist-web/` are deliberately excluded from the git commit — the templates tree is gitignored local build output that ships only through the npm tarball, and the SPA ships only through npm. Release commits are labeled `chore(release):` and carry `[skip ci]`.
 
 Verify the invariant:
 
@@ -340,12 +345,14 @@ project/
 │   │   ├── shared/                # Cross-skill disciplines read at runtime: verification-gate.md,
 │   │   │                          #   clarification-gate.md, anti-rationalization.md
 │   │   └── templates/             # PLAN_TEMPLATE.md, TASK_TEMPLATE.md, BLUEPRINT_TEMPLATE.md,
-│   │                              #   EXECUTION_SUMMARY_TEMPLATE.md
+│   │                              #   EXECUTION_SUMMARY_TEMPLATE.md, UPDATE_NOTICE_TEMPLATE.md
+│   │                              #   (optional by absence)
 │   ├── .gitignore                 # Covers plans/*/review/, archive/*/review/, and runtime/.
 │   │                              #   Shipped as templates/strikethroo/gitignore and renamed on
 │   │                              #   copy — npm drops or renames a literal .gitignore in transit,
 │   │                              #   so nothing under templates/ may carry that name.
-│   └── runtime/                   # Gitignored dispatch cache (30m available / 5m unavailable)
+│   └── runtime/                   # Gitignored: harness-availability cache (30m/5m) and
+│                                  #   update-check.json (daily update-notice throttle)
 └── .claude/agents/                # Claude-only sub-agents copied by `init`
 ```
 
@@ -363,7 +370,7 @@ Security/maintenance scripts: `npm run security:audit` (`-json`, `:fix`, `:fix-f
 
 ## Templates
 
-Four base templates live at `templates/strikethroo/config/templates/`, and `init` copies all four into the workspace: `PLAN_TEMPLATE.md`, `TASK_TEMPLATE.md`, `BLUEPRINT_TEMPLATE.md`, and `EXECUTION_SUMMARY_TEMPLATE.md`. When customizing: preserve the YAML frontmatter format and core metadata fields; use lowercase bash variables (`task_count`, `plan_id`) — `$ARGUMENTS` and `$1` are placeholder exceptions. Validate with `npm run build && node dist/cli.js init --harnesses claude --destination-directory /tmp/test`.
+Five templates live at `templates/strikethroo/config/templates/`, and `init` copies them into the workspace: `PLAN_TEMPLATE.md`, `TASK_TEMPLATE.md`, `BLUEPRINT_TEMPLATE.md`, `EXECUTION_SUMMARY_TEMPLATE.md`, and `UPDATE_NOTICE_TEMPLATE.md` (optional by absence — delete or omit to fall back to the bundled default). When customizing: preserve the YAML frontmatter format and core metadata fields; use lowercase bash variables (`task_count`, `plan_id`) — `$ARGUMENTS` and `$1` are placeholder exceptions. Validate with `npm run build && node dist/cli.js init --harnesses claude --destination-directory /tmp/test`.
 
 **Plan frontmatter:** `id`, `summary`, `created`. **Plan sections**, in template order: Original Work Order, Plan Clarifications (present only when clarifications were necessary), Executive Summary, Context, Architectural Approach, Risk Considerations and Mitigation Strategies, Success Criteria, Self Validation, Documentation, Resource Requirements, Integration Strategy, Notes. The templates are user-editable and wholesale replaceable by a strikethroo profile, so this list describes the shipped default; nothing machine-readable asserts it.
 

@@ -281,7 +281,18 @@ Templates are editable Markdown files in `.ai/strikethroo/config/templates/`. Th
 <p class="st-card__title">EXECUTION_SUMMARY_TEMPLATE.md</p>
 <p>Structure for post-completion documentation. Captures completion status, date, results summary, noteworthy events, and follow-up recommendations.</p>
 </div>
+<div class="st-card">
+<span class="st-card__icon st-card__icon--circle-arrow-up" aria-hidden="true"></span>
+<p class="st-card__title">UPDATE_NOTICE_TEMPLATE.md</p>
+{% raw %}<p>Optional by absence. When present, parent workflow skills append its text as the last sentence of the turn after an intact structured summary fence when a newer release is available. Placeholders: <code>{{updateCommand}}</code> (the update command with the discovered project destination), <code>{{latestRelease}}</code>, <code>{{workspaceVersion}}</code>, and <code>{{skillVersion}}</code>. Version values are validated; unavailable local versions render as <code>unknown</code>. Delete or omit the file to use the bundled default. When saved harnesses are missing from metadata, skills emit an agent prompt to obtain <code>--harnesses</code> instead of a copyable command with placeholders.</p>{% endraw %}
 </div>
+</div>
+
+### Update notices
+
+Parent workflow skills (`st-create-plan`, `st-refine-plan`, `st-generate-tasks`, `st-execute-blueprint`, `st-execute-task`, `st-full-workflow`) run `scripts/check-for-updates.cjs` after root discovery. Reviewers and delegated execution workers do not check or emit notices; full-workflow emits at most one parent notice per run.
+
+At most one network attempt and one user-facing notice per workspace per 24 hours. Throttle state lives in gitignored `.ai/strikethroo/runtime/update-check.json`. Customize the copy via `UPDATE_NOTICE_TEMPLATE.md` in the Templates tab or on disk. Old skill copies cannot notify until the user runs `npx strikethroo@latest update` once.
 
 ## Strikethroo profiles
 

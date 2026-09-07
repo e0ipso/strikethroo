@@ -8,8 +8,8 @@
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import chalk from 'chalk';
-import { InitOptions, CommandResult, ConflictResolution, InitMetadata } from './types';
-import { parseHarnesses, validateHarnesses } from './utils';
+import { InitOptions, CommandResult, ConflictResolution, InitMetadata, Harness } from './types';
+import { resolveInitHarnesses } from './resolve-init-harnesses';
 import {
   calculateFileHash,
   loadMetadata,
@@ -116,10 +116,14 @@ export async function init(options: InitOptions): Promise<CommandResult> {
     // Determine base directory
     const baseDir = options.destinationDirectory || '.';
     const resolvedBaseDir = resolvePath(baseDir);
+    const metadataPath = resolvePath(baseDir, '.ai/strikethroo/.init-metadata.json');
 
-    // Parse and validate harnesses
-    const harnesses = parseHarnesses(options.harnesses);
-    validateHarnesses(harnesses);
+    // Resolve harnesses before any destination mutation
+    const existingMetadata = await loadMetadata(metadataPath);
+    const { harnesses } = resolveInitHarnesses({
+      explicit: options.harnesses,
+      saved: existingMetadata?.harnesses,
+    });
 
     // Prepare the strikethroo profile import (resolve/clone/validate/stage)
     // BEFORE any destination mutation, so a failed import leaves the
@@ -129,8 +133,11 @@ export async function init(options: InitOptions): Promise<CommandResult> {
     }
 
     // ========== HEADER SECTION ==========
-    console.log(chalk.bold.white('\nStrikethroo Initialization'));
-    console.log(chalk.gray(DIVIDER));
+    const isUpdate = options.mode === 'update';
+    if (!isUpdate) {
+      console.log(chalk.bold.white('\nStrikethroo Initialization'));
+      console.log(chalk.gray(DIVIDER));
+    }
 
     // ========== CONFIGURATION SECTION ==========
     console.log(formatSectionHeader('Configuration'));
@@ -178,6 +185,9 @@ export async function init(options: InitOptions): Promise<CommandResult> {
       }
     }
 
+    // Persist harness selection only after successful setup
+    await recordHarnessSelection(metadataPath, harnesses);
+
     // ========== CREATED FILES SECTION ==========
     console.log(formatSectionHeader('Created Files'));
 
@@ -196,23 +206,27 @@ export async function init(options: InitOptions): Promise<CommandResult> {
     }
 
     // ========== FOOTER SECTION ==========
-    console.log(`\n${chalk.green('✓')} Strikethroo initialized successfully!`);
-    console.log(chalk.gray(DIVIDER));
+    if (!isUpdate) {
+      console.log(`\n${chalk.green('✓')} Strikethroo initialized successfully!`);
+      console.log(chalk.gray(DIVIDER));
 
-    // Post-init nudge directing users to install the task skills
-    console.log(
-      '\nNext: run `npx skills add e0ipso/strikethroo` to install the task skills for your harness(es).'
-    );
+      // Post-init nudge directing users to install the task skills
+      console.log(
+        '\nNext: run `npx skills add e0ipso/strikethroo` to install the task skills for your harness(es).'
+      );
 
-    // Add documentation link
-    console.log(`\n  📚 Documentation: ${chalk.cyan('https://strikethroo.canpicasoft.com')}\n`);
+      // Add documentation link
+      console.log(`\n  📚 Documentation: ${chalk.cyan('https://strikethroo.canpicasoft.com')}\n`);
 
-    // Show suggested workflow help text
-    await displayWorkflowHelp();
+      // Show suggested workflow help text
+      await displayWorkflowHelp();
+    }
 
     return {
       success: true,
-      message: 'Strikethroo initialized successfully!',
+      message: isUpdate
+        ? 'Strikethroo workspace refreshed successfully!'
+        : 'Strikethroo initialized successfully!',
       data: { harnesses },
     };
   } catch (error) {
@@ -282,6 +296,20 @@ async function recordProfileProvenance(
     );
   }
   metadata.profile = { name, source, importedAt: new Date().toISOString() };
+  await saveMetadata(metadataPath, metadata);
+}
+
+/**
+ * Record the successfully installed harness selection in metadata.
+ */
+async function recordHarnessSelection(metadataPath: string, harnesses: Harness[]): Promise<void> {
+  const metadata = await loadMetadata(metadataPath);
+  if (!metadata) {
+    throw new Error(
+      `Cannot record harness selection: metadata file missing or invalid at ${metadataPath}`
+    );
+  }
+  metadata.harnesses = harnesses;
   await saveMetadata(metadataPath, metadata);
 }
 
@@ -386,6 +414,7 @@ async function createMetadata(
   destDir: string,
   metadataPath: string
 ): Promise<void> {
+  const existingMetadata = await loadMetadata(metadataPath);
   const files: Record<string, string> = {};
 
   async function walkDir(dir: string, relativeTo: string): Promise<void> {
@@ -430,6 +459,13 @@ async function createMetadata(
     timestamp: new Date().toISOString(),
     files,
   };
+
+  if (existingMetadata?.profile) {
+    metadata.profile = existingMetadata.profile;
+  }
+  if (existingMetadata?.harnesses) {
+    metadata.harnesses = existingMetadata.harnesses;
+  }
 
   // Save metadata
   await saveMetadata(metadataPath, metadata);
@@ -484,3 +520,6 @@ async function displayWorkflowHelp(): Promise<void> {
   );
   console.log('');
 }
+
+export { resolveInitHarnesses, normalizeSavedHarnesses } from './resolve-init-harnesses';
+export type { ResolveInitHarnessesInput } from './resolve-init-harnesses';

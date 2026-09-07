@@ -48,7 +48,11 @@ No. It works within your existing AI assistant subscriptions (Claude Pro/Max, Ge
 
 **How long does setup take?**
 
-Under 30 seconds. Run `npx strikethroo init --harnesses claude` followed by `npx skills add e0ipso/strikethroo`, and the workspace is ready.
+Under 30 seconds for a new project: run `npx strikethroo init --harnesses claude` followed by `npx skills add e0ipso/strikethroo`, and the workspace is ready. On re-init, `--harnesses` is optional — Strikethroo reuses the saved selection in `.init-metadata.json`.
+
+**How do I upgrade an existing workspace?**
+
+Run `npx strikethroo@latest update`. It refreshes `.ai/strikethroo/` (same conflict handling as `init`) and updates all seven workflow skills. Workspaces initialized before saved harnesses existed must pass `--harnesses` once on `init` or `update`. If the skills installer fails after a successful workspace refresh, re-run `update` or the recovery command it prints. Start a fresh agent session afterward — running agents may still follow old skill instructions. Old skill copies cannot show update notices until you run `update` once.
 
 **Does it work with existing projects?**
 
@@ -125,7 +129,7 @@ The conformance-only scope emphasizes traces back to explicit plan requirements.
 
 **Can I customize the workflow?**
 
-Yes. Eleven lifecycle hooks, four templates, and project-context files are all editable Markdown. See the [Customization Guide](customization.html) for examples.
+Yes. Eleven lifecycle hooks, five templates (including the optional update-notice template), and project-context files are all editable Markdown. See the [Customization Guide](customization.html) for examples.
 
 **What file formats does it use?**
 

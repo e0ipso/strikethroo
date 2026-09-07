@@ -28,7 +28,7 @@ kk_confidence: high
 There are two distinct delivery channels that must both be updated on each release:
 
 1. **npm tarball** — populated by `npm publish` (or semantic-release). Contains `dist/`, `dist-web/`, and `templates/` per `files` in `package.json`.
-2. **GitHub git tree** — what `npx skills add e0ipso/strikethroo` reads. The installable content is the tracked root `skills/` mirror: seven `st-*` directories, each with a rendered `SKILL.md` and its `scripts/*.cjs` bundles. The release workflow's `node scripts/sync-skills-mirror.cjs` step (after tests, before `npx semantic-release`) replaces the mirror from the just-built `templates/harness/skills/` tree and fails the release on any byte difference; `@semantic-release/git` then stages `skills/**` into the tagged release commit. Stale-file deletions are staged too: the plugin's `git ls-files -m -o` listing includes unstaged deletions, and `git add --force` on a deleted path records the removal.
+2. **GitHub git tree** — what `npx skills add e0ipso/strikethroo` reads. The installable content is the tracked root `skills/` mirror: seven `st-*` directories, each with a rendered `SKILL.md` and its `scripts/*.cjs` bundles. During release, `@semantic-release/exec`'s `prepareCmd` runs `node scripts/sync-skills-mirror.cjs` after `@semantic-release/npm` bumps the version (and after tests in the workflow), replacing the mirror from the just-built `templates/harness/skills/` tree and failing the release on any byte difference; `@semantic-release/git` then stages `skills/**` into the tagged release commit. Stale-file deletions are staged too: the plugin's `git ls-files -m -o` listing includes unstaged deletions, and `git add --force` on a deleted path records the removal.
 
 Verify both with:
 ```bash

@@ -1,9 +1,9 @@
 ---
 type: map
-title: CLI exposes four thin commands and no plan-management surface
+title: CLI exposes five thin commands and no plan-management surface
 description: >-
-  src/cli.ts registers init, export profile, serve, and validate; there are no
-  visualization/management (status, plan) commands.
+  src/cli.ts registers init, update, export profile, serve, and validate; there
+  are no visualization/management (status, plan) commands.
 tags:
   - cli
   - architecture
@@ -16,7 +16,7 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-`src/cli.ts` registers four commands: `init`, the nested `export profile`, `serve`, and `validate`. Every action stays thin — it parses flags, delegates to a module, and owns only reporting and the exit code. Invoking `status` or `plan show 1` hits the unknown-command handler and exits 1.
+`src/cli.ts` registers five commands: `init`, `update`, the nested `export profile`, `serve`, and `validate`. Every action stays thin — it parses flags, delegates to a module, and owns only reporting and the exit code. Invoking `status` or `plan show 1` hits the unknown-command handler and exits 1.
 
 There is no CLI visualization/management surface — plan inspection and management are owned by the Agent Skills layer (and the read-only `serve` viewer), not by CLI subcommands.
 

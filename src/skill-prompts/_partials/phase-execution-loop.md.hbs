@@ -25,7 +25,7 @@ scripts/dispatch-task-execution.cjs execute <handoff> <task-file> <current-harne
 
 {{> dispatch-outcomes}}
 
-Deploy all remaining native sub-agents simultaneously. Each sub-agent must read and execute `<root>/config/hooks/PRE_TASK_EXECUTION.md` before any implementation work, then execute the task and update its status.
+Deploy all remaining native sub-agents simultaneously. Each sub-agent must read and execute `<root>/config/hooks/PRE_TASK_EXECUTION.md` before any implementation work, then execute the task and update its status. Do not run `scripts/check-for-updates.cjs`; delegated workers do not consume update notices.
 
 {{heading}} {{phase_step}}c. Phase completion verification
 Ensure every task in the phase has status `completed` and collect its outputs. Do not accept a subagent's report of success as proof. Apply the evidence gate in `<root>/config/shared/verification-gate.md` before marking the phase complete.

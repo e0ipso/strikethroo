@@ -14,8 +14,10 @@ The user's request supplies the work order.
 {{#> procedure-create-plan
      heading="###"
      summary_heading="Emit the structured summary"
-     summary_lead_in="Conclude with exactly this block as the final output:"
+     summary_lead_in="Conclude with exactly this block (a retained update notice, when present, follows separately):"
      summary_closing="The summary is consumed by downstream automation; keep the format exact."}}
+{{#*inline "update_check_startup"}}{{> update-check-default}}{{/inline}}
+{{#*inline "post_summary_actions"}}{{> update-notice-close}}{{/inline}}
 {{#*inline "clarification_gate_context"}}
 Also read `<root>/config/shared/clarification-gate.md` and
 `<root>/config/shared/anti-rationalization.md`.

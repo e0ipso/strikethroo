@@ -105,6 +105,16 @@ npx strikethroo init --harnesses claude
 npx skills add e0ipso/strikethroo
 ```
 
+On re-init, `--harnesses` is optional — Strikethroo reuses the saved selection in `.ai/strikethroo/.init-metadata.json`. Workspaces initialized before that field existed must pass `--harnesses` once.
+
+**Already set up?** Refresh the workspace and update installed workflow skills in one step:
+
+```bash
+npx strikethroo@latest update
+```
+
+Exit 0 requires both the workspace refresh and the skills installer to succeed. If the installer fails after a successful refresh, the refreshed workspace is kept; re-run `update` or the installer command it reports. Start a fresh agent session after updating — a running session may still follow previous skill instructions. Old skill copies cannot show update notices until you run `update` once.
+
 Requires Node.js 22+ and an assistant that supports the Agent Skills format.
 
 ## Profiles: a tailored setup in one step

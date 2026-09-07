@@ -88,7 +88,10 @@ Prefer steps, checkpoints, and checkable rules over paragraphs of advice.
   ends with (`Plan Summary`, `Task Generation Summary`, `Plan Refinement
   Summary`, `Task Execution Result`, `Execution Summary`): it names the plan
   ID, plan file, status, or archive location, and applications outside this
-  repository parse it. Keep those blocks byte for byte.
+  repository parse it. Keep those blocks byte for byte. When a parent retains
+  an update `notice` from `check-for-updates.cjs`, append that exact sentence
+  after the summary fence (or after the final response when the skill emits no
+  summary block). Nothing may follow the notice.
 
 ## After editing
 

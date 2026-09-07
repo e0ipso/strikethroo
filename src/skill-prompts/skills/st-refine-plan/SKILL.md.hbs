@@ -15,6 +15,8 @@ The user supplies the numeric plan ID conversationally, plus any optional refine
 
 {{> root-discovery}}
 
+{{> update-check-default}}
+
 ### 2. Resolve the plan
 
 {{#> plan-resolution}}
@@ -109,6 +111,8 @@ Refine the plan in place, at the path step 2 resolved.
 ### 7. Run the post-plan hook
 
 Execute `<root>/config/hooks/POST_PLAN.md`.
+
+{{> update-notice-close}}
 
 ## Failure Modes
 

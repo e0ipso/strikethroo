@@ -13,16 +13,16 @@ Strikethroo has two distribution channels: the **CLI** (workspace bootstrapping)
 ## Workspace Initialization
 
 ```bash
-npx strikethroo init --harnesses <harness>[,<harness>...] [options]
+npx strikethroo init [--harnesses <harness>[,<harness>...]] [options]
 ```
 
 Creates the shared `.ai/strikethroo/` directory (plans, archive, config, hooks, templates) and copies harness-specific artifacts (e.g., `.claude/agents/` for Claude).
 
-**Required flag:**
+**Harness selection:**
 
 | Flag | Description |
 |------|-------------|
-| `--harnesses <list>` | Comma-separated harness names. Controls which per-harness artifacts are copied. Accepted values: `claude`, `gemini`, `opencode`, `codex`, `copilot`, `cursor`. |
+| `--harnesses <list>` | Comma-separated harness names. Controls which per-harness artifacts are copied. Accepted values: `claude`, `gemini`, `opencode`, `codex`, `copilot`, `cursor`. **Optional on re-init** — omission reuses the saved `harnesses` array from `.ai/strikethroo/.init-metadata.json`. **Required on first init** and on legacy workspaces whose metadata has no saved selection. Empty or invalid explicit values error and do not fall back to the saved list. There is no filesystem or executable auto-detection. |
 
 **Optional flags:**
 
@@ -51,6 +51,39 @@ npx strikethroo init --harnesses claude --force
 
 # Seed from a strikethroo profile (local folder, GitHub shorthand, or git URL)
 npx strikethroo init --harnesses claude --profile someuser/drupal-profile
+```
+
+## Update Workspace and Skills
+
+```bash
+npx strikethroo@latest update [--harnesses <harness>[,<harness>...]] [options]
+```
+
+Refreshes an initialized workspace and updates the seven installed Strikethroo workflow skills. Requires an existing `.ai/strikethroo/.init-metadata.json`; uninitialized directories must run `init` first.
+
+**Flow:**
+
+1. Resolve harnesses (same rules as `init`: explicit `--harnesses`, else saved metadata, else error).
+2. Run `init` in update mode with the same hash-based conflict handling as a normal re-init (no implicit `--force`).
+3. Spawn `npx skills update st-create-plan st-refine-plan st-generate-tasks st-execute-blueprint st-execute-task st-full-workflow st-code-review` with `shell: false` and inherited stdio. The installer may prompt for project or global scope; Strikethroo does not pass `-y`, `-g`, `-p`, or harness names as installer agents.
+
+**Exit behavior:** Combined exit 0 only when workspace refresh **and** skills update both succeed. A workspace failure skips the installer. An installer failure or cancellation after a successful workspace refresh keeps the refreshed workspace, exits 1, and prints recovery guidance (re-run `update` or the reported `npx skills update …` command).
+
+**Flags:** Same as `init` — `--harnesses`, `--destination-directory`, `--force`, `--profile`.
+
+**After updating:** Start a fresh agent session. A running session may still follow previous skill instructions. Parent workflow skills check for newer releases at most once per workspace per 24 hours and may append an update notice after their structured summary; old skill copies cannot notify until you run `update` once.
+
+**Examples:**
+
+```bash
+# Typical upgrade path for an existing project
+npx strikethroo@latest update
+
+# Override harness selection for this refresh
+npx strikethroo@latest update --harnesses claude,cursor
+
+# Legacy workspace with no saved harnesses (once)
+npx strikethroo@latest update --harnesses claude
 ```
 
 ## Profile Export
@@ -106,7 +139,13 @@ npx skills add e0ipso/strikethroo#v3.19.0
 
 **Update skills:**
 
-Re-run the same command to pull the latest version.
+For an initialized workspace, prefer the unified update command:
+
+```bash
+npx strikethroo@latest update
+```
+
+It refreshes the workspace and runs `npx skills update` for all seven workflow skills. To update skills alone, re-run `npx skills add e0ipso/strikethroo` or the scoped `npx skills update …` command that `update` reports.
 
 ## Skill Removal
 

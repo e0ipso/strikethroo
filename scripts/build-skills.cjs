@@ -19,6 +19,7 @@ const SKILLS_ROOT = path.join(REPO_ROOT, 'templates', 'harness', 'skills');
 // Read the schema-version constant from the freshly compiled metadata module.
 // `npm run build` runs `tsc` before this script, so `dist/metadata.js` exists.
 const { CURRENT_WORKSPACE_SCHEMA_VERSION } = require(path.join(REPO_ROOT, 'dist', 'metadata.js'));
+const { version: PACKAGE_VERSION } = require(path.join(REPO_ROOT, 'package.json'));
 
 const SKILL_ENTRYPOINTS = [
   {
@@ -52,6 +53,11 @@ const SKILL_ENTRYPOINTS = [
     out: 'find-strikethroo-root.cjs',
   },
   {
+    src: 'src/skill-scripts/check-for-updates.ts',
+    skill: 'st-create-plan',
+    out: 'check-for-updates.cjs',
+  },
+  {
     src: 'src/skill-scripts/get-next-plan-id.ts',
     skill: 'st-create-plan',
     out: 'get-next-plan-id.cjs',
@@ -60,6 +66,11 @@ const SKILL_ENTRYPOINTS = [
     src: 'src/skill-scripts/find-strikethroo-root.ts',
     skill: 'st-generate-tasks',
     out: 'find-strikethroo-root.cjs',
+  },
+  {
+    src: 'src/skill-scripts/check-for-updates.ts',
+    skill: 'st-generate-tasks',
+    out: 'check-for-updates.cjs',
   },
   {
     src: 'src/skill-scripts/validate-plan-blueprint.ts',
@@ -80,6 +91,11 @@ const SKILL_ENTRYPOINTS = [
     src: 'src/skill-scripts/find-strikethroo-root.ts',
     skill: 'st-execute-blueprint',
     out: 'find-strikethroo-root.cjs',
+  },
+  {
+    src: 'src/skill-scripts/check-for-updates.ts',
+    skill: 'st-execute-blueprint',
+    out: 'check-for-updates.cjs',
   },
   {
     src: 'src/skill-scripts/validate-plan-blueprint.ts',
@@ -112,6 +128,11 @@ const SKILL_ENTRYPOINTS = [
     out: 'find-strikethroo-root.cjs',
   },
   {
+    src: 'src/skill-scripts/check-for-updates.ts',
+    skill: 'st-refine-plan',
+    out: 'check-for-updates.cjs',
+  },
+  {
     src: 'src/skill-scripts/validate-plan-blueprint.ts',
     skill: 'st-refine-plan',
     out: 'validate-plan-blueprint.cjs',
@@ -120,6 +141,11 @@ const SKILL_ENTRYPOINTS = [
     src: 'src/skill-scripts/find-strikethroo-root.ts',
     skill: 'st-execute-task',
     out: 'find-strikethroo-root.cjs',
+  },
+  {
+    src: 'src/skill-scripts/check-for-updates.ts',
+    skill: 'st-execute-task',
+    out: 'check-for-updates.cjs',
   },
   {
     src: 'src/skill-scripts/validate-plan-blueprint.ts',
@@ -140,6 +166,11 @@ const SKILL_ENTRYPOINTS = [
     src: 'src/skill-scripts/find-strikethroo-root.ts',
     skill: 'st-full-workflow',
     out: 'find-strikethroo-root.cjs',
+  },
+  {
+    src: 'src/skill-scripts/check-for-updates.ts',
+    skill: 'st-full-workflow',
+    out: 'check-for-updates.cjs',
   },
   {
     src: 'src/skill-scripts/get-next-plan-id.ts',
@@ -203,15 +234,16 @@ const buildAll = async () => {
       ...(entry.banner ? { banner: entry.banner } : {}),
       define: {
         EXPECTED_WORKSPACE_SCHEMA_VERSION: JSON.stringify(CURRENT_WORKSPACE_SCHEMA_VERSION),
+        SKILL_RELEASE_VERSION: JSON.stringify(PACKAGE_VERSION),
       },
     });
     builtFiles.push(outfile);
     process.stdout.write(`  bundled ${entry.skill}/${entry.out}\n`);
   }
 
-  // Smoke check: the ambient identifier must have been substituted out of
-  // every bundle. If it survives, esbuild's `define` silently failed (likely
-  // because the source no longer references it under that exact name).
+  // Smoke check: ambient identifiers must have been substituted out of every
+  // bundle. If they survive, esbuild's `define` silently failed (likely
+  // because the source no longer references them under that exact name).
   for (const file of builtFiles) {
     const contents = fs.readFileSync(file, 'utf8');
     if (contents.includes('EXPECTED_WORKSPACE_SCHEMA_VERSION')) {
@@ -220,6 +252,21 @@ const buildAll = async () => {
           'EXPECTED_WORKSPACE_SCHEMA_VERSION (esbuild define did not substitute).'
       );
       process.exit(1);
+    }
+    if (path.basename(file) === 'check-for-updates.cjs') {
+      if (contents.includes('SKILL_RELEASE_VERSION')) {
+        console.error(
+          `Build smoke check failed: ${file} still contains the literal ` +
+            'SKILL_RELEASE_VERSION (esbuild define did not substitute).'
+        );
+        process.exit(1);
+      }
+      if (!contents.includes(PACKAGE_VERSION)) {
+        console.error(
+          `Build smoke check failed: ${file} does not contain stamped package version ${PACKAGE_VERSION}.`
+        );
+        process.exit(1);
+      }
     }
   }
 };

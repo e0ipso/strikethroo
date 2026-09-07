@@ -12,6 +12,11 @@ import * as fs from 'fs-extra';
 import * as os from 'os';
 import * as path from 'path';
 import { load } from 'js-yaml';
+import {
+  STRIKETHROO_WORKFLOW_SKILLS,
+  SKILLS_INSTALLER_STDIO,
+  buildSkillsInstallerArgs,
+} from '../update';
 
 describe('CLI Integration', () => {
   let testDir: string;
@@ -167,11 +172,12 @@ describe('CLI Integration', () => {
   });
 
   describe('init — input validation', () => {
-    it('rejects missing --harnesses flag', () => {
+    it('rejects missing --harnesses when no saved selection exists', () => {
       const result = executeCommand(`node "${cliPath}" init`);
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain('required option');
-      expect(result.stderr).toContain('--harnesses');
+      const output = result.stdout + result.stderr;
+      expect(output).toContain('--harnesses');
+      expect(output).toContain('Missing harness selection');
     });
 
     it('rejects invalid harness names', () => {
@@ -194,6 +200,24 @@ describe('CLI Integration', () => {
       const output = result.stdout + result.stderr;
       expect(output).toContain('Invalid harness');
       expect(output).toContain('invalid');
+    });
+
+    it('rejects empty --harnesses value even when a saved selection exists', async () => {
+      expect(executeCommand(`node "${cliPath}" init --harnesses claude --force`).exitCode).toBe(0);
+
+      const result = executeCommand(`node "${cliPath}" init --harnesses "" --force`);
+      expect(result.exitCode).toBe(1);
+      const output = result.stdout + result.stderr;
+      expect(output).toContain('cannot be empty');
+    });
+
+    it('rejects invalid explicit harnesses without falling back to saved selection', async () => {
+      expect(executeCommand(`node "${cliPath}" init --harnesses claude --force`).exitCode).toBe(0);
+
+      const result = executeCommand(`node "${cliPath}" init --harnesses invalid --force`);
+      expect(result.exitCode).toBe(1);
+      const output = result.stdout + result.stderr;
+      expect(output).toContain('Invalid harness');
     });
 
     it('normalises whitespace and duplicates', async () => {
@@ -337,6 +361,52 @@ describe('CLI Integration', () => {
     });
   });
 
+  describe('init — harness selection persistence', () => {
+    const metadataPath = () => path.join(testDir, '.ai/strikethroo/.init-metadata.json');
+
+    it('persists, reuses, overrides, and requires explicit selection when saved field is absent', async () => {
+      const first = executeCommand(`node "${cliPath}" init --harnesses claude --force`);
+      expect(first.exitCode).toBe(0);
+
+      const afterFirst = await fs.readJson(metadataPath());
+      expect(afterFirst.harnesses).toEqual(['claude']);
+      expect(await fs.pathExists(path.join(testDir, '.claude/agents/plan-creator.md'))).toBe(true);
+
+      const reused = executeCommand(`node "${cliPath}" init --force`);
+      expect(reused.exitCode).toBe(0);
+      expect(reused.stdout).toContain('Harnesses: claude');
+      expect(await fs.pathExists(path.join(testDir, '.claude/agents/plan-creator.md'))).toBe(true);
+
+      const override = executeCommand(`node "${cliPath}" init --harnesses gemini --force`);
+      expect(override.exitCode).toBe(0);
+      const afterOverride = await fs.readJson(metadataPath());
+      expect(afterOverride.harnesses).toEqual(['gemini']);
+      expect(await fs.pathExists(path.join(testDir, '.gemini/agents/plan-creator.md'))).toBe(true);
+      expect(await fs.pathExists(path.join(testDir, '.claude/agents/plan-creator.md'))).toBe(true);
+
+      const metadataBeforeLegacy = await fs.readJson(metadataPath());
+      const originalTimestamp = metadataBeforeLegacy.timestamp;
+      delete metadataBeforeLegacy.harnesses;
+      await fs.writeJson(metadataPath(), metadataBeforeLegacy);
+
+      const missingSaved = executeCommand(`node "${cliPath}" init --force`);
+      expect(missingSaved.exitCode).toBe(1);
+      const output = missingSaved.stdout + missingSaved.stderr;
+      expect(output).toContain('Missing harness selection');
+      expect(output).toContain('--harnesses');
+
+      const metadataAfterFailed = await fs.readJson(metadataPath());
+      expect(metadataAfterFailed.timestamp).toBe(originalTimestamp);
+
+      const explicitStillWorks = executeCommand(
+        `node "${cliPath}" init --harnesses cursor --force`
+      );
+      expect(explicitStillWorks.exitCode).toBe(0);
+      const afterExplicit = await fs.readJson(metadataPath());
+      expect(afterExplicit.harnesses).toEqual(['cursor']);
+    });
+  });
+
   describe('init — re-run handling', () => {
     it('succeeds when run twice in the same directory', async () => {
       const first = executeCommand(`node "${cliPath}" init --harnesses claude`);
@@ -403,6 +473,196 @@ describe('CLI Integration', () => {
 
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain('not an initialized strikethroo workspace');
+    });
+  });
+
+  /**
+   * Self-validation 6 (disposable-environment smoke with real `npx skills`) is manual only —
+   * never run against a developer's global/project skills installation in CI.
+   */
+  describe('update', () => {
+    const metadataPath = () => path.join(testDir, '.ai/strikethroo/.init-metadata.json');
+
+    const initWorkspace = (harnesses = 'claude'): void => {
+      const result = executeCommand(`node "${cliPath}" init --harnesses ${harnesses} --force`);
+      expect(result.exitCode).toBe(0);
+    };
+
+    const writeFakeNpx = async (binDir: string): Promise<void> => {
+      await fs.ensureDir(binDir);
+      const script = `#!/usr/bin/env node
+const fs = require('fs');
+const log = {
+  argv: process.argv.slice(2),
+  cwd: process.cwd(),
+  message: process.env.NPX_FAKE_MESSAGE || '',
+};
+fs.writeFileSync(process.env.NPX_LOG_FILE, JSON.stringify(log, null, 2));
+if (process.env.NPX_FAKE_MESSAGE) {
+  console.error(process.env.NPX_FAKE_MESSAGE);
+}
+process.exit(Number(process.env.NPX_EXIT_CODE || '0'));
+`;
+      const npxPath = path.join(binDir, 'npx');
+      await fs.writeFile(npxPath, script);
+      await fs.chmod(npxPath, 0o755);
+    };
+
+    const runUpdate = (
+      args = '',
+      opts: { exitCode?: number; message?: string } = {}
+    ): { stdout: string; stderr: string; exitCode: number } => {
+      const fakeBin = path.join(testDir, 'fake-bin');
+      const logFile = path.join(testDir, 'npx-log.json');
+      const pathPrefix = `${fakeBin}${path.delimiter}${process.env.PATH || ''}`;
+      const exitCode = opts.exitCode ?? 0;
+      const message = opts.message ?? '';
+      const escapedMessage = message.replace(/"/g, '\\"');
+      return executeCommand(
+        `PATH="${pathPrefix}" NPX_LOG_FILE="${logFile}" NPX_EXIT_CODE="${exitCode}" NPX_FAKE_MESSAGE="${escapedMessage}" node "${cliPath}" update ${args}`
+      );
+    };
+
+    it('targets the seven workflow skills with inherited stdio spawn config', () => {
+      expect(buildSkillsInstallerArgs()).toEqual([
+        'skills',
+        'update',
+        ...STRIKETHROO_WORKFLOW_SKILLS,
+      ]);
+      expect(SKILLS_INSTALLER_STDIO).toBe('inherit');
+    });
+
+    it('refreshes workspace with explicit harnesses and runs the skills installer', async () => {
+      initWorkspace('claude');
+      await writeFakeNpx(path.join(testDir, 'fake-bin'));
+
+      const result = runUpdate('--harnesses gemini --force');
+      expect(result.exitCode).toBe(0);
+
+      const log = await fs.readJson(path.join(testDir, 'npx-log.json'));
+      expect(log.argv).toEqual(['skills', 'update', ...STRIKETHROO_WORKFLOW_SKILLS]);
+      expect(log.cwd).toBe(testDir);
+
+      const output = result.stdout + result.stderr;
+      expect(output).toContain('Update summary');
+      expect(output).toContain('Workflow skills: updated');
+      expect(output).toContain('fresh session');
+      expect(output).not.toContain('npx skills add e0ipso/strikethroo');
+      expect(await fs.pathExists(path.join(testDir, '.gemini/agents/plan-creator.md'))).toBe(true);
+
+      const metadata = await fs.readJson(metadataPath());
+      expect(metadata.harnesses).toEqual(['gemini']);
+    });
+
+    it('reuses saved harnesses when --harnesses is omitted', async () => {
+      initWorkspace('cursor');
+      await writeFakeNpx(path.join(testDir, 'fake-bin'));
+
+      const result = runUpdate('--force');
+      expect(result.exitCode).toBe(0);
+      const output = result.stdout + result.stderr;
+      expect(output).toContain('Harnesses: cursor');
+
+      const metadata = await fs.readJson(metadataPath());
+      expect(metadata.harnesses).toEqual(['cursor']);
+    });
+
+    it('fails before mutation when the workspace is not initialized and does not spawn the installer', async () => {
+      await writeFakeNpx(path.join(testDir, 'fake-bin'));
+
+      const result = runUpdate('--harnesses claude');
+      expect(result.exitCode).toBe(1);
+      const output = result.stdout + result.stderr;
+      expect(output).toContain('not initialized');
+      expect(await fs.pathExists(path.join(testDir, 'npx-log.json'))).toBe(false);
+    });
+
+    it('requires explicit harnesses when saved selection is absent', async () => {
+      initWorkspace('claude');
+      const metadata = await fs.readJson(metadataPath());
+      delete metadata.harnesses;
+      await fs.writeJson(metadataPath(), metadata);
+
+      const result = runUpdate('--force');
+      expect(result.exitCode).toBe(1);
+      const output = result.stdout + result.stderr;
+      expect(output).toContain('Missing harness selection');
+      expect(await fs.pathExists(path.join(testDir, 'npx-log.json'))).toBe(false);
+    });
+
+    it('does not overwrite customized files without --force', async () => {
+      initWorkspace('claude');
+      const target = path.join(testDir, '.ai/strikethroo/config/STRIKETHROO.md');
+      const customized = '# Custom project context\n';
+      await fs.writeFile(target, customized);
+      await writeFakeNpx(path.join(testDir, 'fake-bin'));
+
+      const result = runUpdate('--harnesses claude');
+      expect(result.exitCode).not.toBe(0);
+      expect(await fs.readFile(target, 'utf8')).toBe(customized);
+      expect(await fs.pathExists(path.join(testDir, 'npx-log.json'))).toBe(false);
+    });
+
+    it('overwrites customized files when --force is explicit', async () => {
+      initWorkspace('claude');
+      const target = path.join(testDir, '.ai/strikethroo/config/STRIKETHROO.md');
+      await fs.writeFile(target, '# Custom project context\n');
+      await writeFakeNpx(path.join(testDir, 'fake-bin'));
+
+      const result = runUpdate('--harnesses claude --force');
+      expect(result.exitCode).toBe(0);
+      const contents = await fs.readFile(target, 'utf8');
+      expect(contents).not.toContain('# Custom project context');
+      expect(await fs.pathExists(path.join(testDir, 'npx-log.json'))).toBe(true);
+    });
+
+    it('keeps a refreshed workspace when the installer fails and reports recovery', async () => {
+      initWorkspace('claude');
+      const before = await fs.readJson(metadataPath());
+      await writeFakeNpx(path.join(testDir, 'fake-bin'));
+
+      const result = runUpdate('--harnesses claude --force', {
+        exitCode: 1,
+        message: 'skills update failed',
+      });
+      expect(result.exitCode).toBe(1);
+      const output = result.stdout + result.stderr;
+      expect(output).toContain('Workspace: refreshed');
+      expect(output).toContain('Workflow skills: not updated');
+      expect(output).toContain('Re-run `strikethroo update`');
+      expect(output).toContain('skills update failed');
+
+      const after = await fs.readJson(metadataPath());
+      expect(after.timestamp).not.toBe(before.timestamp);
+    });
+
+    it('treats installer cancellation like installer failure', async () => {
+      initWorkspace('claude');
+      await writeFakeNpx(path.join(testDir, 'fake-bin'));
+
+      const result = runUpdate('--harnesses claude --force', {
+        exitCode: 130,
+        message: 'cancelled',
+      });
+      expect(result.exitCode).toBe(1);
+      const output = result.stdout + result.stderr;
+      expect(output).toContain('Workflow skills: not updated');
+      expect(await fs.pathExists(path.join(testDir, 'npx-log.json'))).toBe(true);
+    });
+
+    it('reports missing installations from the installer', async () => {
+      initWorkspace('claude');
+      const missingMessage = 'No installed skills matched the requested names.';
+      await writeFakeNpx(path.join(testDir, 'fake-bin'));
+
+      const result = runUpdate('--harnesses claude --force', {
+        exitCode: 1,
+        message: missingMessage,
+      });
+      expect(result.exitCode).toBe(1);
+      const output = result.stdout + result.stderr;
+      expect(output).toContain(missingMessage);
+      expect(output).toContain('Workflow skills: not updated');
     });
   });
 });

@@ -5,15 +5,6 @@ description: Use when the user asks to run, execute, implement, or carry out a S
 
 # st-execute-blueprint
 
-Drive the end-to-end execution of an existing Strikethroo plan blueprint.
-
-## Critical Rules
-
-1. **Never skip validation gates** — a phase is not complete until `POST_PHASE.md` succeeds.
-2. **Preserve dependency order** — never execute a task before all of its dependencies are completed.
-3. **Maximize parallelism within each phase** — run all tasks whose dependencies are satisfied simultaneously.
-4. **Fail safely and document everything** — halt on unrecoverable errors, and record all decisions, issues, and outcomes under "Noteworthy Events" in the execution summary.
-
 ## Inputs
 
 The user supplies the numeric plan ID conversationally.
@@ -22,7 +13,7 @@ The user supplies the numeric plan ID conversationally.
 
 ### 1. Locate the strikethroo root
 
-{{> root-discovery action_verb_phrase="execute a plan"}}
+{{> root-discovery}}
 
 {{#> procedure-execute-blueprint
      heading="###"

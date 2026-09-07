@@ -105,9 +105,21 @@ describe('rendered dispatch skills share one outcome contract', () => {
     expect(block).toContain('Never reconstruct');
     expect(block).toContain('another task');
     expect(block).toContain('after launches begin');
-    expect(block).toContain('does not reread routing configuration');
-    expect(block).toContain('exactly one JSON line');
-    expect(block).toContain('Exit code `2`');
-    expect(block).toContain('exit code `1`');
+  });
+
+  test.each(CONSUMERS)('%s sends both failure kinds through the error hook', skill => {
+    const rows = outcomesBlock(readSkill(skill)).split('\n');
+    const rowIndex = (kind: string): number =>
+      rows.findIndex(row => row.startsWith(`| \`${kind}\` |`));
+
+    // Both failure kinds share one action, written on the first row of the pair,
+    // so the second row only resolves while it directly follows the first.
+    const launched = rowIndex('launched-failure');
+    expect(launched).toBeGreaterThan(-1);
+    expect(rowIndex('infrastructure-failure')).toBe(launched + 1);
+
+    expect(rows[launched]).toContain('`failed`');
+    expect(rows[launched]).toContain('POST_ERROR_DETECTION.md');
+    expect(rows[launched]).toContain('Never retry it natively');
   });
 });

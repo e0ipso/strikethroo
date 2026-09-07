@@ -24,12 +24,12 @@ kk_confidence: high
 ---
 Two generated skill trees exist, with different Git states and one shared rule — never hand-edit or hand-commit either:
 
-- `templates/harness/skills/*/SKILL.md` and `templates/harness/skills/*/scripts/*.cjs` are gitignored, untracked build output. `npm run build` overwrites them wholesale, so an edit made there is lost at the next build, and a fresh build leaves `git status` clean.
-- The root `skills/*/SKILL.md` and `skills/*/scripts/*.cjs` mirror is tracked — it is what `npx skills add e0ipso/strikethroo` reads from the git tree — but it records the last released build. `scripts/sync-skills-mirror.cjs` is its only writer, the release workflow (running with `HUSKY=0`) is the only normal caller, and a hand edit disappears at the next release sync.
+- `templates/harness/skills/*/SKILL.md`, `templates/harness/skills/*/scripts/*.cjs`, and `templates/harness/skills/*/references/*.md` are gitignored, untracked build output. `npm run build` overwrites them wholesale, so an edit made there is lost at the next build, and a fresh build leaves `git status` clean.
+- The root `skills/*/SKILL.md`, `skills/*/scripts/*.cjs`, and `skills/*/references/*.md` mirror is tracked. It is what `npx skills add e0ipso/strikethroo` reads from the git tree, but it records the last released build. `scripts/sync-skills-mirror.cjs` is its only writer, the release workflow running with `HUSKY=0` is the only normal caller, and a hand edit disappears at the next release sync.
 
-The source of truth is `src/skill-prompts/` for prompts and `src/skill-scripts/` for bundles — change those. The guards:
+The source of truth is `src/skill-prompts/` for prompts and references, and `src/skill-scripts/` for bundles. Change those. The guards:
 
-- `.husky/pre-commit` rejects staged additions or modifications of the four path patterns in one block (`--diff-filter=d`, so staged deletions — untracking migrations — pass) and names the source directories to edit instead.
+- `.husky/pre-commit` rejects staged additions or modifications of the six path patterns in one block. Its `--diff-filter=d` permits staged deletions for untracking migrations, and its rejection names the source directories to edit instead.
 - `.gitattributes` marks both trees `linguist-generated=true`, and the vendored `templates/strikethroo/config/schemas/*.xsd` `linguist-vendored=true`. GitHub collapses generated files in pull requests, so a reviewer sees source rather than churn.
 
 The code review gate reads those same markers through `git check-attr` and drops the matching paths from the reviewed diff. This is not cosmetic. A finding against build output is unactionable by construction: the mandatory full `POST_EXECUTION` re-run regenerates the file, so any fix aimed at generated content erases itself before anyone could act on it — the fix belongs in the authored source instead. Reading the markers rather than a hard-coded path list matters because the gate runs inside the user's project and cannot know what that project generates.

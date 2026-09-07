@@ -300,12 +300,12 @@ Verify the invariant:
 git ls-files 'templates/harness/skills/*/SKILL.md' 'templates/harness/skills/*/scripts/*.cjs'  # expect: EMPTY (never tracked)
 git ls-files 'templates/harness/skills/*/references/*.md'                                       # expect: EMPTY (never tracked)
 git ls-files 'skills/*/SKILL.md' | wc -l                                                        # expect: 7 (mirror tracked, one per skill)
-git ls-files 'skills/*/references/*.md' | wc -l                                                 # expect: 7 once a release has synced references (0 before that)
+git ls-files 'skills/*/references/*.md' | wc -l                                                 # expect: 3 once a release has synced references (0 before that)
 npm pack --dry-run 2>&1 | grep -c 'templates/harness/skills/.*SKILL\.md'                        # expect: 7 (npm channel unchanged)
 npm pack --dry-run 2>&1 | awk '{print $NF}' | grep -c '^skills/'                                # expect: 0 (mirror is Git-tree only, never packed)
 ```
 
-`npm pack --dry-run`'s tarball listing is written to stderr, so `2>&1` is required — a bare `| grep` silently matches nothing. The mirror's `references/` directories are written by the same release sync as the rest of the mirror, so their count is `0` until the first release after they were introduced and `7` after it (three each for `st-generate-tasks` and `st-full-workflow`, one for `st-code-review`).
+`npm pack --dry-run`'s tarball listing is written to stderr, so `2>&1` is required — a bare `| grep` silently matches nothing. The mirror's `references/` directories are written by the same release sync as the rest of the mirror, so their count is `0` until the first release after they were introduced and `3` after it (one each for `st-generate-tasks`, `st-full-workflow`, and `st-code-review`).
 
 ---
 

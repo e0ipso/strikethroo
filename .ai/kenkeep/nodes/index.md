@@ -25,6 +25,7 @@ okf_version: '0.1'
 - Open [**Never hand-commit generated skill artifacts in either tree**](practice-never-hand-commit-generated-skill-artifacts.md) to learn about: templates/harness/skills is gitignored build output; the root skills/ mirror is tracked but written only by the release sync. .gitattributes and the pre-commit guard cover both trees and the review gate skips them. #build #skills #git #gitattributes #review-gate #generated-artifacts
 - Open [**Review gate artifacts are git-ignored by a workspace-root .gitignore**](practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore.md) to learn about: init ships .ai/strikethroo/.gitignore covering plans/*/review/ and archive/*/review/, keeping reviewer output out of git and its own diff. #code-review #gitignore #workspace #init #generated-artifacts
 - Open [**Workspace tracking is project-owned except local configuration and runtime output**](practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md) to learn about: Projects choose whether to track plans and authored workspace files, while init ignores machine-local config.yaml, review artifacts, and runtime output. #gitignore #workspace #documentation #code-review #init
+- Open [**Keep comment prose terse and single-sourced**](practice-keep-comment-prose-terse-and-single-sourced.md) to learn about: Do not write long doc comments or repeat the same rationale across call sites and file copies. State it once where it belongs. #comments #code-style #documentation #xsd #prose
 - Open [**Strikethroo profile packages tolerate inert package-root extras**](practice-strikethroo-profile-packages-tolerate-inert-package-root-extras.md) to learn about: validateProfilePackage scopes to profile.yaml plus config/; entries at the package root are accepted and are never copied, hash-tracked, or executed. #profiles #init #validation #security
 
 ## Components (what exists)
@@ -38,6 +39,10 @@ _None yet._
 - Open [**Strikethroo profile packages tolerate inert package-root extras**](practice-strikethroo-profile-packages-tolerate-inert-package-root-extras.md) — validateProfilePackage scopes to profile.yaml plus config/; entries at the package root are accepted and are never copied, hash-tracked, or executed.
 ### #code-review
 - Open [**Review gate artifacts are git-ignored by a workspace-root .gitignore**](practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore.md) — init ships .ai/strikethroo/.gitignore covering plans/*/review/ and archive/*/review/, keeping reviewer output out of git and its own diff.
+- Open [**Workspace tracking is project-owned except local configuration and runtime output**](practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md) — Projects choose whether to track plans and authored workspace files, while init ignores machine-local config.yaml, review artifacts, and runtime output.
+### #documentation
+- Open [**Documentation captures current state only**](conventions/practice-documentation-captures-current-state-only.md) — All docs describe how things work now. No historical context, migration notes, or retired-term mappings.
+- Open [**Phase is reserved for execution blueprint task groups**](conventions/practice-phase-reserved-for-blueprint-task-groups.md) — "Phase" means parallel task batches in the blueprint. The three workflow stages are "steps", never "phases".
 - Open [**Workspace tracking is project-owned except local configuration and runtime output**](practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md) — Projects choose whether to track plans and authored workspace files, while init ignores machine-local config.yaml, review artifacts, and runtime output.
 ### #generated-artifacts
 - Open [**Never hand-commit generated skill artifacts in either tree**](practice-never-hand-commit-generated-skill-artifacts.md) — templates/harness/skills is gitignored build output; the root skills/ mirror is tracked but written only by the release sync. .gitattributes and the pre-commit guard cover both trees and the review gate skips them.
@@ -54,10 +59,11 @@ _None yet._
 - Open [**Use build-time composition to eliminate cross-skill prompt duplication**](skills/prompts/practice-use-build-time-composition-to-eliminate-cross-skill-prompt-duplication.md) — Shared procedural blocks in SKILL.md files must live as Handlebars partials under src/skill-prompts/_partials/, not copy-pasted per skill.
 - Open [**SPA source changes require npm run build:web before serve reflects them**](dev/practice-spa-source-changes-require-npm-run-build-web-before-serve-reflects-them.md) — serve hosts the prebuilt dist-web/ bundle. SPA source changes are not visible until npm run build:web is run; a hard-refresh clears cached content-hashed chunks.
 - Open [**Avoid */ inside @theme CSS comments to prevent premature comment termination**](web/styling/practice-avoid-inside-theme-css-comments-to-prevent-premature-comment-termination.md) — A comment containing */ inside a Tailwind @theme block terminates the comment early, producing a cryptic parse error that halts the build.
-### #documentation
-- Open [**Documentation captures current state only**](conventions/practice-documentation-captures-current-state-only.md) — All docs describe how things work now. No historical context, migration notes, or retired-term mappings.
-- Open [**Phase is reserved for execution blueprint task groups**](conventions/practice-phase-reserved-for-blueprint-task-groups.md) — "Phase" means parallel task batches in the blueprint. The three workflow stages are "steps", never "phases".
-- Open [**Workspace tracking is project-owned except local configuration and runtime output**](practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md) — Projects choose whether to track plans and authored workspace files, while init ignores machine-local config.yaml, review artifacts, and runtime output.
+### #code-style
+- Open [**Keep comment prose terse and single-sourced**](practice-keep-comment-prose-terse-and-single-sourced.md) — Do not write long doc comments or repeat the same rationale across call sites and file copies. State it once where it belongs.
+### #comments
+- Open [**Avoid */ inside @theme CSS comments to prevent premature comment termination**](web/styling/practice-avoid-inside-theme-css-comments-to-prevent-premature-comment-termination.md) — A comment containing */ inside a Tailwind @theme block terminates the comment early, producing a cryptic parse error that halts the build.
+- Open [**Keep comment prose terse and single-sourced**](practice-keep-comment-prose-terse-and-single-sourced.md) — Do not write long doc comments or repeat the same rationale across call sites and file copies. State it once where it belongs.
 ### #git
 - Open [**Do not use --no-verify to skip git commit hooks**](git/practice-do-not-use-no-verify-to-skip-git-commit-hooks.md) — Bypassing commit hooks with --no-verify hides real breakage and triggers an approval prompt that halts autonomous runs.
 - Open [**Project commit hook rejects AI co-authorship attribution trailers**](git/practice-project-commit-hook-rejects-ai-co-authorship-attribution-trailers.md) — A commit hook rejects Co-Authored-By AI attribution lines; omit them when committing in this repository.
@@ -66,6 +72,8 @@ _None yet._
 - Open [**Never hand-commit generated skill artifacts in either tree**](practice-never-hand-commit-generated-skill-artifacts.md) — templates/harness/skills is gitignored build output; the root skills/ mirror is tracked but written only by the release sync. .gitattributes and the pre-commit guard cover both trees and the review gate skips them.
 ### #profiles
 - Open [**Strikethroo profile packages tolerate inert package-root extras**](practice-strikethroo-profile-packages-tolerate-inert-package-root-extras.md) — validateProfilePackage scopes to profile.yaml plus config/; entries at the package root are accepted and are never copied, hash-tracked, or executed.
+### #prose
+- Open [**Keep comment prose terse and single-sourced**](practice-keep-comment-prose-terse-and-single-sourced.md) — Do not write long doc comments or repeat the same rationale across call sites and file copies. State it once where it belongs.
 ### #review-gate
 - Open [**Never hand-commit generated skill artifacts in either tree**](practice-never-hand-commit-generated-skill-artifacts.md) — templates/harness/skills is gitignored build output; the root skills/ mirror is tracked but written only by the release sync. .gitattributes and the pre-commit guard cover both trees and the review gate skips them.
 - Open [**The review gate reports; it never fixes. Re-run POST_EXECUTION after acting on a finding**](code-review/practice-review-gate-reports-it-does-not-fix.md) — The gate runs once after POST_EXECUTION, records findings, and applies nothing. If you act on a finding, re-run POST_EXECUTION in full before declaring complete.
@@ -79,3 +87,5 @@ _None yet._
 - Open [**Installed skills in .claude/skills/ are decoupled from repo builds**](release/map-installed-skills-in-claude-skills-are-decoupled-from-repo-builds.md) — Skills installed via npx skills add are separate from repo-built artifacts; a rebuild does not update the installed copies. Restart required after reinstall.
 ### #validation
 - Open [**Strikethroo profile packages tolerate inert package-root extras**](practice-strikethroo-profile-packages-tolerate-inert-package-root-extras.md) — validateProfilePackage scopes to profile.yaml plus config/; entries at the package root are accepted and are never copied, hash-tracked, or executed.
+### #xsd
+- Open [**Keep comment prose terse and single-sourced**](practice-keep-comment-prose-terse-and-single-sourced.md) — Do not write long doc comments or repeat the same rationale across call sites and file copies. State it once where it belongs.

@@ -1,20 +1,22 @@
-When generating test tasks, keep this constraint:
+**Write tests for:**
 
-**Definition.** Meaningful tests verify custom business logic, critical paths,
-and edge cases specific to this application. Test *your* code, not the
-framework or library.
+- Custom business logic and algorithms.
+- Critical user workflows and data transformations.
+- Edge cases and error conditions in core functionality.
+- Integration points between components.
+- Complex validation or calculation logic.
 
-Before writing any test task, read `references/test-philosophy.md`; it lists
-what deserves a test and what does not.
+**Do not write tests for:**
 
-**Test task creation rules:**
+- Third-party library and framework functionality.
+- Simple CRUD without custom logic.
+- Trivial getters/setters and static configuration.
+- Obvious functionality that would break immediately if incorrect.
 
-- Combine related test scenarios into a single task (e.g. "Test user
-  authentication flow" not separate tasks for login, logout, validation).
-- Favor integration and critical-path coverage over per-method unit tests.
-- Avoid one test task per CRUD operation.
-- Question whether simple functions need a dedicated test task.
+Combine related test scenarios into one task ("Test user authentication flow",
+not separate tasks for login, logout, and validation). Favor integration and
+critical-path coverage over per-method unit tests. Never create one test task
+per CRUD operation.
 
-If any test task is generated, restate this section and the reference file
-verbatim or near-verbatim in that task's "Implementation Notes" so the
-executing agent applies them.
+Copy these rules into the "Implementation Notes" of every test task you
+generate.

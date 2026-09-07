@@ -10,17 +10,15 @@ After `POST_EXECUTION.md` reports green, follow the `st-code-review` skill and r
 code-review.cjs <plan-id> <current-harness>
 ```
 
-Resolve `code-review.cjs` from the `st-code-review` skill's sibling `scripts` directory. Pass the exact supported harness identifier running this skill. The command emits exactly one JSON line on stdout; reviewer output goes to stderr.
+Resolve `code-review.cjs` from the `st-code-review` skill's sibling `scripts` directory and pass the exact supported harness identifier running this skill. If the `st-code-review` skill is not installed, record that outcome in the execution summary and continue to summary and archival.
 
-If the `st-code-review` skill is not installed, record that outcome in the execution summary and continue to summary and archival.
-
-Handle the JSON line in this order:
+Handle the one JSON line it prints on stdout, in this order:
 
 1. Copy it verbatim into the execution summary's review outcome. Do not reformat it or omit fields.
-2. Follow its top-level `action`. If it is `halt`, stop and report the top-level `detail`; execution is incomplete. If it is `continue`, proceed to the execution summary and archival.
+2. Follow its top-level `action`. If it is `halt`, stop and report the top-level `detail`. If it is `continue`, proceed to the execution summary and archival.
 3. Only when `verdict.kind` is `review-recorded`, read `<plan-dir>/review/review.xml` and `<plan-dir>/review/findings.json`, then decide which findings to act on. `severity` and `confidence` are advisory labels, not instructions.
 
-The compiled top-level `action` and exit status control the decision. Do not re-derive `action` from another field. Never report an uncertified review as clean.
+Never report an uncertified review as clean.
 
 Hard rules:
 

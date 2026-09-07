@@ -1,11 +1,11 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:92d500e1ba5f3bf0c36de5d4d1efb97615fd03e583d46a1b411f120ce0c8073e'
-node_count: 85
+nodes_hash: 'sha256:dce5a8fdfe5a72f29f1e415f13db69d5b61251d1670790b17bb22f4b142d0b08'
+node_count: 86
 ---
 # kenkeep Graph
 
-Total nodes: 85
+Total nodes: 86
 
 ## map-archive-ui-control-confirmation-gated-archive-button-on-done-plans
 
@@ -358,6 +358,14 @@ Total nodes: 85
 - **title:** Keep .ai/strikethroo (dogfood workspace) explicitly ignored in .gitignore
 - **path:** git/practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore.md
 - **tags:** git, gitignore, workspace
+
+## practice-keep-comment-prose-terse-and-single-sourced
+
+- **kind:** practice
+- **title:** Keep comment prose terse and single-sourced
+- **path:** practice-keep-comment-prose-terse-and-single-sourced.md
+- **tags:** comments, code-style, documentation, xsd, prose
+- **relates_to:** practice-documentation-captures-current-state-only
 
 ## practice-keep-host-0-0-0-0-in-t3-serve-docker-port-forwarding-needs-it
 

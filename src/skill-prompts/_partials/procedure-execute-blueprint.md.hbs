@@ -23,26 +23,26 @@ Run `scripts/validate-plan-blueprint.cjs <plan-id> taskCount` and
 
 If `taskCount` is 0 or `blueprintExists` is `no`:
 
-- Notify the user: "Tasks or execution blueprint not found. Generating tasks automatically..."
-- {{> auto_generate_dispatch}}
-- After generation completes, re-run the `planFile`, `planDir`, `taskCount`, and `blueprintExists` queries to refresh the resolved paths and counts.
+Notify the user: "Tasks or execution blueprint not found. Generating tasks automatically..."
 
-If generation still leaves the plan without tasks or a blueprint, stop and report failure. Do not attempt execution without a valid blueprint.
+- {{> auto_generate_dispatch}}
+- Re-run the `planFile`, `planDir`, `taskCount`, and `blueprintExists` queries to refresh the resolved paths and counts.
+
+If the plan still has no tasks or no blueprint, stop and report failure.
 
 {{heading}} {{step_branch}}. Optionally create a feature branch
 
-Run `scripts/create-feature-branch.cjs <plan-id>` once before phase execution. Branch creation is best-effort: when the script reports that it skipped creation (for example, not on `main`/`master`), continue on the current branch and do not retry or create a branch manually. Uncommitted or untracked changes are permitted only when every change is inside the repository-root `.ai/strikethroo` subtree. When the script exits with an error—including changes anywhere outside that subtree or an inability to inspect Git status on `main`/`master`—halt and report the error. Do not treat a skipped branch as a failure or spend effort working around a skip.
+Run `scripts/create-feature-branch.cjs <plan-id>` once before phase execution. A skip is not a failure. Continue on the current branch, and never create the branch by hand. Uncommitted or untracked changes are permitted only inside the repository-root `.ai/strikethroo` subtree. An error result halts execution; report it.
 
-After the branch step, run `scripts/capture-base-commit.cjs <plan-id>` once. It records the commit the review gate diffs against. A `skipped` result is not a failure — continue execution and note that the review gate will skip. Only an `error` result halts.
+Then run `scripts/capture-base-commit.cjs <plan-id>` once to record the commit the review gate diffs against. A `skipped` result continues execution and means the review gate will skip. Only an `error` result halts.
 
 {{heading}} {{step_context}}. Load project context and execution blueprint
 
 Read these files, in order:
 
-- `<root>/config/STRIKETHROO.md` — directory conventions and project context.
-- The plan document at the path returned by step {{step_resolve}}.
-- The plan's Execution Blueprint section — this defines the phase groupings and task dispatch order.
-- `<root>/config/shared/verification-gate.md` and `<root>/config/shared/anti-rationalization.md` — apply in the phase loop below.
+- `<root>/config/STRIKETHROO.md`
+- The plan document at the path from step {{step_resolve}}, including its Execution Blueprint section, which defines the phase groupings and task dispatch order.
+- `<root>/config/shared/verification-gate.md` and `<root>/config/shared/anti-rationalization.md`, both applied in the phase loop below.
 
 {{heading}} {{step_phases}}. Execute phases in order
 

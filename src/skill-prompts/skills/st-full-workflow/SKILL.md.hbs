@@ -5,63 +5,32 @@ description: Use when the user asks to run the complete end-to-end Strikethroo w
 
 # st-full-workflow
 
-Drive the complete end-to-end Strikethroo workflow from initial plan creation through final blueprint execution and archival.
-
 ## Critical Rule
 
-Execute all three steps sequentially without waiting for user input between them. This is a fully automated orchestration workflow. Progress indicators are for user visibility only and do not pause execution.
+Execute all three steps sequentially without waiting for user input between them.
 
 ## Inputs
 
 The user supplies the work order conversationally.
 
-## Context Passing Between Steps
-
-Information flows through the workflow via structured output parsing:
-
-1. **Step 1 → Step 2**: Extract the numeric `Plan ID` from the Step 1 structured summary output. Use this exact ID to drive Step 2.
-2. **Step 2 → Step 3**: Extract the `Tasks` count from the Step 2 structured summary output. Use this count for progress tracking during Step 3.
-
-Do not proceed to the next step until the structured output from the current step has been successfully parsed.
-
-## Progress Indicators
-
-Display progress indicators at key transition points to provide visual feedback without interrupting execution:
-
-- `⬛⬜⬜ 33%` — Step 1: Plan Creation Complete
-- `⬛⬛⬜ 66%` — Step 2: Task Generation Complete
-- `⬛⬛⬛ 100%` — Step 3: Blueprint Execution Complete
-
-These indicators are purely informational. Do not pause or wait for user input when displaying them.
-
 ## Operating Procedure
 
 ### Step 1: Plan Creation
 
-**Progress**: `⬛⬜⬜ 33% - Step 1/3: Starting Plan Creation`
-
 {{#> procedure-create-plan
      heading="####"
-     action_verb_phrase="execute the full workflow"
      summary_heading="Emit the Step 1 structured summary"
      summary_lead_in="Conclude Step 1 with exactly this block:"
      summary_closing="Parse the `Plan ID` value from this output and pass it to Step 2."}}
 {{#*inline "clarification_gate_context"}}
-Also read `<root>/config/shared/anti-rationalization.md`. The steps below
-require you to apply it.
+Also read `<root>/config/shared/anti-rationalization.md`.
 {{/inline}}
 {{#*inline "clarification_gate"}}{{!-- Hands-off workflow has no approval gate. --}}{{/inline}}
 {{/procedure-create-plan}}
 
-**Progress**: `⬛⬜⬜ 33% - Step 1/3: Plan Creation Complete`
-
----
-
 ### Step 2: Task Generation
 
-**Progress**: `⬛⬜⬜ 33% - Step 2/3: Starting Task Generation`
-
-Using the Plan ID extracted from Step 1:
+Using the plan ID from Step 1:
 
 {{#> procedure-generate-tasks
      heading="####"
@@ -76,23 +45,13 @@ Using the Plan ID extracted from Step 1:
      step_emit="9"
      step_validation="10"
      step_routing="11"
-     step_hook="12"
-     step_summary="13"
-     summary_heading="Emit the Step 2 structured summary"
-     summary_lead_in="Conclude Step 2 with exactly this block:"
-     summary_closing="Parse the `Tasks` count from this output and pass it to Step 3 for progress tracking."}}
+     step_hook="12"}}
 {{#*inline "plan_resolution_failure"}}{{> plan-resolution-generated-failure}}{{/inline}}
 {{/procedure-generate-tasks}}
 
-**Progress**: `⬛⬛⬜ 66% - Step 2/3: Task Generation Complete`
-
----
-
 ### Step 3: Blueprint Execution
 
-**Progress**: `⬛⬛⬜ 66% - Step 3/3: Starting Blueprint Execution`
-
-Using the Plan ID from the previous phases:
+Using the plan ID from Step 1:
 
 {{#> procedure-execute-blueprint
      heading="####"
@@ -109,8 +68,6 @@ Using the Plan ID from the previous phases:
 {{#*inline "plan_resolution_failure"}}{{> plan-resolution-generated-failure}}{{/inline}}
 {{#*inline "auto_generate_dispatch"}}Execute the full task generation procedure from Step 2 for this plan ID.{{/inline}}
 {{/procedure-execute-blueprint}}
-
-**Progress**: `⬛⬛⬛ 100% - Step 3/3: Blueprint Execution Complete`
 
 ## Failure Modes
 

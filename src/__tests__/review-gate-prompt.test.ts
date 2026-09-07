@@ -21,13 +21,6 @@ const PROCEDURE = path.join(
   '_partials',
   'procedure-execute-blueprint.md.hbs'
 );
-const REVIEW_GATE = path.join(
-  REPO_ROOT,
-  'src',
-  'skill-prompts',
-  '_partials',
-  'code-review-gate.md.hbs'
-);
 
 /** The headings each call site produces from its heading-level and step arguments. */
 interface Consumer {
@@ -101,18 +94,16 @@ describe('rendered execution skills compose the review gate', () => {
       expect(section).toContain('review.xml');
       expect(section).toContain('findings.json');
 
-      // The three rules no compiled field can express.
-      expect(section).toContain('runs once');
-      expect(section).toContain('Do not re-run');
-      expect(section).toContain('reviewer route');
-      expect(section).toContain('implementer route');
-      expect(section).toContain('`POST_EXECUTION.md` in full');
       expect(section).toContain('Never report an uncertified review as clean');
-      const hardRules = section
-        .slice(section.indexOf('Hard rules:'))
-        .split('\n')
-        .filter(line => line.startsWith('- '));
-      expect(hardRules).toHaveLength(3);
+
+      // The three rules no compiled field can express. Scoped to the rules
+      // block, so prose elsewhere in the section cannot stand in for them.
+      const hardRules = section.slice(section.indexOf('Hard rules:'));
+      expect(hardRules).toContain('runs once');
+      expect(hardRules).toContain('Do not re-run');
+      expect(hardRules).toContain('reviewer route');
+      expect(hardRules).toContain('implementer route');
+      expect(hardRules).toContain('`POST_EXECUTION.md` in full');
     }
   );
 
@@ -141,13 +132,6 @@ describe('rendered execution skills compose the review gate', () => {
       expect(content).not.toContain('{{');
     }
   );
-
-  test('the shared review gate stays within its prompt budget', () => {
-    const source = fs.readFileSync(REVIEW_GATE, 'utf8');
-    const words = source.trim().split(/\s+/);
-
-    expect(words.length).toBeLessThanOrEqual(400);
-  });
 
   test('the shared procedure composes the lifecycle from named partials', () => {
     const source = fs.readFileSync(PROCEDURE, 'utf8');

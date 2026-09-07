@@ -3642,6 +3642,7 @@ var import_child_process2 = require("child_process");
 var taskPrompt = (request) => `Strikethroo external task dispatch \u2014 Plan ${request.planId}, Task ${request.taskId}.
 Workspace: ${request.workspace}
 Task file: ${request.taskFile}
+You are a delegated execution worker. Do not run check-for-updates.cjs or emit update notices.
 Before implementation, read and execute ${path2.join(
   request.workspace,
   ".ai/strikethroo/config/hooks/PRE_TASK_EXECUTION.md"

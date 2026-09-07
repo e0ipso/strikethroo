@@ -18,6 +18,13 @@ it exits non-zero, stop and ask the user to run `npx strikethroo init`.
 
 Treat the path it prints as `<root>` for every subsequent step.
 
+Delegated execution workers skip this step and do not emit update notices.
+
+Run `scripts/check-for-updates.cjs "<root>"` as a separate command using this
+skill's script path. Keep the user's working directory. Read the one JSON line
+on stdout. When `notice` is present, retain its exact text for the final
+user-facing response. Never pause for permission and never run an update.
+
 ### 2. Resolve the plan
 
 Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` for the plan
@@ -197,6 +204,10 @@ Read `<root>/config/hooks/POST_TASK_GENERATION_ALL.md` and follow its
 instructions, using `<root>/config/templates/BLUEPRINT_TEMPLATE.md` for the
 Execution Blueprint structure. Run the hook only after routing succeeded or
 reported routing off.
+
+When the retained update `notice` is present, append that exact sentence after
+the structured summary block, or after your final response when this skill emits
+no summary block. Nothing may follow the notice.
 
 ## Failure Modes
 

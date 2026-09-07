@@ -24,6 +24,13 @@ it exits non-zero, stop and ask the user to run `npx strikethroo init`.
 
 Treat the path it prints as `<root>` for every subsequent step.
 
+Delegated execution workers skip this step and do not emit update notices.
+
+Run `scripts/check-for-updates.cjs "<root>"` as a separate command using this
+skill's script path. Keep the user's working directory. Read the one JSON line
+on stdout. When `notice` is present, retain its exact text for the final
+user-facing response. Never pause for permission and never run an update.
+
 #### 2. Load project context
 
 Read `<root>/config/STRIKETHROO.md` for this project's directory conventions.
@@ -84,7 +91,7 @@ Execute `<root>/config/hooks/POST_PLAN.md`.
 
 #### 8. Emit the Step 1 structured summary
 
-Conclude Step 1 with exactly this block:
+Conclude Step 1 with exactly this block (a retained update notice, when present, follows after the workflow's final summary):
 
 ```
 ---
@@ -96,9 +103,13 @@ Plan Summary:
 
 Parse the `Plan ID` value from this output and pass it to Step 2.
 
+
+
 ### Step 2: Task Generation
 
 Using the plan ID from Step 1:
+
+
 
 #### 1. Resolve the plan
 
@@ -285,6 +296,8 @@ reported routing off.
 
 Using the plan ID from Step 1:
 
+
+
 #### 1. Resolve the plan
 
 Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` for the plan
@@ -374,7 +387,7 @@ Handoff rules:
 - Pass the exact opaque `handoff` string the resolver returned for that task. Never reconstruct one.
 - Never reuse a handoff for another task, and never rerun resolution after launches begin.
 
-Deploy all remaining native sub-agents simultaneously. Each sub-agent must read and execute `<root>/config/hooks/PRE_TASK_EXECUTION.md` before any implementation work, then execute the task and update its status.
+Deploy all remaining native sub-agents simultaneously. Each sub-agent must read and execute `<root>/config/hooks/PRE_TASK_EXECUTION.md` before any implementation work, then execute the task and update its status. Do not run `scripts/check-for-updates.cjs`; delegated workers do not consume update notices.
 
 ##### 6c. Phase completion verification
 Ensure every task in the phase has status `completed` and collect its outputs. Do not accept a subagent's report of success as proof. Apply the evidence gate in `<root>/config/shared/verification-gate.md` before marking the phase complete.
@@ -439,7 +452,7 @@ Move the completed plan directory from `<root>/plans/<plan-folder>` to `<root>/a
 
 ## Execution Summary
 
-Conclude with exactly this block as the final output:
+Conclude with exactly this block (a retained update notice, when present, follows separately):
 
 ```
 ---
@@ -451,3 +464,7 @@ Execution Summary:
 ```
 
 The summary is consumed by downstream automation; keep the format exact.
+
+When the retained update `notice` is present, append that exact sentence after
+the structured summary block, or after your final response when this skill emits
+no summary block. Nothing may follow the notice.

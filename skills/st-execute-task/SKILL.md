@@ -23,6 +23,13 @@ it exits non-zero, stop and ask the user to run `npx strikethroo init`.
 
 Treat the path it prints as `<root>` for every subsequent step.
 
+Delegated execution workers skip this step and do not emit update notices.
+
+Run `scripts/check-for-updates.cjs "<root>"` as a separate command using this
+skill's script path. Keep the user's working directory. Read the one JSON line
+on stdout. When `notice` is present, retain its exact text for the final
+user-facing response. Never pause for permission and never run an update.
+
 ### 2. Resolve the plan
 
 Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` for the plan
@@ -106,6 +113,7 @@ Steps 9–11 are this skill's failed-status and error-hook path.
 For a native dispatch, deploy an agent using your internal Task tool. The agent
 must read and execute `<root>/config/hooks/PRE_TASK_EXECUTION.md` before any
 implementation work, then read the complete `<task-file>` and implement it.
+Do not run `scripts/check-for-updates.cjs`; delegated workers do not consume update notices.
 
 ### 9. Update status to completed or failed
 
@@ -136,3 +144,11 @@ If any error occurred during execution, read
 `<root>/config/hooks/POST_ERROR_DETECTION.md` and execute its instructions.
 Document the error in Noteworthy Events and ensure the task status is set to
 `failed` if it is not already.
+
+When the retained update `notice` is present, append that exact sentence after
+the structured summary block, or after your final response when this skill emits
+no summary block. Nothing may follow the notice.
+
+## Failure Modes
+
+- **Execution errors.** If a task fails, read `<root>/config/hooks/POST_ERROR_DETECTION.md`, document the error in Noteworthy Events, and ensure the task status is set to `failed`.

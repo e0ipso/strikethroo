@@ -5,9 +5,6 @@ description: Use when the user asks to draft, scope, or write up a new Strikethr
 
 # st-create-plan
 
-Drive the end-to-end creation of a new Strikethroo plan for the user's
-repository.
-
 ## Inputs
 
 The user's request supplies the work order.
@@ -16,32 +13,26 @@ The user's request supplies the work order.
 
 ### 1. Locate the strikethroo root
 
-Run `scripts/find-strikethroo-root.cjs` from the user's working directory.
+Run `scripts/find-strikethroo-root.cjs` from the user's working directory. If
+it exits non-zero, stop and ask the user to run `npx strikethroo init`.
 
-If the script exits non-zero, the working directory is not inside an
-initialized strikethroo workspace. Stop and ask the user to run the project
-initializer (e.g. `npx strikethroo init`) before continuing. Do
-not attempt to create a plan outside of a valid root.
-
-For every subsequent step, treat the path printed by this script as `<root>`.
+Treat the path it prints as `<root>` for every subsequent step.
 
 ### 2. Load project context
 
-Read `<root>/config/STRIKETHROO.md` for the directory structure conventions
-this project uses. Read `<root>/config/hooks/PRE_PLAN.md` and execute the
-instructions it contains before proceeding. Read
-`<root>/config/templates/PLAN_TEMPLATE.md` so the plan you emit conforms
-to its structure.
+Read `<root>/config/STRIKETHROO.md` for this project's directory conventions.
+Read `<root>/config/hooks/PRE_PLAN.md` and execute its instructions before
+proceeding. Read `<root>/config/templates/PLAN_TEMPLATE.md`; the plan must
+conform to it.
 
 Also read `<root>/config/shared/clarification-gate.md` and
-`<root>/config/shared/anti-rationalization.md`. The steps below require you to
-apply them.
+`<root>/config/shared/anti-rationalization.md`.
 
 ### 3. Analyze the work order
 
 Identify:
 
-- Objective and end goal.
+- Objective.
 - Scope and explicit boundaries.
 - Success criteria.
 - Dependencies, prerequisites, blockers.
@@ -69,37 +60,24 @@ Apply `<root>/config/shared/anti-rationalization.md` to this rationalization tab
 
 ### 5. Allocate the next plan ID
 
-Run `scripts/get-next-plan-id.cjs` to obtain the next available plan ID.
-Pass `<root>` as the first argument when invoking the script from a working
-directory that is not inside the project, otherwise no argument is required.
-The script prints a single integer.
-
-Compute the zero-padded form for directory naming (`{padded-id}--{slug}`)
-and use the unpadded integer in the plan frontmatter and the final summary.
+Run `scripts/get-next-plan-id.cjs` for the next available plan ID. Compute its
+zero-padded form for the directory name (`{padded-id}--{slug}`) and use the
+unpadded integer in the plan frontmatter.
 
 ### 6. Emit the plan
 
-Write the plan to:
+Write the plan to
+`<root>/plans/{padded-id}--{slug}/plan-{padded-id}--{slug}.md`, conforming to
+`<root>/config/templates/PLAN_TEMPLATE.md` in both frontmatter and sections.
+Include no time estimates, task lists, or code samples; those belong to the
+task-generation step.
 
-```
-<root>/plans/{padded-id}--{slug}/plan-{padded-id}--{slug}.md
-```
-
-The output must:
-
-- Conform to `<root>/config/templates/PLAN_TEMPLATE.md`, including required
-  YAML frontmatter fields (at minimum `id`, `summary`, `created`).
-- Contain the standard sections from the template body.
-- Use Markdown, not free-form prose.
-- Avoid time estimates, task lists, or code samples — those belong to the
-  later task-generation step.
-
-The `<slug>` is derived from the plan summary: lowercase, alphanumeric and
-hyphens only, collapsed, trimmed.
+Derive `<slug>` from the plan summary: lowercase, alphanumeric and hyphens
+only, collapsed, trimmed.
 
 ### 7. Run post-plan hook
 
-Execute `<root>/config/hooks/POST_PLAN.md` after the plan file is written.
+Execute `<root>/config/hooks/POST_PLAN.md`.
 
 ### 8. Emit the structured summary
 
@@ -118,5 +96,5 @@ The summary is consumed by downstream automation; keep the format exact.
 ## Failure Modes
 
 - **Plan directory already exists for the allocated ID.** Re-run the
-  next-plan-id script (a concurrent run may have advanced it) and retry once.
-  If the conflict persists, stop and report.
+  next-plan-id script and retry once. If the conflict persists, stop and
+  report.

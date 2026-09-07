@@ -1,3 +1,7 @@
+## <small>3.21.3 (2026-09-07)</small>
+
+* refactor(prompts): simplify shared guidance (#91) ([071dead](https://github.com/e0ipso/strikethroo/commit/071dead)), closes [#91](https://github.com/e0ipso/strikethroo/issues/91)
+
 ## <small>3.21.2 (2026-09-04)</small>
 
 * refactor(prompts): extract prompt lookups (#89) ([1dc8b93](https://github.com/e0ipso/strikethroo/commit/1dc8b93)), closes [#89](https://github.com/e0ipso/strikethroo/issues/89)

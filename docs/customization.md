@@ -284,7 +284,7 @@ Templates are editable Markdown files in `.ai/strikethroo/config/templates/`. Th
 <div class="st-card">
 <span class="st-card__icon st-card__icon--circle-arrow-up" aria-hidden="true"></span>
 <p class="st-card__title">UPDATE_NOTICE_TEMPLATE.md</p>
-<p>Optional by absence. When present, parent workflow skills append its text as the last sentence of the turn after an intact structured summary fence when a newer release is available. Placeholder: <code>{{updateCommand}}</code> (resolved to <code>npx strikethroo@latest update</code>). Delete or omit the file to use the bundled default. When saved harnesses are missing from metadata, skills emit an agent prompt to obtain <code>--harnesses</code> instead of a copyable command with placeholders.</p>
+{% raw %}<p>Optional by absence. When present, parent workflow skills append its text as the last sentence of the turn after an intact structured summary fence when a newer release is available. Placeholders: <code>{{updateCommand}}</code> (the update command with the discovered project destination), <code>{{latestRelease}}</code>, <code>{{workspaceVersion}}</code>, and <code>{{skillVersion}}</code>. Version values are validated; unavailable local versions render as <code>unknown</code>. Delete or omit the file to use the bundled default. When saved harnesses are missing from metadata, skills emit an agent prompt to obtain <code>--harnesses</code> instead of a copyable command with placeholders.</p>{% endraw %}
 </div>
 </div>
 

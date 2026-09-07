@@ -65,9 +65,9 @@ Refreshes an initialized workspace and updates the seven installed Strikethroo w
 
 1. Resolve harnesses (same rules as `init`: explicit `--harnesses`, else saved metadata, else error).
 2. Run `init` in update mode with the same hash-based conflict handling as a normal re-init (no implicit `--force`).
-3. Spawn `npx skills update st-create-plan st-refine-plan st-generate-tasks st-execute-blueprint st-execute-task st-full-workflow st-code-review` with `shell: false` and inherited stdio. The installer may prompt for project or global scope; Strikethroo does not pass `-y`, `-g`, `-p`, or harness names as installer agents.
+3. Spawn `npx skills@1.5.24 update st-create-plan st-refine-plan st-generate-tasks st-execute-blueprint st-execute-task st-full-workflow st-code-review` with `shell: false`, inherited input, and output streamed to the terminal. The installer checks matching project and global installations; Strikethroo does not pass `-y`, `-g`, `-p`, or harness names as installer agents. The installer version is pinned because Strikethroo also checks its output for missing installations, skipped skills, cancellations, and check failures that exit zero.
 
-**Exit behavior:** Combined exit 0 only when workspace refresh **and** skills update both succeed. A workspace failure skips the installer. An installer failure or cancellation after a successful workspace refresh keeps the refreshed workspace, exits 1, and prints recovery guidance (re-run `update` or the reported `npx skills update …` command).
+**Exit behavior:** Combined exit 0 only when workspace refresh **and** skills update both succeed. A workspace failure skips the installer. An installer failure, missing installation, skipped skill, or cancellation after a successful workspace refresh keeps the refreshed workspace, exits 1, and prints recovery guidance (re-run `update` or the reported `npx skills update …` command).
 
 **Flags:** Same as `init` — `--harnesses`, `--destination-directory`, `--force`, `--profile`.
 

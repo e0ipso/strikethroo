@@ -15,6 +15,7 @@ import { load } from 'js-yaml';
 import {
   STRIKETHROO_WORKFLOW_SKILLS,
   SKILLS_INSTALLER_STDIO,
+  SKILLS_INSTALLER_PACKAGE,
   buildSkillsInstallerArgs,
 } from '../update';
 
@@ -523,13 +524,13 @@ process.exit(Number(process.env.NPX_EXIT_CODE || '0'));
       );
     };
 
-    it('targets the seven workflow skills with inherited stdio spawn config', () => {
+    it('targets the seven workflow skills with interactive input and streamed output', () => {
       expect(buildSkillsInstallerArgs()).toEqual([
-        'skills',
+        SKILLS_INSTALLER_PACKAGE,
         'update',
         ...STRIKETHROO_WORKFLOW_SKILLS,
       ]);
-      expect(SKILLS_INSTALLER_STDIO).toBe('inherit');
+      expect(SKILLS_INSTALLER_STDIO).toEqual(['inherit', 'pipe', 'pipe']);
     });
 
     it('refreshes workspace with explicit harnesses and runs the skills installer', async () => {
@@ -540,7 +541,11 @@ process.exit(Number(process.env.NPX_EXIT_CODE || '0'));
       expect(result.exitCode).toBe(0);
 
       const log = await fs.readJson(path.join(testDir, 'npx-log.json'));
-      expect(log.argv).toEqual(['skills', 'update', ...STRIKETHROO_WORKFLOW_SKILLS]);
+      expect(log.argv).toEqual([
+        SKILLS_INSTALLER_PACKAGE,
+        'update',
+        ...STRIKETHROO_WORKFLOW_SKILLS,
+      ]);
       expect(log.cwd).toBe(testDir);
 
       const output = result.stdout + result.stderr;
@@ -648,6 +653,20 @@ process.exit(Number(process.env.NPX_EXIT_CODE || '0'));
       const output = result.stdout + result.stderr;
       expect(output).toContain('Workflow skills: not updated');
       expect(await fs.pathExists(path.join(testDir, 'npx-log.json'))).toBe(true);
+    });
+
+    it.each([
+      'No installed skills found matching: st-create-plan',
+      'Cancelled',
+      '1 project skill(s) cannot be updated automatically (installed before skillPath tracking):',
+      '1 skill(s) cannot be checked automatically:',
+      '✗ Failed to check skills from e0ipso/strikethroo',
+    ])('does not report success when the installer exits zero after %s', async message => {
+      initWorkspace('claude');
+      await writeFakeNpx(path.join(testDir, 'fake-bin'));
+      const result = runUpdate('--force', { exitCode: 0, message });
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout + result.stderr).toContain('Workflow skills: not updated');
     });
 
     it('reports missing installations from the installer', async () => {

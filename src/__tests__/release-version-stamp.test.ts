@@ -13,8 +13,6 @@ import * as path from 'path';
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const RELEASERC_PATH = path.join(REPO_ROOT, '.releaserc.json');
 const PACKAGE_JSON_PATH = path.join(REPO_ROOT, 'package.json');
-const BUILD_SKILLS_SCRIPT = path.join(REPO_ROOT, 'scripts', 'build-skills.cjs');
-const SYNC_SCRIPT = path.join(REPO_ROOT, 'scripts', 'sync-skills-mirror.cjs');
 const CHECK_FOR_UPDATES_REL =
   'templates/harness/skills/st-create-plan/scripts/check-for-updates.cjs';
 
@@ -68,6 +66,8 @@ describe('release version stamp configuration', () => {
 describe('release skill bundle stamp rehearsal', () => {
   const FAKE_VERSION = '99.88.77-stamp-rehearsal';
   let originalPackageJson: string;
+  let fixtureRoot: string;
+  let fixturePackagePath: string;
 
   beforeAll(() => {
     if (!fs.existsSync(path.join(REPO_ROOT, 'dist', 'metadata.js'))) {
@@ -79,25 +79,42 @@ describe('release skill bundle stamp rehearsal', () => {
   });
 
   beforeEach(() => {
+    fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'release-build-'));
+    fixturePackagePath = path.join(fixtureRoot, 'package.json');
     originalPackageJson = fs.readFileSync(PACKAGE_JSON_PATH, 'utf8');
+    for (const directory of ['src', 'scripts', 'templates']) {
+      fs.cpSync(path.join(REPO_ROOT, directory), path.join(fixtureRoot, directory), {
+        recursive: true,
+      });
+    }
+    fs.mkdirSync(path.join(fixtureRoot, 'dist'));
+    fs.copyFileSync(
+      path.join(REPO_ROOT, 'dist/metadata.js'),
+      path.join(fixtureRoot, 'dist/metadata.js')
+    );
+    fs.symlinkSync(
+      path.join(REPO_ROOT, 'node_modules'),
+      path.join(fixtureRoot, 'node_modules'),
+      'junction'
+    );
   });
 
   afterEach(() => {
-    fs.writeFileSync(PACKAGE_JSON_PATH, originalPackageJson);
+    fs.rmSync(fixtureRoot, { recursive: true, force: true });
   });
 
   test('build:skills stamps package.json version into check-for-updates.cjs', () => {
     const pkg = JSON.parse(originalPackageJson) as { version: string };
     pkg.version = FAKE_VERSION;
-    fs.writeFileSync(PACKAGE_JSON_PATH, `${JSON.stringify(pkg, null, 2)}\n`);
+    fs.writeFileSync(fixturePackagePath, `${JSON.stringify(pkg, null, 2)}\n`);
 
-    const build = spawnSync('node', [BUILD_SKILLS_SCRIPT], {
-      cwd: REPO_ROOT,
+    const build = spawnSync('node', [path.join(fixtureRoot, 'scripts/build-skills.cjs')], {
+      cwd: fixtureRoot,
       encoding: 'utf8',
     });
     expect(build.status).toBe(0);
 
-    const bundlePath = path.join(REPO_ROOT, CHECK_FOR_UPDATES_REL);
+    const bundlePath = path.join(fixtureRoot, CHECK_FOR_UPDATES_REL);
     const bundle = fs.readFileSync(bundlePath, 'utf8');
     expect(bundle).toContain(FAKE_VERSION);
     expect(bundle).not.toContain('SKILL_RELEASE_VERSION');
@@ -106,10 +123,10 @@ describe('release skill bundle stamp rehearsal', () => {
   test('release rebuild+sync writes the stamped version to an isolated mirror target', () => {
     const pkg = JSON.parse(originalPackageJson) as { version: string };
     pkg.version = FAKE_VERSION;
-    fs.writeFileSync(PACKAGE_JSON_PATH, `${JSON.stringify(pkg, null, 2)}\n`);
+    fs.writeFileSync(fixturePackagePath, `${JSON.stringify(pkg, null, 2)}\n`);
 
-    const build = spawnSync('node', [BUILD_SKILLS_SCRIPT], {
-      cwd: REPO_ROOT,
+    const build = spawnSync('node', [path.join(fixtureRoot, 'scripts/build-skills.cjs')], {
+      cwd: fixtureRoot,
       encoding: 'utf8',
     });
     expect(build.status).toBe(0);
@@ -118,8 +135,8 @@ describe('release skill bundle stamp rehearsal', () => {
     const mirrorTarget = path.join(tempDir, 'skills');
 
     try {
-      const sync = spawnSync('node', [SYNC_SCRIPT], {
-        cwd: REPO_ROOT,
+      const sync = spawnSync('node', [path.join(fixtureRoot, 'scripts/sync-skills-mirror.cjs')], {
+        cwd: fixtureRoot,
         encoding: 'utf8',
         env: {
           ...process.env,

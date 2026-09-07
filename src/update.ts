@@ -4,6 +4,8 @@
 
 import * as path from 'path';
 import { spawn } from 'child_process';
+import { stripVTControlCharacters } from 'util';
+import type { Writable } from 'stream';
 import chalk from 'chalk';
 import { init } from './index';
 import { loadMetadata } from './metadata';
@@ -22,13 +24,15 @@ export const STRIKETHROO_WORKFLOW_SKILLS = [
 ] as const;
 
 export const SKILLS_INSTALLER_EXECUTABLE = 'npx';
-export const SKILLS_INSTALLER_STDIO = 'inherit' as const;
+// This version's zero-exit failure messages are part of the adapter contract.
+export const SKILLS_INSTALLER_PACKAGE = 'skills@1.5.24';
+export const SKILLS_INSTALLER_STDIO = ['inherit', 'pipe', 'pipe'] as const;
 
 /**
- * argv passed to `npx` (executable is `npx`, first arg is `skills`).
+ * Exact installer package and arguments passed to npx.
  */
 export function buildSkillsInstallerArgs(): string[] {
-  return ['skills', 'update', ...STRIKETHROO_WORKFLOW_SKILLS];
+  return [SKILLS_INSTALLER_PACKAGE, 'update', ...STRIKETHROO_WORKFLOW_SKILLS];
 }
 
 function resolvePath(baseDir: string | undefined, ...segments: string[]): string {
@@ -45,23 +49,42 @@ export interface UpdateResult extends CommandResult {
 }
 
 /**
- * Spawn the skills installer with inherited stdio for interactive scope selection.
+ * Preserve interactive input and stream output while detecting zero-exit failures.
  */
 export async function runSkillsInstaller(cwd: string): Promise<{ success: boolean; code: number }> {
   return new Promise(resolve => {
+    let incomplete = false;
+    const observe = (destination: Writable): ((chunk: string) => void) => {
+      let tail = '';
+      return chunk => {
+        destination.write(chunk);
+        const text = stripVTControlCharacters(tail + chunk);
+        if (
+          /Cancelled|No installed skills found matching:|cannot be (?:checked|updated) automatically|No project skills can be updated in place|✗ Failed to check/i.test(
+            text
+          )
+        ) {
+          incomplete = true;
+        }
+        tail = text.slice(-1024);
+      };
+    };
     const child = spawn(SKILLS_INSTALLER_EXECUTABLE, buildSkillsInstallerArgs(), {
       cwd,
       shell: false,
-      stdio: SKILLS_INSTALLER_STDIO,
+      stdio: [...SKILLS_INSTALLER_STDIO],
       env: process.env,
     });
+    child.stdout?.setEncoding('utf8').on('data', observe(process.stdout));
+    child.stderr?.setEncoding('utf8').on('data', observe(process.stderr));
 
     child.on('error', () => {
       resolve({ success: false, code: 1 });
     });
 
     child.on('close', code => {
-      resolve({ success: code === 0, code: code ?? 1 });
+      const success = code === 0 && !incomplete;
+      resolve({ success, code: success ? 0 : code || 1 });
     });
   });
 }
@@ -138,7 +161,7 @@ export async function update(options: UpdateOptions): Promise<UpdateResult> {
   );
   console.log(
     chalk.gray(
-      '  Choose project or global scope when prompted. Cancelled or failed installs keep the refreshed workspace.'
+      '  The installer checks matching project and global skills. Incomplete installs keep the refreshed workspace.'
     )
   );
   console.log('');

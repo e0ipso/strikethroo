@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
 import * as semver from 'semver';
+import { normalizeSavedHarnesses } from '../../resolve-init-harnesses';
 
 declare const SKILL_RELEASE_VERSION: string;
 
@@ -37,12 +38,6 @@ export const NOTICE_INTERVAL_MS = 24 * 60 * 60 * 1_000;
 export const LOCK_STALE_MS = 30_000;
 export const STATE_RELATIVE_PATH = path.join('runtime', 'update-check.json');
 export const LOCK_RELATIVE_PATH = path.join('runtime', 'update-check.lock');
-export const STATE_GITIGNORE_RELATIVE = path.join(
-  '.ai',
-  'strikethroo',
-  'runtime',
-  'update-check.json'
-);
 
 export type VersionDisposition = 'outdated' | 'current' | 'ahead' | 'unknown';
 
@@ -89,7 +84,7 @@ export interface UpdateCheckDependencies {
   now: () => number;
   skillVersion: string;
   fetchLatestRelease: () => Promise<string | null>;
-  isStatePathGitignored: (projectRoot: string) => boolean;
+  isStatePathGitignored: (projectRoot: string, statePath: string) => boolean;
   findProjectRoot: (strikethrooRoot: string) => string | null;
   readTextFile: (filePath: string) => string | null;
   writeTextFile: (filePath: string, contents: string) => boolean;
@@ -115,14 +110,20 @@ const defaultFetchLatestRelease = async (): Promise<string | null> => {
       const { done, value } = await reader.read();
       if (done) break;
       total += value.byteLength;
-      if (total > MAX_RESPONSE_BYTES) return null;
+      if (total > MAX_RESPONSE_BYTES) {
+        await reader.cancel();
+        return null;
+      }
       chunks.push(value);
     }
     const text = Buffer.concat(chunks).toString('utf8');
-    const payload = JSON.parse(text) as { tag_name?: unknown };
-    if (typeof payload.tag_name !== 'string') return null;
-    const stripped = payload.tag_name.replace(/^v/i, '');
-    return semver.valid(semver.coerce(stripped) ?? '') ? stripped : null;
+    const payload = JSON.parse(text) as {
+      tag_name?: unknown;
+      prerelease?: unknown;
+      draft?: unknown;
+    };
+    if (payload.prerelease || payload.draft) return null;
+    return stableRelease(payload.tag_name);
   } catch {
     return null;
   }
@@ -140,9 +141,9 @@ const defaultFindProjectRoot = (strikethrooRoot: string): string | null => {
   }
 };
 
-const defaultIsStatePathGitignored = (projectRoot: string): boolean => {
+const defaultIsStatePathGitignored = (projectRoot: string, statePath: string): boolean => {
   try {
-    execFileSync('git', ['check-ignore', '-q', STATE_GITIGNORE_RELATIVE], {
+    execFileSync('git', ['check-ignore', '-q', '--', statePath], {
       cwd: projectRoot,
       stdio: 'ignore',
     });
@@ -182,20 +183,33 @@ const isLockStale = (lock: LockPayload, nowMs: number): boolean => {
 };
 
 const defaultTryAcquireLock = (lockPath: string, now: () => number): boolean => {
-  fs.mkdirSync(path.dirname(lockPath), { recursive: true });
   try {
+    fs.mkdirSync(path.dirname(lockPath), { recursive: true });
     const fd = fs.openSync(lockPath, 'wx');
-    const payload: LockPayload = { pid: process.pid, claimedAt: new Date(now()).toISOString() };
-    fs.writeFileSync(fd, JSON.stringify(payload));
-    fs.closeSync(fd);
+    try {
+      const payload: LockPayload = { pid: process.pid, claimedAt: new Date(now()).toISOString() };
+      fs.writeFileSync(fd, JSON.stringify(payload));
+    } finally {
+      fs.closeSync(fd);
+    }
     return true;
   } catch (err: unknown) {
     const code = (err as { code?: string }).code;
     if (code !== 'EEXIST') return false;
-    const existing = fs.readFileSync(lockPath, 'utf8');
-    const lock = parseLock(existing);
-    if (!lock || !isLockStale(lock, now())) return false;
     try {
+      const lock = parseLock(fs.readFileSync(lockPath, 'utf8'));
+      const stale = lock
+        ? isLockStale(lock, now())
+        : now() - fs.statSync(lockPath).mtimeMs >= LOCK_STALE_MS;
+      if (!stale) return false;
+      if (lock && Number.isInteger(lock.pid) && lock.pid > 0) {
+        try {
+          process.kill(lock.pid, 0);
+          return false;
+        } catch (error) {
+          if ((error as { code?: string }).code !== 'ESRCH') return false;
+        }
+      }
       fs.unlinkSync(lockPath);
     } catch {
       return false;
@@ -206,7 +220,8 @@ const defaultTryAcquireLock = (lockPath: string, now: () => number): boolean => 
 
 const defaultReleaseLock = (lockPath: string): void => {
   try {
-    if (fs.existsSync(lockPath)) fs.unlinkSync(lockPath);
+    const lock = parseLock(fs.readFileSync(lockPath, 'utf8'));
+    if (lock?.pid === process.pid) fs.unlinkSync(lockPath);
   } catch {
     // best-effort
   }
@@ -229,33 +244,46 @@ export const compareToRelease = (
   release: string | null
 ): VersionDisposition => {
   if (!localVersion || !release) return 'unknown';
-  const local = semver.valid(semver.coerce(localVersion) ?? '');
-  const remote = semver.valid(semver.coerce(release) ?? '');
+  const local = semver.valid(localVersion);
+  const remote = semver.valid(release);
   if (!local || !remote) return 'unknown';
   if (semver.lt(local, remote)) return 'outdated';
   if (semver.gt(local, remote)) return 'ahead';
   return 'current';
 };
 
+const stableRelease = (value: unknown): string | null => {
+  if (typeof value !== 'string') return null;
+  const version = semver.valid(value.replace(/^v/i, ''));
+  return version && semver.prerelease(version) === null ? version : null;
+};
+
 const isNoticeIntervalElapsed = (
   lastNoticeIssuedAt: string | undefined,
   nowMs: number
 ): boolean => {
-  if (!lastNoticeIssuedAt) return true;
+  if (typeof lastNoticeIssuedAt !== 'string') return true;
   const last = Date.parse(lastNoticeIssuedAt);
   if (Number.isNaN(last)) return true;
   return nowMs - last >= NOTICE_INTERVAL_MS;
 };
 
 const isAttemptIntervalElapsed = (lastAttemptAt: string | undefined, nowMs: number): boolean => {
-  if (!lastAttemptAt) return true;
+  if (typeof lastAttemptAt !== 'string') return true;
   const last = Date.parse(lastAttemptAt);
   if (Number.isNaN(last)) return true;
   return nowMs - last >= ATTEMPT_INTERVAL_MS;
 };
 
-const interpolateNoticeTemplate = (template: string, updateCommand: string): string =>
-  template.replace(/\{\{updateCommand\}\}/g, updateCommand);
+const interpolateNoticeTemplate = (
+  template: string,
+  result: Omit<UpdateCheckResult, 'notice'>
+): string =>
+  template.replace(
+    /\{\{(updateCommand|latestRelease|workspaceVersion|skillVersion)\}\}/g,
+    (_, key: 'updateCommand' | 'latestRelease' | 'workspaceVersion' | 'skillVersion') =>
+      result[key] ?? 'unknown'
+  );
 
 const readNoticeTemplate = (
   strikethrooRoot: string,
@@ -274,12 +302,9 @@ const buildNotice = (
 ): string | undefined => {
   if (!result.noticeEligible) return undefined;
   if (result.needsHarnessPrompt) {
-    return interpolateNoticeTemplate(BUNDLED_HARNESS_UPDATE_NOTICE, result.updateCommand);
+    return interpolateNoticeTemplate(BUNDLED_HARNESS_UPDATE_NOTICE, result);
   }
-  return interpolateNoticeTemplate(
-    readNoticeTemplate(strikethrooRoot, readTextFile),
-    result.updateCommand
-  );
+  return interpolateNoticeTemplate(readNoticeTemplate(strikethrooRoot, readTextFile), result);
 };
 
 const emptyResult = (skillVersion: string): UpdateCheckResult => ({
@@ -301,9 +326,8 @@ const readWorkspaceMetadata = (
   if (!raw) return { version: null, needsHarnessPrompt: true };
   try {
     const metadata = JSON.parse(raw) as { version?: unknown; harnesses?: unknown };
-    const version = typeof metadata.version === 'string' ? metadata.version : null;
-    const needsHarnessPrompt =
-      !('harnesses' in metadata) || metadata.harnesses === undefined || metadata.harnesses === null;
+    const version = typeof metadata.version === 'string' ? semver.valid(metadata.version) : null;
+    const needsHarnessPrompt = !normalizeSavedHarnesses(metadata.harnesses);
     return { version, needsHarnessPrompt };
   } catch {
     return { version: null, needsHarnessPrompt: true };
@@ -337,13 +361,14 @@ export const checkForUpdates = async (
   partialDeps: Partial<UpdateCheckDependencies> = {}
 ): Promise<UpdateCheckResult> => {
   const deps: UpdateCheckDependencies = { ...createDefaultDependencies(), ...partialDeps };
-  const { skillVersion } = deps;
+  const skillVersion = semver.valid(deps.skillVersion) ?? 'unknown';
 
   const metadata = readWorkspaceMetadata(strikethrooRoot, deps.readTextFile);
   const workspaceVersion = metadata.version;
 
+  const statePath = path.join(strikethrooRoot, STATE_RELATIVE_PATH);
   const projectRoot = deps.findProjectRoot(strikethrooRoot);
-  if (!projectRoot || !deps.isStatePathGitignored(projectRoot)) {
+  if (!projectRoot || !deps.isStatePathGitignored(projectRoot, statePath)) {
     return {
       ...emptyResult(skillVersion),
       workspaceVersion,
@@ -353,41 +378,43 @@ export const checkForUpdates = async (
     };
   }
 
-  const statePath = path.join(strikethrooRoot, STATE_RELATIVE_PATH);
   const lockPath = path.join(strikethrooRoot, LOCK_RELATIVE_PATH);
-  const state = isValidState(readJsonFile<UpdateCheckState>(statePath));
   const nowMs = deps.now();
 
   const claimed = deps.tryAcquireLock(lockPath);
   if (!claimed) {
-    const latestRelease = state.lastSuccessfulRelease ?? null;
-    const workspaceDisposition = compareToRelease(workspaceVersion, latestRelease);
-    const skillDisposition = compareToRelease(skillVersion, latestRelease);
-    const outdated = workspaceDisposition === 'outdated' || skillDisposition === 'outdated';
     return {
-      noticeEligible: false,
+      ...emptyResult(skillVersion),
       needsHarnessPrompt: metadata.needsHarnessPrompt,
-      updateCommand: UPDATE_COMMAND,
-      latestRelease,
       workspaceVersion,
-      skillVersion,
-      workspaceDisposition,
-      skillDisposition,
-      notice: outdated ? undefined : undefined,
     };
   }
 
   try {
-    let workingState = { ...state };
-    let latestRelease = workingState.lastSuccessfulRelease ?? null;
+    let workingState = isValidState(readJsonFile<UpdateCheckState>(statePath));
+    let latestRelease = stableRelease(workingState.lastSuccessfulRelease);
 
     if (isAttemptIntervalElapsed(workingState.lastAttemptAt, nowMs)) {
-      const fetched = await deps.fetchLatestRelease();
       workingState = {
         ...workingState,
         lastAttemptAt: new Date(nowMs).toISOString(),
-        lastAttemptFailed: fetched === null,
+        lastAttemptFailed: true,
       };
+      // Reserve the daily attempt before I/O, including crashes and write failures.
+      if (!deps.writeTextFile(statePath, JSON.stringify(workingState))) {
+        return {
+          ...emptyResult(skillVersion),
+          workspaceVersion,
+          needsHarnessPrompt: metadata.needsHarnessPrompt,
+        };
+      }
+      let fetched: string | null = null;
+      try {
+        fetched = stableRelease(await deps.fetchLatestRelease());
+      } catch {
+        // The reserved attempt also covers a rejected request.
+      }
+      workingState.lastAttemptFailed = fetched === null;
       if (fetched !== null) {
         workingState.lastSuccessfulRelease = fetched;
         workingState.lastSuccessfulReleaseAt = new Date(nowMs).toISOString();
@@ -429,7 +456,7 @@ export const checkForUpdates = async (
     const base: Omit<UpdateCheckResult, 'notice'> = {
       noticeEligible,
       needsHarnessPrompt: metadata.needsHarnessPrompt,
-      updateCommand: UPDATE_COMMAND,
+      updateCommand: `${UPDATE_COMMAND} --destination-directory '${path.resolve(strikethrooRoot, '../..').replace(/'/g, "'\\''")}'`,
       latestRelease,
       workspaceVersion,
       skillVersion,

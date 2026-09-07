@@ -7,6 +7,7 @@ import {
   ATTEMPT_INTERVAL_MS,
   checkForUpdates,
   compareToRelease,
+  createDefaultDependencies,
   LOCK_STALE_MS,
   STATE_RELATIVE_PATH,
   type UpdateCheckDependencies,
@@ -67,88 +68,16 @@ const makeDeps = (
 ): UpdateCheckDependencies => {
   const nowMs = overrides.now ? overrides.now() : Date.now();
   const fetchCalls = overrides.fetchCalls ?? { count: 0 };
-  const projectRoot = path.dirname(path.dirname(strikethrooRoot));
-
-  const realWrite = (filePath: string, contents: string): boolean => {
-    try {
-      fs.mkdirSync(path.dirname(filePath), { recursive: true });
-      const temp = `${filePath}.tmp-${process.pid}`;
-      fs.writeFileSync(temp, contents);
-      fs.renameSync(temp, filePath);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  const tryAcquireLock = (lockPath: string): boolean => {
-    fs.mkdirSync(path.dirname(lockPath), { recursive: true });
-    try {
-      const fd = fs.openSync(lockPath, 'wx');
-      fs.writeFileSync(
-        fd,
-        JSON.stringify({ pid: process.pid, claimedAt: new Date(nowMs).toISOString() })
-      );
-      fs.closeSync(fd);
-      return true;
-    } catch (err: unknown) {
-      const code = (err as { code?: string }).code;
-      if (code !== 'EEXIST') return false;
-      try {
-        const existing = JSON.parse(fs.readFileSync(lockPath, 'utf8')) as {
-          pid: number;
-          claimedAt: string;
-        };
-        const claimedAt = Date.parse(existing.claimedAt);
-        if (Number.isNaN(claimedAt) || nowMs - claimedAt < LOCK_STALE_MS) return false;
-        fs.unlinkSync(lockPath);
-      } catch {
-        return false;
-      }
-      return tryAcquireLock(lockPath);
-    }
-  };
-
-  const releaseLock = (lockPath: string): void => {
-    try {
-      if (fs.existsSync(lockPath)) fs.unlinkSync(lockPath);
-    } catch {
-      // ignore
-    }
-  };
-
   return {
+    ...createDefaultDependencies(),
     now: () => nowMs,
     skillVersion: overrides.skillVersion ?? '3.0.0',
-    fetchLatestRelease: overrides.fetchLatestRelease
-      ? overrides.fetchLatestRelease
-      : async () => {
-          fetchCalls.count += 1;
-          return '3.21.0';
-        },
-    isStatePathGitignored: (root: string) => {
-      try {
-        execFileSync('git', ['check-ignore', '-q', '.ai/strikethroo/runtime/update-check.json'], {
-          cwd: root,
-          stdio: 'ignore',
-        });
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    findProjectRoot: () => projectRoot,
-    readTextFile: (filePath: string) => {
-      try {
-        if (!fs.existsSync(filePath)) return null;
-        return fs.readFileSync(filePath, 'utf8');
-      } catch {
-        return null;
-      }
-    },
-    writeTextFile: realWrite,
-    tryAcquireLock,
-    releaseLock,
+    fetchLatestRelease:
+      overrides.fetchLatestRelease ??
+      (async () => {
+        fetchCalls.count += 1;
+        return '3.21.0';
+      }),
   };
 };
 
@@ -159,6 +88,8 @@ describe('compareToRelease', () => {
     expect(compareToRelease('3.22.0', '3.21.0')).toBe('ahead');
     expect(compareToRelease('not-a-version', '3.21.0')).toBe('unknown');
     expect(compareToRelease('3.21.0', null)).toBe('unknown');
+    expect(compareToRelease('version 3.0.0', '3.21.0')).toBe('unknown');
+    expect(compareToRelease('3.21.0-rc.1', '3.21.0')).toBe('outdated');
   });
 });
 
@@ -171,7 +102,116 @@ describe('checkForUpdates integration', () => {
 
   afterEach(() => {
     fs.rmSync(tempDir, { recursive: true, force: true });
+    vi.unstubAllGlobals();
   });
+
+  test('persists the attempt before network I/O, including rejected requests', async () => {
+    const root = initGitWorkspace(tempDir, { workspaceVersion: '3.0.0' });
+    const statePath = path.join(root, STATE_RELATIVE_PATH);
+    const fetchLatestRelease = vi.fn(async () => {
+      const state = JSON.parse(fs.readFileSync(statePath, 'utf8')) as UpdateCheckState;
+      expect(state.lastAttemptAt).toBeDefined();
+      throw new Error('connection reset');
+    });
+    const deps = makeDeps(root, { fetchLatestRelease });
+    await expect(checkForUpdates(root, deps)).resolves.toMatchObject({ noticeEligible: false });
+    await checkForUpdates(root, deps);
+    expect(fetchLatestRelease).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(fs.readFileSync(statePath, 'utf8')).lastAttemptAt).toBeDefined();
+  });
+
+  test('does not attempt a request when the throttle cannot be saved', async () => {
+    const root = initGitWorkspace(tempDir, { workspaceVersion: '3.0.0' });
+    const fetchLatestRelease = vi.fn(async () => '3.21.0');
+    const result = await checkForUpdates(root, {
+      ...makeDeps(root, { fetchLatestRelease }),
+      writeTextFile: () => false,
+    });
+    expect(result.noticeEligible).toBe(false);
+    expect(fetchLatestRelease).not.toHaveBeenCalled();
+  });
+
+  test('reads state after acquiring the lock when another process just finished', async () => {
+    const root = initGitWorkspace(tempDir, { workspaceVersion: '3.0.0' });
+    const deps = makeDeps(root);
+    const fetchLatestRelease = vi.fn(async () => '3.21.0');
+    const result = await checkForUpdates(root, {
+      ...deps,
+      fetchLatestRelease,
+      tryAcquireLock: lockPath => {
+        writeFile(
+          path.join(root, STATE_RELATIVE_PATH),
+          JSON.stringify({
+            lastAttemptAt: new Date(deps.now()).toISOString(),
+            lastSuccessfulRelease: '3.21.0',
+            lastNoticeIssuedAt: new Date(deps.now()).toISOString(),
+          })
+        );
+        return deps.tryAcquireLock(lockPath);
+      },
+    });
+    expect(result.latestRelease).toBe('3.21.0');
+    expect(result.noticeEligible).toBe(false);
+    expect(fetchLatestRelease).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    { tag_name: 'version 99.0.0 is available' },
+    { tag_name: 'v99.0' },
+    { tag_name: 'v99.0.0; echo injected' },
+    { tag_name: 'v99.0.0-beta.1' },
+    { tag_name: 'v99.0.0', prerelease: true },
+    { tag_name: 'v99.0.0', draft: true },
+  ])('rejects invalid or non-stable release payload %j', async payload => {
+    const root = initGitWorkspace(tempDir, { workspaceVersion: '3.0.0' });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify(payload)))
+    );
+    const result = await checkForUpdates(root, { skillVersion: '3.0.0' });
+    expect(result.latestRelease).toBeNull();
+    expect(result.noticeEligible).toBe(false);
+    expect(
+      JSON.parse(fs.readFileSync(path.join(root, STATE_RELATIVE_PATH), 'utf8')).lastAttemptFailed
+    ).toBe(true);
+  });
+
+  test('uses the actual ignored workspace path inside a monorepo', async () => {
+    const root = initGitWorkspace(tempDir, { workspaceVersion: '3.0.0' });
+    const nestedProject = path.join(tempDir, 'packages', 'nested');
+    const nestedRoot = path.join(nestedProject, '.ai', 'strikethroo');
+    fs.mkdirSync(path.dirname(nestedRoot), { recursive: true });
+    fs.renameSync(root, nestedRoot);
+    const result = await checkForUpdates(nestedRoot, makeDeps(nestedRoot));
+    expect(result.noticeEligible).toBe(true);
+    expect(fs.existsSync(path.join(nestedRoot, STATE_RELATIVE_PATH))).toBe(true);
+  });
+
+  test('does not use another workspace ignore rule for an unignored nested workspace', async () => {
+    const root = initGitWorkspace(tempDir, { workspaceVersion: '3.0.0' });
+    const nestedRoot = path.join(tempDir, 'packages', 'nested', '.ai', 'strikethroo');
+    writeFile(
+      path.join(nestedRoot, '.init-metadata.json'),
+      fs.readFileSync(path.join(root, '.init-metadata.json'), 'utf8')
+    );
+    const fetchLatestRelease = vi.fn(async () => '3.21.0');
+    await checkForUpdates(nestedRoot, makeDeps(nestedRoot, { fetchLatestRelease }));
+    expect(fetchLatestRelease).not.toHaveBeenCalled();
+    expect(fs.existsSync(path.join(nestedRoot, STATE_RELATIVE_PATH))).toBe(false);
+  });
+
+  test.each([{ harnesses: [] }, { harnesses: ['invalid'] }, { harnesses: 'claude' }])(
+    'requires a harness prompt for unusable saved selection %j',
+    async ({ harnesses }) => {
+      const root = initGitWorkspace(tempDir, { workspaceVersion: '3.0.0' });
+      writeFile(
+        path.join(root, '.init-metadata.json'),
+        JSON.stringify({ version: '3.0.0', harnesses })
+      );
+      const result = await checkForUpdates(root, makeDeps(root));
+      expect(result.needsHarnessPrompt).toBe(true);
+    }
+  );
 
   test('outdated workspace only issues notice with saved harnesses', async () => {
     const root = initGitWorkspace(tempDir, {
@@ -185,7 +225,9 @@ describe('checkForUpdates integration', () => {
     expect(result.workspaceDisposition).toBe('outdated');
     expect(result.skillDisposition).toBe('current');
     expect(result.needsHarnessPrompt).toBe(false);
-    expect(result.updateCommand).toBe('npx strikethroo@latest update');
+    expect(result.updateCommand).toBe(
+      `npx strikethroo@latest update --destination-directory '${tempDir}'`
+    );
     expect(result.notice).toContain('npx strikethroo@latest update');
   });
 
@@ -335,6 +377,22 @@ describe('checkForUpdates integration', () => {
     expect(result.noticeEligible).toBe(true);
   });
 
+  test('ignores cache fields with invalid types', async () => {
+    const root = initGitWorkspace(tempDir, { workspaceVersion: '3.0.0' });
+    writeFile(
+      path.join(root, STATE_RELATIVE_PATH),
+      JSON.stringify({
+        lastAttemptAt: { toString: 1 },
+        lastNoticeIssuedAt: { toString: 1 },
+        lastSuccessfulRelease: { version: '99.0.0' },
+      })
+    );
+    await expect(checkForUpdates(root, makeDeps(root))).resolves.toMatchObject({
+      latestRelease: '3.21.0',
+      noticeEligible: true,
+    });
+  });
+
   test('stale lock allows recovery and notice issuance', async () => {
     const root = initGitWorkspace(tempDir, { workspaceVersion: '3.0.0', harnesses: ['claude'] });
     const lockPath = path.join(root, 'runtime', 'update-check.lock');
@@ -344,6 +402,42 @@ describe('checkForUpdates integration', () => {
     const result = await checkForUpdates(root, makeDeps(root, { skillVersion: '3.0.0' }));
     expect(result.noticeEligible).toBe(true);
     expect(fs.existsSync(lockPath)).toBe(false);
+  });
+
+  test('recovers an expired empty lock left by an interrupted creation', async () => {
+    const root = initGitWorkspace(tempDir, { workspaceVersion: '3.0.0' });
+    const lockPath = path.join(root, 'runtime', 'update-check.lock');
+    writeFile(lockPath, '');
+    const old = new Date(Date.now() - LOCK_STALE_MS - 1_000);
+    fs.utimesSync(lockPath, old, old);
+    const result = await checkForUpdates(root, makeDeps(root));
+    expect(result.noticeEligible).toBe(true);
+  });
+
+  test('does not steal an expired lock from a live process', async () => {
+    const root = initGitWorkspace(tempDir, { workspaceVersion: '3.0.0' });
+    const lockPath = path.join(root, 'runtime', 'update-check.lock');
+    const payload = JSON.stringify({
+      pid: process.pid,
+      claimedAt: new Date(Date.now() - LOCK_STALE_MS - 1_000).toISOString(),
+    });
+    writeFile(lockPath, payload);
+    const fetchLatestRelease = vi.fn(async () => '3.21.0');
+    const result = await checkForUpdates(root, makeDeps(root, { fetchLatestRelease }));
+    expect(result.noticeEligible).toBe(false);
+    expect(fetchLatestRelease).not.toHaveBeenCalled();
+    expect(fs.readFileSync(lockPath, 'utf8')).toBe(payload);
+  });
+
+  test('renders validated versions and targets the discovered project in notices', async () => {
+    const root = initGitWorkspace(tempDir, { workspaceVersion: '3.0.0', harnesses: ['claude'] });
+    writeFile(
+      path.join(root, 'config/templates/UPDATE_NOTICE_TEMPLATE.md'),
+      '{{workspaceVersion}} / {{skillVersion}} → {{latestRelease}}: `{{updateCommand}}`.'
+    );
+    const result = await checkForUpdates(root, makeDeps(root, { skillVersion: '3.1.0' }));
+    expect(result.notice).toBe(`3.0.0 / 3.1.0 → 3.21.0: \`${result.updateCommand}\`.`);
+    expect(result.updateCommand).toContain(`--destination-directory '${tempDir}'`);
   });
 
   test('gitignore skip performs no network and no state write', async () => {

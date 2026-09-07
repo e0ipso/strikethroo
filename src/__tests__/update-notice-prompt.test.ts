@@ -64,7 +64,7 @@ describe('rendered parent skills compose update notices', () => {
 
   test.each(PARENT_SKILLS)('%s contains the update check and final-notice placement', skill => {
     const content = readSkill(skill);
-    expect(content).toContain('check-for-updates.cjs');
+    expect(content).toContain('check-for-updates.cjs "<root>"');
     expect(content).toContain('Nothing may follow the notice');
     expect(content).toContain('Never pause for permission and never run an update');
   });
@@ -76,7 +76,7 @@ describe('rendered parent skills compose update notices', () => {
 
   test('st-full-workflow runs exactly one parent update check', () => {
     const content = readSkill('st-full-workflow');
-    expect(countOccurrences(content, 'Run `scripts/check-for-updates.cjs`')).toBe(1);
+    expect(countOccurrences(content, 'Run `scripts/check-for-updates.cjs "<root>"`')).toBe(1);
   });
 
   test('st-create-plan preserves the Plan Summary fence byte-for-byte', () => {

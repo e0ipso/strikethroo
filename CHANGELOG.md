@@ -1,3 +1,10 @@
+## 3.24.0 (2026-09-08)
+
+* feat(web): edit harness cli_args in the Config tab (#98) ([69cca23](https://github.com/e0ipso/strikethroo/commit/69cca23)), closes [#98](https://github.com/e0ipso/strikethroo/issues/98) [#97](https://github.com/e0ipso/strikethroo/issues/97)
+* Merge remote-tracking branch 'origin/main' ([51662f8](https://github.com/e0ipso/strikethroo/commit/51662f8))
+* Merge remote-tracking branch 'origin/main' ([dedc718](https://github.com/e0ipso/strikethroo/commit/dedc718))
+* chore(kenkeep): index terse-comment practice node ([e609979](https://github.com/e0ipso/strikethroo/commit/e609979))
+
 ## 3.23.0 (2026-09-08)
 
 * feat: report review outcomes and harness failures (#96) ([a1916e5](https://github.com/e0ipso/strikethroo/commit/a1916e5)), closes [#96](https://github.com/e0ipso/strikethroo/issues/96)

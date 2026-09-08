@@ -117,6 +117,16 @@ After `POST_EXECUTION` reports green, an optional code review gate runs if a sec
 2. **Certify** — The findings are validated against the vendored schema; an uncertified review is never reported as a clean one
 3. **Report** — The gate reports; it does not decide. There are no severity or confidence floors and nothing is applied automatically — you read the findings and choose what to act on
 
+Blueprint execution and the execution step of the full workflow always include a **Code Review** entry in their final summary:
+
+- **Pass**: the review was certified and reported no findings.
+- **Address**: the review was certified and reported findings for the implementer to assess.
+- **Failed**: the review was skipped, could not run, or could not be certified. The entry includes the reason.
+
+The entry names the selected reviewer harness. Model selection belongs to that harness's CLI, so the exact model is reported as unknown. A skipped review can accompany an archived plan; these labels do not change the gate's halt/continue behavior. Address remains the recorded review outcome after fixes because the gate does not run again.
+
+When no reviewer is available, the summary lists each alternative supported harness and why it was rejected. Diagnostics include missing executables, launch errors, timeouts, nonzero exits, and missing readiness evidence, with bounded stdout and stderr from the harness. Cached failures are labelled as cached.
+
 The review never creates task files and never mutates the execution blueprint. Findings are written to the plan directory under `review/` and are visible via `serve`.
 
 The reviewed scope runs from a base commit recorded before phase execution against the working tree, so committed phase work, uncommitted fixes, and untracked new files are all in scope — nothing needs to be staged or committed for the reviewer to see it. Ignored, generated, and vendored paths are excluded; see [Customization](customization.html#code_review) for the complete list of limitations.

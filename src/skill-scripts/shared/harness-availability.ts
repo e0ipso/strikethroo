@@ -12,7 +12,7 @@ import {
 } from './harness-configuration';
 import { EXTERNAL_HARNESS_ADAPTERS, type StructuredCommand } from './external-dispatch';
 
-export const AVAILABILITY_REGISTRY_VERSION = 3;
+export const AVAILABILITY_REGISTRY_VERSION = 4;
 export const AVAILABLE_TTL_MS = 30 * 60 * 1000;
 export const UNAVAILABLE_TTL_MS = 5 * 60 * 1000;
 export const PROBE_TIMEOUT_MS = 20_000;
@@ -61,6 +61,9 @@ interface CacheFile {
 export interface ProbeResult {
   exitCode: number;
   timedOut?: boolean;
+  stdout?: string;
+  stderr?: string;
+  error?: string;
 }
 
 export interface HarnessAvailabilityDependencies {
@@ -96,6 +99,8 @@ const resolveExecutable = (executable: string): string | undefined => {
 
 const runProbe = (command: StructuredCommand, timeoutMs: number): Promise<ProbeResult> =>
   new Promise(resolve => {
+    let stdout = '';
+    let stderr = '';
     let settled = false;
     let timedOut = false;
     const finish = (result: ProbeResult): void => {
@@ -106,23 +111,49 @@ const runProbe = (command: StructuredCommand, timeoutMs: number): Promise<ProbeR
     const child = spawn(command.executable, command.argv, {
       cwd: command.cwd,
       shell: false,
-      stdio: ['pipe', 'ignore', 'ignore'],
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    child.stdout?.setEncoding('utf8');
+    child.stderr?.setEncoding('utf8');
+    child.stdout?.on('data', (chunk: string) => {
+      stdout = (stdout + chunk).slice(-4096);
+    });
+    child.stderr?.on('data', (chunk: string) => {
+      stderr = (stderr + chunk).slice(-4096);
     });
     const timer = setTimeout(() => {
       timedOut = true;
       child.kill('SIGKILL');
+      child.stdout?.destroy();
+      child.stderr?.destroy();
+      finish({ exitCode: 1, timedOut, stdout, stderr });
     }, timeoutMs);
-    child.once('error', () => {
+    child.once('error', error => {
       clearTimeout(timer);
-      finish({ exitCode: 1, timedOut });
+      finish({ exitCode: 1, timedOut, stdout, stderr, error: error.message });
     });
     child.once('close', code => {
       clearTimeout(timer);
-      finish({ exitCode: code ?? 1, timedOut });
+      finish({ exitCode: code ?? 1, timedOut, stdout, stderr });
     });
     child.stdin?.on('error', () => undefined);
     child.stdin?.end(command.stdin);
   });
+
+const probeFailureReason = (probe: ProbeResult): string => {
+  const reason = probe.timedOut
+    ? `Harness readiness check timed out after ${PROBE_TIMEOUT_MS} ms.`
+    : probe.error
+      ? `Harness readiness check could not launch: ${probe.error}`
+      : probe.exitCode !== 0
+        ? `Harness readiness check exited ${probe.exitCode}.`
+        : 'Harness exited 0 but did not create the required readiness file with the expected content.';
+  const diagnostics = [
+    probe.stderr?.trim() ? `stderr: ${probe.stderr.trim().slice(-4096)}` : '',
+    probe.stdout?.trim() ? `stdout: ${probe.stdout.trim().slice(-4096)}` : '',
+  ].filter(Boolean);
+  return [reason, ...diagnostics].join(' ');
+};
 
 const defaultDependencies: HarnessAvailabilityDependencies = {
   now: Date.now,
@@ -296,7 +327,12 @@ export const checkHarnessAvailability = async (
   const definition = HARNESS_AVAILABILITY_REGISTRY[harness];
   const executableIdentity = active.resolveExecutable(definition.executable);
   if (!executableIdentity)
-    return outcome(harness, false, now, 'Harness executable is unavailable.');
+    return outcome(
+      harness,
+      false,
+      now,
+      `Harness executable '${definition.executable}' was not found on PATH.`
+    );
 
   const key = cacheKey(harness, executableIdentity, invocation);
   const cachePath = path.join(request.strikethrooRoot, AVAILABILITY_CACHE_RELATIVE_PATH);
@@ -320,7 +356,14 @@ export const checkHarnessAvailability = async (
 
   const probeWorkspace = initializeProbeWorkspace();
   if (!probeWorkspace) {
-    return complete(outcome(harness, false, now, 'Harness readiness check failed.'));
+    return complete(
+      outcome(
+        harness,
+        false,
+        now,
+        'Could not initialize the disposable Git workspace for the readiness check.'
+      )
+    );
   }
 
   try {
@@ -341,7 +384,7 @@ export const checkHarnessAvailability = async (
         harness,
         available,
         now,
-        available ? 'Harness readiness verified.' : 'Harness readiness check failed.'
+        available ? 'Harness readiness verified.' : probeFailureReason(probe)
       )
     );
   } finally {

@@ -131,6 +131,9 @@ describe('rendered execution skills compose the review gate', () => {
       expect(section).not.toContain('creates no task files');
       expect(section).not.toContain('mutates the Execution Blueprint');
       expect(content).not.toContain('{{');
+      expect(content).toContain('- Code Review: [codeReview from the review result');
+      expect(content).toContain('Emit this block even when the review gate halts execution');
+      expect(content).toContain('never claim archival after a halt');
     }
   );
 

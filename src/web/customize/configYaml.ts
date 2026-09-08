@@ -8,7 +8,8 @@
  * top-level sections owned by other features survive a save), and
  * `serializeWorkspaceConfig` writes the edited `harnesses` and
  * `execution_routing` sections back into that document and dumps the whole
- * thing. No component parses or emits YAML on its own.
+ * thing, including the `execution_routing.enabled` switch. No component
+ * parses or emits YAML on its own.
  *
  * Safety rule: if either managed section exists but does not match the shape
  * this form understands, parsing reports `unsupported` and the UI
@@ -37,6 +38,8 @@ export interface RoutingProfileForm {
 
 /** The whole execution_routing section as the form edits it. */
 export interface RoutingForm {
+  /** Absent in the file means true. */
+  enabled: boolean;
   profiles: RoutingProfileForm[];
   /** '' means "no custom resolver". */
   resolverScript: string;
@@ -59,7 +62,7 @@ export type ParsedWorkspaceConfig =
     }
   | { kind: 'unsupported'; message: string };
 
-export const EMPTY_ROUTING: RoutingForm = { profiles: [], resolverScript: '' };
+export const EMPTY_ROUTING: RoutingForm = { enabled: true, profiles: [], resolverScript: '' };
 
 /** Shared; callers copy before mutating. */
 export const EMPTY_HARNESSES: HarnessArgsForm = Object.fromEntries(
@@ -173,9 +176,17 @@ export function parseWorkspaceConfig(content: string): ParsedWorkspaceConfig {
     return unsupported('The execution_routing section is not a mapping.');
   }
   for (const key of Object.keys(section)) {
-    if (key !== 'profiles' && key !== 'resolver') {
+    if (key !== 'enabled' && key !== 'profiles' && key !== 'resolver') {
       return unsupported(`The execution_routing section has an unrecognized key "${key}".`);
     }
+  }
+
+  let enabled = true;
+  if (section.enabled !== undefined) {
+    if (typeof section.enabled !== 'boolean') {
+      return unsupported('execution_routing.enabled must be true or false.');
+    }
+    enabled = section.enabled;
   }
 
   const rawProfiles = section.profiles ?? {};
@@ -223,7 +234,7 @@ export function parseWorkspaceConfig(content: string): ParsedWorkspaceConfig {
     resolverScript = resolver.script;
   }
 
-  return { kind: 'parsed', document, harnesses, routing: { profiles, resolverScript } };
+  return { kind: 'parsed', document, harnesses, routing: { enabled, profiles, resolverScript } };
 }
 
 /**
@@ -249,7 +260,8 @@ export function serializeWorkspaceConfig(
     profiles[profile.name.trim()] = { description: profile.description.trim(), models };
   }
 
-  const section: Record<string, unknown> = { profiles };
+  // Key order is what js-yaml dumps, so the switch lands first.
+  const section: Record<string, unknown> = { enabled: routing.enabled, profiles };
   if (routing.resolverScript.trim() !== '') {
     section.resolver = { script: routing.resolverScript.trim() };
   }
@@ -292,6 +304,8 @@ export function validateHarnessForm(harnesses: HarnessArgsForm): string[] {
  * save cannot produce a config the deterministic helper would reject.
  */
 export function validateRoutingForm(routing: RoutingForm): string[] {
+  // Mirrors the loader, which skips profile validation while routing is off.
+  if (!routing.enabled) return [];
   const errors: string[] = [];
   const seen = new Set<string>();
   for (const profile of routing.profiles) {

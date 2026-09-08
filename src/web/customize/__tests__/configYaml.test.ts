@@ -61,7 +61,7 @@ describe('parseWorkspaceConfig', () => {
     const parsed = parseWorkspaceConfig(SHIPPED);
     expect(parsed.kind).toBe('parsed');
     if (parsed.kind !== 'parsed') return;
-    expect(parsed.routing).toEqual({ profiles: [], resolverScript: '' });
+    expect(parsed.routing).toEqual({ enabled: true, profiles: [], resolverScript: '' });
   });
 
   it('parses an empty or comment-only file to an empty form', () => {
@@ -103,6 +103,23 @@ describe('parseWorkspaceConfig', () => {
     ['a malformed resolver', 'execution_routing:\n  profiles: {}\n  resolver: nope\n'],
   ])('refuses a form save for %s', (_label, content) => {
     expect(parseWorkspaceConfig(content).kind).toBe('unsupported');
+  });
+
+  it('reads enabled: false while keeping the profiles it disables', () => {
+    const parsed = parseWorkspaceConfig(
+      'execution_routing:\n  enabled: false\n  profiles:\n    routine:\n      description: d\n      models:\n        - model: m\n'
+    );
+    expect(parsed.kind).toBe('parsed');
+    if (parsed.kind !== 'parsed') return;
+    expect(parsed.routing.enabled).toBe(false);
+    expect(parsed.routing.profiles.map(p => p.name)).toEqual(['routine']);
+  });
+
+  it('refuses a form save for a non-boolean enabled, naming the key', () => {
+    const parsed = parseWorkspaceConfig('execution_routing:\n  enabled: "yes"\n  profiles: {}\n');
+    expect(parsed.kind).toBe('unsupported');
+    if (parsed.kind !== 'unsupported') return;
+    expect(parsed.message).toContain('execution_routing.enabled');
   });
 });
 
@@ -197,13 +214,18 @@ describe('serializeWorkspaceConfig round-trip', () => {
       serializeWorkspaceConfig(parsed.document, parsed.harnesses, parsed.routing)
     ) as Record<string, unknown>;
     const source = load(FULL) as Record<string, unknown>;
-    expect(output.execution_routing).toEqual(source.execution_routing);
+    // An absent `enabled` is written back as the on-by-default value; nothing else is added.
+    expect(output.execution_routing).toEqual({
+      enabled: true,
+      ...(source.execution_routing as Record<string, unknown>),
+    });
     expect(output.other_feature).toEqual(source.other_feature);
     expect(JSON.stringify(output)).not.toMatch(/availability|probe|ttl|provider/i);
   });
 
   it('emits exact targets: harness/effort only when set, values trimmed', () => {
     const routing: RoutingForm = {
+      enabled: true,
       profiles: [
         {
           name: ' routine ',
@@ -223,6 +245,7 @@ describe('serializeWorkspaceConfig round-trip', () => {
 
   it('an emptied form serializes back to the disabled state', () => {
     const output = serializeWorkspaceConfig({}, EMPTY_HARNESSES, {
+      enabled: true,
       profiles: [],
       resolverScript: '',
     });
@@ -232,6 +255,7 @@ describe('serializeWorkspaceConfig round-trip', () => {
 
   it('writes all six harnesses in order, before execution_routing, after foreign sections', () => {
     const output = serializeWorkspaceConfig({ other_feature: 1 }, EMPTY_HARNESSES, {
+      enabled: true,
       profiles: [],
       resolverScript: '',
     });
@@ -254,8 +278,35 @@ describe('serializeWorkspaceConfig round-trip', () => {
     expect(Object.keys(load(output) as object)).toEqual(['harnesses', 'execution_routing']);
   });
 
+  it('writes enabled first and round-trips a disabled section with its profiles', () => {
+    const routing: RoutingForm = {
+      enabled: false,
+      profiles: [
+        {
+          name: 'routine',
+          description: 'Small work.',
+          targets: [{ model: 'haiku-x', harness: '', reasoningEffort: '' }],
+        },
+      ],
+      resolverScript: '',
+    };
+    const output = serializeWorkspaceConfig({}, EMPTY_HARNESSES, routing);
+    const reloaded = load(output) as {
+      execution_routing: { enabled: unknown; profiles: Record<string, unknown> };
+    };
+    expect(Object.keys(reloaded.execution_routing)[0]).toBe('enabled');
+    expect(reloaded.execution_routing.enabled).toBe(false);
+    expect(Object.keys(reloaded.execution_routing.profiles)).toEqual(['routine']);
+
+    const reparsed = parseWorkspaceConfig(output);
+    expect(reparsed.kind).toBe('parsed');
+    if (reparsed.kind !== 'parsed') return;
+    expect(reparsed.routing).toEqual(routing);
+  });
+
   it('never trims a cli_args value', () => {
     const output = serializeWorkspaceConfig({}, harnessForm({ gemini: [' spaced ', '--x '] }), {
+      enabled: true,
       profiles: [],
       resolverScript: '',
     });
@@ -291,6 +342,7 @@ describe('validateHarnessForm', () => {
 
 describe('validateRoutingForm', () => {
   const valid: RoutingForm = {
+    enabled: true,
     profiles: [
       {
         name: 'routine',
@@ -303,6 +355,16 @@ describe('validateRoutingForm', () => {
 
   it('accepts a well-formed profile', () => {
     expect(validateRoutingForm(valid)).toEqual([]);
+  });
+
+  it('skips every profile check while routing is disabled', () => {
+    const half: RoutingForm = {
+      enabled: false,
+      profiles: [{ name: '', description: '', targets: [] }],
+      resolverScript: '',
+    };
+    expect(validateRoutingForm(half)).toEqual([]);
+    expect(validateRoutingForm({ ...half, enabled: true }).length).toBeGreaterThan(0);
   });
 
   it.each([

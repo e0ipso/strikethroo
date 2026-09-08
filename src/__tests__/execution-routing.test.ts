@@ -69,6 +69,18 @@ describe('loadRoutingConfig', () => {
     ],
     ['config.yaml has no execution_routing section', 'other_feature:\n  flag: true\n'],
     ['config.yaml contains only comments', '# nothing configured yet\n'],
+    [
+      'enabled is false even with profiles configured',
+      VALID_CONFIG.replace('execution_routing:\n', 'execution_routing:\n  enabled: false\n'),
+    ],
+    [
+      'enabled is true but profiles is empty',
+      'execution_routing:\n  enabled: true\n  profiles: {}\n',
+    ],
+    [
+      'enabled is false and the profiles below it are malformed',
+      'execution_routing:\n  enabled: false\n  profiles:\n    broken:\n      description: x\n',
+    ],
   ])('returns disabled when %s', (_label, contents) => {
     writeConfig(contents);
     expect(loadRoutingConfig(tempDir, SUPPORTED_HARNESSES).kind).toBe('disabled');
@@ -159,6 +171,22 @@ describe('loadRoutingConfig', () => {
     expect(result.kind).toBe('invalid');
     if (result.kind !== 'invalid') return;
     expect(result.errors.length).toBeGreaterThan(0);
+  });
+
+  it('rejects a non-boolean enabled with a pointed error', () => {
+    writeConfig('execution_routing:\n  enabled: "yes"\n  profiles: {}\n');
+    const result = loadRoutingConfig(tempDir, SUPPORTED_HARNESSES);
+    expect(result.kind).toBe('invalid');
+    if (result.kind !== 'invalid') return;
+    expect(result.errors.join(' ')).toContain('"enabled" must be true or false');
+  });
+
+  it('still reports an unknown section key when enabled is false', () => {
+    writeConfig('execution_routing:\n  enabled: false\n  typo: 1\n  profiles: {}\n');
+    const result = loadRoutingConfig(tempDir, SUPPORTED_HARNESSES);
+    expect(result.kind).toBe('invalid');
+    if (result.kind !== 'invalid') return;
+    expect(result.errors.join(' ')).toContain('unknown key "typo"');
   });
 
   it('rejects a per-profile resolver with a pointed error', () => {

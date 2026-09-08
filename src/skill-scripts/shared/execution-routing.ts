@@ -134,9 +134,10 @@ const validateProfile = (
  * Loads and validates the `execution_routing` section of the workspace's
  * generic `config/config.yaml`. An absent file is `no-config`; an absent or
  * empty section (or empty `profiles`) is `disabled`. Both mean "generate
- * tasks without execution metadata", the pre-routing behavior. Top-level
- * keys other than the routing section belong to other features and are
- * ignored here.
+ * tasks without execution metadata", the pre-routing behavior. The optional
+ * `enabled` key is `disabled` when false regardless of profiles, and absent
+ * means enabled. Top-level keys other than the routing section belong to
+ * other features and are ignored here.
  */
 export const loadRoutingConfig = (
   strikethrooRoot: string,
@@ -186,9 +187,17 @@ export const loadRoutingConfig = (
     };
   }
   for (const key of Object.keys(section)) {
-    if (key !== 'profiles' && key !== 'resolver') {
+    if (key !== 'enabled' && key !== 'profiles' && key !== 'resolver') {
       errors.push(`${EXECUTION_ROUTING_SECTION} has unknown key "${key}".`);
     }
+  }
+  if ('enabled' in section) {
+    if (typeof section.enabled !== 'boolean') {
+      errors.push(`${EXECUTION_ROUTING_SECTION} "enabled" must be true or false.`);
+      return { kind: 'invalid', errors };
+    }
+    if (!section.enabled)
+      return errors.length > 0 ? { kind: 'invalid', errors } : { kind: 'disabled' };
   }
   // A bare `profiles:` key (everything commented out) reads as null; treat it
   // like the shipped `profiles: {}` template — routing configured off.

@@ -6,13 +6,13 @@
  * every configurable feature claims one top-level section in it instead of
  * shipping its own YAML file. This tab is the web app's UI for setting that
  * file up: it frames the whole file, and renders one form section per feature
- * section it understands (today: `execution_routing`). Populating the form is
- * a manual process; the form serializes back through the single
+ * section it understands (`harnesses` and `execution_routing`). Populating the
+ * form is a manual process; the form serializes back through the single
  * {@link parseWorkspaceConfig}/{@link serializeWorkspaceConfig} boundary,
  * which preserves foreign top-level sections structurally (comments are not
  * preserved — the file header and this UI both say so).
  *
- * Safety: when the routing section exists but has a shape the form cannot
+ * Safety: when a managed section exists but has a shape the form cannot
  * represent, the tab shows why and refuses a form save instead of silently
  * rewriting content it would destroy.
  */
@@ -21,11 +21,14 @@ import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } fr
 import { Button, Chip } from '../components/primitives';
 import { saveConfigFile, type ConfigFile } from '../data/api';
 import { cn } from '../vendor/utils/cn';
-import { SUPPORTED_HARNESSES } from '../../types';
+import { SUPPORTED_HARNESSES, type Harness } from '../../types';
 import {
   parseWorkspaceConfig,
   serializeWorkspaceConfig,
+  validateHarnessForm,
   validateRoutingForm,
+  type HarnessArgsEntry,
+  type HarnessArgsForm,
   type RoutingForm,
   type RoutingProfileForm,
   type RoutingTargetForm,
@@ -39,7 +42,17 @@ import {
 const FIELD =
   'rounded-md bg-cream-mid px-2.5 py-1.5 font-sans text-sm text-ink ring-1 ring-inset ring-border-soft outline-none focus:bg-cream focus:ring-2 focus:ring-ink placeholder:text-ink-3';
 
+/** The compact reorder/remove controls that end an ordered row. */
+const ROW_BUTTON =
+  'rounded px-1.5 py-1 text-ink-3 ring-1 ring-border-soft hover:text-ink disabled:opacity-30';
+
 const EMPTY_TARGET: RoutingTargetForm = { model: '', harness: '', reasoningEffort: '' };
+
+/** Both managed sections of config.yaml, edited as one form. */
+interface ConfigFormModel {
+  harnesses: HarnessArgsForm;
+  routing: RoutingForm;
+}
 
 const EMPTY_PROFILE: RoutingProfileForm = {
   name: '',
@@ -119,7 +132,7 @@ function TargetRow({
         <button
           type="button"
           aria-label="Move target up"
-          className="rounded px-1.5 py-1 text-ink-3 ring-1 ring-border-soft hover:text-ink disabled:opacity-30"
+          className={ROW_BUTTON}
           disabled={index === 0}
           onClick={() => onMove(-1)}
         >
@@ -128,20 +141,89 @@ function TargetRow({
         <button
           type="button"
           aria-label="Move target down"
-          className="rounded px-1.5 py-1 text-ink-3 ring-1 ring-border-soft hover:text-ink disabled:opacity-30"
+          className={ROW_BUTTON}
           disabled={index === count - 1}
           onClick={() => onMove(1)}
         >
           ↓
         </button>
-        <button
-          type="button"
-          aria-label="Remove target"
-          className="rounded px-1.5 py-1 text-ink-3 ring-1 ring-border-soft hover:text-ink"
-          onClick={onRemove}
-        >
+        <button type="button" aria-label="Remove target" className={ROW_BUTTON} onClick={onRemove}>
           ✕
         </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * One harness's ordered `cli_args`. Values are handed to the serializer
+ * untrimmed — the loader reads every argument byte-for-byte.
+ */
+function HarnessArgsCard({
+  harness,
+  entry,
+  onChange,
+}: {
+  harness: Harness;
+  entry: HarnessArgsEntry;
+  onChange: (next: HarnessArgsEntry) => void;
+}) {
+  const args = entry.cliArgs;
+  const setArgs = (next: string[]) => onChange({ cliArgs: next });
+
+  return (
+    <div
+      data-testid="harness-args-card"
+      data-harness={harness}
+      className="flex flex-col gap-2 rounded-card bg-cream p-4 ring-1 ring-border-soft"
+    >
+      <h3 className="font-mono text-sm font-medium text-ink">{harness}</h3>
+      {args.map((arg, index) => (
+        <div key={index} className="flex items-center gap-2">
+          <span className="w-5 shrink-0 text-right font-mono text-xs text-ink-3">{index + 1}.</span>
+          <input
+            data-testid="harness-arg-input"
+            aria-label={`${harness} argument ${index + 1}`}
+            className={cn(FIELD, 'min-w-0 flex-1 font-mono')}
+            type="text"
+            placeholder="--exact-argument"
+            value={arg}
+            onChange={e => setArgs(args.map((a, i) => (i === index ? e.target.value : a)))}
+          />
+          <div className="flex shrink-0 items-center gap-1 font-mono text-xs">
+            <button
+              type="button"
+              aria-label="Move argument up"
+              className={ROW_BUTTON}
+              disabled={index === 0}
+              onClick={() => setArgs(move(args, index, -1))}
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              aria-label="Move argument down"
+              className={ROW_BUTTON}
+              disabled={index === args.length - 1}
+              onClick={() => setArgs(move(args, index, 1))}
+            >
+              ↓
+            </button>
+            <button
+              type="button"
+              aria-label="Remove argument"
+              className={ROW_BUTTON}
+              onClick={() => setArgs(args.filter((_, i) => i !== index))}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      ))}
+      <div>
+        <Button size="sm" icon="plus" onClick={() => setArgs([...args, ''])}>
+          Add argument
+        </Button>
       </div>
     </div>
   );
@@ -238,20 +320,24 @@ function ConfigForm({
 }: {
   file: ConfigFile;
   document: Record<string, unknown>;
-  initial: RoutingForm;
+  initial: ConfigFormModel;
   save: SaveState;
   setSave: Dispatch<SetStateAction<SaveState>>;
 }) {
-  const [routing, setRouting] = useState<RoutingForm>(initial);
+  const [model, setModel] = useState<ConfigFormModel>(initial);
   const [baseline, setBaseline] = useState(initial);
+  const { harnesses, routing } = model;
 
-  const dirty = JSON.stringify(routing) !== JSON.stringify(baseline);
-  const errors = useMemo(() => validateRoutingForm(routing), [routing]);
+  const dirty = JSON.stringify(model) !== JSON.stringify(baseline);
+  const errors = useMemo(
+    () => [...validateHarnessForm(model.harnesses), ...validateRoutingForm(model.routing)],
+    [model]
+  );
   const saving = save.phase === 'saving';
 
   const update = useCallback(
-    (next: RoutingForm) => {
-      setRouting(next);
+    (next: ConfigFormModel) => {
+      setModel(next);
       setSave(prev =>
         prev.phase === 'idle' || prev.phase === 'saving' ? prev : { phase: 'idle' }
       );
@@ -263,13 +349,17 @@ function ConfigForm({
     if (errors.length > 0 || saving || !dirty) return;
     setSave({ phase: 'saving' });
     try {
-      await saveConfigFile('workspace', file.id, serializeWorkspaceConfig(document, routing));
-      setBaseline(routing);
+      await saveConfigFile(
+        'workspace',
+        file.id,
+        serializeWorkspaceConfig(document, model.harnesses, model.routing)
+      );
+      setBaseline(model);
       setSave({ phase: 'saved' });
     } catch (err) {
       setSave({ phase: 'error', message: err instanceof Error ? err.message : String(err) });
     }
-  }, [errors.length, saving, dirty, file.id, document, routing, setSave]);
+  }, [errors.length, saving, dirty, file.id, document, model, setSave]);
 
   return (
     <div data-testid="workspace-config-form" className="flex flex-col gap-5 p-7">
@@ -281,6 +371,28 @@ function ConfigForm({
           comments are not kept.
         </p>
       </div>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="font-display text-lg font-semibold text-ink">
+          Harness invocation arguments
+        </h2>
+        <p className="max-w-3xl font-sans text-sm leading-relaxed text-ink-2">
+          Every row is one exact argument passed verbatim to that CLI whenever Strikethroo spawns
+          it, in the order shown. Values are never split on whitespace or shell-expanded, so a flag
+          and its value are two separate rows. These arguments can grant broad authority — never put
+          a credential or token here.
+        </p>
+        <div className="grid gap-3 md:grid-cols-2">
+          {SUPPORTED_HARNESSES.map(harness => (
+            <HarnessArgsCard
+              key={harness}
+              harness={harness}
+              entry={harnesses[harness]}
+              onChange={next => update({ ...model, harnesses: { ...harnesses, [harness]: next } })}
+            />
+          ))}
+        </div>
+      </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="font-display text-lg font-semibold text-ink">Execution routing</h2>
@@ -297,12 +409,18 @@ function ConfigForm({
             profile={profile}
             onChange={next =>
               update({
-                ...routing,
-                profiles: routing.profiles.map((p, i) => (i === index ? next : p)),
+                ...model,
+                routing: {
+                  ...routing,
+                  profiles: routing.profiles.map((p, i) => (i === index ? next : p)),
+                },
               })
             }
             onRemove={() =>
-              update({ ...routing, profiles: routing.profiles.filter((_, i) => i !== index) })
+              update({
+                ...model,
+                routing: { ...routing, profiles: routing.profiles.filter((_, i) => i !== index) },
+              })
             }
           />
         ))}
@@ -311,11 +429,14 @@ function ConfigForm({
             icon="plus"
             onClick={() =>
               update({
-                ...routing,
-                profiles: [
-                  ...routing.profiles,
-                  { ...EMPTY_PROFILE, targets: [{ ...EMPTY_TARGET }] },
-                ],
+                ...model,
+                routing: {
+                  ...routing,
+                  profiles: [
+                    ...routing.profiles,
+                    { ...EMPTY_PROFILE, targets: [{ ...EMPTY_TARGET }] },
+                  ],
+                },
               })
             }
           >
@@ -331,7 +452,9 @@ function ConfigForm({
             type="text"
             placeholder="./scripts/select-execution-target.cjs"
             value={routing.resolverScript}
-            onChange={e => update({ ...routing, resolverScript: e.target.value })}
+            onChange={e =>
+              update({ ...model, routing: { ...routing, resolverScript: e.target.value } })
+            }
           />
           <span className="text-xs text-ink-3">
             One repository-relative script for the whole configuration. At each selection attempt it
@@ -417,7 +540,7 @@ export function WorkspaceConfigTab({ workspace }: { workspace: ConfigFile | null
       key={workspace.content}
       file={workspace}
       document={parsed.document}
-      initial={parsed.routing}
+      initial={{ harnesses: parsed.harnesses, routing: parsed.routing }}
       save={save}
       setSave={setSave}
     />

@@ -6,12 +6,12 @@
  * crosses into and out of that form: `parseWorkspaceConfig` lifts the file
  * into a typed form model (plus the untouched full document, so foreign
  * top-level sections owned by other features survive a save), and
- * `serializeWorkspaceConfig` writes the edited `execution_routing` section
- * back into that document and dumps the whole thing. No component parses or
- * emits YAML on its own.
+ * `serializeWorkspaceConfig` writes the edited `harnesses` and
+ * `execution_routing` sections back into that document and dumps the whole
+ * thing. No component parses or emits YAML on its own.
  *
- * Safety rule: if the `execution_routing` section exists but does not match
- * the shape this form understands, parsing reports `unsupported` and the UI
+ * Safety rule: if either managed section exists but does not match the shape
+ * this form understands, parsing reports `unsupported` and the UI
  * refuses to offer a form save — a form-driven rewrite of content it cannot
  * represent would silently destroy it. Saving also re-serializes the file
  * without comments (a YAML round-trip cannot preserve them); the shipped
@@ -19,7 +19,7 @@
  */
 
 import { load, dump } from 'js-yaml';
-import { SUPPORTED_HARNESSES } from '../../types';
+import { SUPPORTED_HARNESSES, type Harness } from '../../types';
 
 /** One exact execution target row in the form ('' means "not set"). */
 export interface RoutingTargetForm {
@@ -42,11 +42,29 @@ export interface RoutingForm {
   resolverScript: string;
 }
 
+/** One harness's ordered `cli_args`, held exactly as the loader reads them. */
+export interface HarnessArgsEntry {
+  cliArgs: string[];
+}
+
+/** The whole harnesses section as the form edits it, in SUPPORTED_HARNESSES order. */
+export type HarnessArgsForm = Record<Harness, HarnessArgsEntry>;
+
 export type ParsedWorkspaceConfig =
-  | { kind: 'parsed'; document: Record<string, unknown>; routing: RoutingForm }
+  | {
+      kind: 'parsed';
+      document: Record<string, unknown>;
+      harnesses: HarnessArgsForm;
+      routing: RoutingForm;
+    }
   | { kind: 'unsupported'; message: string };
 
 export const EMPTY_ROUTING: RoutingForm = { profiles: [], resolverScript: '' };
+
+/** Shared; callers copy before mutating. */
+export const EMPTY_HARNESSES: HarnessArgsForm = Object.fromEntries(
+  SUPPORTED_HARNESSES.map(harness => [harness, { cliArgs: [] as string[] }])
+) as HarnessArgsForm;
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -75,9 +93,55 @@ const parseTarget = (raw: unknown): RoutingTargetForm | null => {
 };
 
 /**
- * Parses config.yaml content into the full document plus the routing form
- * model. An empty/comment-only file and an absent or empty section both parse
- * to the empty form.
+ * Lifts the `harnesses` section into the form model, mirroring the shape
+ * rules of `validateHarnessEntry` in
+ * `skill-scripts/shared/harness-configuration.ts`. Argument strings stay
+ * verbatim — an empty or NUL-bearing one parses so the form can show it, and
+ * `validateHarnessForm` reports it rather than the whole file being refused.
+ */
+const parseHarnesses = (section: unknown): HarnessArgsForm | { message: string } => {
+  if (section === undefined || section === null) return EMPTY_HARNESSES;
+  if (!isPlainObject(section)) return { message: 'The harnesses section is not a mapping.' };
+  for (const key of Object.keys(section)) {
+    if (!(SUPPORTED_HARNESSES as readonly string[]).includes(key)) {
+      return { message: `harnesses.${key} is not a supported harness.` };
+    }
+  }
+
+  const form = {} as HarnessArgsForm;
+  for (const harness of SUPPORTED_HARNESSES) {
+    if (!(harness in section)) {
+      form[harness] = { cliArgs: [] };
+      continue;
+    }
+    const entry = section[harness];
+    if (!isPlainObject(entry)) return { message: `harnesses.${harness} is not a mapping.` };
+    for (const key of Object.keys(entry)) {
+      if (key !== 'cli_args') return { message: `harnesses.${harness}.${key} is not supported.` };
+    }
+    if (!('cli_args' in entry)) {
+      form[harness] = { cliArgs: [] };
+      continue;
+    }
+    if (!Array.isArray(entry.cli_args)) {
+      return { message: `harnesses.${harness}.cli_args must be a list of exact strings.` };
+    }
+    const cliArgs: string[] = [];
+    for (const [index, value] of entry.cli_args.entries()) {
+      if (typeof value !== 'string') {
+        return { message: `harnesses.${harness}.cli_args[${index}] is not a string.` };
+      }
+      cliArgs.push(value);
+    }
+    form[harness] = { cliArgs };
+  }
+  return form;
+};
+
+/**
+ * Parses config.yaml content into the full document plus the harness and
+ * routing form models. An empty/comment-only file, and an absent or empty
+ * section, both parse to the empty form.
  */
 export function parseWorkspaceConfig(content: string): ParsedWorkspaceConfig {
   const hasContent = content
@@ -98,9 +162,12 @@ export function parseWorkspaceConfig(content: string): ParsedWorkspaceConfig {
     return unsupported('config.yaml must be a YAML mapping of feature sections.');
   }
 
+  const harnesses = parseHarnesses(document.harnesses);
+  if ('message' in harnesses) return unsupported(harnesses.message);
+
   const section = document.execution_routing;
   if (section === undefined || section === null) {
-    return { kind: 'parsed', document, routing: EMPTY_ROUTING };
+    return { kind: 'parsed', document, harnesses, routing: EMPTY_ROUTING };
   }
   if (!isPlainObject(section)) {
     return unsupported('The execution_routing section is not a mapping.');
@@ -156,15 +223,17 @@ export function parseWorkspaceConfig(content: string): ParsedWorkspaceConfig {
     resolverScript = resolver.script;
   }
 
-  return { kind: 'parsed', document, routing: { profiles, resolverScript } };
+  return { kind: 'parsed', document, harnesses, routing: { profiles, resolverScript } };
 }
 
 /**
- * Writes the edited routing form back into the parsed document (preserving
- * every foreign top-level section structurally) and dumps the whole file.
+ * Writes the edited harness and routing forms back into the parsed document
+ * (preserving every foreign top-level section structurally) and dumps the
+ * whole file.
  */
 export function serializeWorkspaceConfig(
   document: Record<string, unknown>,
+  harnesses: HarnessArgsForm,
   routing: RoutingForm
 ): string {
   const profiles: Record<string, unknown> = {};
@@ -185,8 +254,37 @@ export function serializeWorkspaceConfig(
     section.resolver = { script: routing.resolverScript.trim() };
   }
 
-  const next: Record<string, unknown> = { ...document, execution_routing: section };
+  // Never trimmed: the loader reads every argument byte-for-byte.
+  const harnessSection = Object.fromEntries(
+    SUPPORTED_HARNESSES.map(harness => [harness, { cli_args: [...harnesses[harness].cliArgs] }])
+  );
+
+  // Dropped first so both managed sections are emitted in a stable order
+  // after whatever foreign sections the document carried.
+  const { harnesses: _oldHarnesses, execution_routing: _oldRouting, ...rest } = document;
+  const next: Record<string, unknown> = {
+    ...rest,
+    harnesses: harnessSection,
+    execution_routing: section,
+  };
   return dump(next, { lineWidth: 100, noRefs: true });
+}
+
+/**
+ * Client-side validation mirroring `validateHarnessEntry`'s per-argument
+ * rules, so a form save cannot produce a config the loader would reject.
+ */
+export function validateHarnessForm(harnesses: HarnessArgsForm): string[] {
+  const errors: string[] = [];
+  for (const harness of SUPPORTED_HARNESSES) {
+    harnesses[harness].cliArgs.forEach((value, index) => {
+      const label = `${harness}, argument ${index + 1}`;
+      if (value === '') errors.push(`${label}: an argument cannot be empty.`);
+      else if (value.includes('\0'))
+        errors.push(`${label}: an argument cannot contain a NUL character.`);
+    });
+  }
+  return errors;
 }
 
 /**

@@ -182,10 +182,13 @@ test.describe('Customize section (Playwright, fixture)', () => {
     page,
   }) => {
     page.setDefaultTimeout(15_000);
-    // Seed a foreign top-level section a form save must not destroy.
+    // Seed a foreign top-level section a form save must not destroy, plus an
+    // existing harness entry the arguments form must show and extend in order.
     fs.writeFileSync(
       path.join(root, 'config', 'config.yaml'),
-      'other_feature:\n  flag: true\nexecution_routing:\n  profiles: {}\n',
+      'other_feature:\n  flag: true\n' +
+        'harnesses:\n  codex:\n    cli_args:\n      - --sandbox\n      - workspace-write\n' +
+        'execution_routing:\n  profiles: {}\n',
       'utf8'
     );
 
@@ -219,6 +222,16 @@ test.describe('Customize section (Playwright, fixture)', () => {
 
     await page.getByTestId('routing-target-model').fill('exact-model-id');
 
+    // The harness arguments section shows codex's seeded arguments in file
+    // order; a third one is appended through its own "Add argument" control.
+    const codex = page.locator('[data-testid="harness-args-card"][data-harness="codex"]');
+    const codexArgs = codex.getByTestId('harness-arg-input');
+    await expect(codexArgs).toHaveCount(2);
+    await expect(codexArgs.nth(0)).toHaveValue('--sandbox');
+    await expect(codexArgs.nth(1)).toHaveValue('workspace-write');
+    await codex.getByRole('button', { name: 'Add argument' }).click();
+    await codexArgs.nth(2).fill('--model');
+
     await page.getByRole('button', { name: 'Save configuration' }).click();
     await expect(page.getByTestId('workspace-config-status')).toContainText('Saved', {
       timeout: 5_000,
@@ -231,6 +244,9 @@ test.describe('Customize section (Playwright, fixture)', () => {
     expect(onDisk).toContain('model: exact-model-id');
     expect(onDisk).toContain('other_feature:');
     expect(onDisk).toContain('flag: true');
+    expect(onDisk).toMatch(
+      /codex:\n\s+cli_args:\n\s+- --sandbox\n\s+- workspace-write\n\s+- --model/
+    );
   });
 
   test('an unknown config id renders the designed not-found surface', async ({ page }) => {

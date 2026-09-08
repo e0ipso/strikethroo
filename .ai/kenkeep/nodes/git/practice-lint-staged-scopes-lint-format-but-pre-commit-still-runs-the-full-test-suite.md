@@ -20,7 +20,7 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-The `.husky/pre-commit` hook first rejects staged generated skill artifacts from either `skills/` or `templates/harness/skills/`, covering `*/SKILL.md`, `*/scripts/*.cjs`, and `*/references/*.md` in each tree. Staged deletions pass this guard. It then runs `npx lint-staged`, followed by `npm test`.
+The `.husky/pre-commit` hook first rejects staged generated skill artifacts under `skills/`, covering `*/SKILL.md`, `*/scripts/*.cjs`, and `*/references/*.md` (`dist-test/` is gitignored, so it cannot be staged). Staged deletions pass this guard. It then runs `npx lint-staged`, followed by `npm test`.
 
 lint-staged runs `eslint --fix` and `prettier --write` on `src/**/*.{ts,tsx}` and `prettier --write` on `src/**/*.css`. A commit containing only Kenkeep Markdown skips those formatters, but it still runs the full unit and end-to-end suite. Commit time is therefore dominated by `npm test`, not lint-staged.
 

@@ -1,51 +1,22 @@
 /**
- * Distribution validation for the Git-tree release channel.
+ * Shape checks for the Git-tree release channel: the committed root skills/
+ * directory and .claude-plugin/plugin.json must be complete and agree.
  *
- * Two independent concerns live here:
- *
- *   1. The mechanism — scripts/sync-skills-mirror.cjs — exercised against
- *      throwaway fixture trees via STRIKETHROO_MIRROR_SOURCE/TARGET.
- *   2. The committed skills/ mirror and .claude-plugin/plugin.json, checked
- *      for internal completeness and mutual agreement.
- *
- * Deliberately absent: any comparison of the committed skills/ mirror against
- * a freshly built templates/harness/skills/. The mirror records the most
- * recent *released* skill set, so it legitimately lags the source build
- * between releases; live-tree parity is a release-time invariant asserted by
- * the release workflow's sync step, not a per-commit one.
+ * Deliberately absent: any comparison of skills/ against a fresh dist-test/
+ * build. skills/ records the most recent *released* skill set and lags the
+ * source between releases. CI asserts instead that it equals the last release
+ * tag, and the release rebuilds it with `npm run build:release-skills`.
  */
 
-import { spawnSync } from 'child_process';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const SYNC_SCRIPT = path.join(REPO_ROOT, 'scripts', 'sync-skills-mirror.cjs');
 const MIRROR_DIR = path.join(REPO_ROOT, 'skills');
 const PLUGIN_MANIFEST = path.join(REPO_ROOT, '.claude-plugin', 'plugin.json');
 
 /** Matches an in-skill script reference; a bare cross-skill filename is not one. */
 const SCRIPT_REFERENCE = /scripts\/[A-Za-z0-9_-]+\.cjs/g;
-
-const writeFile = (filePath: string, contents: string): void => {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, contents);
-};
-
-/** Recursively lists files under `dir` as sorted, relative POSIX paths. */
-const listFiles = (dir: string): string[] => {
-  const files: string[] = [];
-  const walk = (current: string, prefix: string): void => {
-    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
-      if (entry.isDirectory()) walk(path.join(current, entry.name), rel);
-      else files.push(rel);
-    }
-  };
-  if (fs.existsSync(dir)) walk(dir, '');
-  return files.sort();
-};
 
 const listDirectories = (dir: string): string[] =>
   fs
@@ -53,144 +24,6 @@ const listDirectories = (dir: string): string[] =>
     .filter(entry => entry.isDirectory())
     .map(entry => entry.name)
     .sort();
-
-describe('sync-skills-mirror script', () => {
-  let tempDir: string;
-  let source: string;
-  let target: string;
-
-  const runSync = (
-    args: string[] = [],
-    overrides: { source?: string; target?: string } = {}
-  ): { status: number | null; output: string } => {
-    const result = spawnSync('node', [SYNC_SCRIPT, ...args], {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-      env: {
-        ...process.env,
-        STRIKETHROO_MIRROR_SOURCE: overrides.source ?? source,
-        STRIKETHROO_MIRROR_TARGET: overrides.target ?? target,
-      },
-    });
-    return {
-      status: result.status,
-      output: `${result.stdout ?? ''}${result.stderr ?? ''}`,
-    };
-  };
-
-  beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skills-mirror-'));
-    source = path.join(tempDir, 'source');
-    target = path.join(tempDir, 'target');
-
-    writeFile(path.join(source, 'st-alpha', 'SKILL.md'), '---\nname: st-alpha\n---\nAlpha body\n');
-    writeFile(path.join(source, 'st-alpha', 'scripts', 'alpha.cjs'), 'console.log("alpha");\n');
-    writeFile(path.join(source, 'st-beta', 'SKILL.md'), '---\nname: st-beta\n---\nBeta body\n');
-  });
-
-  afterEach(() => {
-    fs.rmSync(tempDir, { recursive: true, force: true });
-  });
-
-  test('replaces the target wholesale, dropping files absent from the source', () => {
-    fs.cpSync(source, target, { recursive: true });
-    writeFile(path.join(target, 'st-alpha', 'scripts', 'stale.cjs'), 'console.log("stale");\n');
-    writeFile(path.join(target, 'st-retired', 'SKILL.md'), 'retired skill\n');
-
-    const result = runSync();
-
-    expect(result.status).toBe(0);
-    expect(listFiles(target)).toEqual(listFiles(source));
-    expect(fs.existsSync(path.join(target, 'st-alpha', 'scripts', 'stale.cjs'))).toBe(false);
-    expect(fs.existsSync(path.join(target, 'st-retired'))).toBe(false);
-    expect(fs.readFileSync(path.join(target, 'st-alpha', 'scripts', 'alpha.cjs'), 'utf8')).toBe(
-      'console.log("alpha");\n'
-    );
-  });
-
-  test('--verify exits 0 and writes nothing when the trees are identical', () => {
-    fs.cpSync(source, target, { recursive: true });
-    const before: Array<[string, Buffer]> = listFiles(target).map(rel => [
-      rel,
-      fs.readFileSync(path.join(target, rel)),
-    ]);
-
-    const result = runSync(['--verify']);
-
-    expect(result.status).toBe(0);
-    expect(result.output).toContain('Mirror in sync');
-    expect(before.map(([rel]) => rel)).toEqual(listFiles(target));
-    for (const [rel, bytes] of before) {
-      expect(fs.readFileSync(path.join(target, rel)).equals(bytes)).toBe(true);
-    }
-  });
-
-  test.each([
-    [
-      'missing',
-      'st-alpha/scripts/alpha.cjs',
-      (dir: string) => fs.rmSync(path.join(dir, 'st-alpha', 'scripts', 'alpha.cjs')),
-    ],
-    [
-      'extra',
-      'st-alpha/scripts/stale.cjs',
-      (dir: string) => writeFile(path.join(dir, 'st-alpha', 'scripts', 'stale.cjs'), 'stale\n'),
-    ],
-    [
-      'different',
-      'st-beta/SKILL.md',
-      (dir: string) =>
-        fs.writeFileSync(path.join(dir, 'st-beta', 'SKILL.md'), '---\nname: st-beta\n---\nDrift\n'),
-    ],
-  ])('--verify fails on a %s file and names it', (label, relPath, corrupt) => {
-    fs.cpSync(source, target, { recursive: true });
-    corrupt(target);
-
-    const result = runSync(['--verify']);
-
-    expect(result.status).toBe(1);
-    expect(result.output).toContain(`${label.padEnd(10)}${relPath}`);
-    expect(result.output).toContain('Mirror parity failed');
-  });
-
-  test('--verify exits 1 when the mirror directory does not exist', () => {
-    const result = runSync(['--verify']);
-
-    expect(result.status).toBe(1);
-    expect(result.output).toContain('Mirror directory not found');
-  });
-
-  test('refuses an absent source tree without touching the target', () => {
-    fs.cpSync(source, target, { recursive: true });
-    const before = listFiles(target);
-
-    const result = runSync([], { source: path.join(tempDir, 'nowhere') });
-
-    expect(result.status).toBe(2);
-    expect(result.output).toContain('Source skill tree not found');
-    expect(listFiles(target)).toEqual(before);
-  });
-
-  test('refuses a source tree holding no built skill directory', () => {
-    fs.cpSync(source, target, { recursive: true });
-    const before = listFiles(target);
-
-    const empty = path.join(tempDir, 'empty');
-    fs.mkdirSync(empty, { recursive: true });
-    const emptyResult = runSync([], { source: empty });
-    expect(emptyResult.status).toBe(2);
-    expect(emptyResult.output).toContain('no built skill directories');
-
-    const unbuilt = path.join(tempDir, 'unbuilt');
-    fs.mkdirSync(path.join(unbuilt, 'st-alpha', 'scripts'), { recursive: true });
-    fs.writeFileSync(path.join(unbuilt, 'st-alpha', 'scripts', 'alpha.cjs'), 'console.log(1);\n');
-    const unbuiltResult = runSync([], { source: unbuilt });
-    expect(unbuiltResult.status).toBe(2);
-    expect(unbuiltResult.output).toContain('no built skill directories');
-
-    expect(listFiles(target)).toEqual(before);
-  });
-});
 
 describe('committed skills/ mirror completeness', () => {
   const EXPECTED_SKILLS = [

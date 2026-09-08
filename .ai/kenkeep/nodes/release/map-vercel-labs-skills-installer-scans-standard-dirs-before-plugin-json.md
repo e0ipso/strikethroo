@@ -17,9 +17,9 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-The `vercel-labs/skills` installer (`skills.ts` `getPluginSkillPaths`) scans standard well-known directories such as `.agents/skills/` and `.claude/skills/` before consulting `plugin.json`. If any of those directories exists and contains skill subdirectories, the installer uses those paths — it never reaches the `plugin.json`-declared paths under `templates/harness/skills/`.
+The `vercel-labs/skills` installer (`skills.ts` `getPluginSkillPaths`) scans standard well-known directories such as `.agents/skills/` and `.claude/skills/` before consulting `plugin.json`. A root `skills/` directory is searched before those, and `plugin.json` paths are appended last. Whatever it finds must be committed: the installer clones the repository, so a gitignored path such as `dist-test/` is invisible to it regardless of what `plugin.json` says.
 
-For `e0ipso/strikethroo`, the installer uses the git clone path and calls `copyDirectory` recursively. Removing `.agents/skills/` from the repo forces the fallback to `plugin.json`, where `templates/harness/skills/*/` entries include both `SKILL.md` and the `scripts/` subdirectory.
+For `e0ipso/strikethroo`, the installer uses the git clone path and calls `copyDirectory` recursively. The tracked root `skills/` directory is the discovery target; `plugin.json` points at the same `./skills/st-*` entries and is redundant for this installer.
 
 <!-- kk:related:start -->
 # Related

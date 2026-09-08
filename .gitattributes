@@ -1,33 +1,27 @@
 # Build output and vendored files.
 #
-# The skill artifacts (bundles, assembled prompts, and copied references) exist
-# in two trees. `templates/harness/skills/` is local build output and is
-# gitignored; the tracked root `skills/` mirror records the last released
-# build, written only by the release workflow's sync step
-# (`scripts/sync-skills-mirror.cjs`) and committed through `@semantic-release/git`.
-# Both are generated, so both are marked here, which gives two behaviours:
+# The root skills/ directory is what `npx skills add e0ipso/strikethroo`
+# installs. It is generated: the release rebuilds it from src/skill-scripts/
+# and src/skill-prompts/ (`npm run build:release-skills`) and commits it
+# through `@semantic-release/git`. Local builds write dist-test/ instead,
+# which is gitignored. Marking the mirror generated gives two behaviours:
 #
-#   - GitHub collapses them in pull requests, so a reviewer sees source rather
+#   - GitHub collapses it in pull requests, so a reviewer sees source rather
 #     than generated churn.
-#   - The code review gate excludes them from the reviewed diff. It resolves
+#   - The code review gate excludes it from the reviewed diff. It resolves
 #     attributes with `git check-attr` on changed paths, and a fix applied to
-#     build output is erased by the next `npm run build` or mirror sync.
+#     build output is erased by the next release.
 #
 # Change the source, never these files. `.husky/pre-commit` rejects them when
-# staged by hand.
+# staged by hand, and CI fails when skills/ differs from the last release tag.
 
 # Assembled by scripts/build-skill-prompts.cjs from src/skill-prompts/.
-templates/harness/skills/*/SKILL.md linguist-generated=true
+skills/*/SKILL.md linguist-generated=true
 
 # Bundled by scripts/build-skills.cjs (esbuild) from src/skill-scripts/.
-templates/harness/skills/*/scripts/*.cjs linguist-generated=true
+skills/*/scripts/*.cjs linguist-generated=true
 
 # Copied by scripts/build-skill-prompts.cjs from src/skill-prompts/skills/<name>/references/.
-templates/harness/skills/*/references/*.md linguist-generated=true
-
-# Released mirror of the two trees above, synced by scripts/sync-skills-mirror.cjs.
-skills/*/SKILL.md linguist-generated=true
-skills/*/scripts/*.cjs linguist-generated=true
 skills/*/references/*.md linguist-generated=true
 
 # Vendored verbatim from e0ipso/self-review (MIT). Must stay byte-identical to

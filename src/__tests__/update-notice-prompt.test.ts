@@ -5,9 +5,10 @@
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import { BUILT_SKILLS_ROOT } from './built-skills';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const SKILLS_ROOT = path.join(REPO_ROOT, 'templates', 'harness', 'skills');
+const SKILLS_ROOT = BUILT_SKILLS_ROOT;
 
 const PARENT_SKILLS = [
   'st-create-plan',

@@ -1,3 +1,7 @@
+## 3.23.0 (2026-09-08)
+
+* feat: report review outcomes and harness failures (#96) ([a1916e5](https://github.com/e0ipso/strikethroo/commit/a1916e5)), closes [#96](https://github.com/e0ipso/strikethroo/issues/96)
+
 ## <small>3.22.1 (2026-09-08)</small>
 
 * refactor(build): rebuild skills/ at release (#94) ([64e7690](https://github.com/e0ipso/strikethroo/commit/64e7690)), closes [#94](https://github.com/e0ipso/strikethroo/issues/94) [#93](https://github.com/e0ipso/strikethroo/issues/93)

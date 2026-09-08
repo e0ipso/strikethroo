@@ -84,6 +84,32 @@ describe('dispatch task execution entrypoint', () => {
     });
   });
 
+  it('falls back to the current harness when execution routing is disabled', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'st-dispatch-'));
+    const bundle = makeBundle(directory);
+    fs.mkdirSync(path.join(directory, '.ai/strikethroo/config'), { recursive: true });
+    fs.writeFileSync(
+      path.join(directory, '.ai/strikethroo/config/config.yaml'),
+      'execution_routing:\n  enabled: false\n  profiles:\n    mixed:\n      description: Mixed route.\n' +
+        '      models:\n        - model: external/model\n          harness: claude\n' +
+        '        - model: native/model\n          harness: codex\n          reasoning_effort: high\n'
+    );
+    const taskFile = path.join(directory, 'task.md');
+    fs.writeFileSync(
+      taskFile,
+      '---\nid: 3\nstatus: pending\nexecution_profile: mixed\n---\n# Task\n'
+    );
+
+    const result = run(bundle, ['resolve', taskFile, 'codex', directory, '12', '3']);
+
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({
+      kind: 'fallback',
+      reason: 'invalid-execution',
+      detail: expect.stringContaining('disabled'),
+    });
+  });
+
   it('uses local arguments for readiness and task execution', () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'st-dispatch-'));
     const bundle = makeBundle(directory);

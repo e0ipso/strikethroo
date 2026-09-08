@@ -396,73 +396,91 @@ function ConfigForm({
 
       <section className="flex flex-col gap-3">
         <h2 className="font-display text-lg font-semibold text-ink">Execution routing</h2>
+        <label className="flex items-center gap-2 font-sans text-sm text-ink">
+          <input
+            data-testid="routing-enabled"
+            type="checkbox"
+            className="size-4 accent-ink"
+            checked={routing.enabled}
+            onChange={e => update({ ...model, routing: { ...routing, enabled: e.target.checked } })}
+          />
+          <span className="font-medium">Enable execution routing</span>
+        </label>
         <p className="max-w-3xl font-sans text-sm leading-relaxed text-ink-2">
           During task generation every task is classified into one of these profiles by its
           description. The profile is saved with the task; immediately before each delegation, one
           complete target is selected from that profile. Rejected targets join the task&apos;s avoid
-          set before another selection attempt. With no profiles, routing is off.
+          set before another selection attempt. Turning the switch off keeps the profiles below but
+          stops them being used; an empty profile list also turns routing off.
         </p>
 
-        {routing.profiles.map((profile, index) => (
-          <ProfileCard
-            key={index}
-            profile={profile}
-            onChange={next =>
-              update({
-                ...model,
-                routing: {
-                  ...routing,
-                  profiles: routing.profiles.map((p, i) => (i === index ? next : p)),
-                },
-              })
-            }
-            onRemove={() =>
-              update({
-                ...model,
-                routing: { ...routing, profiles: routing.profiles.filter((_, i) => i !== index) },
-              })
-            }
-          />
-        ))}
-        <div>
-          <Button
-            icon="plus"
-            onClick={() =>
-              update({
-                ...model,
-                routing: {
-                  ...routing,
-                  profiles: [
-                    ...routing.profiles,
-                    { ...EMPTY_PROFILE, targets: [{ ...EMPTY_TARGET }] },
-                  ],
-                },
-              })
-            }
-          >
-            Add profile
-          </Button>
-        </div>
+        {/* A disabled fieldset makes every descendant control inert natively. */}
+        <fieldset
+          data-testid="routing-editor"
+          disabled={!routing.enabled}
+          className={cn('flex min-w-0 flex-col gap-3', !routing.enabled && 'opacity-50')}
+        >
+          {routing.profiles.map((profile, index) => (
+            <ProfileCard
+              key={index}
+              profile={profile}
+              onChange={next =>
+                update({
+                  ...model,
+                  routing: {
+                    ...routing,
+                    profiles: routing.profiles.map((p, i) => (i === index ? next : p)),
+                  },
+                })
+              }
+              onRemove={() =>
+                update({
+                  ...model,
+                  routing: { ...routing, profiles: routing.profiles.filter((_, i) => i !== index) },
+                })
+              }
+            />
+          ))}
+          <div>
+            <Button
+              icon="plus"
+              onClick={() =>
+                update({
+                  ...model,
+                  routing: {
+                    ...routing,
+                    profiles: [
+                      ...routing.profiles,
+                      { ...EMPTY_PROFILE, targets: [{ ...EMPTY_TARGET }] },
+                    ],
+                  },
+                })
+              }
+            >
+              Add profile
+            </Button>
+          </div>
 
-        <label className="mt-2 flex max-w-3xl flex-col gap-1.5 font-sans text-sm text-ink-2">
-          <span className="font-medium text-ink">Custom dispatch selector script (optional)</span>
-          <input
-            data-testid="routing-resolver"
-            className={cn(FIELD, 'w-full font-mono')}
-            type="text"
-            placeholder="./scripts/select-execution-target.cjs"
-            value={routing.resolverScript}
-            onChange={e =>
-              update({ ...model, routing: { ...routing, resolverScript: e.target.value } })
-            }
-          />
-          <span className="text-xs text-ink-3">
-            One repository-relative script for the whole configuration. At each selection attempt it
-            receives one task, all complete targets for its profile, and the accumulated avoid set,
-            then returns one non-avoided target identifier. It never reclassifies tasks. Leave empty
-            to use the first non-avoided target in configured order.
-          </span>
-        </label>
+          <label className="mt-2 flex max-w-3xl flex-col gap-1.5 font-sans text-sm text-ink-2">
+            <span className="font-medium text-ink">Custom dispatch selector script (optional)</span>
+            <input
+              data-testid="routing-resolver"
+              className={cn(FIELD, 'w-full font-mono')}
+              type="text"
+              placeholder="./scripts/select-execution-target.cjs"
+              value={routing.resolverScript}
+              onChange={e =>
+                update({ ...model, routing: { ...routing, resolverScript: e.target.value } })
+              }
+            />
+            <span className="text-xs text-ink-3">
+              One repository-relative script for the whole configuration. At each selection attempt
+              it receives one task, all complete targets for its profile, and the accumulated avoid
+              set, then returns one non-avoided target identifier. It never reclassifies tasks.
+              Leave empty to use the first non-avoided target in configured order.
+            </span>
+          </label>
+        </fieldset>
       </section>
 
       {dirty && errors.length > 0 && (

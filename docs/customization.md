@@ -215,7 +215,7 @@ Task dispatch and code review use the same harness baseline that passed readines
 
 ### Execution routing
 
-The `execution_routing` section defines named **execution profiles**. Task generation persists the selected profile, and dispatch chooses a configured model target immediately before delegation. The shipped local template contains `docs-and-config`, `standard-implementation`, and `complex-architecture` profiles with an ordered model matrix. Edit the models for the CLIs installed on the local machine. Setting `profiles: {}` disables routing; tasks with no `execution_profile` use the current harness and its normal defaults.
+The `execution_routing` section defines named **execution profiles**. Task generation persists the selected profile, and dispatch chooses a configured model target immediately before delegation. The shipped local template contains `docs-and-config`, `standard-implementation`, and `complex-architecture` profiles with an ordered model matrix. Edit the models for the CLIs installed on the local machine. Setting `profiles: {}` disables routing; tasks with no `execution_profile` use the current harness and its normal defaults. `enabled: false` also turns routing off while keeping every profile in place, so the matrix can be paused and restored; the key is optional and absent means on. The Customize section's Config tab exposes it as the Enable execution routing checkbox.
 
 The following configuration is **an example** — profile names, descriptions, and model identifiers are placeholders to adapt, not defaults Strikethroo recognizes:
 

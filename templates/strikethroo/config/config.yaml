@@ -21,10 +21,10 @@
 #     first non-avoided target in configured order is selected by default. One
 #     optional global `resolver.script` (repository-relative) can instead
 #     receive that task's complete configured targets and accumulated avoid set
-#     and return one non-avoided target identifier. Routing is disabled while
-#     `profiles` is empty. See the customization
-#     guide for the full
-#     contract and an illustrative example:
+#     and return one non-avoided target identifier. Routing is off while
+#     `enabled` is false (profiles are kept but not validated or used) or while
+#     `profiles` is empty; an absent `enabled` means on. See the customization
+#     guide for the full contract and an illustrative example:
 #     https://strikethroo.canpicasoft.com/customization.html
 
 harnesses:
@@ -50,6 +50,7 @@ harnesses:
       - --auto
 
 execution_routing:
+  enabled: true
   profiles:
     docs-and-config:
       description: >-

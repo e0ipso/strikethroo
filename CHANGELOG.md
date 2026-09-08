@@ -1,3 +1,11 @@
+## 3.22.0 (2026-09-07)
+
+* feat: add daily update notices and unified update (#92) ([996226e](https://github.com/e0ipso/strikethroo/commit/996226e)), closes [#92](https://github.com/e0ipso/strikethroo/issues/92) [#90](https://github.com/e0ipso/strikethroo/issues/90)
+
+## <small>3.21.3 (2026-09-07)</small>
+
+* refactor(prompts): simplify shared guidance (#91) ([071dead](https://github.com/e0ipso/strikethroo/commit/071dead)), closes [#91](https://github.com/e0ipso/strikethroo/issues/91)
+
 ## <small>3.21.2 (2026-09-04)</small>
 
 * refactor(prompts): extract prompt lookups (#89) ([1dc8b93](https://github.com/e0ipso/strikethroo/commit/1dc8b93)), closes [#89](https://github.com/e0ipso/strikethroo/issues/89)

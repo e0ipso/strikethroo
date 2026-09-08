@@ -1,24 +1,25 @@
 {{!--
   Shared by st-create-plan and st-full-workflow Step 1. Call sites supply the
-  heading, action and summary text, clarification context, and gate behavior.
+  heading, clarification context, and gate behavior.
   Block slot content owns its surrounding line breaks.
 --}}{{heading}} 1. Locate the strikethroo root
 
-{{> root-discovery action_verb_phrase=action_verb_phrase}}
+{{> root-discovery}}
+
+{{> update_check_startup}}
 
 {{heading}} 2. Load project context
 
-Read `<root>/config/STRIKETHROO.md` for the directory structure conventions
-this project uses. Read `<root>/config/hooks/PRE_PLAN.md` and execute the
-instructions it contains before proceeding. Read
-`<root>/config/templates/PLAN_TEMPLATE.md` so the plan you emit conforms
-to its structure.
+Read `<root>/config/STRIKETHROO.md` for this project's directory conventions.
+Read `<root>/config/hooks/PRE_PLAN.md` and execute its instructions before
+proceeding. Read `<root>/config/templates/PLAN_TEMPLATE.md`; the plan must
+conform to it.
 {{> clarification_gate_context}}
 {{heading}} 3. Analyze the work order
 
 Identify:
 
-- Objective and end goal.
+- Objective.
 - Scope and explicit boundaries.
 - Success criteria.
 - Dependencies, prerequisites, blockers.
@@ -44,37 +45,24 @@ Apply `<root>/config/shared/anti-rationalization.md` to this rationalization tab
 
 {{heading}} 5. Allocate the next plan ID
 
-Run `scripts/get-next-plan-id.cjs` to obtain the next available plan ID.
-Pass `<root>` as the first argument when invoking the script from a working
-directory that is not inside the project, otherwise no argument is required.
-The script prints a single integer.
-
-Compute the zero-padded form for directory naming (`{padded-id}--{slug}`)
-and use the unpadded integer in the plan frontmatter and the final summary.
+Run `scripts/get-next-plan-id.cjs` for the next available plan ID. Compute its
+zero-padded form for the directory name (`{padded-id}--{slug}`) and use the
+unpadded integer in the plan frontmatter.
 
 {{heading}} 6. Emit the plan
 
-Write the plan to:
+Write the plan to
+`<root>/plans/{padded-id}--{slug}/plan-{padded-id}--{slug}.md`, conforming to
+`<root>/config/templates/PLAN_TEMPLATE.md` in both frontmatter and sections.
+Include no time estimates, task lists, or code samples; those belong to the
+task-generation step.
 
-```
-<root>/plans/{padded-id}--{slug}/plan-{padded-id}--{slug}.md
-```
-
-The output must:
-
-- Conform to `<root>/config/templates/PLAN_TEMPLATE.md`, including required
-  YAML frontmatter fields (at minimum `id`, `summary`, `created`).
-- Contain the standard sections from the template body.
-- Use Markdown, not free-form prose.
-- Avoid time estimates, task lists, or code samples — those belong to the
-  later task-generation step.
-
-The `<slug>` is derived from the plan summary: lowercase, alphanumeric and
-hyphens only, collapsed, trimmed.
+Derive `<slug>` from the plan summary: lowercase, alphanumeric and hyphens
+only, collapsed, trimmed.
 
 {{heading}} 7. Run post-plan hook
 
-Execute `<root>/config/hooks/POST_PLAN.md` after the plan file is written.
+Execute `<root>/config/hooks/POST_PLAN.md`.
 
 {{heading}} 8. {{summary_heading}}
 
@@ -89,3 +77,5 @@ Plan Summary:
 ```
 
 {{summary_closing}}
+
+{{> post_summary_actions}}

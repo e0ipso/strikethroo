@@ -5,9 +5,6 @@ description: Use when the user asks to decompose, break down, or generate tasks 
 
 # st-generate-tasks
 
-Drive the end-to-end decomposition of an existing Strikethroo plan into
-atomic Markdown task files.
-
 ## Inputs
 
 The user supplies the numeric plan ID conversationally.
@@ -16,7 +13,7 @@ The user supplies the numeric plan ID conversationally.
 
 ### 1. Locate the strikethroo root
 
-{{> root-discovery action_verb_phrase="generate tasks"}}
+{{> root-discovery}}
 
 {{#> procedure-generate-tasks
      heading="###"
@@ -31,13 +28,12 @@ The user supplies the numeric plan ID conversationally.
      step_emit="10"
      step_validation="11"
      step_routing="12"
-     step_hook="13"
-     step_summary="14"
-     summary_heading="Emit the structured summary"
-     summary_lead_in="Conclude with exactly this block as the final output:"
-     summary_closing="The summary is consumed by downstream automation; keep the format exact."}}
+     step_hook="13"}}
+{{#*inline "update_check_startup"}}{{> update-check-default}}{{/inline}}
 {{#*inline "plan_resolution_failure"}}{{> plan-resolution-user-failure}}{{/inline}}
 {{/procedure-generate-tasks}}
+
+{{> update-notice-close}}
 
 ## Failure Modes
 

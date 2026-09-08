@@ -1,20 +1,14 @@
 For every candidate task, assign a `complexity_score` (integer 1–10) before
 writing any file. Read `references/complexity-rubric.md` before scoring; it
-defines the four dimensions each band is judged on.
+defines the four dimensions each band is judged on. Then apply these rules:
 
-**Pre-emission sanity rules** — apply these before any task is written:
-
-- 3+ skills assigned → split the task into smaller tasks, each with 1–2 skills.
-- Vague acceptance criteria → sharpen them until they include at least one
-  concrete, runnable verification step.
-- Trivially small adjacent tasks → merge them into a single task.
 - Score ≥ 8 → decompose further; do not emit as-is.
-- Score 6–7 → either sharpen criteria or split; do not emit without an
-  explicit reason.
+- Score 6–7 → sharpen or split; do not emit without an explicit reason.
+- Vague acceptance criteria → sharpen them into a concrete, runnable
+  verification step.
+- Trivially small adjacent tasks → merge them.
 
-**Loop-back rule:**
-
-After applying split, sharpen, or merge, re-run dependency analysis and
-re-score the adjusted tasks. Repeat this loop no more than three times. If
+**Loop-back rule:** after applying split, sharpen, or merge, re-run dependency
+analysis and re-score the adjusted tasks. Repeat no more than three times. If
 complexity is still unresolved after three passes, stop and surface the
 blocker to the user.

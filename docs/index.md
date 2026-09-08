@@ -75,6 +75,8 @@ Every codebase has its own conventions, and Strikethroo bends to them instead of
 </div>
 </div>
 
+{% include callout.html variant="note" content="On re-init, <code>--harnesses</code> is optional — Strikethroo reuses the saved selection in <code>.init-metadata.json</code>. Already set up? Run <code>npx strikethroo@latest update</code> to refresh the workspace and update all seven workflow skills in one step." %}
+
 {% include callout.html variant="prereq" content="Requires [Node.js](https://nodejs.org) 22+ and an assistant that supports the Agent Skills format." %}
 
 ## In your coding assistant

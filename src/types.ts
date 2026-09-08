@@ -26,7 +26,34 @@ export interface InitOptions {
   /**
    * Comma-separated list of harnesses to configure
    */
-  harnesses: string;
+  harnesses?: string;
+  /**
+   * Optional destination directory for the configuration
+   */
+  destinationDirectory?: string;
+  /**
+   * Force overwrite all files without prompting
+   */
+  force?: boolean;
+  /**
+   * Optional strikethroo profile to import: local folder path,
+   * <user>/<repo> GitHub shorthand, or full git URL
+   */
+  profile?: string;
+  /**
+   * Operation mode. `update` refreshes an existing workspace with update-specific messaging.
+   */
+  mode?: 'init' | 'update';
+}
+
+/**
+ * Options for the update command
+ */
+export interface UpdateOptions {
+  /**
+   * Comma-separated list of harnesses to configure
+   */
+  harnesses?: string;
   /**
    * Optional destination directory for the configuration
    */
@@ -286,6 +313,11 @@ export interface InitMetadata {
      */
     importedAt: string;
   };
+  /**
+   * Last successfully installed harness selection, normalized and validated.
+   * Absent on legacy workspaces until the next successful init.
+   */
+  harnesses?: Harness[];
 }
 
 /**

@@ -4,12 +4,11 @@ Write each task to:
 <root>/plans/<plan-dir-name>/tasks/{padded-id}--{slug}.md
 ```
 
-Each file must conform to `<root>/config/templates/TASK_TEMPLATE.md`. Read
-`references/task-frontmatter.md` when filling the frontmatter; it lists every
-field, its type, and when the optional ones apply.
+Each file must conform to `<root>/config/templates/TASK_TEMPLATE.md`. Add
+`complexity_notes` only when the score needs justification. Never write
+`execution_profile`; the routing helper writes it.
 
-The body sections (Objective, Skills Required, Acceptance Criteria, Technical
-Requirements, Input Dependencies, Output Artifacts, Implementation Notes)
-must be filled with task-specific content. Place detailed implementation
-guidance inside a `<details>` block under "Implementation Notes" — write it
-so a non-thinking LLM could execute the task from that section alone.
+Fill every body section with task-specific content. Place detailed
+implementation guidance inside a `<details>` block under "Implementation
+Notes", written so a non-thinking LLM could execute the task from that
+section alone.

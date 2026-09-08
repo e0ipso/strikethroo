@@ -1,8 +1,4 @@
-Run `scripts/find-strikethroo-root.cjs` from the user's working directory.
+Run `scripts/find-strikethroo-root.cjs` from the user's working directory. If
+it exits non-zero, stop and ask the user to run `npx strikethroo init`.
 
-If the script exits non-zero, the working directory is not inside an
-initialized strikethroo workspace. Stop and ask the user to run the project
-initializer (e.g. `npx strikethroo init`) before continuing. Do
-not attempt to {{action_verb_phrase}} outside of a valid root.
-
-For every subsequent step, treat the path printed by this script as `<root>`.
+Treat the path it prints as `<root>` for every subsequent step.

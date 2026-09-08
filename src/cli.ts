@@ -8,12 +8,13 @@
 
 import { Command } from 'commander';
 import { init } from './index';
-import { InitOptions } from './types';
+import { InitOptions, UpdateOptions } from './types';
 import { resolveWorkspaceRoot, isResolveError } from './serve/root';
 import { startServer, defaultAssetsDir } from './serve/server';
 import { exportProfile } from './export-profile';
 import { validateWorkspace } from './validation/workspace';
 import { Finding } from './validation/types';
+import { update } from './update';
 
 const program = new Command();
 
@@ -22,9 +23,9 @@ program.name('strikethroo').version('0.1.0').description('AI-powered task manage
 program
   .command('init')
   .description('Initialize a new Strikethroo project')
-  .requiredOption(
+  .option(
     '--harnesses <value>',
-    'Comma-separated list of harnesses to configure (claude,codex,cursor,gemini,copilot,opencode)'
+    'Comma-separated list of harnesses to configure (claude,codex,cursor,gemini,copilot,opencode). Omitted on re-init reuses the saved selection.'
   )
   .option(
     '--destination-directory <path>',
@@ -46,6 +47,32 @@ program
       } else {
         process.exit(1);
       }
+    } catch (error) {
+      console.error(`Unexpected error: ${error instanceof Error ? error.message : String(error)}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('update')
+  .description('Refresh an initialized workspace and update installed Strikethroo workflow skills')
+  .option(
+    '--harnesses <value>',
+    'Comma-separated list of harnesses to configure (claude,codex,cursor,gemini,copilot,opencode). Omitted reuses the saved selection.'
+  )
+  .option(
+    '--destination-directory <path>',
+    'Directory containing the initialized workspace (default: current directory)'
+  )
+  .option('--force', 'Force overwrite all files without prompting')
+  .option(
+    '--profile <value>',
+    'Strikethroo profile to import: local folder, <user>/<repo> GitHub shorthand, or full git URL'
+  )
+  .action(async (options: UpdateOptions) => {
+    try {
+      const result = await update(options);
+      process.exit(result.success ? 0 : 1);
     } catch (error) {
       console.error(`Unexpected error: ${error instanceof Error ? error.message : String(error)}`);
       process.exit(1);

@@ -1,6 +1,6 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:9f5489abce7896b37cb9106143044d6dc18228597e92845cbd8191ab7754e6fe'
+nodes_hash: 'sha256:dae27c4e04952eeb2c349d7bf908adf50459cef2cabcc8552aa68a92e7cc649e'
 node_count: 86
 ---
 # kenkeep Graph
@@ -26,7 +26,7 @@ Total nodes: 86
 ## map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed
 
 - **kind:** map
-- **title:** CLI exposes four thin commands and no plan-management surface
+- **title:** CLI exposes five thin commands and no plan-management surface
 - **path:** skills/map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md
 - **tags:** cli, architecture
 - **relates_to:** map-skills-are-auto-loaded-by-intent-matching-not-slash-command-prefix

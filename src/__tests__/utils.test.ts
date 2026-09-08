@@ -6,6 +6,7 @@
  */
 
 import { parseHarnesses, validateHarnesses, convertAgentMdToToml, getAgentFormat } from '../utils';
+import { resolveInitHarnesses, normalizeSavedHarnesses } from '../resolve-init-harnesses';
 import { Harness } from '../types';
 
 describe('Critical Utils Business Logic', () => {
@@ -58,6 +59,47 @@ describe('Critical Utils Business Logic', () => {
       expect(() => validateHarnesses(['invalid' as Harness])).toThrow(
         'Invalid harness: invalid. Supported harnesses: claude, codex, cursor, gemini, copilot, opencode'
       );
+    });
+  });
+
+  describe('resolveInitHarnesses', () => {
+    it('prefers explicit input over saved selection', () => {
+      expect(
+        resolveInitHarnesses({ explicit: 'gemini', saved: ['claude'] as Harness[] }).harnesses
+      ).toEqual(['gemini']);
+    });
+
+    it('reuses saved selection when explicit is omitted', () => {
+      expect(resolveInitHarnesses({ saved: ['claude', 'cursor'] as Harness[] }).harnesses).toEqual([
+        'claude',
+        'cursor',
+      ]);
+    });
+
+    it('errors when explicit and saved are both absent', () => {
+      expect(() => resolveInitHarnesses({})).toThrow('Missing harness selection');
+      expect(() => resolveInitHarnesses({})).toThrow('--harnesses');
+    });
+
+    it('does not fall back to saved when explicit input is empty or invalid', () => {
+      expect(() => resolveInitHarnesses({ explicit: '', saved: ['claude'] as Harness[] })).toThrow(
+        'cannot be empty'
+      );
+      expect(() =>
+        resolveInitHarnesses({ explicit: 'invalid', saved: ['claude'] as Harness[] })
+      ).toThrow('Invalid harness');
+    });
+  });
+
+  describe('normalizeSavedHarnesses', () => {
+    it('treats empty or invalid saved lists as absent', () => {
+      expect(normalizeSavedHarnesses([])).toBeUndefined();
+      expect(normalizeSavedHarnesses(['invalid'])).toBeUndefined();
+      expect(normalizeSavedHarnesses(undefined)).toBeUndefined();
+    });
+
+    it('accepts valid saved lists', () => {
+      expect(normalizeSavedHarnesses(['claude', 'gemini'])).toEqual(['claude', 'gemini']);
     });
   });
 

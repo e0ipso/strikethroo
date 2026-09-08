@@ -72,7 +72,7 @@ _None._
 ### #ci
 - Open [**Use committed fixture workspaces, not the live gitignored .ai/strikethroo/ tree**](practice-use-committed-fixture-workspaces-not-the-live-ai-strikethroo-tree.md) — Capture, integration, and e2e must use committed fixture workspaces — not the live gitignored .ai/strikethroo/ tree that breaks CI and capture determinism.
 ### #cli
-- Open [**CLI exposes four thin commands and no plan-management surface**](../skills/map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md) — src/cli.ts registers init, export profile, serve, and validate; there are no visualization/management (status, plan) commands.
+- Open [**CLI exposes five thin commands and no plan-management surface**](../skills/map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md) — src/cli.ts registers init, update, export profile, serve, and validate; there are no visualization/management (status, plan) commands.
 - Open [**Rebuild dist/ before running the suite — integration tests exec the compiled CLI**](practice-rebuild-dist-before-running-the-suite-integration-tests-exec-the-compiled-cli.md) — cli.integration.test.ts shells out to dist/cli.js, so a stale dist/ makes the suite fail against source that is already correct.
 - Open [**Use resolveWorkspaceRoot, not findStrikethrooRoot, outside skill bundles**](../skills/practice-use-resolveworkspaceroot-not-findstrikethrooroot-outside-skill-bundles.md) — findStrikethrooRoot calls process.exit(1) on schema-version skew; resolveWorkspaceRoot returns a typed result and never exits.
 ### #config

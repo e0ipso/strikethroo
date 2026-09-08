@@ -4,6 +4,7 @@
  * shape is real filesystem state from `makeReviewGateWorkspace`.
  */
 
+import { SUPPORTED_HARNESSES } from '../types';
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -66,9 +67,29 @@ describe('code review gate — fail-safe skips', () => {
     try {
       const result = await runReview(
         { plan: '1', currentHarness: 'claude', startPath: ws.root },
-        stubDeps({ discover: async () => ({ outcomes: [], reviewerCandidates: [] }) })
+        stubDeps({
+          discover: async () => ({
+            outcomes: SUPPORTED_HARNESSES.map(harness => ({
+              harness,
+              available: false,
+              observedAt: 0,
+              expiresAt: 100,
+              source: 'cache' as const,
+              reason: `${harness} auth or quota failure`,
+            })),
+            reviewerCandidates: [],
+          }),
+        })
       );
       expect(result).toMatchObject({ kind: 'skipped', reason: 'no-reviewer-candidate' });
+      expect(result.codeReview).toMatch(/^Failed;/);
+      for (const harness of SUPPORTED_HARNESSES.filter(harness => harness !== 'claude')) {
+        expect(result.detail).toContain(
+          `${harness}: ${harness} auth or quota failure (cached readiness result)`
+        );
+        expect(result.codeReview).toContain(`${harness} auth or quota failure`);
+      }
+      expect(result.detail).not.toContain('claude auth or quota failure');
       expect(_classify(result).exitCode).toBe(0);
       expect(stderrSpy).not.toHaveBeenCalled();
     } finally {
@@ -167,6 +188,7 @@ describe('code review gate — the gate reports, it does not judge', () => {
         verdict: { kind: 'review-recorded' },
         detail: expect.stringContaining('no findings'),
         counts: { total: 0 },
+        codeReview: 'Pass; Harness: codex; model: CLI-selected (exact model unknown). Findings: 0.',
       });
       expect(_classify(result).exitCode).toBe(0);
     } finally {
@@ -975,6 +997,8 @@ describe('code review gate — the compiled result contract', () => {
       );
 
       expect(good).toEqual({
+        codeReview:
+          'Address; Harness: codex; model: CLI-selected (exact model unknown). Findings: 2.',
         kind: 'reviewed',
         harness: 'codex',
         baseCommit: FAKE_SHA,
@@ -985,6 +1009,8 @@ describe('code review gate — the compiled result contract', () => {
         detail: expect.stringContaining('/tmp/findings.json'),
       });
       expect(bad).toEqual({
+        codeReview:
+          'Failed; Harness: codex; model: CLI-selected (exact model unknown). xmllint could not be run.',
         kind: 'reviewed',
         harness: 'codex',
         baseCommit: FAKE_SHA,

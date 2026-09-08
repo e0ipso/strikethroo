@@ -213,7 +213,7 @@ export type ReviewOutcome =
   | { kind: 'fallback'; harness: Harness; reason: string; detail: string }
   | { kind: 'infrastructure-failure'; detail: string };
 
-type WithAction<T> = T extends unknown ? T & { action: ReviewAction } : never;
+type WithAction<T> = T extends unknown ? T & { action: ReviewAction; codeReview: string } : never;
 
 /** What the gate emits: one outcome, plus the action compiled from it. */
 export type ReviewResult = WithAction<ReviewOutcome>;
@@ -246,10 +246,29 @@ export const _classify = (outcome: ReviewOutcome): ReviewClassification => {
   }
 };
 
+/** Presentation only; findings never change the gate action or exit code. */
+const reviewSummary = (outcome: ReviewOutcome): string => {
+  const reviewer =
+    'harness' in outcome
+      ? `Harness: ${outcome.harness}; model: CLI-selected (exact model unknown).`
+      : 'No reviewer performed a certified review.';
+  if (
+    outcome.kind === 'reviewed' &&
+    outcome.verdict.kind === 'review-recorded' &&
+    'counts' in outcome
+  ) {
+    return `${outcome.counts.total === 0 ? 'Pass' : 'Address'}; ${reviewer} Findings: ${outcome.counts.total}.`;
+  }
+  return `Failed; ${reviewer} ${outcome.detail}`.replace(/\s+/g, ' ').trim();
+};
+
 /** Compile an outcome into a result by stamping its action onto it. */
-const decide = <T extends ReviewOutcome>(outcome: T): T & { action: ReviewAction } => ({
+const decide = <T extends ReviewOutcome>(
+  outcome: T
+): T & { action: ReviewAction; codeReview: string } => ({
   ...outcome,
   action: _classify(outcome).action,
+  codeReview: reviewSummary(outcome),
 });
 
 export interface ReviewRequest {
@@ -628,8 +647,16 @@ export const runReview = async (
   if (harness === undefined) {
     return skip(
       'no-reviewer-candidate',
-      `No harness other than \`${request.currentHarness}\` is installed and responsive, so the ` +
-        'review gate was skipped.'
+      `No reviewer candidate; review gate skipped. ${request.currentHarness} is excluded as the current harness. ` +
+        SUPPORTED_HARNESSES.filter(candidate => candidate !== request.currentHarness)
+          .map(candidate => {
+            const outcome = discovery.outcomes.find(item => item.harness === candidate);
+            return (
+              `${candidate}: ${outcome?.reason ?? 'No availability outcome was reported.'}` +
+              (outcome?.source === 'cache' ? ' (cached readiness result)' : '')
+            );
+          })
+          .join(' ')
     );
   }
 

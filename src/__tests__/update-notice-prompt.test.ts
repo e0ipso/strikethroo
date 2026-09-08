@@ -31,8 +31,9 @@ const EXECUTION_SUMMARY_BLOCK = `\`\`\`
 ---
 Execution Summary:
 - Plan ID: [numeric-id]
-- Status: Archived
-- Location: [absolute path to archive directory]
+- Status: [Archived or Halted]
+- Location: [absolute path to current plan directory]
+- Code Review: [codeReview from the review result, or Failed with the reason no result was produced]
 ---
 \`\`\``;
 

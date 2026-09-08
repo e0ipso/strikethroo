@@ -9,10 +9,13 @@ Conclude with exactly this block (a retained update notice, when present, follow
 ---
 Execution Summary:
 - Plan ID: [numeric-id]
-- Status: Archived
-- Location: [absolute path to archive directory]
+- Status: [Archived or Halted]
+- Location: [absolute path to current plan directory]
+- Code Review: [codeReview from the review result, or Failed with the reason no result was produced]
 ---
 ```
+
+Emit this block even when the review gate halts execution. Use the actual status and location; never claim archival after a halt. Copy `codeReview` without dropping the harness, model information, or rejection reasons. Findings acted on do not turn Address into Pass because the review is not re-run. If execution stops before review, report Failed with "Review was not run" and the blocking reason.
 
 The summary is consumed by downstream automation; keep the format exact.
 

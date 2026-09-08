@@ -4,7 +4,7 @@
   own level, because both sections are steps of the caller's procedure.
 --}}{{heading}} {{summary_step}}. Append execution summary
 
-Append an execution summary section to the plan document, filling every field of `<root>/config/templates/EXECUTION_SUMMARY_TEMPLATE.md`. Under Noteworthy Events, always record the review gate's JSON line verbatim, then which findings you acted on versus ignored and why.
+Append an execution summary section to the plan document, filling every field of `<root>/config/templates/EXECUTION_SUMMARY_TEMPLATE.md`. Include a Code Review entry using the result’s `codeReview` field, or Failed with the reason no result was produced. Under Noteworthy Events, always record the review gate's JSON line verbatim, then which findings you acted on versus ignored and why.
 
 {{heading}} {{archive_step}}. Archive the plan
 

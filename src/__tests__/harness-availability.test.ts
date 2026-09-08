@@ -123,8 +123,61 @@ describe('harness availability', () => {
     expect(result).toMatchObject({
       available: false,
       source: 'probe',
-      reason: 'Harness readiness check failed.',
+      reason:
+        'Harness exited 0 but did not create the required readiness file with the expected content.',
     });
+  });
+
+  it('captures bounded stdout and stderr from a real failed process and preserves them in cache', async () => {
+    writeConfig([]);
+    const executable = path.join(root, 'fake-harness');
+    fs.writeFileSync(
+      executable,
+      `#!/usr/bin/env node
+process.stdout.write('x'.repeat(10000) + 'quota exceeded');
+process.stderr.write('Authentication expired');
+process.exit(7);
+`,
+      { mode: 0o755 }
+    );
+    const dependencies = { resolveExecutable: () => executable };
+    const first = await checkHarnessAvailability(request(), dependencies);
+    expect(first.available).toBe(false);
+    expect(first.reason).toContain('exited 7');
+    expect(first.reason).toContain('stderr: Authentication expired');
+    expect(first.reason).toContain('quota exceeded');
+    expect(first.reason.length).toBeLessThan(8300);
+    const cached = await checkHarnessAvailability(request(), dependencies);
+    expect(cached.source).toBe('cache');
+    expect(cached.reason).toBe(first.reason);
+  });
+
+  it.each([
+    [
+      { exitCode: 1, timedOut: true, stderr: 'Sandbox denied' },
+      'timed out after 20000 ms. stderr: Sandbox denied',
+    ],
+    [
+      { exitCode: 0, stdout: 'Command execution is disabled' },
+      'expected content. stdout: Command execution is disabled',
+    ],
+  ])('explains readiness failures with harness diagnostics', async (probe, reason) => {
+    writeConfig([]);
+    const result = await checkHarnessAvailability(request(), {
+      resolveExecutable: () => '/opt/bin/claude',
+      runProbe: async () => probe,
+    });
+    expect(result.available).toBe(false);
+    expect(result.reason).toContain(reason);
+  });
+
+  it('reports the OS error when the executable disappears before launch', async () => {
+    writeConfig([]);
+    const result = await checkHarnessAvailability(request(), {
+      resolveExecutable: () => path.join(root, 'missing-executable'),
+    });
+    expect(result.reason).toContain('could not launch:');
+    expect(result.reason).toContain('ENOENT');
   });
 
   it('caches by executable path and ordered argument hash', async () => {

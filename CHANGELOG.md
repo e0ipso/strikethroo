@@ -1,3 +1,7 @@
+## <small>3.22.1 (2026-09-08)</small>
+
+* refactor(build): rebuild skills/ at release (#94) ([64e7690](https://github.com/e0ipso/strikethroo/commit/64e7690)), closes [#94](https://github.com/e0ipso/strikethroo/issues/94) [#93](https://github.com/e0ipso/strikethroo/issues/93)
+
 ## 3.22.0 (2026-09-07)
 
 * feat: add daily update notices and unified update (#92) ([996226e](https://github.com/e0ipso/strikethroo/commit/996226e)), closes [#92](https://github.com/e0ipso/strikethroo/issues/92) [#90](https://github.com/e0ipso/strikethroo/issues/90)

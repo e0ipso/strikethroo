@@ -2584,9 +2584,17 @@ var loadRoutingConfig = (strikethrooRoot, supportedHarnesses) => {
     };
   }
   for (const key of Object.keys(section)) {
-    if (key !== "profiles" && key !== "resolver") {
+    if (key !== "enabled" && key !== "profiles" && key !== "resolver") {
       errors.push(`${EXECUTION_ROUTING_SECTION} has unknown key "${key}".`);
     }
+  }
+  if ("enabled" in section) {
+    if (typeof section.enabled !== "boolean") {
+      errors.push(`${EXECUTION_ROUTING_SECTION} "enabled" must be true or false.`);
+      return { kind: "invalid", errors };
+    }
+    if (!section.enabled)
+      return errors.length > 0 ? { kind: "invalid", errors } : { kind: "disabled" };
   }
   const rawProfiles = "profiles" in section && section.profiles == null ? {} : section.profiles;
   if (!("profiles" in section) || !isPlainObject2(rawProfiles)) {

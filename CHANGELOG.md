@@ -1,3 +1,7 @@
+## 3.25.0 (2026-09-08)
+
+* feat: add an enable switch for execution routing (#100) ([e96ca5f](https://github.com/e0ipso/strikethroo/commit/e96ca5f)), closes [#100](https://github.com/e0ipso/strikethroo/issues/100) [#99](https://github.com/e0ipso/strikethroo/issues/99)
+
 ## 3.24.0 (2026-09-08)
 
 * feat(web): edit harness cli_args in the Config tab (#98) ([69cca23](https://github.com/e0ipso/strikethroo/commit/69cca23)), closes [#98](https://github.com/e0ipso/strikethroo/issues/98) [#97](https://github.com/e0ipso/strikethroo/issues/97)

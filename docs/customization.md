@@ -160,8 +160,8 @@ The command leaves the working copy in place. Commit the resulting deletion if t
 
 There are two ways to edit the local file:
 
-- **The Customize view's Config tab.** The web app renders a form for the sections it understands, currently execution routing, and preserves other top-level sections structurally. Saving rewrites the file, so YAML comments are not preserved.
-- **Directly on the filesystem.** Use this method to edit `harnesses`; the file is plain YAML.
+- **The Customize view's Config tab.** The web app renders a form for each section it understands, harness invocation arguments and execution routing, and preserves other top-level sections structurally. Harness argument values are written exactly as typed. Saving rewrites the file, so YAML comments are not preserved.
+- **Directly on the filesystem.** The file is plain YAML.
 
 ### Harness invocation arguments
 

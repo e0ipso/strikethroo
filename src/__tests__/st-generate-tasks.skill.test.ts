@@ -11,9 +11,10 @@ import { execFileSync } from 'child_process';
 
 import { resolvePlan } from '../skill-scripts/shared/plan-resolve';
 import { computeNextTaskId } from '../skill-scripts/shared/task-scan';
+import { builtSkillDir } from './built-skills';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const SKILL_DIR = path.join(REPO_ROOT, 'templates', 'harness', 'skills', 'st-generate-tasks');
+const SKILL_DIR = builtSkillDir('st-generate-tasks');
 const writeFile = (filePath: string, contents: string): void => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, contents);

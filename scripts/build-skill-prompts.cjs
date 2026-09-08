@@ -6,9 +6,11 @@
  *   src/skill-prompts/_partials/<name>.md.hbs   shared, never shipped
  *   src/skill-prompts/_references/<file>.md     shared lookup files
  *   src/skill-prompts/skills/<skill>/SKILL.md.hbs
- *     -> templates/harness/skills/<skill>/SKILL.md
+ *     -> dist-test/<skill>/SKILL.md
  *   src/skill-prompts/skills/<skill>/references/<file>.md
- *     -> templates/harness/skills/<skill>/references/<file>.md
+ *     -> dist-test/<skill>/references/<file>.md
+ *
+ * `--out <dir>` redirects the output tree; the release passes `--out skills`.
  *
  * Partial names are relative to `_partials/` with `.md.hbs` removed.
  * Frontmatter passes through unchanged. The write targets are the rendered
@@ -21,13 +23,13 @@ const fs = require('fs');
 const path = require('path');
 const Handlebars = require('handlebars');
 
-const REPO_ROOT = path.resolve(__dirname, '..');
+const { REPO_ROOT, parseOutputArgs } = require('./skills-output-dir.cjs');
+
 const SRC_DIR = path.join(REPO_ROOT, 'src', 'skill-prompts');
 const PARTIALS_DIR = path.join(SRC_DIR, '_partials');
 const SHARED_REFERENCES_DIR = path.join(SRC_DIR, '_references');
 const TEMPLATES_DIR = path.join(SRC_DIR, 'skills');
-const SKILLS_ROOT = path.join(REPO_ROOT, 'templates', 'harness', 'skills');
-const SHIPPED_ROOT = path.join(REPO_ROOT, 'templates');
+const { outputDir: SKILLS_ROOT } = parseOutputArgs(process.argv.slice(2));
 
 const PARTIAL_EXTENSION = '.md.hbs';
 const TEMPLATE_FILENAME = 'SKILL.md.hbs';
@@ -242,10 +244,10 @@ function validate(content, skillName, corpus) {
 }
 
 /**
- * Sweeps the shipped tree for build-time artifacts that must never reach it.
+ * Sweeps the output tree for build-time artifacts that must never reach it.
  */
 function assertNoTemplateArtifactsShipped() {
-  const stack = [SHIPPED_ROOT];
+  const stack = [SKILLS_ROOT];
   while (stack.length > 0) {
     const dir = stack.pop();
     for (const name of fs.readdirSync(dir)) {
@@ -317,7 +319,7 @@ function main() {
     if (!fs.existsSync(targetDir)) {
       throw new Error(
         `Target skill directory does not exist: ${targetDir}\n` +
-          `Ensure templates/harness/skills/${skill}/ exists.`
+          `Run build:skills with the same --out first.`
       );
     }
 

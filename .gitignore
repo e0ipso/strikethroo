@@ -73,14 +73,9 @@ temp/
 # Generated TOML files (these are created on-the-fly from MD templates)
 templates/commands/tasks/*.toml
 
-# Generated skill script bundles
-templates/harness/skills/*/scripts/
-
-# Generated SKILL.md (assembled from src/skill-prompts/)
-templates/harness/skills/*/SKILL.md
-
-# Generated references/*.md (copied from src/skill-prompts/ by build-skill-prompts.cjs)
-templates/harness/skills/*/references/
+# Local skill build (bundles, assembled SKILL.md, copied references). The
+# release rebuilds the same tree into the tracked root skills/ directory.
+/dist-test
 
 # Worktrees
 /worktrees

@@ -3,8 +3,9 @@ type: practice
 title: 'Two-channel release: npm tarball vs GitHub git tree'
 description: >-
   npm publish ships dist/ and dist-web/; npx skills add reads the tracked root
-  skills/ mirror from the GitHub git tree. The mirror is written only by the
-  release workflow's sync step and staged by @semantic-release/git.
+  skills/ tree from the GitHub git tree. skills/ is rebuilt only by
+  @semantic-release/exec (npm run build:release-skills) and staged by
+  @semantic-release/git.
 tags:
   - release
   - distribution
@@ -28,7 +29,7 @@ kk_confidence: high
 There are two distinct delivery channels that must both be updated on each release:
 
 1. **npm tarball** — populated by `npm publish` (or semantic-release). Contains `dist/`, `dist-web/`, and `templates/` per `files` in `package.json`.
-2. **GitHub git tree** — what `npx skills add e0ipso/strikethroo` reads. The installable content is the tracked root `skills/` mirror: seven `st-*` directories, each with a rendered `SKILL.md` and its `scripts/*.cjs` bundles. During release, `@semantic-release/exec`'s `prepareCmd` runs `node scripts/sync-skills-mirror.cjs` after `@semantic-release/npm` bumps the version (and after tests in the workflow), replacing the mirror from the just-built `templates/harness/skills/` tree and failing the release on any byte difference; `@semantic-release/git` then stages `skills/**` into the tagged release commit. Stale-file deletions are staged too: the plugin's `git ls-files -m -o` listing includes unstaged deletions, and `git add --force` on a deleted path records the removal.
+2. **GitHub git tree** — what `npx skills add e0ipso/strikethroo` reads. The installable content is the tracked root `skills/` mirror: seven `st-*` directories, each with a rendered `SKILL.md` and its `scripts/*.cjs` bundles. During release, `@semantic-release/exec`'s `prepareCmd` runs `npm run build:release-skills` after `@semantic-release/npm` bumps the version (and after tests in the workflow): `build:skills --out skills --clean` wipes and rebundles the tree, `build:skill-prompts --out skills` renders the prompts beside the bundles; `@semantic-release/git` then stages `skills/**` into the tagged release commit. Stale-file deletions are staged too: the plugin's `git ls-files -m -o` listing includes unstaged deletions, and `git add --force` on a deleted path records the removal.
 
 Verify both with:
 ```bash
@@ -40,7 +41,7 @@ The `npx strikethroo serve` SPA (`dist-web/`) is built with Vite at publish time
 
 `dist-web/` is git-ignored and must **not** appear in the `@semantic-release/git` `assets` glob in `.releaserc.json`. That plugin stages every asset glob with `git add --force`, bypassing `.gitignore`, and commits the matches to `main` in the `chore(release): <version>` commit — so listing `dist-web/**` there leaks the entire built SPA (~193 files) back into the repo on every release (the symptom: a recurring manual `git rm` of `dist-web/` after pulling `main`). Keep that glob limited to artifacts whose *only* consumer is the git tree.
 
-The generated `templates/harness/skills/` tree is gitignored, untracked local build output: it ships only inside the npm tarball and is never committed. During normal source commits, commit the authored inputs (`src/skill-prompts/**`, `src/skill-scripts/**`, templates, docs, tests) and leave both generated trees alone — `scripts/sync-skills-mirror.cjs` is the only writer of the root `skills/` mirror, release automation is its only normal caller, and the pre-commit guard rejects hand-staged files from either tree. A skill-source change must be committed with a releasing type (`feat`, `fix`, `perf`, `refactor`), because the mirror updates only when a release is created; a non-releasing type leaves the mirror on `main` lagging with no failing signal.
+The generated `dist-test/` tree is gitignored, untracked local build output read by the test suites; it is never committed and never packed (no skills ship through npm). During normal source commits, commit the authored inputs (`src/skill-prompts/**`, `src/skill-scripts/**`, templates, docs, tests) and leave `skills/` alone — `npm run build:release-skills` is its only writer, release automation is its only normal caller, the pre-commit guard rejects hand-staged files there, and both CI workflows fail when `skills/` differs from the last `v*` tag. A skill-source change must be committed with a releasing type (`feat`, `fix`, `perf`, `refactor`), because the mirror updates only when a release is created; a non-releasing type leaves the mirror on `main` lagging with no failing signal.
 
 `dist/` (the CLI `tsc` output) is not committed either — it is git-ignored and ships solely in the npm tarball, exactly like `dist-web/`.
 

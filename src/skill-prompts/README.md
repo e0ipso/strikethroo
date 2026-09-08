@@ -2,8 +2,9 @@
 
 `src/skill-prompts/` contains the Handlebars sources for the seven shipped
 `SKILL.md` files. `scripts/build-skill-prompts.cjs` renders them into
-`templates/harness/skills/*/SKILL.md`. Handlebars is a development dependency;
-the package ships plain Markdown.
+`dist-test/*/SKILL.md`; the release renders the same tree into the tracked
+root `skills/` with `--out skills`. Handlebars is a development dependency;
+the installed skills are plain Markdown.
 
 Read [`AUTHORING.md`](./AUTHORING.md) before editing prompt content.
 
@@ -18,7 +19,7 @@ src/skill-prompts/
     <name>/SKILL.md.hbs          # One source template per skill
     <name>/references/*.md       # Skill-local lookup files, copied verbatim
 
-templates/harness/skills/
+dist-test/                       # or skills/ during release (--out skills)
   <name>/SKILL.md                # Rendered output
   <name>/references/*.md         # Copied lookup files
 ```
@@ -42,7 +43,7 @@ The source skill directory determines the output skill directory.
 
 ## Build constraints
 
-The renderer writes `templates/harness/skills/<name>/SKILL.md` and that skill's
+The renderer writes `<out>/<name>/SKILL.md` and that skill's
 `references/*.md`. It resolves a `references/<file>.md` pointer in the rendered
 prompt against the skill's own `references/` first, then against `_references/`.
 It copies every skill-local file, and copies a shared file only into the skills
@@ -69,7 +70,7 @@ Partials remain under `src/` and never ship. Post-render validation rejects:
 
 1. Edit `skills/<name>/SKILL.md.hbs` or a partial under `_partials/`.
 2. Run `npm run build:skill-prompts`, or run the full `npm run build`.
-3. Inspect the rendered `templates/harness/skills/<name>/SKILL.md`.
+3. Inspect the rendered `dist-test/<name>/SKILL.md`.
 
 ## Adding a partial
 
@@ -88,4 +89,4 @@ description: "<description>"
 ---
 ```
 
-The renderer writes it to `templates/harness/skills/<name>/SKILL.md`.
+The renderer writes it to `dist-test/<name>/SKILL.md`.

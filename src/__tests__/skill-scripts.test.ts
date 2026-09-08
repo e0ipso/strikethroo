@@ -1,6 +1,6 @@
 /**
  * Integration tests for the centralized skill-scripts TypeScript source
- * and the bundled .cjs artifacts under templates/harness/skills/.
+ * and the bundled .cjs artifacts under dist-test/.
  *
  * Covers:
  *   1. Plan ID allocation across plans/ and archive/.
@@ -21,9 +21,10 @@ import { parseComplexityScore } from '../skill-scripts/shared/complexity-score';
 import { countTaskFiles } from '../skill-scripts/shared/task-count';
 import { validateTaskComplexityScores } from '../skill-scripts/shared/task-complexity';
 import { _sanitizeBranchName, _extractPlanName } from '../skill-scripts/create-feature-branch';
+import { builtSkillDir } from './built-skills';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const SKILL_DIR = path.join(REPO_ROOT, 'templates', 'harness', 'skills', 'st-create-plan');
+const SKILL_DIR = builtSkillDir('st-create-plan');
 
 const writeFile = (filePath: string, contents: string): void => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -277,11 +278,7 @@ describe('create-feature-branch integration', () => {
   let tempDir: string;
 
   const bundledScript = path.join(
-    REPO_ROOT,
-    'templates',
-    'harness',
-    'skills',
-    'st-execute-blueprint',
+    builtSkillDir('st-execute-blueprint'),
     'scripts',
     'create-feature-branch.cjs'
   );
@@ -511,11 +508,7 @@ describe('st-execute-blueprint bundle smoke check', () => {
     );
 
     fixtureSkillDir = path.join(tempDir, 'st-execute-blueprint');
-    fs.cpSync(
-      path.join(REPO_ROOT, 'templates', 'harness', 'skills', 'st-execute-blueprint'),
-      fixtureSkillDir,
-      { recursive: true }
-    );
+    fs.cpSync(builtSkillDir('st-execute-blueprint'), fixtureSkillDir, { recursive: true });
   });
 
   afterEach(() => {
@@ -652,11 +645,7 @@ describe('st-refine-plan bundle smoke check', () => {
     );
 
     fixtureSkillDir = path.join(tempDir, 'st-refine-plan');
-    fs.cpSync(
-      path.join(REPO_ROOT, 'templates', 'harness', 'skills', 'st-refine-plan'),
-      fixtureSkillDir,
-      { recursive: true }
-    );
+    fs.cpSync(builtSkillDir('st-refine-plan'), fixtureSkillDir, { recursive: true });
   });
 
   afterEach(() => {
@@ -774,11 +763,7 @@ describe('check-phase-readiness scenarios', () => {
       [[1, 2]]
     );
     const script = path.join(
-      REPO_ROOT,
-      'templates',
-      'harness',
-      'skills',
-      'st-execute-blueprint',
+      builtSkillDir('st-execute-blueprint'),
       'scripts',
       'check-phase-readiness.cjs'
     );
@@ -802,11 +787,7 @@ describe('check-phase-readiness scenarios', () => {
       [[2]]
     );
     const script = path.join(
-      REPO_ROOT,
-      'templates',
-      'harness',
-      'skills',
-      'st-execute-blueprint',
+      builtSkillDir('st-execute-blueprint'),
       'scripts',
       'check-phase-readiness.cjs'
     );
@@ -836,11 +817,7 @@ describe('check-phase-readiness scenarios', () => {
       [[1]]
     );
     const script = path.join(
-      REPO_ROOT,
-      'templates',
-      'harness',
-      'skills',
-      'st-execute-blueprint',
+      builtSkillDir('st-execute-blueprint'),
       'scripts',
       'check-phase-readiness.cjs'
     );
@@ -880,11 +857,7 @@ describe('st-execute-task bundle smoke check', () => {
     ]);
 
     fixtureSkillDir = path.join(tempDir, 'st-execute-task');
-    fs.cpSync(
-      path.join(REPO_ROOT, 'templates', 'harness', 'skills', 'st-execute-task'),
-      fixtureSkillDir,
-      { recursive: true }
-    );
+    fs.cpSync(builtSkillDir('st-execute-task'), fixtureSkillDir, { recursive: true });
   });
 
   afterEach(() => {
@@ -979,11 +952,7 @@ describe('check-task-dependencies scenarios', () => {
   test('no dependencies', () => {
     buildTaskFixture(tempDir, 1, 'no-deps', [{ id: 1, status: 'pending', dependencies: [] }]);
     const script = path.join(
-      REPO_ROOT,
-      'templates',
-      'harness',
-      'skills',
-      'st-execute-task',
+      builtSkillDir('st-execute-task'),
       'scripts',
       'check-task-dependencies.cjs'
     );
@@ -1001,11 +970,7 @@ describe('check-task-dependencies scenarios', () => {
       { id: 2, status: 'pending', dependencies: [1] },
     ]);
     const script = path.join(
-      REPO_ROOT,
-      'templates',
-      'harness',
-      'skills',
-      'st-execute-task',
+      builtSkillDir('st-execute-task'),
       'scripts',
       'check-task-dependencies.cjs'
     );
@@ -1023,11 +988,7 @@ describe('check-task-dependencies scenarios', () => {
       { id: 2, status: 'pending', dependencies: [1] },
     ]);
     const script = path.join(
-      REPO_ROOT,
-      'templates',
-      'harness',
-      'skills',
-      'st-execute-task',
+      builtSkillDir('st-execute-task'),
       'scripts',
       'check-task-dependencies.cjs'
     );
@@ -1054,11 +1015,7 @@ describe('check-task-dependencies scenarios', () => {
       { id: 2, status: 'pending', dependencies: [1] },
     ]);
     const script = path.join(
-      REPO_ROOT,
-      'templates',
-      'harness',
-      'skills',
-      'st-execute-task',
+      builtSkillDir('st-execute-task'),
       'scripts',
       'check-task-dependencies.cjs'
     );
@@ -1084,11 +1041,7 @@ describe('check-task-dependencies scenarios', () => {
       { id: 1, status: 'completed', dependencies: [] },
     ]);
     const script = path.join(
-      REPO_ROOT,
-      'templates',
-      'harness',
-      'skills',
-      'st-execute-task',
+      builtSkillDir('st-execute-task'),
       'scripts',
       'check-task-dependencies.cjs'
     );
@@ -1107,11 +1060,7 @@ describe('check-task-dependencies scenarios', () => {
 
   test('plan not found', () => {
     const script = path.join(
-      REPO_ROOT,
-      'templates',
-      'harness',
-      'skills',
-      'st-execute-task',
+      builtSkillDir('st-execute-task'),
       'scripts',
       'check-task-dependencies.cjs'
     );

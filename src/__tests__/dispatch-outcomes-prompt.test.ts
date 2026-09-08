@@ -12,9 +12,10 @@
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import { BUILT_SKILLS_ROOT } from './built-skills';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const SKILLS_ROOT = path.join(REPO_ROOT, 'templates', 'harness', 'skills');
+const SKILLS_ROOT = BUILT_SKILLS_ROOT;
 
 /** The line the shared partial opens with; also the start of the block. */
 const LEAD_IN = 'Interpret the one-line JSON result and act on its `kind` exactly once:';

@@ -249,6 +249,67 @@ test.describe('Customize section (Playwright, fixture)', () => {
     );
   });
 
+  test('Config tab: the routing switch turns routing off without dropping profiles', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
+    const configPath = path.join(root, 'config', 'config.yaml');
+    fs.writeFileSync(
+      configPath,
+      'execution_routing:\n' +
+        '  enabled: true\n' +
+        '  profiles:\n' +
+        '    routine:\n' +
+        '      description: Localized work.\n' +
+        '      models:\n' +
+        '        - model: exact-model-id\n',
+      'utf8'
+    );
+
+    const openConfigTab = async () => {
+      await page.getByTestId('config-card').first().waitFor();
+      await page.getByRole('tab').nth(2).click();
+      await page.getByTestId('workspace-config-form').waitFor();
+    };
+
+    await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
+    await openConfigTab();
+
+    // Seeded on: the switch is checked and the profile editor is usable.
+    await expect(page.getByTestId('routing-enabled')).toBeChecked();
+    await expect(page.getByTestId('routing-profile-name')).toBeEnabled();
+
+    // Off: the editor goes inert without the profile leaving the form.
+    await page.getByTestId('routing-enabled').uncheck();
+    await expect(page.getByTestId('routing-profile-name')).toBeDisabled();
+    await expect(page.getByTestId('routing-profile-name')).toHaveValue('routine');
+
+    // Nothing in the editor stays operable, and the whole block dims.
+    const controls = page.getByTestId('routing-editor').locator('input, select, textarea, button');
+    const controlCount = await controls.count();
+    expect(controlCount).toBeGreaterThan(5);
+    for (let i = 0; i < controlCount; i++) await expect(controls.nth(i)).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Add profile' })).toBeDisabled();
+    await expect(page.getByTestId('routing-resolver')).toBeDisabled();
+    await expect(page.getByTestId('routing-editor')).toHaveClass(/opacity-50/);
+
+    await page.getByRole('button', { name: 'Save configuration' }).click();
+    await expect(page.getByTestId('workspace-config-status')).toContainText('Saved', {
+      timeout: 5_000,
+    });
+
+    // The switch landed on disk and the profile survived it.
+    const onDisk = fs.readFileSync(configPath, 'utf8');
+    expect(onDisk).toMatch(/execution_routing:\n\s+enabled: false/);
+    expect(onDisk).toContain('routine:');
+    expect(onDisk).toContain('model: exact-model-id');
+
+    // And the saved state is what a fresh load shows.
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await openConfigTab();
+    await expect(page.getByTestId('routing-enabled')).not.toBeChecked();
+  });
+
   test('an unknown config id renders the designed not-found surface', async ({ page }) => {
     page.setDefaultTimeout(15_000);
     await page.goto(`${handle.url}/customize/hooks/NOPE_DOES_NOT_EXIST`, {

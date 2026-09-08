@@ -1,6 +1,6 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:dae27c4e04952eeb2c349d7bf908adf50459cef2cabcc8552aa68a92e7cc649e'
+nodes_hash: 'sha256:3eb6e6d721af1ea8d1da621b729967f46c682f90dca3951f62eb2861559686aa'
 node_count: 86
 ---
 # kenkeep
@@ -22,7 +22,7 @@ node_count: 86
 - Load [`web/`](nodes/web/index.md) for more information on the React + Vite + Tailwind SPA — data layer, screens, routing, and the branding, editor, rendering, styling, and ui subareas.
 
 ## Conventions (how we build)
-- Open [**Never hand-commit generated skill artifacts in either tree**](nodes/practice-never-hand-commit-generated-skill-artifacts.md) to learn about: templates/harness/skills is gitignored build output; the root skills/ mirror is tracked but written only by the release sync. .gitattributes and the pre-commit guard cover both trees and the review gate skips them. #build #skills #git #gitattributes #review-gate #generated-artifacts
+- Open [**Never hand-commit generated skill artifacts in either tree**](nodes/practice-never-hand-commit-generated-skill-artifacts.md) to learn about: dist-test is gitignored build output; the root skills/ mirror is tracked but written only by the release sync. .gitattributes and the pre-commit guard cover both trees and the review gate skips them. #build #skills #git #gitattributes #review-gate #generated-artifacts
 - Open [**Review gate artifacts are git-ignored by a workspace-root .gitignore**](nodes/practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore.md) to learn about: init ships .ai/strikethroo/.gitignore covering plans/*/review/ and archive/*/review/, keeping reviewer output out of git and its own diff. #code-review #gitignore #workspace #init #generated-artifacts
 - Open [**Workspace tracking is project-owned except local configuration and runtime output**](nodes/practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md) to learn about: Projects choose whether to track plans and authored workspace files, while init ignores machine-local config.yaml, review artifacts, and runtime output. #gitignore #workspace #documentation #code-review #init
 - Open [**Keep comment prose terse and single-sourced**](nodes/practice-keep-comment-prose-terse-and-single-sourced.md) to learn about: Do not write long doc comments or repeat the same rationale across call sites and file copies. State it once where it belongs. #comments #code-style #documentation #xsd #prose

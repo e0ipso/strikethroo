@@ -6,15 +6,22 @@
  * To add a future skill: add a TypeScript entrypoint under
  * src/skill-scripts/, register it in SKILL_ENTRYPOINTS below, and
  * `npm run build` will produce the bundled .cjs under
- * templates/harness/skills/<skill>/scripts/.
+ * dist-test/<skill>/scripts/.
+ *
+ *   node scripts/build-skills.cjs                    write dist-test/
+ *   node scripts/build-skills.cjs --out skills --clean
+ *                                                    release: wipe and rebuild skills/
  */
 
 const path = require('path');
 const fs = require('fs');
 const esbuild = require('esbuild');
 
-const REPO_ROOT = path.resolve(__dirname, '..');
-const SKILLS_ROOT = path.join(REPO_ROOT, 'templates', 'harness', 'skills');
+const { REPO_ROOT, parseOutputArgs, cleanOutputDir } = require('./skills-output-dir.cjs');
+
+const { outputDir: SKILLS_ROOT, clean } = parseOutputArgs(process.argv.slice(2), {
+  allowClean: true,
+});
 
 // Read the schema-version constant from the freshly compiled metadata module.
 // `npm run build` runs `tsc` before this script, so `dist/metadata.js` exists.
@@ -217,6 +224,7 @@ const SKILL_ENTRYPOINTS = [
 const nodeTarget = `node${process.versions.node.split('.')[0]}`;
 
 const buildAll = async () => {
+  if (clean) cleanOutputDir(SKILLS_ROOT);
   const builtFiles = [];
   for (const entry of SKILL_ENTRYPOINTS) {
     const outDir = path.join(SKILLS_ROOT, entry.skill, 'scripts');

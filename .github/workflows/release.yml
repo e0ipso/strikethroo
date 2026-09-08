@@ -19,6 +19,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      # skills/ is what `npx skills add` installs, straight from the Git tree.
+      # Only the release rebuilds it, so on any other commit it must still match
+      # the last release tag. A hand edit or a stray local build that slipped
+      # past the pre-commit guard fails here instead of being installed.
+      - name: Verify skills/ matches the last release
+        run: |
+          tag=$(git describe --tags --abbrev=0 --match 'v*')
+          git diff --exit-code --stat "$tag" -- skills/
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:

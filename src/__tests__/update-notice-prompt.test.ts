@@ -5,9 +5,10 @@
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import { BUILT_SKILLS_ROOT } from './built-skills';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const SKILLS_ROOT = path.join(REPO_ROOT, 'templates', 'harness', 'skills');
+const SKILLS_ROOT = BUILT_SKILLS_ROOT;
 
 const PARENT_SKILLS = [
   'st-create-plan',
@@ -30,8 +31,9 @@ const EXECUTION_SUMMARY_BLOCK = `\`\`\`
 ---
 Execution Summary:
 - Plan ID: [numeric-id]
-- Status: Archived
-- Location: [absolute path to archive directory]
+- Status: [Archived or Halted]
+- Location: [absolute path to current plan directory]
+- Code Review: [codeReview from the review result, or Failed with the reason no result was produced]
 ---
 \`\`\``;
 

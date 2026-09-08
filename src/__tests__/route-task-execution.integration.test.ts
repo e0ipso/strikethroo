@@ -14,9 +14,10 @@ import * as os from 'os';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
+import { BUILT_SKILLS_ROOT } from './built-skills';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const SKILLS_ROOT = path.join(REPO_ROOT, 'templates', 'harness', 'skills');
+const SKILLS_ROOT = BUILT_SKILLS_ROOT;
 
 interface ScriptResult {
   exitCode: number;

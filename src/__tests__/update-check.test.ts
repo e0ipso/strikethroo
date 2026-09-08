@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { execFileSync, spawnSync } from 'child_process';
+import { builtSkillDir } from './built-skills';
 
 import {
   ATTEMPT_INTERVAL_MS,
@@ -515,11 +516,7 @@ describe('check-for-updates bundle', () => {
     const packageVersion = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8'))
       .version as string;
     const bundlePath = path.join(
-      REPO_ROOT,
-      'templates',
-      'harness',
-      'skills',
-      'st-create-plan',
+      builtSkillDir('st-create-plan'),
       'scripts',
       'check-for-updates.cjs'
     );
@@ -530,11 +527,7 @@ describe('check-for-updates bundle', () => {
 
   test('st-code-review does not ship check-for-updates.cjs', () => {
     const reviewScript = path.join(
-      REPO_ROOT,
-      'templates',
-      'harness',
-      'skills',
-      'st-code-review',
+      builtSkillDir('st-code-review'),
       'scripts',
       'check-for-updates.cjs'
     );
@@ -545,15 +538,7 @@ describe('check-for-updates bundle', () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'update-bundle-'));
     try {
       initGitWorkspace(tempDir, { workspaceVersion: '3.21.0', harnesses: ['claude'] });
-      const script = path.join(
-        REPO_ROOT,
-        'templates',
-        'harness',
-        'skills',
-        'st-create-plan',
-        'scripts',
-        'check-for-updates.cjs'
-      );
+      const script = path.join(builtSkillDir('st-create-plan'), 'scripts', 'check-for-updates.cjs');
       const result = spawnSync('node', [script], {
         cwd: tempDir,
         encoding: 'utf8',

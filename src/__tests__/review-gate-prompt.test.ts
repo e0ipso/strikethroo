@@ -11,9 +11,10 @@
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import { BUILT_SKILLS_ROOT } from './built-skills';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const SKILLS_ROOT = path.join(REPO_ROOT, 'templates', 'harness', 'skills');
+const SKILLS_ROOT = BUILT_SKILLS_ROOT;
 const PROCEDURE = path.join(
   REPO_ROOT,
   'src',
@@ -130,6 +131,9 @@ describe('rendered execution skills compose the review gate', () => {
       expect(section).not.toContain('creates no task files');
       expect(section).not.toContain('mutates the Execution Blueprint');
       expect(content).not.toContain('{{');
+      expect(content).toContain('- Code Review: [codeReview from the review result');
+      expect(content).toContain('Emit this block even when the review gate halts execution');
+      expect(content).toContain('never claim archival after a halt');
     }
   );
 

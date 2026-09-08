@@ -29,7 +29,7 @@ When `dist/` predates a source change, the suite reports failures whose entire c
 
 Run `npm run build` before `npm test`, and before trusting a pre-commit gate failure. When an integration test fails on behavior the source clearly implements, check whether `dist/cli.js` predates the source change before investigating the implementation.
 
-The rebuild writes `dist/`, `dist-web/`, and `templates/harness/skills/`, all of which are ignored local output. It does not update the tracked root `skills/` release mirror. A normal local build should therefore leave tracked files clean.
+The rebuild writes `dist/`, `dist-web/`, and `dist-test/`, all of which are ignored local output. It does not update the tracked root `skills/` release tree; only `npm run build:release-skills` does, and nothing local should run it. A normal local build should therefore leave tracked files clean.
 
 <!-- kk:related:start -->
 # Related

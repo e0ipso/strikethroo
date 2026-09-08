@@ -1,8 +1,8 @@
 /**
  * Release-path invariants for stamping skill bundles with the published version.
  *
- * The committed skills/ mirror may lag between releases; these tests assert the
- * release configuration and the rebuild machinery, not live mirror parity.
+ * The committed skills/ tree may lag between releases; these tests assert the
+ * release configuration and the rebuild machinery, not live parity.
  */
 
 import { execFileSync, spawnSync } from 'child_process';
@@ -13,8 +13,7 @@ import * as path from 'path';
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const RELEASERC_PATH = path.join(REPO_ROOT, '.releaserc.json');
 const PACKAGE_JSON_PATH = path.join(REPO_ROOT, 'package.json');
-const CHECK_FOR_UPDATES_REL =
-  'templates/harness/skills/st-create-plan/scripts/check-for-updates.cjs';
+const CHECK_FOR_UPDATES_REL = 'dist-test/st-create-plan/scripts/check-for-updates.cjs';
 
 type Releaserc = {
   plugins: Array<string | [string, Record<string, unknown>]>;
@@ -37,29 +36,49 @@ describe('release version stamp configuration', () => {
     expect(gitIndex).toBeGreaterThan(execIndex);
   });
 
-  test('@semantic-release/exec prepareCmd rebuilds skills and syncs the mirror', () => {
+  test('@semantic-release/exec prepareCmd rebuilds skills/ through build:release-skills', () => {
     const execEntry = readReleaserc().plugins.find(
       (entry): entry is [string, Record<string, unknown>] =>
         pluginName(entry) === '@semantic-release/exec'
     );
     expect(execEntry).toBeDefined();
-
-    const prepareCmd = execEntry?.[1].prepareCmd;
-    expect(typeof prepareCmd).toBe('string');
-    expect(prepareCmd).toContain('npm run build:skills');
-    expect(prepareCmd).toContain('node scripts/sync-skills-mirror.cjs');
+    expect(execEntry?.[1].prepareCmd).toBe('npm run build:release-skills');
   });
 
-  test('release workflow does not sync the mirror before semantic-release', () => {
+  test('build:release-skills wipes and rebuilds the tracked skills/ tree with both builders', () => {
+    const { scripts } = JSON.parse(fs.readFileSync(PACKAGE_JSON_PATH, 'utf8')) as {
+      scripts: Record<string, string>;
+    };
+    expect(scripts['build:release-skills']).toContain('build:skills -- --out skills --clean');
+    expect(scripts['build:release-skills']).toContain('build:skill-prompts -- --out skills');
+  });
+
+  test('@semantic-release/git commits skills/** and nothing else generated', () => {
+    const gitEntry = readReleaserc().plugins.find(
+      (entry): entry is [string, Record<string, unknown>] =>
+        pluginName(entry) === '@semantic-release/git'
+    );
+    expect(gitEntry?.[1].assets).toContain('skills/**');
+    expect(gitEntry?.[1].assets).not.toContain('dist-test/**');
+  });
+
+  test('release workflow does not rebuild skills/ before semantic-release', () => {
     const workflow = fs.readFileSync(
       path.join(REPO_ROOT, '.github', 'workflows', 'release.yml'),
       'utf8'
     );
-    const releaseStepIndex = workflow.indexOf('npx semantic-release');
-    const preReleaseSyncIndex = workflow.indexOf('node scripts/sync-skills-mirror.cjs');
+    expect(workflow.indexOf('npx semantic-release')).toBeGreaterThan(0);
+    expect(workflow).not.toContain('build:release-skills');
+    expect(workflow).not.toContain('--out skills');
+  });
 
-    expect(releaseStepIndex).toBeGreaterThan(0);
-    expect(preReleaseSyncIndex).toBe(-1);
+  test('both CI workflows fail when skills/ differs from the last release tag', () => {
+    for (const name of ['release.yml', 'test.yml']) {
+      const workflow = fs.readFileSync(path.join(REPO_ROOT, '.github', 'workflows', name), 'utf8');
+      expect(workflow).toContain("git describe --tags --abbrev=0 --match 'v*'");
+      expect(workflow).toContain('git diff --exit-code --stat "$tag" -- skills/');
+      expect(workflow).toContain('fetch-depth: 0');
+    }
   });
 });
 
@@ -120,38 +139,57 @@ describe('release skill bundle stamp rehearsal', () => {
     expect(bundle).not.toContain('SKILL_RELEASE_VERSION');
   });
 
-  test('release rebuild+sync writes the stamped version to an isolated mirror target', () => {
+  test('--out skills --clean replaces the release tree wholesale and stamps it', () => {
     const pkg = JSON.parse(originalPackageJson) as { version: string };
     pkg.version = FAKE_VERSION;
     fs.writeFileSync(fixturePackagePath, `${JSON.stringify(pkg, null, 2)}\n`);
 
-    const build = spawnSync('node', [path.join(fixtureRoot, 'scripts/build-skills.cjs')], {
-      cwd: fixtureRoot,
-      encoding: 'utf8',
-    });
+    const releaseTree = path.join(fixtureRoot, 'skills');
+    const stale = path.join(releaseTree, 'st-retired', 'SKILL.md');
+    fs.mkdirSync(path.dirname(stale), { recursive: true });
+    fs.writeFileSync(stale, 'retired skill\n');
+    const staleBundle = path.join(releaseTree, 'st-create-plan', 'scripts', 'stale.cjs');
+    fs.mkdirSync(path.dirname(staleBundle), { recursive: true });
+    fs.writeFileSync(staleBundle, 'console.log("stale");\n');
+
+    const build = spawnSync(
+      'node',
+      [path.join(fixtureRoot, 'scripts/build-skills.cjs'), '--out', 'skills', '--clean'],
+      { cwd: fixtureRoot, encoding: 'utf8' }
+    );
     expect(build.status).toBe(0);
+    const prompts = spawnSync(
+      'node',
+      [path.join(fixtureRoot, 'scripts/build-skill-prompts.cjs'), '--out', 'skills'],
+      { cwd: fixtureRoot, encoding: 'utf8' }
+    );
+    expect(prompts.status).toBe(0);
 
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'release-stamp-'));
-    const mirrorTarget = path.join(tempDir, 'skills');
+    expect(fs.existsSync(stale)).toBe(false);
+    expect(fs.existsSync(staleBundle)).toBe(false);
+    expect(fs.existsSync(path.join(fixtureRoot, 'dist-test'))).toBe(false);
+    const bundle = fs.readFileSync(
+      path.join(releaseTree, 'st-create-plan', 'scripts', 'check-for-updates.cjs'),
+      'utf8'
+    );
+    expect(bundle).toContain(FAKE_VERSION);
+    expect(fs.readFileSync(path.join(releaseTree, 'st-create-plan', 'SKILL.md'), 'utf8')).toMatch(
+      /^---\nname: st-create-plan/
+    );
+  });
 
+  test('--out refuses a directory outside the repository', () => {
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'outside-'));
     try {
-      const sync = spawnSync('node', [path.join(fixtureRoot, 'scripts/sync-skills-mirror.cjs')], {
-        cwd: fixtureRoot,
-        encoding: 'utf8',
-        env: {
-          ...process.env,
-          STRIKETHROO_MIRROR_TARGET: mirrorTarget,
-        },
-      });
-      expect(sync.status).toBe(0);
-
-      const mirroredBundle = fs.readFileSync(
-        path.join(mirrorTarget, 'st-create-plan', 'scripts', 'check-for-updates.cjs'),
-        'utf8'
+      const build = spawnSync(
+        'node',
+        [path.join(fixtureRoot, 'scripts/build-skills.cjs'), '--out', outside, '--clean'],
+        { cwd: fixtureRoot, encoding: 'utf8' }
       );
-      expect(mirroredBundle).toContain(FAKE_VERSION);
+      expect(build.status).not.toBe(0);
+      expect(fs.existsSync(outside)).toBe(true);
     } finally {
-      fs.rmSync(tempDir, { recursive: true, force: true });
+      fs.rmSync(outside, { recursive: true, force: true });
     }
   });
 });

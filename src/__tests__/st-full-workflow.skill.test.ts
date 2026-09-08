@@ -7,9 +7,10 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
+import { builtSkillDir } from './built-skills';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const SKILL_DIR = path.join(REPO_ROOT, 'templates', 'harness', 'skills', 'st-full-workflow');
+const SKILL_DIR = builtSkillDir('st-full-workflow');
 
 const buildFixtureRoot = (root: string): string => {
   const tm = path.join(root, '.ai', 'strikethroo');

@@ -152,7 +152,7 @@ Resolve `code-review.cjs` from the `st-code-review` skill's sibling `scripts` di
 Handle the one JSON line it prints on stdout, in this order:
 
 1. Copy it verbatim into the execution summary's review outcome. Do not reformat it or omit fields.
-2. Follow its top-level `action`. If it is `halt`, stop and report the top-level `detail`. If it is `continue`, proceed to the execution summary and archival.
+2. Follow its top-level `action`. If it is `halt`, stop, report the top-level `detail`, and emit the terminal Execution Summary with the review result. If it is `continue`, proceed to the execution summary and archival.
 3. Only when `verdict.kind` is `review-recorded`, read `<plan-dir>/review/review.xml` and `<plan-dir>/review/findings.json`, then decide which findings to act on. `severity` and `confidence` are advisory labels, not instructions.
 
 Never report an uncertified review as clean.
@@ -165,7 +165,7 @@ Hard rules:
 
 ### 9. Append execution summary
 
-Append an execution summary section to the plan document, filling every field of `<root>/config/templates/EXECUTION_SUMMARY_TEMPLATE.md`. Under Noteworthy Events, always record the review gate's JSON line verbatim, then which findings you acted on versus ignored and why.
+Append an execution summary section to the plan document, filling every field of `<root>/config/templates/EXECUTION_SUMMARY_TEMPLATE.md`. Include a Code Review entry using the result’s `codeReview` field, or Failed with the reason no result was produced. Under Noteworthy Events, always record the review gate's JSON line verbatim, then which findings you acted on versus ignored and why.
 
 ### 10. Archive the plan
 
@@ -183,10 +183,13 @@ Conclude with exactly this block (a retained update notice, when present, follow
 ---
 Execution Summary:
 - Plan ID: [numeric-id]
-- Status: Archived
-- Location: [absolute path to archive directory]
+- Status: [Archived or Halted]
+- Location: [absolute path to current plan directory]
+- Code Review: [codeReview from the review result, or Failed with the reason no result was produced]
 ---
 ```
+
+Emit this block even when the review gate halts execution. Use the actual status and location; never claim archival after a halt. Copy `codeReview` without dropping the harness, model information, or rejection reasons. Findings acted on do not turn Address into Pass because the review is not re-run. If execution stops before review, report Failed with "Review was not run" and the blocking reason.
 
 The summary is consumed by downstream automation; keep the format exact.
 

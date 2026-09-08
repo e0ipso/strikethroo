@@ -2119,7 +2119,7 @@ function normalizeSavedHarnesses(saved) {
 }
 
 // src/skill-scripts/shared/update-check.ts
-var DEFAULT_SKILL_VERSION = true ? "3.22.0" : (() => {
+var DEFAULT_SKILL_VERSION = true ? "3.23.0" : (() => {
   try {
     return null.version;
   } catch {

@@ -2877,7 +2877,7 @@ var dispatchReview = async (request, overrides = {}) => {
 };
 
 // src/skill-scripts/shared/harness-availability.ts
-var AVAILABILITY_REGISTRY_VERSION = 3;
+var AVAILABILITY_REGISTRY_VERSION = 4;
 var AVAILABLE_TTL_MS = 30 * 60 * 1e3;
 var UNAVAILABLE_TTL_MS = 5 * 60 * 1e3;
 var PROBE_TIMEOUT_MS = 2e4;
@@ -2914,6 +2914,8 @@ var resolveExecutable = (executable) => {
   return void 0;
 };
 var runProbe = (command2, timeoutMs) => new Promise((resolve4) => {
+  let stdout = "";
+  let stderr = "";
   let settled = false;
   let timedOut = false;
   const finish = (result) => {
@@ -2924,23 +2926,42 @@ var runProbe = (command2, timeoutMs) => new Promise((resolve4) => {
   const child = (0, import_child_process3.spawn)(command2.executable, command2.argv, {
     cwd: command2.cwd,
     shell: false,
-    stdio: ["pipe", "ignore", "ignore"]
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+  child.stdout?.setEncoding("utf8");
+  child.stderr?.setEncoding("utf8");
+  child.stdout?.on("data", (chunk) => {
+    stdout = (stdout + chunk).slice(-4096);
+  });
+  child.stderr?.on("data", (chunk) => {
+    stderr = (stderr + chunk).slice(-4096);
   });
   const timer = setTimeout(() => {
     timedOut = true;
     child.kill("SIGKILL");
+    child.stdout?.destroy();
+    child.stderr?.destroy();
+    finish({ exitCode: 1, timedOut, stdout, stderr });
   }, timeoutMs);
-  child.once("error", () => {
+  child.once("error", (error) => {
     clearTimeout(timer);
-    finish({ exitCode: 1, timedOut });
+    finish({ exitCode: 1, timedOut, stdout, stderr, error: error.message });
   });
   child.once("close", (code) => {
     clearTimeout(timer);
-    finish({ exitCode: code ?? 1, timedOut });
+    finish({ exitCode: code ?? 1, timedOut, stdout, stderr });
   });
   child.stdin?.on("error", () => void 0);
   child.stdin?.end(command2.stdin);
 });
+var probeFailureReason = (probe) => {
+  const reason = probe.timedOut ? `Harness readiness check timed out after ${PROBE_TIMEOUT_MS} ms.` : probe.error ? `Harness readiness check could not launch: ${probe.error}` : probe.exitCode !== 0 ? `Harness readiness check exited ${probe.exitCode}.` : "Harness exited 0 but did not create the required readiness file with the expected content.";
+  const diagnostics = [
+    probe.stderr?.trim() ? `stderr: ${probe.stderr.trim().slice(-4096)}` : "",
+    probe.stdout?.trim() ? `stdout: ${probe.stdout.trim().slice(-4096)}` : ""
+  ].filter(Boolean);
+  return [reason, ...diagnostics].join(" ");
+};
 var defaultDependencies = {
   now: Date.now,
   resolveExecutable,
@@ -3056,7 +3077,12 @@ var checkHarnessAvailability = async (request, overrides = {}) => {
   const definition = HARNESS_AVAILABILITY_REGISTRY[harness];
   const executableIdentity = active.resolveExecutable(definition.executable);
   if (!executableIdentity)
-    return outcome(harness, false, now, "Harness executable is unavailable.");
+    return outcome(
+      harness,
+      false,
+      now,
+      `Harness executable '${definition.executable}' was not found on PATH.`
+    );
   const key = cacheKey(harness, executableIdentity, invocation);
   const cachePath = path7.join(request.strikethrooRoot, AVAILABILITY_CACHE_RELATIVE_PATH);
   const cached = readCache(cachePath).entries.find(
@@ -3076,7 +3102,14 @@ var checkHarnessAvailability = async (request, overrides = {}) => {
   };
   const probeWorkspace = initializeProbeWorkspace();
   if (!probeWorkspace) {
-    return complete(outcome(harness, false, now, "Harness readiness check failed."));
+    return complete(
+      outcome(
+        harness,
+        false,
+        now,
+        "Could not initialize the disposable Git workspace for the readiness check."
+      )
+    );
   }
   try {
     const evidence = readinessEvidence();
@@ -3095,7 +3128,7 @@ var checkHarnessAvailability = async (request, overrides = {}) => {
         harness,
         available,
         now,
-        available ? "Harness readiness verified." : "Harness readiness check failed."
+        available ? "Harness readiness verified." : probeFailureReason(probe)
       )
     );
   } finally {
@@ -3465,9 +3498,17 @@ var _classify = (outcome2) => {
       return CONTINUE;
   }
 };
+var reviewSummary = (outcome2) => {
+  const reviewer = "harness" in outcome2 ? `Harness: ${outcome2.harness}; model: CLI-selected (exact model unknown).` : "No reviewer performed a certified review.";
+  if (outcome2.kind === "reviewed" && outcome2.verdict.kind === "review-recorded" && "counts" in outcome2) {
+    return `${outcome2.counts.total === 0 ? "Pass" : "Address"}; ${reviewer} Findings: ${outcome2.counts.total}.`;
+  }
+  return `Failed; ${reviewer} ${outcome2.detail}`.replace(/\s+/g, " ").trim();
+};
 var decide = (outcome2) => ({
   ...outcome2,
-  action: _classify(outcome2).action
+  action: _classify(outcome2).action,
+  codeReview: reviewSummary(outcome2)
 });
 var _readBaseCommit = (filePath) => {
   const raw = readFileOrNull(filePath);
@@ -3715,7 +3756,10 @@ var runReview = async (request, overrides = {}) => {
   if (harness === void 0) {
     return skip(
       "no-reviewer-candidate",
-      `No harness other than \`${request.currentHarness}\` is installed and responsive, so the review gate was skipped.`
+      `No reviewer candidate; review gate skipped. ${request.currentHarness} is excluded as the current harness. ` + SUPPORTED_HARNESSES.filter((candidate) => candidate !== request.currentHarness).map((candidate) => {
+        const outcome2 = discovery.outcomes.find((item) => item.harness === candidate);
+        return `${candidate}: ${outcome2?.reason ?? "No availability outcome was reported."}` + (outcome2?.source === "cache" ? " (cached readiness result)" : "");
+      }).join(" ")
     );
   }
   const diff = dependencies2.readDiff(workspace, baseCommit);

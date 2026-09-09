@@ -107,6 +107,7 @@ describe('loadRoutingConfig', () => {
       reasoning_effort: 'medium',
     });
     expect(result.config.resolverScript).toBeUndefined();
+    expect(result.config.allowExternalHarnessExecution).toBe(false);
   });
 
   it('parses valid profiles, ignoring foreign top-level sections', () => {
@@ -121,7 +122,37 @@ describe('loadRoutingConfig', () => {
       { model: 'codex-x', harness: 'codex' },
     ]);
     expect(result.config.resolverScript).toBeUndefined();
+    expect(result.config.allowExternalHarnessExecution).toBe(false);
   });
+
+  it.each([true, false])('reads allow_external_harness_execution: %s', value => {
+    writeConfig(
+      VALID_CONFIG.replace(
+        'execution_routing:',
+        `execution_routing:\n  allow_external_harness_execution: ${value}`
+      )
+    );
+    expect(loadRoutingConfig(tempDir, SUPPORTED_HARNESSES)).toMatchObject({
+      kind: 'config',
+      config: { allowExternalHarnessExecution: value },
+    });
+  });
+
+  it.each(['"false"', 'null', '1', '[]'])(
+    'rejects non-boolean external execution setting %s',
+    value => {
+      writeConfig(
+        VALID_CONFIG.replace(
+          'execution_routing:',
+          `execution_routing:\n  allow_external_harness_execution: ${value}`
+        )
+      );
+      expect(loadRoutingConfig(tempDir, SUPPORTED_HARNESSES)).toMatchObject({
+        kind: 'invalid',
+        errors: [expect.stringContaining('allow_external_harness_execution')],
+      });
+    }
+  );
 
   it('parses the optional global resolver', () => {
     writeConfig(`${VALID_CONFIG}${RESOLVER_SUFFIX}`);

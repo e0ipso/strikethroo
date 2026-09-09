@@ -40,6 +40,8 @@ export interface RoutingProfileForm {
 export interface RoutingForm {
   /** Absent in the file means true. */
   enabled: boolean;
+  /** Absent in the file means false. */
+  allowExternalHarnessExecution: boolean;
   profiles: RoutingProfileForm[];
   /** '' means "no custom resolver". */
   resolverScript: string;
@@ -62,7 +64,12 @@ export type ParsedWorkspaceConfig =
     }
   | { kind: 'unsupported'; message: string };
 
-export const EMPTY_ROUTING: RoutingForm = { enabled: true, profiles: [], resolverScript: '' };
+export const EMPTY_ROUTING: RoutingForm = {
+  enabled: true,
+  allowExternalHarnessExecution: false,
+  profiles: [],
+  resolverScript: '',
+};
 
 /** Shared; callers copy before mutating. */
 export const EMPTY_HARNESSES: HarnessArgsForm = Object.fromEntries(
@@ -176,7 +183,12 @@ export function parseWorkspaceConfig(content: string): ParsedWorkspaceConfig {
     return unsupported('The execution_routing section is not a mapping.');
   }
   for (const key of Object.keys(section)) {
-    if (key !== 'enabled' && key !== 'profiles' && key !== 'resolver') {
+    if (
+      key !== 'enabled' &&
+      key !== 'allow_external_harness_execution' &&
+      key !== 'profiles' &&
+      key !== 'resolver'
+    ) {
       return unsupported(`The execution_routing section has an unrecognized key "${key}".`);
     }
   }
@@ -188,6 +200,14 @@ export function parseWorkspaceConfig(content: string): ParsedWorkspaceConfig {
     }
     enabled = section.enabled;
   }
+
+  if (
+    'allow_external_harness_execution' in section &&
+    typeof section.allow_external_harness_execution !== 'boolean'
+  ) {
+    return unsupported('execution_routing.allow_external_harness_execution must be true or false.');
+  }
+  const allowExternalHarnessExecution = section.allow_external_harness_execution === true;
 
   const rawProfiles = section.profiles ?? {};
   if (!isPlainObject(rawProfiles)) {
@@ -234,7 +254,12 @@ export function parseWorkspaceConfig(content: string): ParsedWorkspaceConfig {
     resolverScript = resolver.script;
   }
 
-  return { kind: 'parsed', document, harnesses, routing: { enabled, profiles, resolverScript } };
+  return {
+    kind: 'parsed',
+    document,
+    harnesses,
+    routing: { enabled, allowExternalHarnessExecution, profiles, resolverScript },
+  };
 }
 
 /**
@@ -260,8 +285,12 @@ export function serializeWorkspaceConfig(
     profiles[profile.name.trim()] = { description: profile.description.trim(), models };
   }
 
-  // Key order is what js-yaml dumps, so the switch lands first.
-  const section: Record<string, unknown> = { enabled: routing.enabled, profiles };
+  // Key order is what js-yaml dumps, so the switches land first.
+  const section: Record<string, unknown> = {
+    enabled: routing.enabled,
+    allow_external_harness_execution: routing.allowExternalHarnessExecution,
+    profiles,
+  };
   if (routing.resolverScript.trim() !== '') {
     section.resolver = { script: routing.resolverScript.trim() };
   }

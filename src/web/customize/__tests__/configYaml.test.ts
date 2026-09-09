@@ -61,7 +61,12 @@ describe('parseWorkspaceConfig', () => {
     const parsed = parseWorkspaceConfig(SHIPPED);
     expect(parsed.kind).toBe('parsed');
     if (parsed.kind !== 'parsed') return;
-    expect(parsed.routing).toEqual({ enabled: true, profiles: [], resolverScript: '' });
+    expect(parsed.routing).toEqual({
+      enabled: true,
+      allowExternalHarnessExecution: false,
+      profiles: [],
+      resolverScript: '',
+    });
   });
 
   it('parses an empty or comment-only file to an empty form', () => {
@@ -103,6 +108,40 @@ describe('parseWorkspaceConfig', () => {
     ['a malformed resolver', 'execution_routing:\n  profiles: {}\n  resolver: nope\n'],
   ])('refuses a form save for %s', (_label, content) => {
     expect(parseWorkspaceConfig(content).kind).toBe('unsupported');
+  });
+
+  it.each([true, false])('round-trips external execution %s without losing the matrix', value => {
+    const parsed = parseWorkspaceConfig(
+      FULL.replace(
+        'execution_routing:',
+        `execution_routing:\n  allow_external_harness_execution: ${value}`
+      )
+    );
+    expect(parsed.kind).toBe('parsed');
+    if (parsed.kind !== 'parsed') return;
+    expect(parsed.routing.allowExternalHarnessExecution).toBe(value);
+    const output = serializeWorkspaceConfig(parsed.document, parsed.harnesses, parsed.routing);
+    expect(
+      (load(output) as { execution_routing: Record<string, unknown> }).execution_routing
+        .allow_external_harness_execution
+    ).toBe(value);
+    expect(parseWorkspaceConfig(output)).toMatchObject({
+      kind: 'parsed',
+      routing: parsed.routing,
+      harnesses: parsed.harnesses,
+      document: { other_feature: { nested: { flag: true } } },
+    });
+  });
+
+  it.each(['"false"', 'null', '1', '[]'])('refuses external execution value %s', value => {
+    expect(
+      parseWorkspaceConfig(
+        `execution_routing:\n  allow_external_harness_execution: ${value}\n  profiles: {}\n`
+      )
+    ).toMatchObject({
+      kind: 'unsupported',
+      message: expect.stringContaining('allow_external_harness_execution'),
+    });
   });
 
   it('reads enabled: false while keeping the profiles it disables', () => {
@@ -214,9 +253,10 @@ describe('serializeWorkspaceConfig round-trip', () => {
       serializeWorkspaceConfig(parsed.document, parsed.harnesses, parsed.routing)
     ) as Record<string, unknown>;
     const source = load(FULL) as Record<string, unknown>;
-    // An absent `enabled` is written back as the on-by-default value; nothing else is added.
+    // Absent switches are written back with their defaults.
     expect(output.execution_routing).toEqual({
       enabled: true,
+      allow_external_harness_execution: false,
       ...(source.execution_routing as Record<string, unknown>),
     });
     expect(output.other_feature).toEqual(source.other_feature);
@@ -226,6 +266,7 @@ describe('serializeWorkspaceConfig round-trip', () => {
   it('emits exact targets: harness/effort only when set, values trimmed', () => {
     const routing: RoutingForm = {
       enabled: true,
+      allowExternalHarnessExecution: false,
       profiles: [
         {
           name: ' routine ',
@@ -246,6 +287,7 @@ describe('serializeWorkspaceConfig round-trip', () => {
   it('an emptied form serializes back to the disabled state', () => {
     const output = serializeWorkspaceConfig({}, EMPTY_HARNESSES, {
       enabled: true,
+      allowExternalHarnessExecution: false,
       profiles: [],
       resolverScript: '',
     });
@@ -256,6 +298,7 @@ describe('serializeWorkspaceConfig round-trip', () => {
   it('writes all six harnesses in order, before execution_routing, after foreign sections', () => {
     const output = serializeWorkspaceConfig({ other_feature: 1 }, EMPTY_HARNESSES, {
       enabled: true,
+      allowExternalHarnessExecution: false,
       profiles: [],
       resolverScript: '',
     });
@@ -281,6 +324,7 @@ describe('serializeWorkspaceConfig round-trip', () => {
   it('writes enabled first and round-trips a disabled section with its profiles', () => {
     const routing: RoutingForm = {
       enabled: false,
+      allowExternalHarnessExecution: false,
       profiles: [
         {
           name: 'routine',
@@ -307,6 +351,7 @@ describe('serializeWorkspaceConfig round-trip', () => {
   it('never trims a cli_args value', () => {
     const output = serializeWorkspaceConfig({}, harnessForm({ gemini: [' spaced ', '--x '] }), {
       enabled: true,
+      allowExternalHarnessExecution: false,
       profiles: [],
       resolverScript: '',
     });
@@ -343,6 +388,7 @@ describe('validateHarnessForm', () => {
 describe('validateRoutingForm', () => {
   const valid: RoutingForm = {
     enabled: true,
+    allowExternalHarnessExecution: false,
     profiles: [
       {
         name: 'routine',
@@ -360,6 +406,7 @@ describe('validateRoutingForm', () => {
   it('skips every profile check while routing is disabled', () => {
     const half: RoutingForm = {
       enabled: false,
+      allowExternalHarnessExecution: false,
       profiles: [{ name: '', description: '', targets: [] }],
       resolverScript: '',
     };

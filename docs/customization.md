@@ -217,10 +217,13 @@ Task dispatch and code review use the same harness baseline that passed readines
 
 The `execution_routing` section defines named **execution profiles**. Task generation persists the selected profile, and dispatch chooses a configured model target immediately before delegation. The shipped local template contains `docs-and-config`, `standard-implementation`, and `complex-architecture` profiles with an ordered model matrix. Edit the models for the CLIs installed on the local machine. Setting `profiles: {}` disables routing; tasks with no `execution_profile` use the current harness and its normal defaults. `enabled: false` also turns routing off while keeping every profile in place, so the matrix can be paused and restored; the key is optional and absent means on. The Customize section's Config tab exposes it as the Enable execution routing checkbox.
 
+`allow_external_harness_execution` defaults to `false`, including in existing configs that omit it. Task-to-profile classification stays the same. Before target selection, dispatch keeps only targets whose `harness` matches the orchestrator or is omitted. If none remain in the selected profile, it uses the current harness's defaults without model or reasoning overrides. Set the option to `true` to allow other harnesses. The Config tab exposes this as **Allow external harness execution**. The code review gate still uses a second harness regardless of this setting.
+
 The following configuration is **an example** — profile names, descriptions, and model identifiers are placeholders to adapt, not defaults Strikethroo recognizes:
 
 ```yaml
 execution_routing:
+  allow_external_harness_execution: false
   profiles:
     routine:
       description: >
@@ -245,9 +248,9 @@ How the pieces divide responsibility:
 
 - **Profile names are yours.** They are arbitrary routing concepts — nothing in Strikethroo depends on particular names.
 - **Descriptions are the contract.** During task generation the LLM matches each task against them, so describe *when* a profile applies (kind of work, risk, complexity) rather than restating a model name. Weak: "Uses the big model." Strong: "Cross-cutting refactors, security-sensitive code, or tasks scoring 7+ complexity."
-- **`models` order is priority.** The built-in selector picks the first target not present in the task's avoid set.
+- **`models` order is priority.** The built-in selector picks the first eligible target not present in the task's avoid set.
 - **Targets are exact.** `model` is required; `harness` and `reasoning_effort` are optional. The selected values are passed verbatim to dispatch, with no aliases or translation.
-- **One optional global selector.** Advanced policies go in one repository-relative script under `resolver.script` (`.js`/`.cjs`/`.mjs` runs under Node; anything else executes directly). For one task it receives `{"version":1,"task":{"id":6,"profile":"demanding"},"candidates":[{"id":"…","target":{"model":"…"}}],"avoid":["…"]}` on stdin and must print exactly `{"target":"<candidate id>"}`. Candidate IDs identify the complete configured target. It may select only a supplied, non-avoided candidate. Missing scripts, timeouts, non-zero exits, malformed output, and unknown or avoided targets cause a visible fallback to current-harness defaults; a configured selector is authoritative and is not replaced by the built-in policy on failure.
+- **One optional global selector.** Advanced policies go in one repository-relative script under `resolver.script` (`.js`/`.cjs`/`.mjs` runs under Node; anything else executes directly). For one task it receives `{"version":1,"task":{"id":6,"profile":"demanding"},"candidates":[{"id":"…","target":{"model":"…"}}],"avoid":["…"]}` on stdin and must print exactly `{"target":"<candidate id>"}`. Candidates are filtered by `allow_external_harness_execution` before the script runs. Candidate IDs identify the complete configured target. It may select only a supplied, non-avoided candidate. Missing scripts, timeouts, non-zero exits, malformed output, and unknown or avoided targets cause a visible fallback to current-harness defaults; a configured selector is authoritative and is not replaced by the built-in policy on failure.
 - **Readiness is harness-level.** Native and current-harness targets bypass the check. An external target must complete the one file-creation request described above. The request omits a model override so the CLI uses its configured default. A passing check does not prove that every model named in a routing profile exists.
 - **Readiness results are cached by invocation identity.** The cache includes the resolved executable path and exact argument hash, so moving the CLI or changing local arguments cannot reuse an older result.
 - **Unavailable targets retry safely.** Dispatch adds a rejected target's complete ID to the avoid set and invokes selection again. Exhausting the profile, losing the configured profile, or failing the selector falls back to the current harness without model or reasoning overrides.

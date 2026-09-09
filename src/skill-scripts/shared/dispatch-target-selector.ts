@@ -32,6 +32,7 @@ interface SelectorProcessResult {
 }
 
 export interface DispatchTargetSelectorOptions {
+  currentHarness: string;
   projectRoot: string;
   taskId: number;
   timeoutMs?: number;
@@ -101,7 +102,20 @@ export const selectDispatchTarget = (
     );
   }
 
-  const candidates = profile.targets.map(target => ({ id: executionTargetId(target), target }));
+  const candidates = profile.targets
+    .filter(
+      target =>
+        config.allowExternalHarnessExecution ||
+        target.harness === undefined ||
+        target.harness === options.currentHarness
+    )
+    .map(target => ({ id: executionTargetId(target), target }));
+  if (candidates.length === 0) {
+    return nativeDefault(
+      'targets-exhausted',
+      `Execution profile "${profileName}" has no targets for the current harness while external harness execution is disabled.`
+    );
+  }
   const available = candidates.filter(candidate => !avoidedIds.has(candidate.id));
   if (available.length === 0) {
     return nativeDefault(

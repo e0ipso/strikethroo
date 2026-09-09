@@ -30,6 +30,7 @@ export interface RoutingProfile {
 }
 
 export interface RoutingConfig {
+  allowExternalHarnessExecution: boolean;
   profiles: RoutingProfile[];
   resolverScript?: string;
 }
@@ -187,9 +188,22 @@ export const loadRoutingConfig = (
     };
   }
   for (const key of Object.keys(section)) {
-    if (key !== 'enabled' && key !== 'profiles' && key !== 'resolver') {
+    if (
+      key !== 'enabled' &&
+      key !== 'allow_external_harness_execution' &&
+      key !== 'profiles' &&
+      key !== 'resolver'
+    ) {
       errors.push(`${EXECUTION_ROUTING_SECTION} has unknown key "${key}".`);
     }
+  }
+  if (
+    'allow_external_harness_execution' in section &&
+    typeof section.allow_external_harness_execution !== 'boolean'
+  ) {
+    errors.push(
+      `${EXECUTION_ROUTING_SECTION} "allow_external_harness_execution" must be true or false.`
+    );
   }
   if ('enabled' in section) {
     if (typeof section.enabled !== 'boolean') {
@@ -228,7 +242,10 @@ export const loadRoutingConfig = (
 
   if (errors.length > 0) return { kind: 'invalid', errors };
   if (profiles.length === 0) return { kind: 'disabled' };
-  const config: RoutingConfig = { profiles };
+  const config: RoutingConfig = {
+    allowExternalHarnessExecution: section.allow_external_harness_execution === true,
+    profiles,
+  };
   if (resolverScript !== undefined) config.resolverScript = resolverScript;
   return { kind: 'config', config };
 };

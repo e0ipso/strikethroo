@@ -61,7 +61,7 @@ describe('dispatch task execution entrypoint', () => {
     fs.mkdirSync(path.join(directory, '.ai/strikethroo/config'), { recursive: true });
     fs.writeFileSync(
       path.join(directory, '.ai/strikethroo/config/config.yaml'),
-      'execution_routing:\n  profiles:\n    mixed:\n      description: Mixed route.\n' +
+      'execution_routing:\n  allow_external_harness_execution: true\n  profiles:\n    mixed:\n      description: Mixed route.\n' +
         '      models:\n        - model: external/model\n          harness: claude\n' +
         '        - model: native/model\n          harness: codex\n          reasoning_effort: high\n'
     );
@@ -83,6 +83,54 @@ describe('dispatch task execution entrypoint', () => {
       reasoningEffort: 'high',
     });
   });
+
+  it.each(['', '  allow_external_harness_execution: false\n'])(
+    'keeps existing profiles native without probing external harnesses (%s)',
+    setting => {
+      const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'st-dispatch-'));
+      const bundle = makeBundle(directory);
+      const configPath = path.join(directory, '.ai/strikethroo/config/config.yaml');
+      fs.mkdirSync(path.dirname(configPath), { recursive: true });
+      const taskFile = path.join(directory, 'task.md');
+      fs.writeFileSync(taskFile, '---\nid: 3\nexecution_profile: mixed\n---\n# Task\n');
+      const marker = path.join(directory, 'external-probed');
+      fs.writeFileSync(
+        path.join(directory, 'claude'),
+        `#!${process.execPath}\nrequire('fs').writeFileSync(${JSON.stringify(marker)}, 'called');\n`,
+        { mode: 0o700 }
+      );
+      const env = {
+        ...process.env,
+        PATH: `${directory}${path.delimiter}${process.env.PATH ?? ''}`,
+      };
+      const prefix = `execution_routing:\n${setting}  profiles:\n    mixed:\n      description: Mixed route.\n      models:\n`;
+      const external = '        - model: external/model\n          harness: claude\n';
+      for (const nativeHarness of ['          harness: codex\n', '']) {
+        fs.writeFileSync(
+          configPath,
+          prefix +
+            external +
+            `        - model: native/model\n${nativeHarness}          reasoning_effort: high\n`
+        );
+        const result = run(bundle, ['resolve', taskFile, 'codex', directory, '12', '3'], env);
+        expect(result.status).toBe(0);
+        expect(JSON.parse(result.stdout)).toEqual({
+          kind: 'native-override',
+          model: 'native/model',
+          reasoningEffort: 'high',
+        });
+      }
+      fs.writeFileSync(configPath, prefix + external);
+      const result = run(bundle, ['resolve', taskFile, 'codex', directory, '12', '3'], env);
+      expect(result.status).toBe(0);
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        kind: 'fallback',
+        reason: 'targets-exhausted',
+      });
+      expect(fs.existsSync(marker)).toBe(false);
+      expect(fs.existsSync(path.join(directory, '.ai/strikethroo/runtime'))).toBe(false);
+    }
+  );
 
   it('falls back to the current harness when execution routing is disabled', () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'st-dispatch-'));
@@ -117,7 +165,7 @@ describe('dispatch task execution entrypoint', () => {
     fs.writeFileSync(
       path.join(directory, '.ai/strikethroo/config/config.yaml'),
       'harnesses:\n  claude:\n    cli_args:\n      - --local-permission\n' +
-        'execution_routing:\n  profiles:\n    remote:\n      description: Remote route.\n' +
+        'execution_routing:\n  allow_external_harness_execution: true\n  profiles:\n    remote:\n      description: Remote route.\n' +
         '      models:\n        - model: exact/model\n          harness: claude\n'
     );
     fs.writeFileSync(
@@ -175,7 +223,7 @@ process.stdin.on('end', () => {
     fs.writeFileSync(
       path.join(directory, '.ai/strikethroo/config/config.yaml'),
       'harnesses:\n  claude:\n    cli_args: invalid-scalar\n' +
-        'execution_routing:\n  profiles:\n    remote:\n      description: Remote route.\n' +
+        'execution_routing:\n  allow_external_harness_execution: true\n  profiles:\n    remote:\n      description: Remote route.\n' +
         '      models:\n        - model: exact/model\n          harness: claude\n'
     );
     const taskFile = path.join(directory, 'task.md');
@@ -200,7 +248,7 @@ process.stdin.on('end', () => {
     fs.writeFileSync(
       path.join(directory, '.ai/strikethroo/config/config.yaml'),
       'harnesses:\n  claude:\n    cli_args: invalid-scalar\n' +
-        'execution_routing:\n  profiles:\n    native:\n      description: Native route.\n' +
+        'execution_routing:\n  allow_external_harness_execution: true\n  profiles:\n    native:\n      description: Native route.\n' +
         '      models:\n        - model: native/model\n          harness: codex\n'
     );
     const taskFile = path.join(directory, 'task.md');

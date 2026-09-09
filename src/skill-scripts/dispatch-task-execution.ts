@@ -117,6 +117,7 @@ export const resolveDispatchRoute = async (
     configResult.config.profiles.find(candidate => candidate.name === profile)?.targets.length ?? 0;
   for (let attempt = 0; attempt < Math.max(1, candidateCount); attempt += 1) {
     const selection = selectDispatchTarget(configResult.config, profile, avoided, {
+      currentHarness: request.currentHarness,
       projectRoot: request.workspace,
       taskId: request.taskId,
     });

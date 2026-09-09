@@ -201,9 +201,18 @@ test.describe('Customize section (Playwright, fixture)', () => {
     await expect(page.getByText(/immediately before each delegation/i)).toBeVisible();
     await expect(page.getByText(/rejected targets join the task's avoid set/i)).toBeVisible();
     await expect(
-      page.getByText(/all complete targets for its profile, and the accumulated avoid set/i)
+      page.getByText(/all eligible targets for its profile, and the accumulated avoid set/i)
     ).toBeVisible();
     await expect(page.getByText(/selected target is written as the task's exact/i)).toHaveCount(0);
+
+    const externalExecution = page.getByRole('checkbox', {
+      name: 'Allow external harness execution',
+    });
+    await expect(externalExecution).not.toBeChecked();
+    await expect(externalExecution).toHaveAccessibleDescription(
+      /code review gate still uses a second harness/i
+    );
+    await externalExecution.check();
 
     // Manually populate one profile with one exact target.
     await page.getByRole('button', { name: 'Add profile' }).click();
@@ -240,6 +249,7 @@ test.describe('Customize section (Playwright, fixture)', () => {
     // The exact section landed on disk and the foreign section survived.
     const onDisk = fs.readFileSync(path.join(root, 'config', 'config.yaml'), 'utf8');
     expect(onDisk).toContain('execution_routing:');
+    expect(onDisk).toContain('allow_external_harness_execution: true');
     expect(onDisk).toContain('routine:');
     expect(onDisk).toContain('model: exact-model-id');
     expect(onDisk).toContain('other_feature:');
@@ -247,6 +257,18 @@ test.describe('Customize section (Playwright, fixture)', () => {
     expect(onDisk).toMatch(
       /codex:\n\s+cli_args:\n\s+- --sandbox\n\s+- workspace-write\n\s+- --model/
     );
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.getByTestId('config-card').first().waitFor();
+    await page.getByRole('tab').nth(2).click();
+    await expect(externalExecution).toBeChecked();
+    await externalExecution.uncheck();
+    await page.getByRole('button', { name: 'Save configuration' }).click();
+    await expect(page.getByTestId('workspace-config-status')).toContainText('Saved');
+    const disabled = fs.readFileSync(path.join(root, 'config', 'config.yaml'), 'utf8');
+    expect(disabled).toContain('allow_external_harness_execution: false');
+    expect(disabled).toContain('model: exact-model-id');
+    expect(disabled).toContain('other_feature:');
   });
 
   test('Config tab: the routing switch turns routing off without dropping profiles', async ({

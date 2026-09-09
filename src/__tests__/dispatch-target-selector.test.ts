@@ -11,6 +11,7 @@ import type { RoutingConfig, RoutingTarget } from '../skill-scripts/shared/execu
 const native: RoutingTarget = { model: 'same', reasoning_effort: 'high' };
 const external: RoutingTarget = { model: 'same', harness: 'codex', reasoning_effort: 'high' };
 const config = (resolverScript?: string): RoutingConfig => ({
+  allowExternalHarnessExecution: true,
   profiles: [{ name: 'demanding', description: 'Hard work', targets: [native, external] }],
   ...(resolverScript === undefined ? {} : { resolverScript }),
 });
@@ -19,7 +20,11 @@ describe('dispatch target selector', () => {
   it('uses stable unambiguous target identities and deterministic configured order', () => {
     expect(executionTargetId(native)).not.toBe(executionTargetId(external));
     expect(
-      selectDispatchTarget(config(), 'demanding', new Set(), { projectRoot: '/repo', taskId: 2 })
+      selectDispatchTarget(config(), 'demanding', new Set(), {
+        currentHarness: 'claude',
+        projectRoot: '/repo',
+        taskId: 2,
+      })
     ).toEqual({
       kind: 'selected',
       id: executionTargetId(native),
@@ -35,6 +40,7 @@ describe('dispatch target selector', () => {
       'demanding',
       new Set([executionTargetId(native)]),
       {
+        currentHarness: 'claude',
         projectRoot: '/repo',
         taskId: 17,
         runSelector: (_script, input) => {
@@ -65,7 +71,12 @@ describe('dispatch target selector', () => {
       config('pick.cjs'),
       'demanding',
       new Set([executionTargetId(native)]),
-      { projectRoot: '/repo', taskId: 2, runSelector: () => processResult }
+      {
+        currentHarness: 'claude',
+        projectRoot: '/repo',
+        taskId: 2,
+        runSelector: () => processResult,
+      }
     );
     expect(result).toMatchObject({ kind: 'native-default', reason: 'selector-failure' });
   });
@@ -73,6 +84,7 @@ describe('dispatch target selector', () => {
   it('does not invoke the built-in selector after a missing custom script', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'target-selector-'));
     const result = selectDispatchTarget(config('missing.cjs'), 'demanding', new Set(), {
+      currentHarness: 'claude',
       projectRoot: root,
       taskId: 2,
       timeoutMs: 50,
@@ -93,6 +105,7 @@ describe('dispatch target selector', () => {
     );
     expect(
       selectDispatchTarget(config('pick.cjs'), 'demanding', new Set(), {
+        currentHarness: 'claude',
         projectRoot: root,
         taskId: 2,
         timeoutMs: 1_000,
@@ -102,6 +115,7 @@ describe('dispatch target selector', () => {
     fs.writeFileSync(path.join(root, 'slow.cjs'), 'setTimeout(()=>{}, 10000);');
     expect(
       selectDispatchTarget(config('slow.cjs'), 'demanding', new Set(), {
+        currentHarness: 'claude',
         projectRoot: root,
         taskId: 2,
         timeoutMs: 10,
@@ -109,12 +123,42 @@ describe('dispatch target selector', () => {
     ).toMatchObject({ kind: 'native-default', reason: 'selector-failure' });
   });
 
+  it('filters custom-selector candidates and rejects a returned external target when disabled', () => {
+    const current: RoutingTarget = { harness: 'claude', model: 'current-model' };
+    const routing: RoutingConfig = {
+      allowExternalHarnessExecution: false,
+      resolverScript: 'pick.cjs',
+      profiles: [{ name: 'mixed', description: 'Mixed', targets: [external, current, native] }],
+    };
+    for (const target of [current, native, external]) {
+      const result = selectDispatchTarget(routing, 'mixed', new Set(), {
+        currentHarness: 'claude',
+        projectRoot: '/repo',
+        taskId: 3,
+        runSelector: (_script, input) => {
+          expect((JSON.parse(input) as CustomSelectorInput).candidates).toEqual(
+            [current, native].map(candidate => ({
+              id: executionTargetId(candidate),
+              target: candidate,
+            }))
+          );
+          return { ok: true, stdout: JSON.stringify({ target: executionTargetId(target) }) };
+        },
+      });
+      expect(result).toMatchObject(
+        target === external
+          ? { kind: 'native-default', reason: 'selector-failure' }
+          : { kind: 'selected', target, source: 'custom' }
+      );
+    }
+  });
+
   it('returns native defaults with no override when configured targets are exhausted', () => {
     const result = selectDispatchTarget(
       config(),
       'demanding',
       new Set([executionTargetId(native), executionTargetId(external)]),
-      { projectRoot: '/repo', taskId: 2 }
+      { currentHarness: 'claude', projectRoot: '/repo', taskId: 2 }
     );
     expect(result).toEqual({
       kind: 'native-default',

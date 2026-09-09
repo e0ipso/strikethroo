@@ -18,9 +18,9 @@
 #     required; `harness` and `reasoning_effort` optional; values are copied
 #     verbatim — no aliases, defaults, or translation). Task generation saves
 #     only the selected profile. Immediately before each task delegation, the
-#     first non-avoided target in configured order is selected by default. One
+#     first eligible, non-avoided target in configured order is selected by default. One
 #     optional global `resolver.script` (repository-relative) can instead
-#     receive that task's complete configured targets and accumulated avoid set
+#     receive that task's eligible configured targets and accumulated avoid set
 #     and return one non-avoided target identifier. Routing is off while
 #     `enabled` is false (profiles are kept but not validated or used) or while
 #     `profiles` is empty; an absent `enabled` means on. See the customization
@@ -51,6 +51,9 @@ harnesses:
 
 execution_routing:
   enabled: true
+  # Restrict task targets to the orchestrator's harness unless explicitly enabled.
+  # Missing also means false. The code review gate still uses a second harness.
+  allow_external_harness_execution: false
   profiles:
     docs-and-config:
       description: >-

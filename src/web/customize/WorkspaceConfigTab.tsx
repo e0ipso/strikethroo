@@ -274,7 +274,8 @@ function ProfileCard({
       />
       <div className="flex flex-col gap-2">
         <div className="font-sans text-xs font-medium text-ink-3">
-          Dispatch targets — ordered by priority; the first non-avoided target is the default
+          Dispatch targets — ordered by priority; the first eligible, non-avoided target is the
+          default
         </div>
         {profile.targets.map((target, index) => (
           <TargetRow
@@ -420,6 +421,32 @@ function ConfigForm({
           disabled={!routing.enabled}
           className={cn('flex min-w-0 flex-col gap-3', !routing.enabled && 'opacity-50')}
         >
+          <label className="flex items-center gap-2 font-sans text-sm text-ink">
+            <input
+              data-testid="allow-external-harness-execution"
+              type="checkbox"
+              className="size-4 accent-ink"
+              aria-describedby="external-harness-execution-help"
+              checked={routing.allowExternalHarnessExecution}
+              onChange={e =>
+                update({
+                  ...model,
+                  routing: { ...routing, allowExternalHarnessExecution: e.target.checked },
+                })
+              }
+            />
+            <span className="font-medium">Allow external harness execution</span>
+          </label>
+          <p
+            id="external-harness-execution-help"
+            className="max-w-3xl font-sans text-sm leading-relaxed text-ink-2"
+          >
+            Off by default, including when this setting is absent from config.yaml. Only targets
+            using the orchestrator&apos;s harness are eligible, including targets with no harness
+            specified. If none remain in the selected profile, tasks use the current harness&apos;s
+            default model and reasoning. Turn this on to also allow targets on other harnesses. This
+            applies to custom selectors too. The code review gate still uses a second harness.
+          </p>
           {routing.profiles.map((profile, index) => (
             <ProfileCard
               key={index}
@@ -475,9 +502,9 @@ function ConfigForm({
             />
             <span className="text-xs text-ink-3">
               One repository-relative script for the whole configuration. At each selection attempt
-              it receives one task, all complete targets for its profile, and the accumulated avoid
+              it receives one task, all eligible targets for its profile, and the accumulated avoid
               set, then returns one non-avoided target identifier. It never reclassifies tasks.
-              Leave empty to use the first non-avoided target in configured order.
+              Leave empty to use the first eligible, non-avoided target in configured order.
             </span>
           </label>
         </fieldset>

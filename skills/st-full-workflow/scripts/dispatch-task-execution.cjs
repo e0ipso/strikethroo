@@ -3579,7 +3579,15 @@ var selectDispatchTarget = (config, profileName, avoidedIds, options2) => {
       `Execution profile "${profileName}" is not present in current configuration.`
     );
   }
-  const candidates = profile.targets.map((target) => ({ id: executionTargetId(target), target }));
+  const candidates = profile.targets.filter(
+    (target) => config.allowExternalHarnessExecution || target.harness === void 0 || target.harness === options2.currentHarness
+  ).map((target) => ({ id: executionTargetId(target), target }));
+  if (candidates.length === 0) {
+    return nativeDefault(
+      "targets-exhausted",
+      `Execution profile "${profileName}" has no targets for the current harness while external harness execution is disabled.`
+    );
+  }
   const available = candidates.filter((candidate) => !avoidedIds.has(candidate.id));
   if (available.length === 0) {
     return nativeDefault(
@@ -6234,9 +6242,14 @@ var loadRoutingConfig = (strikethrooRoot, supportedHarnesses) => {
     };
   }
   for (const key of Object.keys(section)) {
-    if (key !== "enabled" && key !== "profiles" && key !== "resolver") {
+    if (key !== "enabled" && key !== "allow_external_harness_execution" && key !== "profiles" && key !== "resolver") {
       errors.push(`${EXECUTION_ROUTING_SECTION} has unknown key "${key}".`);
     }
+  }
+  if ("allow_external_harness_execution" in section && typeof section.allow_external_harness_execution !== "boolean") {
+    errors.push(
+      `${EXECUTION_ROUTING_SECTION} "allow_external_harness_execution" must be true or false.`
+    );
   }
   if ("enabled" in section) {
     if (typeof section.enabled !== "boolean") {
@@ -6270,7 +6283,10 @@ var loadRoutingConfig = (strikethrooRoot, supportedHarnesses) => {
   }
   if (errors.length > 0) return { kind: "invalid", errors };
   if (profiles.length === 0) return { kind: "disabled" };
-  const config = { profiles };
+  const config = {
+    allowExternalHarnessExecution: section.allow_external_harness_execution === true,
+    profiles
+  };
   if (resolverScript !== void 0) config.resolverScript = resolverScript;
   return { kind: "config", config };
 };
@@ -6707,6 +6723,7 @@ var resolveDispatchRoute = async (request) => {
   const candidateCount = configResult.config.profiles.find((candidate) => candidate.name === profile)?.targets.length ?? 0;
   for (let attempt = 0; attempt < Math.max(1, candidateCount); attempt += 1) {
     const selection = selectDispatchTarget(configResult.config, profile, avoided, {
+      currentHarness: request.currentHarness,
       projectRoot: request.workspace,
       taskId: request.taskId
     });

@@ -1,3 +1,15 @@
+## 4.0.0 (2026-09-09)
+
+* feat!: default task routing to native harness ([dada7fe](https://github.com/e0ipso/strikethroo/commit/dada7fe)), closes [#101](https://github.com/e0ipso/strikethroo/issues/101)
+
+
+### BREAKING CHANGE
+
+* Existing configs that omit
+execution_routing.allow_external_harness_execution now restrict tasks
+to the orchestrator's harness. Set the option to true to allow external
+targets again.
+
 ## 3.25.0 (2026-09-08)
 
 * feat: add an enable switch for execution routing (#100) ([e96ca5f](https://github.com/e0ipso/strikethroo/commit/e96ca5f)), closes [#100](https://github.com/e0ipso/strikethroo/issues/100) [#99](https://github.com/e0ipso/strikethroo/issues/99)

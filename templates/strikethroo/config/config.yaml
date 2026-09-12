@@ -111,9 +111,9 @@ execution_routing:
         - model: fable
           harness: claude
           reasoning_effort: high
-        - model: gpt-5.6-sol
+        - model: gpt-6-astra
           harness: codex
-          reasoning_effort: xhigh
+          reasoning_effort: high
         - model: opencode-go/glm-5.3-flash
           harness: opencode
           reasoning_effort: max

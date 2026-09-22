@@ -48,6 +48,10 @@ harnesses:
   opencode:
     cli_args:
       - --auto
+  # Kiro grants capabilities via the adapter's --trust-tools flag rather than a
+  # broad-access flag (CLI v3 permissions model), so no extra autonomous args.
+  kiro:
+    cli_args: []
 
 execution_routing:
   enabled: true

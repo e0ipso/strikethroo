@@ -44,7 +44,7 @@ description: "Frequently asked questions about Strikethroo"
 
 **Does Strikethroo require API keys or additional costs?**
 
-No. It works within your existing AI assistant subscriptions (Claude Pro/Max, Gemini, GitHub Copilot, Codex, Open Code). No API keys, no pay-per-token charges, no external service dependencies.
+No. It works within your existing AI assistant subscriptions (Claude Pro/Max, Gemini, GitHub Copilot, Codex, Open Code, Kiro). No API keys, no pay-per-token charges, no external service dependencies.
 
 **How long does setup take?**
 

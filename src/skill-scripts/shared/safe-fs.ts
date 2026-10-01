@@ -222,6 +222,52 @@ export const readContainedFile = (
   }
 };
 
+interface AtomicWritePlan {
+  target: string;
+  temp: string;
+  mode: number;
+  mustExist: boolean;
+}
+
+/** Containment check plus the target mode and the random temp path, shared by both write variants. */
+const planAtomicWrite = (
+  root: string,
+  input: string,
+  options: WriteFileAtomicOptions
+): AtomicWritePlan | SafeFsError => {
+  const mustExist = options.mustExist === true;
+  const resolved = resolveContained(root, input, { allowMissingLeaf: !mustExist });
+  if ('error' in resolved) return resolved;
+  if (mustExist && !resolved.exists) return fail('not-found', 'Path does not exist.');
+
+  const target = resolved.path;
+  const mode =
+    options.mode ?? (resolved.exists && resolved.stats ? resolved.stats.mode & 0o777 : 0o600);
+  const temp = path.join(
+    path.dirname(target),
+    `.${path.basename(target)}.${randomBytes(8).toString('hex')}.tmp`
+  );
+  return { target, temp, mode, mustExist };
+};
+
+/**
+ * Re-check the target right before the rename; see the module comment for
+ * what this does and does not close.
+ */
+const recheckTarget = (target: string, mustExist: boolean): SafeFsError | undefined => {
+  try {
+    const again = fs.lstatSync(target);
+    if (again.isSymbolicLink()) {
+      return fail('symlink', 'Symbolic links inside the workspace are not allowed.');
+    }
+    if (!again.isFile()) return fail('not-a-file', 'Path is not a regular file.');
+  } catch (err) {
+    if (errno(err) !== 'ENOENT') return fail('fs-error', 'Could not inspect path.');
+    if (mustExist) return fail('not-found', 'Path does not exist.');
+  }
+  return undefined;
+};
+
 /**
  * Writes `content` to a contained path atomically: an exclusive, randomly
  * named temp file in the same directory is written, `fsync`ed, and renamed
@@ -235,16 +281,9 @@ export const writeFileAtomic = async (
   content: string | Buffer,
   options: WriteFileAtomicOptions = {}
 ): Promise<{ path: string } | SafeFsError> => {
-  const mustExist = options.mustExist === true;
-  const resolved = resolveContained(root, input, { allowMissingLeaf: !mustExist });
-  if ('error' in resolved) return resolved;
-  if (mustExist && !resolved.exists) return fail('not-found', 'Path does not exist.');
-
-  const target = resolved.path;
-  const dir = path.dirname(target);
-  const mode =
-    options.mode ?? (resolved.exists && resolved.stats ? resolved.stats.mode & 0o777 : 0o600);
-  const temp = path.join(dir, `.${path.basename(target)}.${randomBytes(8).toString('hex')}.tmp`);
+  const plan = planAtomicWrite(root, input, options);
+  if ('error' in plan) return plan;
+  const { target, temp, mode, mustExist } = plan;
 
   let handle: fs.promises.FileHandle | undefined;
   let renamed = false;
@@ -257,18 +296,8 @@ export const writeFileAtomic = async (
     await handle.close();
     handle = undefined;
 
-    // Re-check the target right before the rename; see the module comment for
-    // what this does and does not close.
-    try {
-      const again = fs.lstatSync(target);
-      if (again.isSymbolicLink()) {
-        return fail('symlink', 'Symbolic links inside the workspace are not allowed.');
-      }
-      if (!again.isFile()) return fail('not-a-file', 'Path is not a regular file.');
-    } catch (err) {
-      if (errno(err) !== 'ENOENT') return fail('fs-error', 'Could not inspect path.');
-      if (mustExist) return fail('not-found', 'Path does not exist.');
-    }
+    const refused = recheckTarget(target, mustExist);
+    if (refused) return refused;
 
     await fs.promises.rename(temp, target);
     renamed = true;
@@ -278,5 +307,52 @@ export const writeFileAtomic = async (
   } finally {
     if (handle) await handle.close().catch(() => undefined);
     if (!renamed) await fs.promises.unlink(temp).catch(() => undefined);
+  }
+};
+
+/** Synchronous {@link writeFileAtomic}, with the same guarantees, for callers that cannot await. */
+export const writeFileAtomicSync = (
+  root: string,
+  input: string,
+  content: string | Buffer,
+  options: WriteFileAtomicOptions = {}
+): { path: string } | SafeFsError => {
+  const plan = planAtomicWrite(root, input, options);
+  if ('error' in plan) return plan;
+  const { target, temp, mode, mustExist } = plan;
+
+  let fd: number | undefined;
+  let renamed = false;
+  try {
+    fd = fs.openSync(temp, 'wx', 0o600);
+    fs.writeFileSync(fd, content);
+    fs.fsyncSync(fd);
+    if (mode !== 0o600) fs.fchmodSync(fd, mode);
+    fs.closeSync(fd);
+    fd = undefined;
+
+    const refused = recheckTarget(target, mustExist);
+    if (refused) return refused;
+
+    fs.renameSync(temp, target);
+    renamed = true;
+    return { path: target };
+  } catch {
+    return fail('fs-error', 'Could not write file.');
+  } finally {
+    if (fd !== undefined) {
+      try {
+        fs.closeSync(fd);
+      } catch {
+        // already closed or never opened
+      }
+    }
+    if (!renamed) {
+      try {
+        fs.unlinkSync(temp);
+      } catch {
+        // nothing to clean up
+      }
+    }
   }
 };

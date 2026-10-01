@@ -21,7 +21,7 @@ import * as path from 'path';
 import * as http from 'http';
 import * as net from 'net';
 import { AddressInfo } from 'net';
-import { startServer, ServeHandle } from '../serve/server';
+import { startServer, ServeHandle, CAPABILITY_HEADER } from '../serve/server';
 import { resolveWorkspaceRoot, isResolveError } from '../serve/root';
 
 const FIXTURE_ROOT = path.resolve(process.cwd(), 'src', '__tests__', 'fixtures', 'serve-workspace');
@@ -95,7 +95,11 @@ const httpGet = (url: string): Promise<HttpResponse> =>
       .on('error', reject);
   });
 
-const httpPost = (url: string, body: string): Promise<HttpResponse> =>
+const httpPost = (
+  url: string,
+  body: string,
+  headers: Record<string, string> = {}
+): Promise<HttpResponse> =>
   new Promise((resolve, reject) => {
     const target = new URL(url);
     const req = http.request(
@@ -104,7 +108,11 @@ const httpPost = (url: string, body: string): Promise<HttpResponse> =>
         port: target.port,
         path: target.pathname,
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
+          ...headers,
+        },
       },
       res => {
         let data = '';
@@ -205,7 +213,9 @@ describe('serve server: read-only JSON API', () => {
     // Availability depends on the host; assert the wiring/contract, not the
     // verdict: a well-formed body always yields a numeric status and { ok }.
     const rel = 'archive/38--fix-jekyll-link-baseurl/plan-38--fix-jekyll-link-baseurl.md';
-    const res = await httpPost(`${handle.url}/api/self-review`, JSON.stringify({ path: rel }));
+    const res = await httpPost(`${handle.url}/api/self-review`, JSON.stringify({ path: rel }), {
+      [CAPABILITY_HEADER]: handle.capability!,
+    });
     expect([200, 400, 404, 409, 500]).toContain(res.status);
     const body = JSON.parse(res.body);
     expect(typeof body.ok).toBe('boolean');
@@ -213,7 +223,9 @@ describe('serve server: read-only JSON API', () => {
   });
 
   it('POST /api/self-review rejects a malformed JSON body with 400', async () => {
-    const res = await httpPost(`${handle.url}/api/self-review`, '{not json');
+    const res = await httpPost(`${handle.url}/api/self-review`, '{not json', {
+      [CAPABILITY_HEADER]: handle.capability!,
+    });
     expect(res.status).toBe(400);
     const body = JSON.parse(res.body);
     expect(body.ok).toBe(false);
@@ -334,10 +346,11 @@ describe('serve server: loopback binding and request guard', () => {
   });
 
   it('requires application/json on self-review, accepting a charset parameter', async () => {
+    const authorized = { [CAPABILITY_HEADER]: handle.capability! };
     const review = await request(handle, {
       method: 'POST',
       path: '/api/self-review',
-      headers: { 'Content-Type': 'text/plain' },
+      headers: { 'Content-Type': 'text/plain', ...authorized },
       body: JSON.stringify({ path: 'archive/38--fix-jekyll-link-baseurl/plan.md' }),
     });
     expect(review.status).toBe(415);
@@ -346,7 +359,7 @@ describe('serve server: loopback binding and request guard', () => {
     const charset = await request(handle, {
       method: 'POST',
       path: '/api/self-review',
-      headers: { 'Content-Type': 'Application/JSON; charset=utf-8' },
+      headers: { 'Content-Type': 'Application/JSON; charset=utf-8', ...authorized },
       body: JSON.stringify({ path: '' }),
     });
     expect(charset.status).not.toBe(415);
@@ -389,11 +402,12 @@ describe('serve server: mutation media type and body rules', () => {
 
   it('config write refuses text/plain with 415 and an oversized body with 413, file untouched', async () => {
     const before = fs.readFileSync(hookFile, 'utf8');
+    const authorized = { [CAPABILITY_HEADER]: handle.capability! };
 
     const plain = await request(handle, {
       method: 'PUT',
       path: '/api/config/hooks/PRE_PLAN',
-      headers: { 'Content-Type': 'text/plain' },
+      headers: { 'Content-Type': 'text/plain', ...authorized },
       body: JSON.stringify({ content: 'overwritten' }),
     });
     expect(plain.status).toBe(415);
@@ -402,7 +416,7 @@ describe('serve server: mutation media type and body rules', () => {
     const oversized = await request(handle, {
       method: 'PUT',
       path: '/api/config/hooks/PRE_PLAN',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authorized },
       body: Buffer.alloc(1024 * 1024 + 1, 'a'),
     });
     expect(oversized.status).toBe(413);
@@ -412,7 +426,7 @@ describe('serve server: mutation media type and body rules', () => {
     const ok = await request(handle, {
       method: 'PUT',
       path: '/api/config/hooks/PRE_PLAN',
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      headers: { 'Content-Type': 'application/json; charset=utf-8', ...authorized },
       body: JSON.stringify({ content: 'rewritten' }),
     });
     expect(ok.status).toBe(200);
@@ -421,11 +435,12 @@ describe('serve server: mutation media type and body rules', () => {
 
   it('refuses text/plain and an empty body, then archives on `{}` as application/json', async () => {
     const planDir = path.join(root, 'plans', '12--example');
+    const authorized = { [CAPABILITY_HEADER]: handle.capability! };
 
     const plain = await request(handle, {
       method: 'POST',
       path: '/api/plans/12--example/archive',
-      headers: { 'Content-Type': 'text/plain' },
+      headers: { 'Content-Type': 'text/plain', ...authorized },
       body: '{}',
     });
     expect(plain.status).toBe(415);
@@ -434,7 +449,7 @@ describe('serve server: mutation media type and body rules', () => {
     const empty = await request(handle, {
       method: 'POST',
       path: '/api/plans/12--example/archive',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authorized },
     });
     expect(empty.status).toBe(400);
     expect(fs.existsSync(planDir)).toBe(true);
@@ -442,12 +457,259 @@ describe('serve server: mutation media type and body rules', () => {
     const ok = await request(handle, {
       method: 'POST',
       path: '/api/plans/12--example/archive',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authorized },
       body: '{}',
     });
     expect(ok.status).toBe(200);
     expect(fs.existsSync(planDir)).toBe(false);
     expect(fs.existsSync(path.join(root, 'archive', '12--example'))).toBe(true);
+  });
+});
+
+// The per-start capability and the browser-origin policy on the three mutation
+// routes. A disposable workspace again, with the self-review launcher stubbed
+// so a rejected request is proven to launch nothing.
+describe('serve server: mutation capability and origin policy', () => {
+  let root: string;
+  let handle: ServeHandle;
+  let hookFile: string;
+  let launches: Array<{ cmd: string; args: string[] }>;
+
+  const planMd = (id: number): string =>
+    `---\nid: ${id}\nsummary: "Plan ${id}"\ncreated: 2026-05-28\n---\n# Plan ${id}\n`;
+  const taskMd = (id: number): string =>
+    `---\nid: ${id}\ngroup: "g"\ndependencies: []\nstatus: "completed"\nskills: [typescript]\n---\n# Task ${id}\n`;
+
+  const start = (ws: string): Promise<ServeHandle> =>
+    startServer({
+      root: ws,
+      port: 0,
+      open: false,
+      assetsDir: os.tmpdir(),
+      selfReviewDeps: {
+        available: () => true,
+        spawnDetached: (cmd, args) => {
+          launches.push({ cmd, args });
+        },
+      },
+    });
+
+  const authority = (): string => `127.0.0.1:${boundAddress(handle).port}`;
+
+  /** Every way a browser-originated or forged mutation must be refused. */
+  const rejections = (token: string): Array<{ name: string; headers: Record<string, string> }> => [
+    { name: 'missing token', headers: {} },
+    { name: 'wrong token', headers: { [CAPABILITY_HEADER]: `${token.slice(1)}x` } },
+    { name: 'wrong length', headers: { [CAPABILITY_HEADER]: token.slice(0, -1) } },
+    {
+      name: 'foreign Origin',
+      headers: { [CAPABILITY_HEADER]: token, Origin: 'http://evil.example' },
+    },
+    {
+      name: 'null Origin',
+      headers: { [CAPABILITY_HEADER]: token, Origin: 'null' },
+    },
+    {
+      name: 'cross-site fetch metadata',
+      headers: { [CAPABILITY_HEADER]: token, 'Sec-Fetch-Site': 'cross-site' },
+    },
+    {
+      name: 'same-site fetch metadata',
+      headers: { [CAPABILITY_HEADER]: token, 'Sec-Fetch-Site': 'same-site' },
+    },
+    {
+      name: 'foreign Host',
+      headers: { [CAPABILITY_HEADER]: token, Host: `evil.example:${boundAddress(handle).port}` },
+    },
+  ];
+
+  beforeEach(async () => {
+    launches = [];
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'serve-capability-test-'));
+    root = path.join(tmpRoot, '.ai', 'strikethroo');
+    const tasksDir = path.join(root, 'plans', '12--example', 'tasks');
+    fs.mkdirSync(tasksDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(root, '.init-metadata.json'),
+      JSON.stringify({ version: '0.0.0', workspaceSchemaVersion: 4 })
+    );
+    fs.writeFileSync(path.join(root, 'plans', '12--example', 'plan-12--example.md'), planMd(12));
+    fs.writeFileSync(path.join(tasksDir, '01--first.md'), taskMd(1));
+    hookFile = path.join(root, 'config', 'hooks', 'PRE_PLAN.md');
+    fs.mkdirSync(path.dirname(hookFile), { recursive: true });
+    fs.writeFileSync(hookFile, '# PRE_PLAN\n\nOriginal hook body.\n');
+    handle = await start(root);
+  });
+
+  afterEach(async () => {
+    await new Promise<void>(resolve => handle.server.close(() => resolve()));
+    fs.rmSync(path.resolve(root, '..', '..'), { recursive: true, force: true });
+  });
+
+  it('issues a fresh base64url capability per start and keeps it out of the read API', async () => {
+    expect(handle.capability).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(handle.url).not.toContain(handle.capability);
+
+    for (const route of [
+      '/api/plans',
+      '/api/config',
+      '/api/capabilities',
+      '/api/plans/12--example',
+    ]) {
+      const res = await request(handle, { method: 'GET', path: route });
+      expect(res.status, route).toBe(200);
+      expect(res.body, route).not.toContain(handle.capability);
+    }
+
+    const other = await start(root);
+    try {
+      expect(other.capability).not.toBe(handle.capability);
+    } finally {
+      await new Promise<void>(resolve => other.server.close(() => resolve()));
+    }
+  });
+
+  it('GET /api/session hands the token only to a same-origin, authority-validated request', async () => {
+    const ok = await request(handle, { method: 'GET', path: '/api/session' });
+    expect(ok.status).toBe(200);
+    expect(ok.headers['cache-control']).toBe('no-store');
+    expect(JSON.parse(ok.body)).toEqual({ token: handle.capability });
+
+    const sameOrigin = await request(handle, {
+      method: 'GET',
+      path: '/api/session',
+      headers: { Origin: `http://${authority()}`, 'Sec-Fetch-Site': 'same-origin' },
+    });
+    expect(sameOrigin.status).toBe(200);
+
+    const navigation = await request(handle, {
+      method: 'GET',
+      path: '/api/session',
+      headers: { 'Sec-Fetch-Site': 'none' },
+    });
+    expect(navigation.status).toBe(200);
+
+    const refused: Array<[string, Record<string, string>]> = [
+      ['cross-site', { 'Sec-Fetch-Site': 'cross-site' }],
+      ['same-site', { 'Sec-Fetch-Site': 'same-site' }],
+      ['foreign Origin', { Origin: 'http://evil.example' }],
+      ['https Origin on the right authority', { Origin: `https://${authority()}` }],
+    ];
+    for (const [name, headers] of refused) {
+      const res = await request(handle, { method: 'GET', path: '/api/session', headers });
+      expect(res.status, name).toBe(403);
+      expect(res.body, name).not.toContain(handle.capability);
+      expect(res.headers['access-control-allow-origin'], name).toBeUndefined();
+    }
+
+    const forgedHost = await request(handle, {
+      method: 'GET',
+      path: '/api/session',
+      headers: { Host: `evil.example:${boundAddress(handle).port}` },
+    });
+    expect(forgedHost.status).toBe(421);
+    expect(forgedHost.body).not.toContain(handle.capability);
+
+    const post = await request(handle, { method: 'POST', path: '/api/session' });
+    expect(post.status).toBe(405);
+  });
+
+  it('config write needs the capability and a same-origin request; a rejection leaves the file untouched', async () => {
+    const before = fs.readFileSync(hookFile, 'utf8');
+    const token = handle.capability!;
+
+    for (const { name, headers } of rejections(token)) {
+      const res = await request(handle, {
+        method: 'PUT',
+        path: '/api/config/hooks/PRE_PLAN',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ content: `overwritten by ${name}` }),
+      });
+      expect(res.status, name).toBe(name === 'foreign Host' ? 421 : 403);
+      expect(fs.readFileSync(hookFile, 'utf8'), name).toBe(before);
+      expect(res.headers['access-control-allow-origin'], name).toBeUndefined();
+      expect(res.headers['access-control-allow-credentials'], name).toBeUndefined();
+    }
+
+    // Authorization is checked before the media type and before the body is
+    // read: an unauthorized text/plain request is a 403, not a 415.
+    const plainUnauthorized = await request(handle, {
+      method: 'PUT',
+      path: '/api/config/hooks/PRE_PLAN',
+      headers: { 'Content-Type': 'text/plain' },
+      body: 'x',
+    });
+    expect(plainUnauthorized.status).toBe(403);
+
+    // A token minted by another server instance is not this instance's.
+    const other = await start(root);
+    try {
+      const foreign = await request(handle, {
+        method: 'PUT',
+        path: '/api/config/hooks/PRE_PLAN',
+        headers: { 'Content-Type': 'application/json', [CAPABILITY_HEADER]: other.capability! },
+        body: JSON.stringify({ content: 'overwritten by the other instance' }),
+      });
+      expect(foreign.status).toBe(403);
+      expect(fs.readFileSync(hookFile, 'utf8')).toBe(before);
+    } finally {
+      await new Promise<void>(resolve => other.server.close(() => resolve()));
+    }
+
+    // The real client shape: token, JSON, no Origin header. And the browser
+    // shape: token, JSON, a same-origin Origin.
+    const ok = await request(handle, {
+      method: 'PUT',
+      path: '/api/config/hooks/PRE_PLAN',
+      headers: { 'Content-Type': 'application/json', [CAPABILITY_HEADER]: token },
+      body: JSON.stringify({ content: 'rewritten' }),
+    });
+    expect(ok.status).toBe(200);
+    expect(fs.readFileSync(hookFile, 'utf8')).toBe('rewritten');
+
+    const browser = await request(handle, {
+      method: 'PUT',
+      path: '/api/config/hooks/PRE_PLAN',
+      headers: {
+        'Content-Type': 'application/json',
+        [CAPABILITY_HEADER]: token,
+        Origin: `http://${authority()}`,
+        'Sec-Fetch-Site': 'same-origin',
+      },
+      body: JSON.stringify({ content: 'rewritten again' }),
+    });
+    expect(browser.status).toBe(200);
+    expect(fs.readFileSync(hookFile, 'utf8')).toBe('rewritten again');
+  });
+
+  it('self-review never launches on a rejected request and launches once on a valid one', async () => {
+    const token = handle.capability!;
+    const body = JSON.stringify({ path: '.ai/strikethroo/plans/12--example/plan-12--example.md' });
+
+    for (const { name, headers } of rejections(token)) {
+      const res = await request(handle, {
+        method: 'POST',
+        path: '/api/self-review',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body,
+      });
+      expect(res.status, name).toBe(name === 'foreign Host' ? 421 : 403);
+    }
+    expect(launches).toEqual([]);
+
+    const ok = await request(handle, {
+      method: 'POST',
+      path: '/api/self-review',
+      headers: { 'Content-Type': 'application/json', [CAPABILITY_HEADER]: token },
+      body,
+    });
+    expect(ok.status).toBe(200);
+    expect(launches).toEqual([
+      {
+        cmd: 'self-review',
+        args: [path.join(root, 'plans', '12--example', 'plan-12--example.md')],
+      },
+    ]);
   });
 });
 

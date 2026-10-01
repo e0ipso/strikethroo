@@ -14,6 +14,7 @@ import {
   _classify,
   _readCumulativeDiff,
   _resultLine,
+  createFindingsGate,
   runReview,
   type FindingsGate,
   type ReviewDependencies,
@@ -1027,6 +1028,81 @@ describe('code review gate — the compiled result contract', () => {
     } finally {
       certified.cleanup();
       uncertified.cleanup();
+    }
+  });
+});
+
+/**
+ * A certified count must be the validated document's count. The built-in gate
+ * cross-checks its scanner against an independent `xmllint` count; the counter
+ * is injectable only so the disagreement branch can be reached from a document
+ * the real scanner reads correctly.
+ */
+describe('code review gate — certified counts match the validated document', () => {
+  const token = 'abc123';
+  const delivered = (xml: string) =>
+    `<<<BEGIN REVIEW XML ${token}>>>\n${xml}\n<<<END REVIEW XML ${token}>>>\n`;
+
+  it('stays uncertified when the independent count disagrees with the scanner or cannot be obtained', async () => {
+    const xml = buildReviewXml([{ file: 'src/x.ts', severity: 'critical', confidence: 'high' }]);
+    const run = (countComments: (file: string) => Promise<number | null>) => {
+      const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+      const reviewFile = path.join(ws.planDir, 'review', 'review.xml');
+      const gate = createFindingsGate({ countComments });
+      return gate({
+        reviewFile,
+        xsdFile: ws.xsdFile,
+        planDir: ws.planDir,
+        reviewerStdout: delivered(xml),
+        deliveryToken: token,
+      }).then(outcome => {
+        const record: unknown = JSON.parse(
+          fs.readFileSync(path.join(ws.planDir, 'review', 'findings.json'), 'utf8')
+        );
+        ws.cleanup();
+        return { outcome, record };
+      });
+    };
+
+    const agreeing = await run(async () => 1);
+    expect(agreeing.outcome).toMatchObject({ kind: 'evaluated', counts: { total: 1 } });
+
+    const disagreeing = await run(async () => 0);
+    expect(disagreeing.outcome).toMatchObject({
+      kind: 'findings-absent',
+      detail: expect.stringMatching(/1 finding.*0 .*comment/s),
+    });
+    expect(disagreeing.record).toMatchObject({ status: 'findings-absent', findings: [] });
+
+    const uncounted = await run(async () => null);
+    expect(uncounted.outcome).toMatchObject({ kind: 'validator-unavailable' });
+    expect(uncounted.record).toMatchObject({ status: 'validator-unavailable', findings: [] });
+  });
+
+  it('turns a count mismatch into review-failed with exit 1 through the same classifier', async () => {
+    const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    const xml = buildReviewXml([{ file: 'src/x.ts', severity: 'minor', confidence: 'low' }]);
+    const dispatch: ReviewDependencies['dispatch'] = async request => {
+      const minted = /<<<BEGIN REVIEW XML ([0-9a-f]+)>>>/.exec(request.prompt)?.[1] ?? '';
+      return {
+        kind: 'launched-success',
+        exitCode: 0,
+        stdout: `<<<BEGIN REVIEW XML ${minted}>>>\n${xml}\n<<<END REVIEW XML ${minted}>>>\n`,
+      };
+    };
+    try {
+      const result = await runReview(
+        { plan: '1', currentHarness: 'claude', startPath: ws.root },
+        stubDeps({
+          dispatch,
+          evaluateFindings: createFindingsGate({ countComments: async () => 5 }),
+        })
+      );
+      expect(result).toMatchObject({ kind: 'reviewed', verdict: { kind: 'review-failed' } });
+      expect(result).not.toHaveProperty('counts');
+      expect(_classify(result)).toEqual({ action: 'halt', exitCode: 1 });
+    } finally {
+      ws.cleanup();
     }
   });
 });

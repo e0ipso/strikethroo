@@ -29,7 +29,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as http from 'http';
 import * as crypto from 'crypto';
-import { startServer, ServeHandle } from '../serve/server';
+import { startServer, ServeHandle, CAPABILITY_HEADER } from '../serve/server';
 import { archivePlan } from '../serve/archive';
 
 interface HttpResponse {
@@ -37,11 +37,19 @@ interface HttpResponse {
   body: string;
 }
 
-/** Issues an HTTP request with an arbitrary method and optional JSON body. */
-const httpRequest = (url: string, method: string, body?: string): Promise<HttpResponse> =>
+/**
+ * Issues an HTTP request with an arbitrary method, optional JSON body, and any
+ * extra headers (the mutation capability, a forged `Host` or `Origin`).
+ */
+const httpRequest = (
+  url: string,
+  method: string,
+  body?: string,
+  extraHeaders: Record<string, string> = {}
+): Promise<HttpResponse> =>
   new Promise((resolve, reject) => {
     const target = new URL(url);
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { ...extraHeaders };
     if (body !== undefined) {
       headers['Content-Type'] = 'application/json';
       headers['Content-Length'] = String(Buffer.byteLength(body));
@@ -226,8 +234,16 @@ describe('POST /api/plans/:id/archive endpoint against fixtures', () => {
     fs.rmSync(path.resolve(root, '..', '..'), { recursive: true, force: true });
   });
 
+  /** The authorized client shape: this instance's capability, JSON, no Origin. */
+  const authorized = (): Record<string, string> => ({ [CAPABILITY_HEADER]: handle.capability! });
+
   it('archives a done plan: 200 with the updated model and the directory moved', async () => {
-    const res = await httpRequest(`${handle.url}/api/plans/12--example/archive`, 'POST', '{}');
+    const res = await httpRequest(
+      `${handle.url}/api/plans/12--example/archive`,
+      'POST',
+      '{}',
+      authorized()
+    );
     expect(res.status).toBe(200);
     const body = JSON.parse(res.body);
     expect(body.id).toBe(12);
@@ -238,7 +254,12 @@ describe('POST /api/plans/:id/archive endpoint against fixtures', () => {
 
   it('returns 409 for a non-done plan with an actionable message and no FS change', async () => {
     const before = checksumTree(root);
-    const res = await httpRequest(`${handle.url}/api/plans/13--active/archive`, 'POST', '{}');
+    const res = await httpRequest(
+      `${handle.url}/api/plans/13--active/archive`,
+      'POST',
+      '{}',
+      authorized()
+    );
     expect(res.status).toBe(409);
     expect(typeof JSON.parse(res.body).error).toBe('string');
     expect(checksumTree(root)).toEqual(before);
@@ -246,7 +267,12 @@ describe('POST /api/plans/:id/archive endpoint against fixtures', () => {
 
   it('returns 404 for an unknown plan id with no FS change', async () => {
     const before = checksumTree(root);
-    const res = await httpRequest(`${handle.url}/api/plans/999--nope/archive`, 'POST', '{}');
+    const res = await httpRequest(
+      `${handle.url}/api/plans/999--nope/archive`,
+      'POST',
+      '{}',
+      authorized()
+    );
     expect(res.status).toBe(404);
     expect(typeof JSON.parse(res.body).error).toBe('string');
     expect(checksumTree(root)).toEqual(before);
@@ -255,14 +281,54 @@ describe('POST /api/plans/:id/archive endpoint against fixtures', () => {
   it('returns 400 for an invalid composite key', async () => {
     // A bare numeric id no longer satisfies the composite grammar (clean break),
     // and a free-form string is rejected before any lookup.
-    const numeric = await httpRequest(`${handle.url}/api/plans/12/archive`, 'POST', '{}');
+    const numeric = await httpRequest(
+      `${handle.url}/api/plans/12/archive`,
+      'POST',
+      '{}',
+      authorized()
+    );
     expect(numeric.status).toBe(400);
     const garbage = await httpRequest(
       `${handle.url}/api/plans/not-a-valid-key/archive`,
       'POST',
-      '{}'
+      '{}',
+      authorized()
     );
     expect(garbage.status).toBe(400);
+  });
+
+  it('refuses an unauthorized or cross-origin archive before touching the plan', async () => {
+    const before = checksumTree(root);
+    const url = `${handle.url}/api/plans/12--example/archive`;
+    const token = handle.capability!;
+    const port = new URL(handle.url).port;
+
+    const rejections: Array<[string, Record<string, string>, number]> = [
+      ['missing token', {}, 403],
+      ['wrong token', { [CAPABILITY_HEADER]: `${token.slice(1)}x` }, 403],
+      ['foreign Origin', { [CAPABILITY_HEADER]: token, Origin: 'http://evil.example' }, 403],
+      ['cross-site', { [CAPABILITY_HEADER]: token, 'Sec-Fetch-Site': 'cross-site' }, 403],
+      ['foreign Host', { [CAPABILITY_HEADER]: token, Host: `evil.example:${port}` }, 421],
+    ];
+    for (const [name, headers, status] of rejections) {
+      const res = await httpRequest(url, 'POST', '{}', headers);
+      expect(res.status, name).toBe(status);
+    }
+
+    // A capability issued by a different server instance is not honored.
+    const other = await startServer({ root, port: 0, open: false, assetsDir: os.tmpdir() });
+    try {
+      const foreign = await httpRequest(url, 'POST', '{}', {
+        [CAPABILITY_HEADER]: other.capability!,
+      });
+      expect(foreign.status).toBe(403);
+    } finally {
+      await new Promise<void>(resolve => other.server.close(() => resolve()));
+    }
+
+    expect(checksumTree(root)).toEqual(before);
+    expect(fs.existsSync(path.join(root, 'plans', '12--example'))).toBe(true);
+    expect(fs.existsSync(path.join(root, 'archive', '12--example'))).toBe(false);
   });
 
   it('rejects traversal payloads in the id segment with no filesystem change', async () => {
@@ -280,7 +346,12 @@ describe('POST /api/plans/:id/archive endpoint against fixtures', () => {
       '12--example..%2f..',
     ];
     for (const payload of payloads) {
-      const res = await httpRequest(`${handle.url}/api/plans/${payload}/archive`, 'POST', '{}');
+      const res = await httpRequest(
+        `${handle.url}/api/plans/${payload}/archive`,
+        'POST',
+        '{}',
+        authorized()
+      );
       expect(res.status).toBe(400);
       // The response never leaks file contents from outside the workspace.
       expect(res.body).not.toMatch(/root:.*:0:0:/);
@@ -305,13 +376,23 @@ describe('POST /api/plans/:id/archive endpoint against fixtures', () => {
     // A non-POST method on the archive path must NOT archive.
     await httpRequest(`${handle.url}/api/plans/12--example/archive`, 'DELETE');
     // self-review with an invalid path is rejected before any spawn.
-    await httpRequest(`${handle.url}/api/self-review`, 'POST', JSON.stringify({ path: '' }));
+    await httpRequest(
+      `${handle.url}/api/self-review`,
+      'POST',
+      JSON.stringify({ path: '' }),
+      authorized()
+    );
 
     expect(checksumTree(root)).toEqual(before);
     expect(fs.existsSync(path.join(root, 'plans', '12--example'))).toBe(true);
 
     // The archive POST is the one request that does mutate the workspace.
-    const res = await httpRequest(`${handle.url}/api/plans/12--example/archive`, 'POST', '{}');
+    const res = await httpRequest(
+      `${handle.url}/api/plans/12--example/archive`,
+      'POST',
+      '{}',
+      authorized()
+    );
     expect(res.status).toBe(200);
     expect(checksumTree(root)).not.toEqual(before);
   });

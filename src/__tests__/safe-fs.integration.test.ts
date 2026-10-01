@@ -20,6 +20,7 @@ import {
   resolveContained,
   readContainedFile,
   writeFileAtomic,
+  writeFileAtomicSync,
 } from '../skill-scripts/shared/safe-fs';
 
 const isWindows = process.platform === 'win32';
@@ -208,6 +209,29 @@ describe('writeFileAtomic', () => {
     for (const r of results) expect('error' in r).toBe(false);
     const final = fs.readFileSync(path.join(root, 'config', 'hooks', 'A.md'), 'utf8');
     expect(payloads).toContain(final);
+    expect(tmpFilesIn(path.join(root, 'config', 'hooks'))).toEqual([]);
+  });
+});
+
+describe('writeFileAtomicSync', () => {
+  it('creates with mode 0600, refuses a linked leaf, and leaves no temp file', () => {
+    const created = writeFileAtomicSync(root, 'config/hooks/NEW.md', 'created\n');
+    expect('error' in created).toBe(false);
+    const target = path.join(root, 'config', 'hooks', 'NEW.md');
+    expect(fs.readFileSync(target, 'utf8')).toBe('created\n');
+    if (!isWindows) expect(fs.statSync(target).mode & 0o777).toBe(0o600);
+
+    const rewritten = writeFileAtomicSync(root, 'config/hooks/NEW.md', 'again\n', {
+      mustExist: true,
+    });
+    expect('error' in rewritten).toBe(false);
+    expect(fs.readFileSync(target, 'utf8')).toBe('again\n');
+
+    fs.symlinkSync(sentinel, path.join(root, 'config', 'hooks', 'LINK.md'));
+    const leaf = writeFileAtomicSync(root, 'config/hooks/LINK.md', 'pwned');
+    expect(errorCode(leaf)).toBe('symlink');
+    expect(fs.readFileSync(sentinel, 'utf8')).toBe('untouched\n');
+    expect(tmpFilesIn(outside)).toEqual([]);
     expect(tmpFilesIn(path.join(root, 'config', 'hooks'))).toEqual([]);
   });
 });

@@ -13,7 +13,9 @@ import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } fr
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import { init } from '../index';
+import { update } from '../update';
 import { loadMetadata, calculateFileHash } from '../metadata';
+import { FileSystemError } from '../types';
 
 // Mock chalk before importing modules to avoid ESM issues in tests
 vi.mock('chalk', () => {
@@ -345,6 +347,72 @@ describe('Conflict Detection Integration Tests', () => {
       });
 
       expect(result2.success).toBe(true);
+    });
+  });
+
+  describe.skipIf(process.platform === 'win32')('Link-backed metadata', () => {
+    let project: string;
+    let outside: string;
+    let sentinel: string;
+    let metadataPath: string;
+
+    beforeEach(async () => {
+      project = path.join(testDir, 'project');
+      outside = path.join(testDir, 'outside');
+      sentinel = path.join(outside, 'metadata.json');
+      metadataPath = path.join(project, '.ai/strikethroo/.init-metadata.json');
+      await fs.ensureDir(outside);
+      await fs.writeFile(sentinel, 'untouched', 'utf-8');
+    });
+
+    it('fails first-time init when the metadata file is a link and keeps the target intact', async () => {
+      await fs.ensureDir(path.dirname(metadataPath));
+      await fs.symlink(sentinel, metadataPath);
+
+      await expect(loadMetadata(metadataPath)).rejects.toBeInstanceOf(FileSystemError);
+
+      const result = await init({ harnesses: 'claude', destinationDirectory: project });
+      expect(result.success).toBe(false);
+      expect(result.message).toMatch(/symbolic link/);
+      expect(result.message).toContain('.init-metadata.json');
+      expect(await fs.readFile(sentinel, 'utf-8')).toBe('untouched');
+      expect((await fs.lstat(metadataPath)).isSymbolicLink()).toBe(true);
+    });
+
+    it('fails re-init and update when metadata was swapped for a link, keeping the target intact', async () => {
+      const first = await init({ harnesses: 'claude', destinationDirectory: project });
+      expect(first.success).toBe(true);
+      await fs.remove(metadataPath);
+      await fs.symlink(sentinel, metadataPath);
+
+      const reinit = await init({
+        harnesses: 'claude',
+        destinationDirectory: project,
+        force: true,
+      });
+      expect(reinit.success).toBe(false);
+      expect(reinit.message).toMatch(/symbolic link/);
+
+      const updated = await update({ destinationDirectory: project, force: true });
+      expect(updated.success).toBe(false);
+      expect(updated.workspaceSuccess).toBe(false);
+      expect(updated.message).toMatch(/symbolic link/);
+
+      expect(await fs.readFile(sentinel, 'utf-8')).toBe('untouched');
+      expect((await fs.lstat(metadataPath)).isSymbolicLink()).toBe(true);
+    });
+
+    it('fails when a workspace parent directory is a link and copies nothing through it', async () => {
+      const linkedTarget = path.join(outside, 'elsewhere');
+      await fs.ensureDir(linkedTarget);
+      await fs.ensureDir(path.join(project, '.ai'));
+      await fs.symlink(linkedTarget, path.join(project, '.ai/strikethroo'), 'dir');
+
+      const result = await init({ harnesses: 'claude', destinationDirectory: project });
+      expect(result.success).toBe(false);
+      expect(result.message).toMatch(/symbolic link/);
+      expect(result.message).toContain('strikethroo');
+      expect(await fs.readdir(linkedTarget)).toEqual([]);
     });
   });
 });

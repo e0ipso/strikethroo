@@ -10,7 +10,7 @@ import chalk from 'chalk';
 import { init } from './index';
 import { loadMetadata } from './metadata';
 import { resolveInitHarnesses } from './resolve-init-harnesses';
-import { CommandResult, UpdateOptions } from './types';
+import { CommandResult, InitMetadata, UpdateOptions } from './types';
 
 /** Strikethroo workflow skills targeted by `strikethroo update`. */
 export const STRIKETHROO_WORKFLOW_SKILLS = [
@@ -95,7 +95,20 @@ export async function update(options: UpdateOptions): Promise<UpdateResult> {
   const resolvedBaseDir = resolvePath(baseDir);
   const metadataPath = resolvePath(baseDir, '.ai/strikethroo/.init-metadata.json');
 
-  const existingMetadata = await loadMetadata(metadataPath);
+  let existingMetadata: InitMetadata | null;
+  try {
+    existingMetadata = await loadMetadata(metadataPath);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to read workspace metadata.';
+    console.error(chalk.red(`\n✗ Update failed: ${message}\n`));
+    return {
+      success: false,
+      workspaceSuccess: false,
+      skillsSuccess: false,
+      message,
+      error: error instanceof Error ? error : new Error(String(error)),
+    };
+  }
   if (!existingMetadata) {
     const message =
       'Workspace is not initialized. Run `strikethroo init --harnesses <harnesses>` first.';

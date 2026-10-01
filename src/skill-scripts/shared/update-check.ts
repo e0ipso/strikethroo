@@ -3,6 +3,7 @@ import * as path from 'path';
 import { execFileSync } from 'child_process';
 import * as semver from 'semver';
 import { normalizeSavedHarnesses } from '../../resolve-init-harnesses';
+import { writeFileAtomicSync } from './safe-fs';
 
 declare const SKILL_RELEASE_VERSION: string;
 
@@ -229,11 +230,10 @@ const defaultReleaseLock = (lockPath: string): void => {
 
 const defaultWriteTextFile = (filePath: string, contents: string): boolean => {
   try {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    const tempPath = `${filePath}.tmp-${process.pid}`;
-    fs.writeFileSync(tempPath, contents);
-    fs.renameSync(tempPath, filePath);
-    return true;
+    const dir = path.dirname(filePath);
+    fs.mkdirSync(dir, { recursive: true });
+    // Exclusive random temp file, fsync, rename; never through a planted link.
+    return !('error' in writeFileAtomicSync(dir, path.basename(filePath), contents));
   } catch {
     return false;
   }

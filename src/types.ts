@@ -357,6 +357,18 @@ export type ConflictResolution = 'keep' | 'overwrite' | 'keep-all' | 'overwrite-
  * Thrown before any workspace mutation so a failed import never leaves a
  * partially applied profile behind.
  */
+/**
+ * A filesystem operation was refused because a path is not what the CLI
+ * expects on disk: a symbolic link where a regular file or directory must be,
+ * or a write that would leave its containment root.
+ */
+export class FileSystemError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FileSystemError';
+  }
+}
+
 export class ProfileError extends Error {
   /**
    * Underlying error that triggered this failure, when one exists

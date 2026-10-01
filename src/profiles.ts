@@ -211,6 +211,16 @@ export async function resolveProfileSource(value: string): Promise<ResolvedProfi
     return { kind: 'local', location: localPath };
   }
 
+  // Anything else reaches `git clone` as an argument, so refuse values git
+  // would read as an option even though the clone passes `--` as well.
+  if (value.startsWith('-')) {
+    throw new ProfileError(
+      `Profile source must not start with "-": '${value}' is not an existing directory and ` +
+        `would be handed to git as an option. Use a package folder path, a <user>/<repo> ` +
+        `GitHub shorthand, or a git URL.`
+    );
+  }
+
   if (GITHUB_SHORTHAND_PATTERN.test(value)) {
     return { kind: 'git', location: `https://github.com/${value}.git` };
   }
@@ -279,8 +289,9 @@ async function cloneRemoteProfile(url: string, tempDirs: string[]): Promise<stri
   tempDirs.push(cloneDir);
 
   try {
-    // git clones into an existing empty directory without complaint.
-    await execFileAsync('git', ['clone', '--depth', '1', url, cloneDir]);
+    // git clones into an existing empty directory without complaint. `--`
+    // ends option parsing so the source can never be read as a git option.
+    await execFileAsync('git', ['clone', '--depth', '1', '--', url, cloneDir]);
   } catch (error) {
     if (isEnoentError(error)) {
       throw new ProfileError(
@@ -387,9 +398,29 @@ function isEnoentError(error: unknown): boolean {
 async function readManifest(profileDir: string): Promise<ProfileManifest> {
   const manifestPath = path.join(profileDir, 'profile.yaml');
 
-  if (!(await fs.pathExists(manifestPath))) {
+  let manifestStat: fs.Stats;
+  try {
+    manifestStat = await fs.lstat(manifestPath);
+  } catch (error) {
+    if (isEnoentError(error)) {
+      throw new ProfileError(
+        `Profile manifest not found: expected profile.yaml at the package root (${profileDir})`
+      );
+    }
     throw new ProfileError(
-      `Profile manifest not found: expected profile.yaml at the package root (${profileDir})`
+      `Failed to read profile.yaml in ${profileDir}: ${formatCause(error)}`,
+      error
+    );
+  }
+  if (manifestStat.isSymbolicLink()) {
+    throw new ProfileError(
+      `Profile package entry profile.yaml is a symbolic link (${manifestPath}). ` +
+        `Replace it with a regular file; a package must carry its own manifest.`
+    );
+  }
+  if (!manifestStat.isFile()) {
+    throw new ProfileError(
+      `Profile package entry profile.yaml must be a regular file (${manifestPath})`
     );
   }
 
@@ -615,12 +646,26 @@ function validateRequirementList(
 async function validateConfigSurface(profileDir: string): Promise<void> {
   const configDir = path.join(profileDir, 'config');
 
-  if (!(await fs.pathExists(configDir))) {
+  let configStat: fs.Stats;
+  try {
+    configStat = await fs.lstat(configDir);
+  } catch (error) {
+    if (isEnoentError(error)) {
+      throw new ProfileError(
+        `Profile package is missing its config/ directory: expected ${configDir}`
+      );
+    }
     throw new ProfileError(
-      `Profile package is missing its config/ directory: expected ${configDir}`
+      `Failed to inspect profile package config/ at ${configDir}: ${formatCause(error)}`,
+      error
     );
   }
-  const configStat = await fs.stat(configDir);
+  if (configStat.isSymbolicLink()) {
+    throw new ProfileError(
+      `Profile package entry config/ is a symbolic link (${configDir}). Replace it with a ` +
+        `regular directory; a package must carry its own copies of every file.`
+    );
+  }
   if (!configStat.isDirectory()) {
     throw new ProfileError(`Profile package config/ must be a directory: ${configDir}`);
   }
@@ -628,6 +673,7 @@ async function validateConfigSurface(profileDir: string): Promise<void> {
   const rootEntries = await readEntries(configDir);
   for (const entry of rootEntries) {
     rejectUnsafeSegment(entry.name, entry.name);
+    rejectSymbolicLink(entry, entry.name);
 
     if (entry.isFile()) {
       if (!(ALLOWED_CONFIG_ROOT_FILES as readonly string[]).includes(entry.name)) {
@@ -669,6 +715,7 @@ async function validateMarkdownOnlyDir(dirPath: string, relDir: string): Promise
   for (const entry of entries) {
     const relPath = `${relDir}/${entry.name}`;
     rejectUnsafeSegment(entry.name, relPath);
+    rejectSymbolicLink(entry, relPath);
 
     if (entry.isDirectory()) {
       throw new ProfileError(
@@ -697,6 +744,20 @@ async function readEntries(dirPath: string): Promise<fs.Dirent[]> {
     throw new ProfileError(
       `Failed to read profile package directory ${dirPath}: ${formatCause(error)}`,
       error
+    );
+  }
+}
+
+/**
+ * Reject a symbolic link anywhere in the config surface, naming the entry
+ * @param entry - Directory entry read with file types
+ * @param relPath - Path relative to `config/` for error reporting
+ */
+function rejectSymbolicLink(entry: fs.Dirent, relPath: string): void {
+  if (entry.isSymbolicLink()) {
+    throw new ProfileError(
+      `Profile package entry config/${relPath} is a symbolic link. Replace it with a regular ` +
+        `file or directory; a package must carry its own copies of every file.`
     );
   }
 }

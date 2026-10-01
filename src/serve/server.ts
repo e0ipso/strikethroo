@@ -20,6 +20,15 @@
  * and method second, so a wrong method answers `405` and a mutation path never
  * reaches a read handler. Body-bearing mutations require `application/json`.
  *
+ * Mutations are additionally gated on a per-start capability: a random token
+ * minted in {@link startServer}, handed out only by `GET /api/session` to a
+ * same-origin request, and required in {@link CAPABILITY_HEADER}. Together with
+ * the Origin/fetch-metadata check this closes CSRF and DNS-rebinding paths from
+ * a browser. It is a browser/request safeguard only: it does not isolate the
+ * server from another local process that can already read the user's files
+ * (and so the token). No cookies, no accounts, no CORS — the token lives in
+ * the page's memory and is never persisted, logged, or placed in a URL.
+ *
  * The SSE change stream (`GET /api/events`) is added by a separate module that
  * hooks into the `apiHandlers` extension point below, so this module stays free
  * of file-watching concerns. Node built-ins only — no runtime dependency, no
@@ -29,11 +38,12 @@
 import * as http from 'http';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import { spawn } from 'child_process';
 import { URL } from 'url';
 import { getWorkspaceModel, getPlanDetail, getConfig } from './workspace-model';
 import { EventsHub } from './events';
-import { isSelfReviewAvailable, launchSelfReview } from './self-review';
+import { isSelfReviewAvailable, launchSelfReview, LaunchDeps } from './self-review';
 import { archivePlan } from './archive';
 import { writeConfigFile } from './config-write';
 
@@ -64,6 +74,11 @@ export interface ServeOptions {
    * flag — the viewer is never served beyond the local machine.
    */
   host?: string;
+  /**
+   * Seams for the self-review launcher (availability probe and spawn).
+   * Test-only: lets a suite prove a rejected request launched nothing.
+   */
+  selfReviewDeps?: LaunchDeps;
 }
 
 /** A pluggable `/api/*` handler. Returns `true` if it handled the request. */
@@ -80,7 +95,16 @@ export interface ServeHandle {
   port: number;
   /** The SSE change-stream hub backing `GET /api/events`. */
   events: EventsHub;
+  /**
+   * This instance's mutation capability. Test-only: production callers (the
+   * CLI) must never print, log, or persist it; the SPA obtains it from
+   * `GET /api/session`.
+   */
+  capability?: string;
 }
+
+/** Request header carrying the mutation capability. */
+export const CAPABILITY_HEADER = 'X-Strikethroo-Capability';
 
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -165,12 +189,13 @@ const sendError = (res: http.ServerResponse, status: number, body: unknown): voi
 export interface GuardContext {
   /** Lower-case `host[:port]` authorities this server answers for. */
   allowedHosts: ReadonlySet<string>;
+  /** The per-start mutation capability (see the module comment). */
+  capability: string;
 }
 
 /**
- * Outcome of {@link guardRequest}: the parsed path to route, or a complete
- * rejection the caller writes verbatim. Later guards (Origin, mutation
- * capability) extend this same shape.
+ * Outcome of {@link guardRequest} and the per-route guards: the parsed path to
+ * route, or a complete rejection the caller writes verbatim.
  */
 export type GuardResult =
   | { ok: true; pathname: string }
@@ -184,6 +209,7 @@ const reject = (status: number, error: string): GuardResult => ({
 
 const BAD_REQUEST = reject(400, 'Bad request.');
 const MISDIRECTED = reject(421, 'Misdirected request.');
+const FORBIDDEN = reject(403, 'Forbidden.');
 
 /**
  * Runs before routing, for every request. Refuses any `Host` that is not one
@@ -215,6 +241,39 @@ export const guardRequest = (req: http.IncomingMessage, ctx: GuardContext): Guar
     return BAD_REQUEST;
   }
   return { ok: true, pathname: url.pathname };
+};
+
+/**
+ * Same-origin policy for the session bootstrap and every mutation. The request
+ * must carry no cross-site fetch metadata (`Sec-Fetch-Site` absent, `same-origin`
+ * or `none` — a page we served, or a direct navigation) and any `Origin` present
+ * must be `http://<allowed authority>`. `same-site`, `cross-site`, `null`, and a
+ * foreign or https Origin are all refused. Both headers are forbidden request
+ * headers in browsers, so a page cannot forge them; non-browser callers are
+ * what the capability is for.
+ */
+const guardSameOrigin = (req: http.IncomingMessage, ctx: GuardContext): GuardResult | null => {
+  const site = req.headers['sec-fetch-site'];
+  if (site !== undefined && site !== 'same-origin' && site !== 'none') return FORBIDDEN;
+  const origin = req.headers.origin;
+  if (origin === undefined) return null;
+  const lower = origin.toLowerCase();
+  for (const host of ctx.allowedHosts) {
+    if (lower === `http://${host}`) return null;
+  }
+  return FORBIDDEN;
+};
+
+/** Constant-time check that {@link CAPABILITY_HEADER} carries this instance's token. */
+const guardCapability = (req: http.IncomingMessage, ctx: GuardContext): GuardResult | null => {
+  const header = req.headers[CAPABILITY_HEADER.toLowerCase()];
+  if (typeof header !== 'string') return FORBIDDEN;
+  const presented = Buffer.from(header);
+  const expected = Buffer.from(ctx.capability);
+  if (presented.length !== expected.length || !crypto.timingSafeEqual(presented, expected)) {
+    return FORBIDDEN;
+  }
+  return null;
 };
 
 /** True when `Content-Type` is `application/json`, any case, parameters allowed. */
@@ -337,6 +396,8 @@ interface RouteContext {
   root: string;
   pathname: string;
   events: EventsHub;
+  guard: GuardContext;
+  selfReviewDeps?: LaunchDeps;
 }
 
 type RouteHandler = (
@@ -349,6 +410,14 @@ interface Route {
   pattern: RegExp;
   /** Accepted methods, also the `Allow` header on a `405`. */
   methods: readonly string[];
+  /** When set, the request must pass {@link guardSameOrigin} (`403` otherwise). */
+  sameOrigin?: true;
+  /**
+   * A workspace mutation or process launch: implies `sameOrigin` and requires
+   * {@link CAPABILITY_HEADER} (`403` otherwise). Both run before the media-type
+   * check and before any body is read.
+   */
+  mutation?: true;
   /** When set, the request must carry `Content-Type: application/json` (`415` otherwise). */
   requiresJson?: true;
   handle: RouteHandler;
@@ -446,7 +515,11 @@ const handleSelfReview: RouteHandler = (req, res, ctx) => {
   readJsonBody(req)
     .then(body => {
       const clientPath = (body as { path?: unknown }).path;
-      const result = launchSelfReview(ctx.root, typeof clientPath === 'string' ? clientPath : '');
+      const result = launchSelfReview(
+        ctx.root,
+        typeof clientPath === 'string' ? clientPath : '',
+        ctx.selfReviewDeps
+      );
       sendJson(res, result.status, result.body);
     })
     .catch((err: unknown) => {
@@ -546,27 +619,46 @@ const API_ROUTES: readonly Route[] = [
     },
   },
   {
+    // Capability bootstrap: the only response that ever carries the token. A
+    // cross-origin page cannot read it (no CORS headers), a cross-site fetch is
+    // refused outright, and the Host guard already stopped DNS rebinding.
+    pattern: /^\/api\/session\/?$/,
+    methods: ['GET'],
+    sameOrigin: true,
+    handle: (_req, res, ctx) => {
+      sendJson(res, 200, { token: ctx.guard.capability }, { 'Cache-Control': 'no-store' });
+    },
+  },
+  {
     pattern: /^\/api\/plans\/[^/]+\/archive\/?$/,
     methods: ['POST'],
+    mutation: true,
     requiresJson: true,
     handle: handleArchive,
   },
   {
     pattern: /^\/api\/self-review\/?$/,
     methods: ['POST'],
+    mutation: true,
     requiresJson: true,
     handle: handleSelfReview,
   },
   {
     pattern: /^\/api\/config\/[^/]+\/[^/]+\/?$/,
     methods: ['PUT'],
+    mutation: true,
     requiresJson: true,
     handle: handleConfigWrite,
   },
   { pattern: /^\/api\/plans\/[^/]+\/?$/, methods: READ_METHODS, handle: handlePlanDetail },
 ];
 
-/** Routes a guarded `/api/*` request through {@link API_ROUTES}. */
+/**
+ * Routes a guarded `/api/*` request through {@link API_ROUTES}. Check order,
+ * after the Host guard that already ran: path, method, Origin and fetch
+ * metadata, capability, media type, then the handler — which is the first thing
+ * to read the body, touch a file, or launch a process.
+ */
 const routeApi = (req: http.IncomingMessage, res: http.ServerResponse, ctx: RouteContext): void => {
   const route = API_ROUTES.find(candidate => candidate.pattern.test(ctx.pathname));
   if (!route) {
@@ -575,6 +667,13 @@ const routeApi = (req: http.IncomingMessage, res: http.ServerResponse, ctx: Rout
   }
   if (!route.methods.includes(req.method ?? '')) {
     sendJson(res, 405, { error: 'Method not allowed.' }, { Allow: route.methods.join(', ') });
+    return;
+  }
+  const rejection =
+    (route.sameOrigin || route.mutation ? guardSameOrigin(req, ctx.guard) : null) ??
+    (route.mutation ? guardCapability(req, ctx.guard) : null);
+  if (rejection && !rejection.ok) {
+    sendJson(res, rejection.status, rejection.body, rejection.headers);
     return;
   }
   if (route.requiresJson && !isJson(req)) {
@@ -683,9 +782,14 @@ export const startServer = async (opts: ServeOptions): Promise<ServeHandle> => {
   const extraHandlers = opts.apiHandlers ?? [];
   const events = new EventsHub(opts.root, opts.debounceMs);
 
-  // Filled in once `listen` resolves (port 0 is ephemeral); empty until then,
-  // which refuses everything — no request can arrive before that anyway.
-  const guardContext: { allowedHosts: ReadonlySet<string> } = { allowedHosts: new Set() };
+  // One capability per start; it lives in this closure and leaves the process
+  // only through `GET /api/session` (and the test-only handle field).
+  const capability = crypto.randomBytes(32).toString('base64url');
+
+  // `allowedHosts` is filled in once `listen` resolves (port 0 is ephemeral);
+  // empty until then, which refuses everything — no request can arrive before
+  // that anyway.
+  const guardContext: GuardContext = { allowedHosts: new Set(), capability };
 
   const handleRequest = (req: http.IncomingMessage, res: http.ServerResponse): void => {
     const guard = guardRequest(req, guardContext);
@@ -699,7 +803,13 @@ export const startServer = async (opts: ServeOptions): Promise<ServeHandle> => {
       for (const handler of extraHandlers) {
         if (handler(req, res, { root: opts.root, pathname })) return;
       }
-      routeApi(req, res, { root: opts.root, pathname, events });
+      routeApi(req, res, {
+        root: opts.root,
+        pathname,
+        events,
+        guard: guardContext,
+        selfReviewDeps: opts.selfReviewDeps,
+      });
       return;
     }
 
@@ -770,5 +880,5 @@ export const startServer = async (opts: ServeOptions): Promise<ServeHandle> => {
   const url = `http://${bound}`;
   events.start();
   if (opts.open) openBrowser(url);
-  return { url, server, port: boundPort, events };
+  return { url, server, port: boundPort, events, capability };
 };

@@ -9,7 +9,9 @@ import { resolvePlan } from './shared/plan-resolve';
 import { discoverHarnesses } from './shared/harness-discovery';
 import { dispatchReview, executableOnPath } from './shared/external-dispatch';
 import {
+  countCommentsWithXmllint,
   countFindings,
+  hasForbiddenDeclarations,
   parseReviewFindings,
   SEVERITIES,
   validateAgainstSchema,
@@ -101,13 +103,20 @@ export type FindingsGateOutcome =
 /** Supply this to evaluate the reviewer's emitted findings. */
 export type FindingsGate = (context: FindingsEvaluationContext) => Promise<FindingsGateOutcome>;
 
+export interface FindingsGateOptions {
+  /** Independent `<comment>` count the scanner is checked against. Injectable for tests only. */
+  countComments?: (xmlFile: string) => Promise<number | null>;
+}
+
 /**
- * Validate the delivered document against the XSD and record the outcome to
- * `<plan-dir>/review/findings.json`, on every outcome including failures.
+ * Refuse DTD syntax, validate the delivered document against the XSD, read its
+ * findings, cross-check that read against libxml's count, and record the outcome
+ * to `<plan-dir>/review/findings.json`, on every outcome including failures.
  */
 export const createFindingsGate =
-  (): FindingsGate =>
+  (options: FindingsGateOptions = {}): FindingsGate =>
   async (context: FindingsEvaluationContext): Promise<FindingsGateOutcome> => {
+    const countComments = options.countComments ?? countCommentsWithXmllint;
     const reviewDir = path.dirname(context.reviewFile);
     const findingsFile = path.join(reviewDir, FINDINGS_FILE_NAME);
     const record = (payload: Record<string, unknown>): void => {
@@ -149,6 +158,16 @@ export const createFindingsGate =
       );
     }
 
+    if (hasForbiddenDeclarations(delivered)) {
+      const detail =
+        `${context.reviewFile} carries a DOCTYPE or entity declaration (<!DOCTYPE, <!ENTITY, ` +
+        "<!ELEMENT, <!ATTLIST or <!NOTATION). The review gate accepts only the schema's own " +
+        'syntax, so the document was refused before validation and none of its findings was ' +
+        'recorded.';
+      record({ ...base, status: 'schema-invalid', detail, findings: [] });
+      return { kind: 'schema-invalid', detail };
+    }
+
     const validation = await validateAgainstSchema(context.xsdFile, context.reviewFile);
     if (validation.kind === 'validator-unavailable') {
       record({
@@ -174,8 +193,26 @@ export const createFindingsGate =
       return { kind: 'findings-absent', detail };
     }
 
-    // Safe only after validation: the scan assumes the XSD's shape.
+    // Safe only after validation: the scan assumes the XSD's shape. Even then it
+    // certifies only a count libxml confirms.
     const findings = parseReviewFindings(xml);
+    const independent = await countComments(context.reviewFile);
+    if (independent === null) {
+      const detail =
+        `${context.reviewFile} validated, but xmllint could not independently count its ` +
+        `<comment> elements, so the ${findings.length} finding(s) the scanner read could not ` +
+        'be certified and none was recorded.';
+      record({ ...base, status: 'validator-unavailable', detail, findings: [] });
+      return { kind: 'validator-unavailable', detail };
+    }
+    if (independent !== findings.length) {
+      const detail =
+        `${context.reviewFile} validated, but the scanner read ${findings.length} finding(s) ` +
+        `where xmllint counted ${independent} <comment> element(s). A count that disagrees ` +
+        'with the validated document cannot be certified, so none of the findings was recorded.';
+      record({ ...base, status: 'findings-absent', detail, findings: [] });
+      return { kind: 'findings-absent', detail };
+    }
     const counts = countFindings(findings);
     record({ ...base, status: 'evaluated', counts, findings });
     return { kind: 'evaluated', counts, findingsFile };

@@ -233,6 +233,34 @@ export function useConfig(): Resource<Config> {
   return resource;
 }
 
+/* ---------------------------------------------------------------------------
+ * Mutation capability
+ *
+ * The server mints a random capability per start and requires it, in the
+ * header below, on every mutation (config write, archive, self-review). The
+ * SPA fetches it lazily from `GET /api/session` and keeps it only in this
+ * module-level variable: never storage, never a URL, never logged. Restart
+ * recovery (retry once on 403) and a shared in-flight bootstrap are a
+ * follow-up on this seam.
+ * ------------------------------------------------------------------------- */
+
+const CAPABILITY_HEADER = 'X-Strikethroo-Capability';
+
+let capability: string | null = null;
+
+async function getCapability(): Promise<string> {
+  if (capability) return capability;
+  const res = await fetch('/api/session', { cache: 'no-store' });
+  if (!res.ok) throw new Error(`Session bootstrap failed with status ${res.status}`);
+  capability = ((await res.json()) as { token: string }).token;
+  return capability;
+}
+
+/** Headers every mutation sends: JSON media type plus the capability. */
+async function mutationHeaders(): Promise<Record<string, string>> {
+  return { 'Content-Type': 'application/json', [CAPABILITY_HEADER]: await getCapability() };
+}
+
 /**
  * Overwrites an existing config file via `PUT /api/config/:kind/:id` with a
  * JSON `{ content }` body — the SPA's single config write path. `hooks` and
@@ -249,7 +277,7 @@ export async function saveConfigFile(
 ): Promise<void> {
   const res = await fetch(`/api/config/${kind}/${encodeURIComponent(id)}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await mutationHeaders(),
     body: JSON.stringify({ content }),
   });
   if (!res.ok) {
@@ -278,7 +306,7 @@ export async function launchSelfReview(path: string): Promise<LaunchResult> {
   try {
     const res = await fetch('/api/self-review', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await mutationHeaders(),
       body: JSON.stringify({ path }),
     });
     const data = (await res.json().catch(() => ({}))) as LaunchResult;
@@ -309,7 +337,7 @@ export async function archivePlan(name: string): Promise<ArchiveResult> {
   try {
     const res = await fetch(`/api/plans/${encodeURIComponent(name)}/archive`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await mutationHeaders(),
       body: '{}',
     });
     const data = (await res.json().catch(() => ({}))) as { error?: string };

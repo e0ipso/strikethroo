@@ -94,6 +94,24 @@ describe('resolveReviewPath', () => {
     const result = resolveReviewPath(ws.root, '   ');
     expect('error' in result && result.status).toBe(400);
   });
+
+  it('rejects a symlinked plan file or plan directory that points outside the workspace', () => {
+    const ws = makeWorkspace();
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-outside-'));
+    const outsideFile = path.join(outside, 'leak.md');
+    fs.writeFileSync(outsideFile, '# leak\n');
+    fs.symlinkSync(outsideFile, path.join(ws.root, 'plans', '01--demo', 'linked.md'));
+    fs.symlinkSync(outside, path.join(ws.root, 'plans', '03--linked'), 'dir');
+
+    const viaFile = resolveReviewPath(ws.root, '.ai/strikethroo/plans/01--demo/linked.md');
+    const viaDir = resolveReviewPath(ws.root, '.ai/strikethroo/plans/03--linked/leak.md');
+    for (const result of [viaFile, viaDir]) {
+      expect('error' in result).toBe(true);
+      if ('error' in result) expect(result.status).toBeGreaterThanOrEqual(400);
+      if ('error' in result) expect(result.status).toBeLessThan(500);
+    }
+    fs.rmSync(outside, { recursive: true, force: true });
+  });
 });
 
 describe('launchSelfReview', () => {

@@ -64,7 +64,7 @@ const commitAll = (dir: string, message: string): string => {
 
 /** The exact `git diff <base> --` invocation `code-review.ts`'s readCumulativeDiff uses. */
 const diffFromBase = (dir: string, base: string): string =>
-  execGit(`git -C ${JSON.stringify(dir)} diff ${base} --`) ?? '';
+  execGit(['-C', dir, 'diff', base, '--']) ?? '';
 
 const runCapture = (dir: string, planArg = '1') =>
   spawnSync(process.execPath, [bundle, planArg], { cwd: dir, encoding: 'utf8' });

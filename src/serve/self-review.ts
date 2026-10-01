@@ -19,6 +19,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
+import { resolveContained } from '../skill-scripts/shared/safe-fs';
 
 /** The binary name looked up on PATH and spawned. */
 export const SELF_REVIEW_BINARY = 'self-review';
@@ -111,7 +112,10 @@ const spawnDetached = (command: string, args: string[]): void => {
  * `root` is the absolute `.ai/strikethroo` directory; client paths are the
  * workspace-relative form the SPA shows (e.g. `.ai/strikethroo/plans/NN--s/…`),
  * so they are resolved against the project root (`root/../..`). Absolute client
- * paths are accepted too — the containment check is what enforces safety.
+ * paths are accepted too — the containment check is what enforces safety: the
+ * lexical check below picks the subtree, and the shared helper walks the real
+ * components so a symlinked plan file or directory is refused rather than
+ * followed out of the workspace.
  */
 export const resolveReviewPath = (
   root: string,
@@ -121,26 +125,35 @@ export const resolveReviewPath = (
     return { error: 'A plan path is required.', status: 400 };
   }
 
-  const projectRoot = path.resolve(root, '..', '..');
+  const absRoot = path.resolve(root);
+  const projectRoot = path.resolve(absRoot, '..', '..');
   const resolved = path.resolve(projectRoot, clientPath);
+  const rel = path.relative(absRoot, resolved);
+  const first = rel.split(path.sep)[0];
+  const outside = {
+    error: 'Plan path must be inside the workspace plans/ or archive/ directory.',
+    status: 400,
+  };
 
-  const plansDir = path.join(root, 'plans');
-  const archiveDir = path.join(root, 'archive');
-  const within = (dir: string): boolean => resolved === dir || resolved.startsWith(dir + path.sep);
-
-  if (!within(plansDir) && !within(archiveDir)) {
-    return {
-      error: 'Plan path must be inside the workspace plans/ or archive/ directory.',
-      status: 400,
-    };
+  if (path.isAbsolute(rel) || first === '..' || (first !== 'plans' && first !== 'archive')) {
+    return outside;
   }
 
-  try {
-    if (!fs.statSync(resolved).isFile()) {
-      return { error: 'Plan path does not point to a file.', status: 404 };
+  const contained = resolveContained(absRoot, rel);
+  if ('error' in contained) {
+    switch (contained.error) {
+      case 'not-found':
+        return { error: 'Plan file not found.', status: 404 };
+      case 'not-a-file':
+      case 'not-a-directory':
+        return { error: 'Plan path does not point to a file.', status: 404 };
+      case 'fs-error':
+        return { error: 'Plan path could not be inspected.', status: 500 };
+      default:
+        // invalid-path, outside-root, symlink: the path does not denote a plain
+        // file inside the workspace.
+        return outside;
     }
-  } catch {
-    return { error: 'Plan file not found.', status: 404 };
   }
 
   return { absPath: resolved };

@@ -309,6 +309,8 @@ export async function archivePlan(name: string): Promise<ArchiveResult> {
   try {
     const res = await fetch(`/api/plans/${encodeURIComponent(name)}/archive`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
     });
     const data = (await res.json().catch(() => ({}))) as { error?: string };
     if (!res.ok) {

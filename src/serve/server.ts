@@ -13,6 +13,13 @@
  *     external self-review binary for a validated in-workspace plan path;
  *   - platform-aware browser auto-open on startup.
  *
+ * The server is local-only by construction: it binds loopback, and every
+ * request — static, API, and the `apiHandlers` extension point — passes through
+ * {@link guardRequest} (Host authority, request-target parsing) and a single
+ * exception boundary before any route runs. Routes are matched by path first
+ * and method second, so a wrong method answers `405` and a mutation path never
+ * reaches a read handler. Body-bearing mutations require `application/json`.
+ *
  * The SSE change stream (`GET /api/events`) is added by a separate module that
  * hooks into the `apiHandlers` extension point below, so this module stays free
  * of file-watching concerns. Node built-ins only — no runtime dependency, no
@@ -51,6 +58,12 @@ export interface ServeOptions {
    * module's default; exposed mainly so tests can tighten it.
    */
   debounceMs?: number;
+  /**
+   * Loopback address to bind. Defaults to `127.0.0.1`, falling back to `::1`
+   * when the platform has no IPv4 loopback. Test-only; deliberately not a CLI
+   * flag — the viewer is never served beyond the local machine.
+   */
+  host?: string;
 }
 
 /** A pluggable `/api/*` handler. Returns `true` if it handled the request. */
@@ -117,14 +130,104 @@ const deriveProject = (root: string): { name: string; path: string } => {
  */
 export const defaultAssetsDir = (): string => path.resolve(__dirname, '..', '..', 'dist-web');
 
-const sendJson = (res: http.ServerResponse, status: number, body: unknown): void => {
+const sendJson = (
+  res: http.ServerResponse,
+  status: number,
+  body: unknown,
+  headers: Record<string, string> = {}
+): void => {
   const payload = JSON.stringify(body);
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Content-Length': Buffer.byteLength(payload),
+    ...headers,
   });
   res.end(payload);
 };
+
+/**
+ * Sends an error response if one can still be sent. Once headers are out the
+ * only honest option is to drop the connection, never a half-written body.
+ */
+const sendError = (res: http.ServerResponse, status: number, body: unknown): void => {
+  if (res.headersSent) {
+    res.destroy();
+    return;
+  }
+  sendJson(res, status, body);
+};
+
+// ---------------------------------------------------------------------------
+// Request guard
+// ---------------------------------------------------------------------------
+
+/** What the request handler knows about the running server; fixed after `listen`. */
+export interface GuardContext {
+  /** Lower-case `host[:port]` authorities this server answers for. */
+  allowedHosts: ReadonlySet<string>;
+}
+
+/**
+ * Outcome of {@link guardRequest}: the parsed path to route, or a complete
+ * rejection the caller writes verbatim. Later guards (Origin, mutation
+ * capability) extend this same shape.
+ */
+export type GuardResult =
+  | { ok: true; pathname: string }
+  | { ok: false; status: number; body: unknown; headers?: Record<string, string> };
+
+const reject = (status: number, error: string): GuardResult => ({
+  ok: false,
+  status,
+  body: { error },
+});
+
+const BAD_REQUEST = reject(400, 'Bad request.');
+const MISDIRECTED = reject(421, 'Misdirected request.');
+
+/**
+ * Runs before routing, for every request. Refuses any `Host` that is not one
+ * of the server's own loopback authorities (DNS-rebinding defense), then parses
+ * the request target: origin-form (`/path`) or absolute-form naming an allowed
+ * authority; anything else, including a target whose path does not
+ * percent-decode, is a `400`. The returned `pathname` is the only thing routing
+ * consumes.
+ */
+export const guardRequest = (req: http.IncomingMessage, ctx: GuardContext): GuardResult => {
+  const host = (req.headers.host ?? '').toLowerCase();
+  if (!ctx.allowedHosts.has(host)) return MISDIRECTED;
+
+  const target = req.url ?? '';
+  let url: URL;
+  try {
+    if (target.startsWith('/')) {
+      // `//authority/path` is scheme-relative, not origin-form; refuse it so the
+      // routed path is never taken from a smuggled authority.
+      if (target.startsWith('//')) return BAD_REQUEST;
+      url = new URL(target, 'http://127.0.0.1');
+    } else {
+      url = new URL(target);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') return BAD_REQUEST;
+      if (!ctx.allowedHosts.has(url.host.toLowerCase())) return MISDIRECTED;
+    }
+    decodeURIComponent(url.pathname);
+  } catch {
+    return BAD_REQUEST;
+  }
+  return { ok: true, pathname: url.pathname };
+};
+
+/** True when `Content-Type` is `application/json`, any case, parameters allowed. */
+const isJson = (req: http.IncomingMessage): boolean => {
+  const header = req.headers['content-type'];
+  if (typeof header !== 'string') return false;
+  const mediaType = header.split(';', 1)[0]?.trim().toLowerCase();
+  return mediaType === 'application/json';
+};
+
+// ---------------------------------------------------------------------------
+// Route handlers
+// ---------------------------------------------------------------------------
 
 /** The composite plan key grammar: `{id}--{slug}`, e.g. `28--plan-name`. */
 const COMPOSITE_KEY = /^[0-9]+--[a-z0-9-]+$/;
@@ -167,18 +270,147 @@ const parseArchivePlanId = (pathname: string): string | null => {
 };
 
 /**
+ * Max accepted request-body size (bytes). The self-review body is tiny JSON,
+ * but the config-write route carries whole markdown files, which can exceed
+ * 64 KiB once edited — so the cap is 1 MiB.
+ */
+const MAX_BODY_BYTES = 1024 * 1024;
+
+/** A body-reading failure that already knows its HTTP status. */
+class BodyError extends Error {
+  constructor(
+    readonly status: number,
+    message: string
+  ) {
+    super(message);
+  }
+}
+
+/**
+ * Reads and JSON-parses a request body. Rejects with a {@link BodyError}: `413`
+ * when the declared or actual size exceeds {@link MAX_BODY_BYTES}, `400` when
+ * the body is empty or not JSON. An oversized body is answered, not reset, so
+ * the client sees the `413`; Node drains the remainder after the response.
+ */
+const readJsonBody = (req: http.IncomingMessage): Promise<unknown> =>
+  new Promise((resolve, reject) => {
+    const tooLarge = new BodyError(413, 'Request body too large');
+    const declared = Number(req.headers['content-length']);
+    if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+      reject(tooLarge);
+      return;
+    }
+    let size = 0;
+    let failed = false;
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => {
+      if (failed) return;
+      size += chunk.length;
+      if (size > MAX_BODY_BYTES) {
+        failed = true;
+        chunks.length = 0;
+        reject(tooLarge);
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      if (failed) return;
+      const raw = Buffer.concat(chunks).toString('utf8').trim();
+      if (raw === '') {
+        reject(new BodyError(400, 'Request body must be a JSON document'));
+        return;
+      }
+      try {
+        resolve(JSON.parse(raw));
+      } catch {
+        reject(new BodyError(400, 'Invalid JSON body'));
+      }
+    });
+    req.on('error', reject);
+  });
+
+const bodyErrorStatus = (err: unknown): number => (err instanceof BodyError ? err.status : 500);
+
+/** Everything a route handler may need; `pathname` comes from the guard. */
+interface RouteContext {
+  root: string;
+  pathname: string;
+  events: EventsHub;
+}
+
+type RouteHandler = (
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  ctx: RouteContext
+) => void;
+
+interface Route {
+  pattern: RegExp;
+  /** Accepted methods, also the `Allow` header on a `405`. */
+  methods: readonly string[];
+  /** When set, the request must carry `Content-Type: application/json` (`415` otherwise). */
+  requiresJson?: true;
+  handle: RouteHandler;
+}
+
+const READ_METHODS = ['GET', 'HEAD'] as const;
+
+/** Malformed workspace data is a concise `500`, never a stack trace. */
+const sendReadFailure = (res: http.ServerResponse, err: unknown): void => {
+  sendJson(res, 500, {
+    error: `Failed to read workspace: ${err instanceof Error ? err.message : String(err)}`,
+  });
+};
+
+/** Wraps a synchronous workspace read as a `200` JSON route. */
+const readRoute =
+  (read: (ctx: RouteContext) => unknown): RouteHandler =>
+  (_req, res, ctx) => {
+    let body: unknown;
+    try {
+      body = read(ctx);
+    } catch (err) {
+      sendReadFailure(res, err);
+      return;
+    }
+    sendJson(res, 200, body);
+  };
+
+const handlePlanDetail: RouteHandler = (_req, res, ctx) => {
+  const key = parsePlanId(ctx.pathname);
+  if (key === null) {
+    sendJson(res, 404, { error: 'Invalid plan id' });
+    return;
+  }
+  let detail: ReturnType<typeof getPlanDetail>;
+  try {
+    detail = getPlanDetail(ctx.root, key);
+  } catch (err) {
+    sendReadFailure(res, err);
+    return;
+  }
+  if (!detail) {
+    sendJson(res, 404, { error: `Plan ${key} not found` });
+    return;
+  }
+  sendJson(res, 200, detail);
+};
+
+/**
  * Handles `POST /api/plans/:id/archive`: delegates entirely to the {@link
  * archivePlan} operation and maps its discriminated result to status codes
- * without duplicating validation. Returns `true` once it owns the response.
+ * without duplicating validation. A JSON body is required; `{}` is enough.
  */
-const handleArchive = (res: http.ServerResponse, root: string, pathname: string): boolean => {
-  const key = parseArchivePlanId(pathname);
+const handleArchive: RouteHandler = (req, res, ctx) => {
+  const key = parseArchivePlanId(ctx.pathname);
   if (key === null) {
     sendJson(res, 400, { error: 'Invalid plan id.' });
-    return true;
+    return;
   }
 
-  archivePlan(root, key)
+  readJsonBody(req)
+    .then(() => archivePlan(ctx.root, key))
     .then(result => {
       if (result.ok) {
         sendJson(res, 200, result.plan);
@@ -198,110 +430,31 @@ const handleArchive = (res: http.ServerResponse, root: string, pathname: string)
           sendJson(res, 500, { error: 'Failed to archive plan.' });
       }
     })
-    .catch(() => {
-      sendJson(res, 500, { error: 'Failed to archive plan.' });
+    .catch((err: unknown) => {
+      const status = bodyErrorStatus(err);
+      sendError(res, status, {
+        error: err instanceof BodyError ? err.message : 'Failed to archive plan.',
+      });
     });
-  return true;
 };
-
-/** Handles the built-in read-only API. Returns `true` when the request matched. */
-const handleApi = (res: http.ServerResponse, root: string, pathname: string): boolean => {
-  try {
-    if (pathname === '/api/plans' || pathname === '/api/plans/') {
-      sendJson(res, 200, getWorkspaceModel(root).plans);
-      return true;
-    }
-
-    if (pathname === '/api/config' || pathname === '/api/config/') {
-      sendJson(res, 200, getConfig(root));
-      return true;
-    }
-
-    if (pathname === '/api/capabilities' || pathname === '/api/capabilities/') {
-      sendJson(res, 200, { selfReview: isSelfReviewAvailable(), project: deriveProject(root) });
-      return true;
-    }
-
-    if (/^\/api\/plans\/[^/]+\/?$/.test(pathname)) {
-      const key = parsePlanId(pathname);
-      if (key === null) {
-        sendJson(res, 404, { error: 'Invalid plan id' });
-        return true;
-      }
-      const detail = getPlanDetail(root, key);
-      if (!detail) {
-        sendJson(res, 404, { error: `Plan ${key} not found` });
-        return true;
-      }
-      sendJson(res, 200, detail);
-      return true;
-    }
-
-    return false;
-  } catch (err) {
-    // Malformed workspace data: concise message, never a raw stack trace.
-    sendJson(res, 500, {
-      error: `Failed to read workspace: ${err instanceof Error ? err.message : String(err)}`,
-    });
-    return true;
-  }
-};
-
-/**
- * Max accepted request-body size (bytes). The self-review body is tiny JSON,
- * but the config-write route carries whole markdown files, which can exceed
- * 64 KiB once edited — so the cap is 1 MiB.
- */
-const MAX_BODY_BYTES = 1024 * 1024;
-
-/** Reads and JSON-parses a request body, rejecting oversized or malformed input. */
-const readJsonBody = (req: http.IncomingMessage): Promise<unknown> =>
-  new Promise((resolve, reject) => {
-    let size = 0;
-    const chunks: Buffer[] = [];
-    req.on('data', (chunk: Buffer) => {
-      size += chunk.length;
-      if (size > MAX_BODY_BYTES) {
-        reject(new Error('Request body too large'));
-        req.destroy();
-        return;
-      }
-      chunks.push(chunk);
-    });
-    req.on('end', () => {
-      const raw = Buffer.concat(chunks).toString('utf8').trim();
-      if (raw === '') {
-        resolve({});
-        return;
-      }
-      try {
-        resolve(JSON.parse(raw));
-      } catch {
-        reject(new Error('Invalid JSON body'));
-      }
-    });
-    req.on('error', reject);
-  });
 
 /**
  * Handles `POST /api/self-review`: launches the external self-review binary for
- * the requested plan path. Returns `true` once it has owned the response.
+ * the requested plan path.
  */
-const handleSelfReview = (
-  req: http.IncomingMessage,
-  res: http.ServerResponse,
-  root: string
-): boolean => {
+const handleSelfReview: RouteHandler = (req, res, ctx) => {
   readJsonBody(req)
     .then(body => {
       const clientPath = (body as { path?: unknown }).path;
-      const result = launchSelfReview(root, typeof clientPath === 'string' ? clientPath : '');
+      const result = launchSelfReview(ctx.root, typeof clientPath === 'string' ? clientPath : '');
       sendJson(res, result.status, result.body);
     })
-    .catch((err: Error) => {
-      sendJson(res, 400, { ok: false, error: err.message });
+    .catch((err: unknown) => {
+      sendError(res, bodyErrorStatus(err), {
+        ok: false,
+        error: err instanceof Error ? err.message : 'Failed to launch self-review.',
+      });
     });
-  return true;
 };
 
 /** Parses `/api/config/:kind/:id` -> `{ kind, id }`, or `null` if malformed. */
@@ -319,19 +472,13 @@ const parseConfigTarget = (pathname: string): { kind: string; id: string } | nul
  * Handles `PUT /api/config/:kind/:id`: reads `{ content }` from the JSON body,
  * delegates to the {@link writeConfigFile} guard, and maps its discriminated
  * result to status codes. On success returns the refreshed config slice so the
- * client can update without a second fetch. Returns `true` once it owns the
- * response.
+ * client can update without a second fetch.
  */
-const handleConfigWrite = (
-  req: http.IncomingMessage,
-  res: http.ServerResponse,
-  root: string,
-  pathname: string
-): boolean => {
-  const target = parseConfigTarget(pathname);
+const handleConfigWrite: RouteHandler = (req, res, ctx) => {
+  const target = parseConfigTarget(ctx.pathname);
   if (!target) {
     sendJson(res, 400, { error: 'Invalid config path.' });
-    return true;
+    return;
   }
 
   readJsonBody(req)
@@ -341,9 +488,9 @@ const handleConfigWrite = (
         sendJson(res, 400, { error: 'Request body must include string "content".' });
         return;
       }
-      return writeConfigFile(root, target.kind, target.id, content).then(result => {
+      return writeConfigFile(ctx.root, target.kind, target.id, content).then(result => {
         if (result.ok) {
-          sendJson(res, 200, getConfig(root));
+          sendJson(res, 200, getConfig(ctx.root));
           return;
         }
         switch (result.reason) {
@@ -360,10 +507,81 @@ const handleConfigWrite = (
         }
       });
     })
-    .catch((err: Error) => {
-      sendJson(res, 400, { error: err.message });
+    .catch((err: unknown) => {
+      sendError(res, bodyErrorStatus(err), {
+        error: err instanceof BodyError ? err.message : 'Failed to write config file.',
+      });
     });
-  return true;
+};
+
+/**
+ * The built-in API, most specific paths first. A path is matched before its
+ * method is checked, so a known path with the wrong method is a `405` and a
+ * mutation path can never fall through to a read handler.
+ */
+const API_ROUTES: readonly Route[] = [
+  {
+    pattern: /^\/api\/plans\/?$/,
+    methods: READ_METHODS,
+    handle: readRoute(ctx => getWorkspaceModel(ctx.root).plans),
+  },
+  {
+    pattern: /^\/api\/config\/?$/,
+    methods: READ_METHODS,
+    handle: readRoute(ctx => getConfig(ctx.root)),
+  },
+  {
+    pattern: /^\/api\/capabilities\/?$/,
+    methods: READ_METHODS,
+    handle: readRoute(ctx => ({
+      selfReview: isSelfReviewAvailable(),
+      project: deriveProject(ctx.root),
+    })),
+  },
+  {
+    pattern: /^\/api\/events\/?$/,
+    methods: ['GET'],
+    handle: (req, res, ctx) => {
+      ctx.events.apiHandler(req, res, { pathname: ctx.pathname });
+    },
+  },
+  {
+    pattern: /^\/api\/plans\/[^/]+\/archive\/?$/,
+    methods: ['POST'],
+    requiresJson: true,
+    handle: handleArchive,
+  },
+  {
+    pattern: /^\/api\/self-review\/?$/,
+    methods: ['POST'],
+    requiresJson: true,
+    handle: handleSelfReview,
+  },
+  {
+    pattern: /^\/api\/config\/[^/]+\/[^/]+\/?$/,
+    methods: ['PUT'],
+    requiresJson: true,
+    handle: handleConfigWrite,
+  },
+  { pattern: /^\/api\/plans\/[^/]+\/?$/, methods: READ_METHODS, handle: handlePlanDetail },
+];
+
+/** Routes a guarded `/api/*` request through {@link API_ROUTES}. */
+const routeApi = (req: http.IncomingMessage, res: http.ServerResponse, ctx: RouteContext): void => {
+  const route = API_ROUTES.find(candidate => candidate.pattern.test(ctx.pathname));
+  if (!route) {
+    sendJson(res, 404, { error: `Unknown API route: ${ctx.pathname}` });
+    return;
+  }
+  if (!route.methods.includes(req.method ?? '')) {
+    sendJson(res, 405, { error: 'Method not allowed.' }, { Allow: route.methods.join(', ') });
+    return;
+  }
+  if (route.requiresJson && !isJson(req)) {
+    sendJson(res, 415, { error: 'Content-Type must be application/json.' });
+    return;
+  }
+  route.handle(req, res, ctx);
 };
 
 /** Streams a static file with an appropriate content type. */
@@ -384,7 +602,8 @@ const ASSETS_MISSING_MESSAGE =
 const handleStatic = (res: http.ServerResponse, assetsDir: string, pathname: string): void => {
   const indexFile = path.join(assetsDir, 'index.html');
 
-  // Resolve the request path under assetsDir and guard against traversal.
+  // Resolve the request path under assetsDir and guard against traversal. The
+  // guard already proved `pathname` decodes; a throw here is a 400 upstream.
   const relative = decodeURIComponent(pathname).replace(/^\/+/, '');
   const resolved = path.resolve(assetsDir, relative);
   const assetsRoot = path.resolve(assetsDir);
@@ -445,56 +664,111 @@ const openBrowser = (url: string): void => {
   }
 };
 
+// ---------------------------------------------------------------------------
+// Server
+// ---------------------------------------------------------------------------
+
+const DEFAULT_HOST = '127.0.0.1';
+const IPV6_LOOPBACK = '::1';
+
+/** `host:port` as a browser writes it in `Host`, bracketing IPv6 literals. */
+const authorityOf = (address: string, port: number): string =>
+  `${address.includes(':') ? `[${address}]` : address}:${port}`;
+
 /**
  * Creates and starts the HTTP server, resolving with the bound URL once it is
  * listening. Rejects only on a genuine listen/bind error.
  */
-export const startServer = (opts: ServeOptions): Promise<ServeHandle> => {
+export const startServer = async (opts: ServeOptions): Promise<ServeHandle> => {
   const extraHandlers = opts.apiHandlers ?? [];
   const events = new EventsHub(opts.root, opts.debounceMs);
 
-  const server = http.createServer((req, res) => {
-    const pathname = new URL(req.url ?? '/', 'http://localhost').pathname;
+  // Filled in once `listen` resolves (port 0 is ephemeral); empty until then,
+  // which refuses everything — no request can arrive before that anyway.
+  const guardContext: { allowedHosts: ReadonlySet<string> } = { allowedHosts: new Set() };
+
+  const handleRequest = (req: http.IncomingMessage, res: http.ServerResponse): void => {
+    const guard = guardRequest(req, guardContext);
+    if (!guard.ok) {
+      sendJson(res, guard.status, guard.body, guard.headers);
+      return;
+    }
+    const { pathname } = guard;
 
     if (pathname.startsWith('/api/')) {
       for (const handler of extraHandlers) {
         if (handler(req, res, { root: opts.root, pathname })) return;
       }
-      // The one sanctioned workspace mutation: archive a done plan.
-      if (req.method === 'POST' && /^\/api\/plans\/[^/]+\/archive\/?$/.test(pathname)) {
-        if (handleArchive(res, opts.root, pathname)) return;
-      }
-      // The one write-ish endpoint: launch the external self-review binary.
-      if (req.method === 'POST' && /^\/api\/self-review\/?$/.test(pathname)) {
-        if (handleSelfReview(req, res, opts.root)) return;
-      }
-      // The second sanctioned workspace mutation: overwrite a config file.
-      if (req.method === 'PUT' && /^\/api\/config\/[^/]+\/[^/]+\/?$/.test(pathname)) {
-        if (handleConfigWrite(req, res, opts.root, pathname)) return;
-      }
-      // Built-in SSE change stream.
-      if (events.apiHandler(req, res, { pathname })) return;
-      if (handleApi(res, opts.root, pathname)) return;
-      sendJson(res, 404, { error: `Unknown API route: ${pathname}` });
+      routeApi(req, res, { root: opts.root, pathname, events });
       return;
     }
 
+    if (!READ_METHODS.includes(req.method as (typeof READ_METHODS)[number])) {
+      sendJson(res, 405, { error: 'Method not allowed.' }, { Allow: READ_METHODS.join(', ') });
+      return;
+    }
     handleStatic(res, opts.assetsDir, pathname);
+  };
+
+  // The one exception boundary: a throw anywhere in the synchronous path is a
+  // bounded error response, never a dead process. Async handlers own their own
+  // `.catch`, each of which ends in `sendError`.
+  const server = http.createServer((req, res) => {
+    try {
+      handleRequest(req, res);
+    } catch (err) {
+      sendError(res, err instanceof URIError ? 400 : 500, {
+        error: err instanceof URIError ? 'Bad request.' : 'Internal server error.',
+      });
+    }
+  });
+
+  // Requests the HTTP parser itself rejects get a minimal 400 and a closed socket.
+  server.on('clientError', (err: Error & { code?: string }, socket) => {
+    if (err.code === 'ECONNRESET' || !socket.writable) {
+      socket.destroy();
+      return;
+    }
+    socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n');
   });
 
   // Tear the watcher and open client streams down with the server.
   server.on('close', () => events.close());
 
-  return new Promise<ServeHandle>((resolve, reject) => {
-    server.once('error', reject);
-    server.listen(opts.port, () => {
-      server.removeListener('error', reject);
-      const address = server.address();
-      const boundPort = typeof address === 'object' && address ? address.port : opts.port;
-      const url = `http://localhost:${boundPort}`;
-      events.start();
-      if (opts.open) openBrowser(url);
-      resolve({ url, server, port: boundPort, events });
+  const listenOn = (host: string): Promise<void> =>
+    new Promise<void>((resolve, reject) => {
+      const onError = (err: Error): void => reject(err);
+      server.once('error', onError);
+      server.listen(opts.port, host, () => {
+        server.removeListener('error', onError);
+        resolve();
+      });
     });
-  });
+
+  const preferred = opts.host ?? DEFAULT_HOST;
+  try {
+    await listenOn(preferred);
+  } catch (err) {
+    const code = (err as Error & { code?: string }).code;
+    if (preferred !== DEFAULT_HOST || code !== 'EADDRNOTAVAIL') throw err;
+    await listenOn(IPV6_LOOPBACK);
+  }
+
+  const address = server.address();
+  if (!address || typeof address === 'string') {
+    server.close();
+    throw new Error('Server did not bind a TCP address.');
+  }
+  const boundPort = address.port;
+  const bound = authorityOf(address.address, boundPort);
+  // `[::1]` is allowed only when it is where the server listens; `127.0.0.1`
+  // and `localhost` always are, lower-cased to match the guard's comparison.
+  guardContext.allowedHosts = new Set(
+    [bound, `${DEFAULT_HOST}:${boundPort}`, `localhost:${boundPort}`].map(a => a.toLowerCase())
+  );
+
+  const url = `http://${bound}`;
+  events.start();
+  if (opts.open) openBrowser(url);
+  return { url, server, port: boundPort, events };
 };

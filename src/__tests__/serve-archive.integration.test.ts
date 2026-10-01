@@ -227,7 +227,7 @@ describe('POST /api/plans/:id/archive endpoint against fixtures', () => {
   });
 
   it('archives a done plan: 200 with the updated model and the directory moved', async () => {
-    const res = await httpRequest(`${handle.url}/api/plans/12--example/archive`, 'POST');
+    const res = await httpRequest(`${handle.url}/api/plans/12--example/archive`, 'POST', '{}');
     expect(res.status).toBe(200);
     const body = JSON.parse(res.body);
     expect(body.id).toBe(12);
@@ -238,7 +238,7 @@ describe('POST /api/plans/:id/archive endpoint against fixtures', () => {
 
   it('returns 409 for a non-done plan with an actionable message and no FS change', async () => {
     const before = checksumTree(root);
-    const res = await httpRequest(`${handle.url}/api/plans/13--active/archive`, 'POST');
+    const res = await httpRequest(`${handle.url}/api/plans/13--active/archive`, 'POST', '{}');
     expect(res.status).toBe(409);
     expect(typeof JSON.parse(res.body).error).toBe('string');
     expect(checksumTree(root)).toEqual(before);
@@ -246,7 +246,7 @@ describe('POST /api/plans/:id/archive endpoint against fixtures', () => {
 
   it('returns 404 for an unknown plan id with no FS change', async () => {
     const before = checksumTree(root);
-    const res = await httpRequest(`${handle.url}/api/plans/999--nope/archive`, 'POST');
+    const res = await httpRequest(`${handle.url}/api/plans/999--nope/archive`, 'POST', '{}');
     expect(res.status).toBe(404);
     expect(typeof JSON.parse(res.body).error).toBe('string');
     expect(checksumTree(root)).toEqual(before);
@@ -255,9 +255,13 @@ describe('POST /api/plans/:id/archive endpoint against fixtures', () => {
   it('returns 400 for an invalid composite key', async () => {
     // A bare numeric id no longer satisfies the composite grammar (clean break),
     // and a free-form string is rejected before any lookup.
-    const numeric = await httpRequest(`${handle.url}/api/plans/12/archive`, 'POST');
+    const numeric = await httpRequest(`${handle.url}/api/plans/12/archive`, 'POST', '{}');
     expect(numeric.status).toBe(400);
-    const garbage = await httpRequest(`${handle.url}/api/plans/not-a-valid-key/archive`, 'POST');
+    const garbage = await httpRequest(
+      `${handle.url}/api/plans/not-a-valid-key/archive`,
+      'POST',
+      '{}'
+    );
     expect(garbage.status).toBe(400);
   });
 
@@ -276,7 +280,7 @@ describe('POST /api/plans/:id/archive endpoint against fixtures', () => {
       '12--example..%2f..',
     ];
     for (const payload of payloads) {
-      const res = await httpRequest(`${handle.url}/api/plans/${payload}/archive`, 'POST');
+      const res = await httpRequest(`${handle.url}/api/plans/${payload}/archive`, 'POST', '{}');
       expect(res.status).toBe(400);
       // The response never leaks file contents from outside the workspace.
       expect(res.body).not.toMatch(/root:.*:0:0:/);
@@ -307,7 +311,7 @@ describe('POST /api/plans/:id/archive endpoint against fixtures', () => {
     expect(fs.existsSync(path.join(root, 'plans', '12--example'))).toBe(true);
 
     // The archive POST is the one request that does mutate the workspace.
-    const res = await httpRequest(`${handle.url}/api/plans/12--example/archive`, 'POST');
+    const res = await httpRequest(`${handle.url}/api/plans/12--example/archive`, 'POST', '{}');
     expect(res.status).toBe(200);
     expect(checksumTree(root)).not.toEqual(before);
   });

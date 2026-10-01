@@ -77,7 +77,6 @@
     "commander": "^11.1.0",
     "diff": "^5.2.0",
     "fs-extra": "^11.3.1",
-    "gray-matter": "^4.0.3",
     "inquirer": "^9.3.8",
     "js-yaml": "^5.2.1"
   },

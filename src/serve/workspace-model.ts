@@ -17,6 +17,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { findStrikethrooRoot } from '../skill-scripts/shared/root';
 import { getAllPlans, PlanEntry } from '../skill-scripts/shared/plan-scan';
+import { resolveContained, readContainedFile } from '../skill-scripts/shared/safe-fs';
 import {
   parseFrontmatter,
   extractBody,
@@ -157,56 +158,56 @@ const toSummary = (detail: PlanDetail): PlanSummary => ({
 });
 
 /**
- * Enumerates `*.md` files in a config subdirectory. Missing dir -> [].
- * `root` is the workspace root used to derive each file's workspace-relative
- * path (e.g. `config/hooks/POST_PLAN.md`).
+ * Enumerates `*.md` regular files in the config subdirectory `relDir` (relative
+ * to `root`). The directory must itself be contained — a linked
+ * `config/templates` pointing elsewhere yields [] rather than its contents —
+ * and each file is read through the containment helper, so linked or special
+ * entries are omitted from the model. Missing or unreadable dir -> [].
  */
-const enumerateConfigDir = (root: string, dir: string): ConfigFile[] => {
+const enumerateConfigDir = (root: string, relDir: string): ConfigFile[] => {
+  const dir = resolveContained(root, relDir, { expect: 'directory' });
+  if ('error' in dir) return [];
+
   let entries: fs.Dirent[];
   try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
+    entries = fs.readdirSync(dir.path, { withFileTypes: true });
   } catch {
     return [];
   }
 
-  return entries
-    .filter(e => e.isFile() && e.name.endsWith('.md'))
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map(e => {
-      const file = path.join(dir, e.name);
-      let fileContent = '';
-      try {
-        fileContent = fs.readFileSync(file, 'utf8');
-      } catch {
-        fileContent = '';
-      }
-      return {
-        id: e.name.replace(/\.md$/, ''),
-        file,
-        relPath: path.relative(root, file),
-        content: fileContent,
-      };
+  const files: ConfigFile[] = [];
+  for (const e of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+    if (!e.isFile() || !e.name.endsWith('.md')) continue;
+    const relPath = path.join(relDir, e.name);
+    const read = readContainedFile(root, relPath);
+    if ('error' in read) continue;
+    files.push({
+      id: e.name.replace(/\.md$/, ''),
+      file: path.join(root, relPath),
+      relPath,
+      content: read.content,
     });
+  }
+  return files;
 };
 
-/** Reads `config/config.yaml` into a ConfigFile, or null when absent. */
+/**
+ * Reads `config/config.yaml` into a ConfigFile, or null when absent or when
+ * it is not a plain contained file (a link out of the workspace reads as absent).
+ */
 const readWorkspaceConfigFile = (root: string): ConfigFile | null => {
-  const file = path.join(root, 'config', 'config.yaml');
-  let content: string;
-  try {
-    content = fs.readFileSync(file, 'utf8');
-  } catch {
-    return null;
-  }
-  return { id: 'config', file, relPath: path.relative(root, file), content };
+  const relPath = path.join('config', 'config.yaml');
+  const read = readContainedFile(root, relPath);
+  if ('error' in read) return null;
+  return { id: 'config', file: path.join(root, relPath), relPath, content: read.content };
 };
 
 /** Returns the config slice: hooks, templates, and config.yaml under `config/`. */
 export const getConfig = (root?: string): WorkspaceConfig => {
   const resolved = resolveRoot(root);
   return {
-    hooks: enumerateConfigDir(resolved, path.join(resolved, 'config', 'hooks')),
-    templates: enumerateConfigDir(resolved, path.join(resolved, 'config', 'templates')),
+    hooks: enumerateConfigDir(resolved, path.join('config', 'hooks')),
+    templates: enumerateConfigDir(resolved, path.join('config', 'templates')),
     workspace: readWorkspaceConfigFile(resolved),
   };
 };

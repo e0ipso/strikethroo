@@ -3,21 +3,26 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
-  id-token: write
+# Nothing is granted at the workflow level; each job asks for what it needs.
+permissions: {}
 
 jobs:
-  release:
-    name: Release
+  # Read-only verification. Dependency installation, the build, the test
+  # suites, and the dependency check all run here with a read-only token and
+  # no secrets, so a compromised package script cannot reach anything that
+  # could tag, publish, or push.
+  verify:
+    name: Verify
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          # Tags are needed for the skills/ check below.
           fetch-depth: 0
+          persist-credentials: false
 
       # skills/ is what `npx skills add` installs, straight from the Git tree.
       # Only the release rebuilds it, so on any other commit it must still match
@@ -29,7 +34,7 @@ jobs:
           git diff --exit-code --stat "$tag" -- skills/
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 'lts/*'
           cache: 'npm'
@@ -52,6 +57,70 @@ jobs:
       - name: Test
         run: npm test
 
+      # Full-lockfile audit (dev included) gated by security/dependency-dispositions.json.
+      - name: Dependency security check
+        run: npm run security:check
+
+  # Publication. Runs only after verify passed on the same commit, with the
+  # permissions semantic-release needs and nothing else:
+  #   contents: write        release commit, tag, and GitHub release
+  #   issues/pull-requests   @semantic-release/github success/fail comments,
+  #                          which .releaserc.json keeps enabled
+  # No id-token: .releaserc.json configures @semantic-release/npm with
+  # npmPublish only and package.json publishConfig has only access, so neither
+  # npm provenance nor trusted publishing is in use; publication authenticates
+  # with NPM_TOKEN. Add id-token: write together with that configuration if
+  # it is ever adopted.
+  release:
+    name: Release
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # semantic-release needs the full history and tags to compute the
+          # next version.
+          fetch-depth: 0
+          # The token is not written into .git/config. semantic-release pushes
+          # the release commit and tag over https with the GITHUB_TOKEN passed
+          # to its own step (x-access-token basic auth on the repository URL),
+          # so the install and build steps below never see it.
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+
+      # Lifecycle scripts are skipped at install time. This only drops the
+      # root `prepare` (husky) and esbuild's postinstall self-check; esbuild's
+      # binary arrives as an optional dependency, so the build still works.
+      # Root lifecycle scripts that semantic-release triggers later still run:
+      # `npm publish` invokes `prepublishOnly` (npm run build).
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      # The release job builds again rather than reusing verify's output: the
+      # skills/ rebuild that @semantic-release/exec runs in prepare requires
+      # dist/metadata.js, and `npm publish` packs dist/ and dist-web/.
+      # The job separation limits the credentials exposed to dependency
+      # installation and testing in verify; it does not remove the trust placed
+      # in the release tooling that runs in this job.
+      - name: Build
+        run: npm run build
+
+      # The only step that holds credentials. semantic-release bumps the
+      # version, rebuilds skills/ through @semantic-release/exec, commits
+      # CHANGELOG.md, package.json, package-lock.json and skills/** with
+      # [skip ci] through @semantic-release/git, publishes to npm, and creates
+      # the GitHub release. HUSKY=0 keeps the local commit hooks out of that
+      # commit.
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

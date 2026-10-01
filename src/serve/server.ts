@@ -690,9 +690,39 @@ const routeApi = (req: http.IncomingMessage, res: http.ServerResponse, ctx: Rout
   route.handle(req, res, ctx);
 };
 
-/** Streams a static file with an appropriate content type. */
+/**
+ * The Content Security Policy for the SPA, sent on every static response (the
+ * HTML document and its assets; a non-HTML asset ignores it, which is harmless).
+ * Everything the page loads is self-hosted from `dist-web/`, so the baseline is
+ * `'self'`. The exceptions, and why:
+ *
+ * - `style-src 'unsafe-inline'`: CodeMirror 6 injects its `<style>` elements at
+ *   runtime and Mermaid's rendered SVG embeds a `<style>` block, neither of
+ *   which can be hashed ahead of time. Scripts have no such exception: the
+ *   pre-paint theme guard is the self-hosted `/theme-guard.js`, not an inline
+ *   block, so `script-src` stays `'self'` with no hash and no `unsafe-eval`.
+ * - `img-src data:`: the markdown sanitizer admits bounded `data:image/*`
+ *   images; remote image sources are already stripped there.
+ * - `connect-src 'self'`: the `/api/*` fetches and the `/api/events`
+ *   EventSource are same-origin.
+ * - `object-src`, `base-uri`, `form-action`: `'none'` — the page embeds no
+ *   plugins, sets no base URL, and submits no forms (the sanitizer removes
+ *   authored `<form>`s; this makes a surviving one unable to post anywhere).
+ * - `frame-ancestors 'none'`: the viewer is never embedded. This directive only
+ *   works in the header form, which is why the policy is a header and not a
+ *   `<meta http-equiv>`.
+ */
+export const CONTENT_SECURITY_POLICY =
+  "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
+  "img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; " +
+  "base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+
+/** Streams a static file with an appropriate content type and the CSP. */
 const sendFile = (res: http.ServerResponse, filePath: string): void => {
-  res.writeHead(200, { 'Content-Type': mimeFor(filePath) });
+  res.writeHead(200, {
+    'Content-Type': mimeFor(filePath),
+    'Content-Security-Policy': CONTENT_SECURITY_POLICY,
+  });
   const stream = fs.createReadStream(filePath);
   stream.on('error', () => {
     if (!res.headersSent) res.writeHead(500);

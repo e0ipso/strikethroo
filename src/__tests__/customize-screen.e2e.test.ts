@@ -178,6 +178,63 @@ test.describe('Customize section (Playwright, fixture)', () => {
     await expect(page.locator('.cm-editor .cm-content')).toContainText('e2e-marker-');
   });
 
+  test('a save rejected with 403 re-bootstraps the capability and retries once', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
+    const capability = handle.capability ?? '';
+    expect(capability).not.toBe('');
+
+    // Count capability bootstraps the SPA issues through the real server.
+    let bootstraps = 0;
+    page.on('request', request => {
+      if (new URL(request.url()).pathname === '/api/session') bootstraps += 1;
+    });
+
+    // Simulate a server restart: the first save is refused as a stale
+    // capability; every later attempt reaches the real, capability-guarded route.
+    const presented: string[] = [];
+    await page.route(`${handle.url}/api/config/hooks/PRE_PLAN`, async route => {
+      presented.push(route.request().headers()['x-strikethroo-capability'] ?? '');
+      if (presented.length === 1) {
+        await route.fulfill({
+          status: 403,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: 'Forbidden.' }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.goto(`${handle.url}/customize/hooks/PRE_PLAN`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.cm-editor');
+    const marker = `\n<!-- e2e-retry-${Date.now()} -->\n`;
+    await page.locator('.cm-editor .cm-content').click();
+    await page.keyboard.press('Control+End');
+    await page.keyboard.type(marker);
+
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByTestId('chrome-actions')).toContainText('saved', { timeout: 5_000 });
+
+    // Exactly one retry, after exactly one extra bootstrap, and it landed.
+    expect(presented).toEqual([capability, capability]);
+    expect(bootstraps).toBe(2);
+    const onDisk = fs.readFileSync(path.join(root, 'config', 'hooks', 'PRE_PLAN.md'), 'utf8');
+    expect(onDisk).toContain('e2e-retry-');
+
+    // The capability lives only in memory: not in web storage or the URL.
+    const exposed = await page.evaluate(() => {
+      const w = globalThis as unknown as {
+        localStorage: Record<string, string>;
+        sessionStorage: Record<string, string>;
+        location: { href: string };
+      };
+      return JSON.stringify([{ ...w.localStorage }, { ...w.sessionStorage }, w.location.href]);
+    });
+    expect(exposed).not.toContain(capability);
+  });
+
   test('Config tab: the routing form populates config.yaml and preserves foreign sections', async ({
     page,
   }) => {

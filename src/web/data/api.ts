@@ -239,26 +239,65 @@ export function useConfig(): Resource<Config> {
  * The server mints a random capability per start and requires it, in the
  * header below, on every mutation (config write, archive, self-review). The
  * SPA fetches it lazily from `GET /api/session` and keeps it only in this
- * module-level variable: never storage, never a URL, never logged. Restart
- * recovery (retry once on 403) and a shared in-flight bootstrap are a
- * follow-up on this seam.
+ * module-level variable: never storage, never a URL, never logged. Every
+ * mutation goes through {@link mutate}, which shares one in-flight bootstrap
+ * between concurrent callers and, when the server answers `403` (it restarted
+ * and minted a new capability), drops the stale token, bootstraps again, and
+ * retries exactly once. No other status is retried: `409`/`429` mean the
+ * server is busy, and repeating the request would not change that.
  * ------------------------------------------------------------------------- */
 
 const CAPABILITY_HEADER = 'X-Strikethroo-Capability';
 
 let capability: string | null = null;
+let bootstrap: Promise<string> | null = null;
 
-async function getCapability(): Promise<string> {
-  if (capability) return capability;
+/** Fetches a fresh capability from the session bootstrap endpoint and caches it. */
+async function bootstrapCapability(): Promise<string> {
   const res = await fetch('/api/session', { cache: 'no-store' });
   if (!res.ok) throw new Error(`Session bootstrap failed with status ${res.status}`);
-  capability = ((await res.json()) as { token: string }).token;
-  return capability;
+  const { token } = (await res.json()) as { token?: unknown };
+  if (typeof token !== 'string' || token === '') {
+    throw new Error('Session bootstrap returned no capability');
+  }
+  capability = token;
+  return token;
 }
 
-/** Headers every mutation sends: JSON media type plus the capability. */
-async function mutationHeaders(): Promise<Record<string, string>> {
-  return { 'Content-Type': 'application/json', [CAPABILITY_HEADER]: await getCapability() };
+/** The cached capability, or the one in-flight bootstrap every caller shares. */
+function getCapability(): Promise<string> {
+  if (capability) return Promise.resolve(capability);
+  // `.finally` always runs after this assignment, so a failed bootstrap is
+  // never left cached and the next mutation tries again.
+  bootstrap ??= bootstrapCapability().finally(() => {
+    bootstrap = null;
+  });
+  return bootstrap;
+}
+
+/**
+ * Sends one mutation with the JSON media type and the capability. On `403` it
+ * forgets `stale` — unless a concurrent retry already replaced it — and sends
+ * once more with a freshly bootstrapped token. The second response is returned
+ * as-is, so callers keep their own error semantics. Throws only when the
+ * bootstrap or the network fails.
+ */
+async function mutate(
+  url: string,
+  init: { method: 'POST' | 'PUT'; body?: unknown }
+): Promise<Response> {
+  const body = JSON.stringify(init.body ?? {});
+  const send = (token: string): Promise<Response> =>
+    fetch(url, {
+      method: init.method,
+      headers: { 'Content-Type': 'application/json', [CAPABILITY_HEADER]: token },
+      body,
+    });
+  const stale = await getCapability();
+  const res = await send(stale);
+  if (res.status !== 403) return res;
+  if (capability === stale) capability = null;
+  return send(await getCapability());
 }
 
 /**
@@ -275,10 +314,9 @@ export async function saveConfigFile(
   id: string,
   content: string
 ): Promise<void> {
-  const res = await fetch(`/api/config/${kind}/${encodeURIComponent(id)}`, {
+  const res = await mutate(`/api/config/${kind}/${encodeURIComponent(id)}`, {
     method: 'PUT',
-    headers: await mutationHeaders(),
-    body: JSON.stringify({ content }),
+    body: { content },
   });
   if (!res.ok) {
     const data = (await res.json().catch(() => ({}))) as { error?: string };
@@ -304,11 +342,7 @@ export interface LaunchResult {
  */
 export async function launchSelfReview(path: string): Promise<LaunchResult> {
   try {
-    const res = await fetch('/api/self-review', {
-      method: 'POST',
-      headers: await mutationHeaders(),
-      body: JSON.stringify({ path }),
-    });
+    const res = await mutate('/api/self-review', { method: 'POST', body: { path } });
     const data = (await res.json().catch(() => ({}))) as LaunchResult;
     if (!res.ok) {
       return { ok: false, error: data.error ?? `Launch failed with status ${res.status}` };
@@ -335,11 +369,8 @@ export interface ArchiveResult {
  */
 export async function archivePlan(name: string): Promise<ArchiveResult> {
   try {
-    const res = await fetch(`/api/plans/${encodeURIComponent(name)}/archive`, {
-      method: 'POST',
-      headers: await mutationHeaders(),
-      body: '{}',
-    });
+    // The server requires a JSON media type on every mutation; the body is `{}`.
+    const res = await mutate(`/api/plans/${encodeURIComponent(name)}/archive`, { method: 'POST' });
     const data = (await res.json().catch(() => ({}))) as { error?: string };
     if (!res.ok) {
       return { ok: false, error: data.error ?? `Archive failed with status ${res.status}` };

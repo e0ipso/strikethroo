@@ -1,5 +1,7 @@
 name: Pull Request Validation
 
+# pull_request (not pull_request_target): the job runs with the fork's
+# read-only token and never sees repository secrets.
 on:
   pull_request:
     branches: [main]
@@ -7,17 +9,25 @@ on:
       - '*.md'
       - 'docs/**'
 
+permissions:
+  contents: read
+
 jobs:
   test-and-lint:
     name: Test and Lint
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           # Tags are needed for the skills/ check below.
           fetch-depth: 0
+          # Nothing here pushes; keep the token out of .git/config so no
+          # dependency install, build, or test step can reach it.
+          persist-credentials: false
 
       # skills/ is what `npx skills add` installs, straight from the Git tree.
       # Only the release rebuilds it, so on any other commit it must still match
@@ -29,7 +39,7 @@ jobs:
           git diff --exit-code --stat "$tag" -- skills/
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 'lts/*'
           cache: 'npm'
@@ -51,3 +61,7 @@ jobs:
 
       - name: Run linting
         run: npm run lint
+
+      # Full-lockfile audit (dev included) gated by security/dependency-dispositions.json.
+      - name: Dependency security check
+        run: npm run security:check

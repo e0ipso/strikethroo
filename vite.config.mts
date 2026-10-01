@@ -40,11 +40,26 @@ export default defineConfig({
   // stream, which the `serve` backend provides, not Vite. Proxy them to the
   // backend (default port 4317) so hot-reload runs against live data. Run the
   // backend alongside: `node dist/cli.js serve --no-open`.
+  //
+  // This is a TRUSTED LOCAL DEVELOPMENT PROXY. The backend refuses a `Host`
+  // that is not its own loopback authority and a present `Origin` that is not
+  // exactly `http://<that authority>`, but the browser's Origin here is the
+  // Vite dev server (e.g. `http://localhost:5173`). So the proxy targets the
+  // backend's loopback address, `changeOrigin` rewrites `Host` to match it, and
+  // `proxyReq` strips `Origin` so the backend sees an Origin-less request.
+  // `Sec-Fetch-Site` stays `same-origin` (the page and `/api` share the Vite
+  // origin), and mutations still need the capability from `GET /api/session`.
+  // The production server's Host and Origin checks are unchanged.
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:4317',
+        target: 'http://127.0.0.1:4317',
         changeOrigin: true,
+        configure: proxy => {
+          proxy.on('proxyReq', proxyReq => {
+            proxyReq.removeHeader('origin');
+          });
+        },
       },
     },
   },

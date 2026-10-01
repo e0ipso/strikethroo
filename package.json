@@ -29,6 +29,7 @@
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run build",
     "prepare": "husky",
+    "security:check": "node scripts/dependency-check.cjs",
     "security:audit": "npm audit",
     "security:audit-json": "npm audit --json",
     "security:fix": "npm audit fix",

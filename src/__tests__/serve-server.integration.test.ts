@@ -285,6 +285,38 @@ describe('serve server: loopback binding and request guard', () => {
     expect(upper.status).toBe(200);
   });
 
+  it('sends the Content-Security-Policy on every static response, not on the API', async () => {
+    // The exact policy is pinned here so a loosening (an added source, a
+    // dropped directive, `unsafe-eval`) is a visible test change, not a drift.
+    const expected =
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
+      "img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; " +
+      "base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+
+    const index = await request(handle, { method: 'GET', path: '/' });
+    expect(index.status).toBe(200);
+    expect(index.headers['content-security-policy']).toBe(expected);
+
+    // The SPA fallback (a client-side route) is the same HTML document.
+    const fallback = await request(handle, {
+      method: 'GET',
+      path: '/plans/38--fix-jekyll-link-baseurl',
+    });
+    expect(fallback.status).toBe(200);
+    expect(fallback.headers['content-type']).toMatch(/^text\/html/);
+    expect(fallback.headers['content-security-policy']).toBe(expected);
+
+    // A non-HTML asset carries it too: the policy rides on the static path, not
+    // on a content-type branch.
+    const asset = await request(handle, { method: 'GET', path: '/favicon.svg' });
+    expect(asset.status).toBe(200);
+    expect(asset.headers['content-security-policy']).toBe(expected);
+
+    const api = await request(handle, { method: 'GET', path: '/api/plans' });
+    expect(api.status).toBe(200);
+    expect(api.headers['content-security-policy']).toBeUndefined();
+  });
+
   it('answers malformed targets with 400 and keeps serving from the same process', async () => {
     const port = boundAddress(handle).port;
     const malformed = [

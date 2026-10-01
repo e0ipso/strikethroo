@@ -11,6 +11,18 @@ Hooks inject LLM intelligence and deterministic tool execution at key points of 
 
 ![Strikethroo's customizable spec-driven workflow, showing where the hooks fire: PRE_PLAN, POST_PLAN, POST_TASK_GENERATION_ALL, PRE_TASK_ASSIGNMENT, and POST_EXECUTION]({{ '/assets/strikethroo-customization.png' | relative_url }})
 
+{% capture trust_model %}
+Hooks, selector scripts, and harness `cli_args` are **executable authority**, and Strikethroo does not sandbox them.
+
+- **Hooks** are instructions an agent follows with whatever permissions its harness holds. A hook can tell the agent to run commands or edit files.
+- **A selector script** (the optional `execution_routing` override) runs as a local process with your user's permissions.
+- **`harnesses.<name>.cli_args`** are passed to external CLIs as exact arguments and often turn off permission prompts. Everything those CLIs do afterwards is bounded only by your own sandbox, if any.
+- **Strikethroo profiles** carry all three. Read a profile before importing it and import only from sources you trust.
+
+Strikethroo defends the mechanics around them: no shell is used for any spawn, task frontmatter is parsed as YAML only, and symbolic links are refused for the files it manages. It does not judge what a hook or argument asks for.
+{% endcapture %}
+{% include callout.html variant="warning" title="TRUST MODEL" content=trust_model %}
+
 ## Hooks
 
 Hooks are Markdown files in `.ai/strikethroo/config/hooks/`. The LLM reads them at specific workflow points and follows the instructions they contain. They serve two purposes:
@@ -91,13 +103,13 @@ Terminal review gate, terminal only — runs once per plan, creates no task file
 
 Reviewer discovery uses the same local `harnesses.<name>.cli_args` and readiness check as task dispatch. Permission flags may give the reviewer CLI technical write access, but the reviewer prompt still says to detect and report without changing source files. The reviewer prints its findings document to stdout; the Strikethroo process writes `review.xml` and checks the artifact and diff. Local harness permissions do not turn review findings into automatic fixes.
 
-**Reviewed scope**: a two-dot diff from a base commit recorded before phase execution against the **working tree**, so committed phase work and uncommitted fixes are both included. Untracked, unignored files are included too — the gate synthesizes an add-diff for each with `git diff --no-index` against `/dev/null`, so nothing needs to be staged or committed for the reviewer to see it, and the gate never writes to the git index.
+**Reviewed scope**: a two-dot diff from a base commit recorded before phase execution against the **working tree**, so committed phase work and uncommitted fixes are both included. Untracked, unignored files are included too — the gate synthesizes an add-diff for each with `git diff --no-index` against `/dev/null`, so nothing needs to be staged or committed for the reviewer to see it, and the gate never writes to the git index. Paths are passed to Git as arguments, never through a shell, so file names with spaces, quotes, or shell syntax are reviewed like any other. If Git cannot list the changed files or produce a diff for one of them, the gate reports an infrastructure failure instead of reviewing a partial scope.
 
 **Configuration**: The hook body specifies the mandate — which finding categories are in scope and how the reviewer should grade `severity` (`critical`, `major`, `minor`, `info`) and `confidence` (`high`, `medium`, `low`). Both are advisory labels that help you sort the review; nothing is filtered or applied on the strength of them.
 
 **To disable**: Empty or delete this file. The gate skips cleanly and notes it in the execution summary. No error. `init` preserves your edits on re-run unless you pass `--force`.
 
-**Uses `xmllint` when available**: findings are validated against the vendored schema by shelling out to it. It is a soft dependency — without it the gate skips cleanly and says so in the execution summary, exactly as it does when the hook is missing. Your plan still completes. Install `libxml2-utils` (Debian/Ubuntu), `libxml2` (Homebrew), or your platform's equivalent to turn the gate on. A skip is never reported as a review that passed.
+**Uses `xmllint` when available**: findings are validated against the vendored schema by shelling out to it. It is a soft dependency — without it the gate skips cleanly and says so in the execution summary, exactly as it does when the hook is missing. Your plan still completes. Install `libxml2-utils` (Debian/Ubuntu), `libxml2` (Homebrew), or your platform's equivalent to turn the gate on. A skip is never reported as a review that passed. Findings documents that declare a DTD or entities (`<!DOCTYPE`, `<!ENTITY`) are refused as invalid, and a count of findings that `xmllint` cannot confirm is not recorded.
 
 **Limitations** — the complete list:
 - Harness diversity is not model diversity — discovery operates at harness level, so a second CLI on the same model family looks independent while sharing blind spots.
@@ -178,7 +190,7 @@ harnesses:
       - workspace-write
 ```
 
-Order and spelling are preserved. Strikethroo does not trim values, split them on whitespace, expand environment variables or globs, or parse shell syntax. It launches child processes with Node's `spawn` and `shell: false`, so a value such as `"two words"` remains one argument. Missing harness entries and missing `cli_args` keys become empty arrays. Unknown harness names, unknown keys, scalar commands, empty strings, non-string values, and strings containing NUL characters make the configuration invalid before an external launch.
+Order and spelling are preserved. Strikethroo does not trim values, split them on whitespace, expand environment variables or globs, or parse shell syntax. It launches child processes with Node's `spawn` and `shell: false`, so a value such as `"two words"` remains one argument. These arguments are trusted configuration; see the trust model at the top of this page. Missing harness entries and missing `cli_args` keys become empty arrays. Unknown harness names, unknown keys, scalar commands, empty strings, non-string values, and strings containing NUL characters make the configuration invalid before an external launch.
 
 The local user owns the permission policy. Strikethroo does not reject permissive flags, including Claude's `--dangerously-skip-permissions`. The shipped template starts with these arguments because unattended task execution must be able to edit files and run verification commands:
 
@@ -254,6 +266,7 @@ How the pieces divide responsibility:
 - **Readiness is harness-level.** Native and current-harness targets bypass the check. An external target must complete the one file-creation request described above. The request omits a model override so the CLI uses its configured default. A passing check does not prove that every model named in a routing profile exists.
 - **Readiness results are cached by invocation identity.** The cache includes the resolved executable path and exact argument hash, so moving the CLI or changing local arguments cannot reuse an older result.
 - **Unavailable targets retry safely.** Dispatch adds a rejected target's complete ID to the avoid set and invokes selection again. Exhausting the profile, losing the configured profile, or failing the selector falls back to the current harness without model or reasoning overrides.
+- **Task frontmatter is plain YAML.** Dispatch reads `execution_profile` from the task file's `---` frontmatter as YAML only; nothing in it is evaluated. A task whose opening fence carries a language tag (`---js`), whose YAML is malformed or not a mapping, or whose `execution_profile` is not a non-empty string is rejected with an `infrastructure-failure` result naming the problem, and the blueprint stops instead of falling back silently. Fix the task file and re-run.
 
 Classification runs inside `st-generate-tasks` (and the task-generation step of `st-full-workflow`) after task files are emitted and before `POST_TASK_GENERATION_ALL` assembles the blueprint. The durable task metadata is `execution_profile`; selection, availability checking, retries, and fallback happen immediately before delegation.
 
@@ -311,7 +324,7 @@ Not to be confused with the **execution profiles** of [execution routing](#execu
 2. **GitHub shorthand** — `<user>/<repo>` expands to `https://github.com/<user>/<repo>.git`.
 3. **Any git URL** — GitLab, ssh, any git host; used verbatim.
 
-Remote profiles are shallow-cloned, so `git` on the PATH is required only for remote imports. A relative local path that happens to look like `user/repo` resolves as the folder — the existing-path check runs first.
+Remote profiles are shallow-cloned, so `git` on the PATH is required only for remote imports. A value that starts with `-` and is not an existing directory is refused before Git runs. A relative local path that happens to look like `user/repo` resolves as the folder — the existing-path check runs first.
 
 ```bash
 npx strikethroo init --harnesses claude --profile ./my-profile
@@ -319,7 +332,9 @@ npx strikethroo init --harnesses claude --profile someuser/drupal-profile
 npx strikethroo init --harnesses claude --profile https://gitlab.com/team/profile.git
 ```
 
-The profile's files overlay the shipped defaults and then flow through the normal `init` machinery — conflict prompts, `--force`, and hash tracking treat profile-supplied files exactly like stock ones. Validation is all-or-nothing and runs before any workspace mutation; there is no partial import.
+The profile's files overlay the shipped defaults and then flow through the normal `init` machinery — conflict prompts, `--force`, and hash tracking treat profile-supplied files exactly like stock ones. Validation is all-or-nothing and runs before any workspace mutation; there is no partial import. A package whose `profile.yaml` or `config/` is a symbolic link, or that holds a symbolic link anywhere inside `config/`, is rejected, because a package must carry its own copies of every file.
+
+{% include callout.html variant="warning" title="IMPORT ONLY PROFILES YOU TRUST" content="A profile can replace your hooks and `config.yaml`, including harness `cli_args` and any routing selector script. Those run with your agent's permissions and are not sandboxed. Read the package before importing it." %}
 
 Imports are **fork-and-forget**: the profile seeds your workspace once, and from then on the files are yours — no link back, no updates to pull. A subsequent plain `init` uses the shipped defaults again. The only trace is a `profile` field in `.init-metadata.json` recording the name, source, and import date — display and forensics only, nothing reads it for behavior.
 
@@ -337,7 +352,7 @@ Share your own setup with the export command:
 npx strikethroo export profile --destination-directory ./my-profile
 ```
 
-It packages the current workspace's `config/` (minus `schemas/`) verbatim — including the ignored local `config.yaml` — as the full configuration, not a diff against defaults. It collects the manifest interactively, refuses a non-empty destination, and validates the package against the same contract `init --profile` enforces. Review harness flags and model names before publishing the profile; the export is an intentional snapshot of local settings. Push the resulting folder to a git host or share it directly.
+It packages the current workspace's `config/` (minus `schemas/`) verbatim — including the ignored local `config.yaml` — as the full configuration, not a diff against defaults. It collects the manifest interactively, refuses a non-empty destination, refuses a workspace whose `config/` contains a symbolic link, and validates the package against the same contract `init --profile` enforces. Because ignore rules do not untrack an existing `config.yaml`, the export copies that file as it is on disk, with machine-local paths and harness arguments included. After a successful export the command prints a notice to review the package before sharing; nothing is scanned for secrets or redacted. Review harness flags and model names before publishing the profile; the export is an intentional snapshot of local settings. Push the resulting folder to a git host or share it directly.
 
 ## Customization Example
 

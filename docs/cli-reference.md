@@ -30,7 +30,7 @@ Creates the shared `.ai/strikethroo/` directory (plans, archive, config, hooks, 
 |------|-------------|
 | `--destination-directory <path>` | Target directory for the workspace. Defaults to the current working directory. |
 | `--force` | Overwrite all files without prompting, even if the user has customized them. Useful for CI/automation. |
-| `--profile <value>` | Seed the workspace `config/` from a [strikethroo profile](customization.html#strikethroo-profiles): a local directory, a GitHub `<user>/<repo>` shorthand, or any git URL. Remote profiles are shallow-cloned (`git` required on PATH). |
+| `--profile <value>` | Seed the workspace `config/` from a [strikethroo profile](customization.html#strikethroo-profiles): a local directory, a GitHub `<user>/<repo>` shorthand, or any git URL. Remote profiles are shallow-cloned (`git` required on PATH). A value that starts with `-` and is not an existing directory is rejected, and so is a package whose `profile.yaml` or `config/` is a symbolic link. A profile carries hooks and harness arguments that run with your agent's permissions, so import only profiles you trust. |
 
 **File conflict detection:** On re-run, `init` compares file hashes against `.ai/strikethroo/.init-metadata.json`. Unchanged files are updated silently; modified files trigger a unified-diff prompt. Use `--force` to bypass prompts.
 
@@ -92,7 +92,7 @@ npx strikethroo@latest update --harnesses claude
 npx strikethroo export profile --destination-directory <dir>
 ```
 
-Packages the current workspace's configuration as a shareable [strikethroo profile](customization.html#strikethroo-profiles): copies `config/` (minus the CLI-owned `schemas/`) verbatim, collects the `profile.yaml` manifest interactively, refuses a non-empty destination, and validates the result against the same contract `init --profile` enforces.
+Packages the current workspace's configuration as a shareable [strikethroo profile](customization.html#strikethroo-profiles): copies `config/` (minus the CLI-owned `schemas/`) verbatim, collects the `profile.yaml` manifest interactively, refuses a non-empty destination, and validates the result against the same contract `init --profile` enforces. It refuses to export a workspace whose `config/` tree contains a symbolic link, because a package must carry its own copies of every file. After a successful export it prints a reminder that the package holds `config/config.yaml` and your hooks, templates, and shared files verbatim, including machine-local paths and harness CLI arguments. Nothing is scanned for secrets or redacted, so review the package before you share it.
 
 ## Serve the Workspace Viewer
 
@@ -101,6 +101,17 @@ npx strikethroo serve [options]
 ```
 
 Boots a local web app over an initialized `.ai/strikethroo/` workspace: a dependency-light Node server hosts the prebuilt single-page viewer as static assets, exposes a read-only JSON API over the workspace model, and streams a coalesced change event over Server-Sent Events whenever the workspace mutates on disk. Run it from inside an initialized workspace; if none is found it prints guidance to run `init` and exits without binding.
+
+{% capture serve_local %}
+The server is **local-only**. It listens on loopback (`127.0.0.1`, or `::1` where IPv4 loopback is unavailable), has no option to bind another interface, and answers any request whose `Host` header is not its own loopback address with `421`. Open it in a browser on the same machine; it is not reachable from other hosts, and proxying it to other hosts is not supported.
+
+**Mutations need a session capability.** Each server start generates a random token. The viewer fetches it from `GET /api/session` and sends it in the `X-Strikethroo-Capability` header on the archive, config-write, and self-review requests; it is held in page memory only. A mutation without the right token, from another origin, or with a cross-site `Sec-Fetch-Site` gets `403`, and a body that is not `application/json` gets `415`. The token protects against other websites in your browser and DNS rebinding. It is not a barrier against another process running as you on the same machine, which can request a token the same way. A script that calls these routes does the same: `GET /api/session`, then send the returned `token` in the header with `Content-Type: application/json`.
+
+**Bounds.** Launching a self-review is limited to one run per plan (`409`) and two at once (`429`); a restart of the server resets that count. At most 16 browser tabs can hold the live-update stream open (`503` beyond that), and a tab that stops reading is disconnected after 30 seconds.
+
+**Links are not followed.** Reads and writes of workspace files refuse a symbolic link anywhere below the workspace and refuse anything that is not a regular file.
+{% endcapture %}
+{% include callout.html variant="warning" title="LOCAL-ONLY, WITH A MUTATION TOKEN" content=serve_local %}
 
 {% capture serve_readonly %}
 The viewer is **read-only except for two sanctioned mutations: the archive action and the config editor.**

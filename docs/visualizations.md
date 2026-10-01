@@ -51,6 +51,18 @@ Trace a path from the Plans board down to a single task:
 
 <video class="wide-video" controls preload="metadata" src="{{ '/assets/nav-plans-to-task-detail.webm' | relative_url }}"></video>
 
+## Supported markup
+
+Plan and task documents are Markdown, and the reader renders them through a fixed allowlist rather than trusting what the file contains.
+
+- **Rendered:** headings, paragraphs, lists and task lists, emphasis, code and code blocks, blockquotes, rules, tables (with column alignment), `<details>`/`<summary>`, links, images, strikethrough, superscript and subscript, and `<kbd>`. Task-list checkboxes show as strikethrough for done items.
+- **Removed:** forms and form controls (`form`, `input`, `button`, `select`, `textarea`), `iframe`, `object`, `embed`, `video`, `audio`, `link`, `meta`, `base`, inline `svg` and `math`, `style` attributes, event handlers, and author-set `id` and `class` attributes. The text inside a removed element stays; scripts and styles are dropped entirely.
+- **Links:** `http:`, `https:`, `mailto:`, same-page `#fragment`, and relative paths. Other schemes, such as `javascript:`, are removed and the link text stays. External links open in a new tab without access to the viewer.
+- **Images:** relative paths and small embedded `data:` images (PNG, GIF, JPEG, WebP, up to 100 KiB). An image from another site is not loaded; the viewer shows its alt text, or a plain link when there is none.
+- **Diagrams:** Mermaid blocks render with strict security, and a diagram cannot change that, its theme, its fonts, or its size limits from inside its own `%%{init}%%` directive or front matter. Very large diagrams (over 50,000 characters or 500 edges) are refused.
+
+The viewer also sends a Content Security Policy that only allows its own scripts, fonts, and styles, plus `data:` images, and forbids framing.
+
 ## Archive
 
 Browse finished plans, grouped by month with running totals -- what you shipped, and how much.

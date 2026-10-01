@@ -43,7 +43,12 @@ import { spawn } from 'child_process';
 import { URL } from 'url';
 import { getWorkspaceModel, getPlanDetail, getConfig } from './workspace-model';
 import { EventsHub } from './events';
-import { isSelfReviewAvailable, launchSelfReview, LaunchDeps } from './self-review';
+import {
+  isSelfReviewAvailable,
+  launchSelfReview,
+  createLaunchRegistry,
+  LaunchDeps,
+} from './self-review';
 import { archivePlan } from './archive';
 import { writeConfigFile } from './config-write';
 
@@ -515,12 +520,14 @@ const handleSelfReview: RouteHandler = (req, res, ctx) => {
   readJsonBody(req)
     .then(body => {
       const clientPath = (body as { path?: unknown }).path;
-      const result = launchSelfReview(
+      return launchSelfReview(
         ctx.root,
         typeof clientPath === 'string' ? clientPath : '',
         ctx.selfReviewDeps
       );
-      sendJson(res, result.status, result.body);
+    })
+    .then(result => {
+      sendJson(res, result.status, result.body, result.headers);
     })
     .catch((err: unknown) => {
       sendError(res, bodyErrorStatus(err), {
@@ -791,6 +798,10 @@ export const startServer = async (opts: ServeOptions): Promise<ServeHandle> => {
   // that anyway.
   const guardContext: GuardContext = { allowedHosts: new Set(), capability };
 
+  // One launch registry per instance, so self-review admission is bounded for
+  // this server's lifetime; a test-supplied registry still wins.
+  const selfReviewDeps: LaunchDeps = { registry: createLaunchRegistry(), ...opts.selfReviewDeps };
+
   const handleRequest = (req: http.IncomingMessage, res: http.ServerResponse): void => {
     const guard = guardRequest(req, guardContext);
     if (!guard.ok) {
@@ -808,7 +819,7 @@ export const startServer = async (opts: ServeOptions): Promise<ServeHandle> => {
         pathname,
         events,
         guard: guardContext,
-        selfReviewDeps: opts.selfReviewDeps,
+        selfReviewDeps,
       });
       return;
     }

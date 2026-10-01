@@ -21,8 +21,10 @@ import * as path from 'path';
 import * as http from 'http';
 import * as net from 'net';
 import { AddressInfo } from 'net';
+import { EventEmitter } from 'events';
 import { startServer, ServeHandle, CAPABILITY_HEADER } from '../serve/server';
 import { resolveWorkspaceRoot, isResolveError } from '../serve/root';
+import { EventsHub, MAX_SSE_CLIENTS } from '../serve/events';
 
 const FIXTURE_ROOT = path.resolve(process.cwd(), 'src', '__tests__', 'fixtures', 'serve-workspace');
 const ASSETS_DIR = path.resolve(process.cwd(), 'dist-web');
@@ -488,8 +490,12 @@ describe('serve server: mutation capability and origin policy', () => {
       assetsDir: os.tmpdir(),
       selfReviewDeps: {
         available: () => true,
-        spawnDetached: (cmd, args) => {
+        spawn: (cmd, args) => {
           launches.push({ cmd, args });
+          const child = new EventEmitter() as EventEmitter & { unref: () => void };
+          child.unref = () => {};
+          process.nextTick(() => child.emit('spawn'));
+          return child;
         },
       },
     });
@@ -756,6 +762,340 @@ describe('serve server: SSE change stream coalescing', () => {
     // Allow disconnect cleanup to run; the client set should drain.
     await delay(100);
     expect(handle.events.clientCount).toBe(0);
+  });
+});
+
+// Session-level bounds on the SSE stream: client admission, per-client
+// backpressure, and cleanup. The hub is driven directly behind a bare http
+// server so the test can shorten its compiled constants through the
+// constructor; the reconnect case goes through `startServer` like the SPA.
+describe('serve server: SSE admission, backpressure, and cleanup', () => {
+  const CHANGED = 'event: changed\ndata: {}\n\n';
+
+  /** Polls until `predicate` holds or the deadline passes. */
+  const waitFor = async (predicate: () => boolean, timeoutMs = 3000): Promise<void> => {
+    const deadline = Date.now() + timeoutMs;
+    while (!predicate()) {
+      if (Date.now() > deadline) throw new Error('waitFor: condition not met in time');
+      await delay(10);
+    }
+  };
+
+  /** Hosts a hub behind a minimal http server on an ephemeral loopback port. */
+  const hostHub = async (
+    hub: EventsHub
+  ): Promise<{ port: number; server: http.Server; close: () => Promise<void> }> => {
+    const server = http.createServer((req, res) => {
+      if (!hub.apiHandler(req, res, { pathname: req.url ?? '' })) {
+        res.writeHead(404);
+        res.end();
+      }
+    });
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address() as AddressInfo;
+    return {
+      port,
+      server,
+      close: () =>
+        new Promise<void>(resolve => {
+          hub.close();
+          server.closeAllConnections();
+          server.close(() => resolve());
+        }),
+    };
+  };
+
+  interface SseClient {
+    res: http.IncomingMessage;
+    req: http.ClientRequest;
+    data: () => string;
+  }
+
+  /** Opens `GET /api/events` and accumulates whatever the server streams. */
+  const connectSse = (port: number): Promise<SseClient> =>
+    new Promise((resolve, reject) => {
+      let data = '';
+      const req = http.get({ host: '127.0.0.1', port, path: '/api/events' }, res => {
+        res.on('data', chunk => (data += chunk.toString()));
+        resolve({ req, res, data: () => data });
+      });
+      req.on('error', reject);
+    });
+
+  const countChanged = (text: string): number => (text.match(/event: changed/g) ?? []).length;
+
+  /** A `ServerResponse` stand-in whose `write` reports backpressure on demand. */
+  class FakeResponse extends EventEmitter {
+    writes: string[] = [];
+    full = false;
+    ended = false;
+    destroyed = false;
+    headersSent = false;
+    writeHead(): this {
+      this.headersSent = true;
+      return this;
+    }
+    write(chunk: string): boolean {
+      this.writes.push(chunk);
+      return !this.full;
+    }
+    end(): this {
+      this.ended = true;
+      return this;
+    }
+    destroy(): this {
+      this.destroyed = true;
+      this.emit('close');
+      return this;
+    }
+  }
+
+  const fakePair = (): { req: EventEmitter; res: FakeResponse } => ({
+    req: new EventEmitter(),
+    res: new FakeResponse(),
+  });
+
+  const asHttp = (req: EventEmitter, res: FakeResponse) =>
+    [req as unknown as http.IncomingMessage, res as unknown as http.ServerResponse] as const;
+
+  let workspace: string;
+
+  beforeEach(() => {
+    workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'serve-sse-test-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(workspace, { recursive: true, force: true });
+  });
+
+  it('fans one changed event out to several ordinary clients', async () => {
+    const hub = new EventsHub(workspace);
+    const host = await hostHub(hub);
+    try {
+      const clients = await Promise.all([
+        connectSse(host.port),
+        connectSse(host.port),
+        connectSse(host.port),
+      ]);
+      await waitFor(() => hub.clientCount === 3);
+      for (const client of clients) expect(client.res.statusCode).toBe(200);
+
+      hub.broadcast();
+      await waitFor(() => clients.every(client => countChanged(client.data()) === 1));
+      for (const client of clients) expect(client.data()).toContain(': connected');
+
+      clients[0]!.req.destroy();
+      await waitFor(() => hub.clientCount === 2);
+    } finally {
+      await host.close();
+    }
+    expect(hub.clientCount).toBe(0);
+  });
+
+  it('refuses connections past the cap with 503 and Retry-After without admitting them', async () => {
+    expect(MAX_SSE_CLIENTS).toBeGreaterThanOrEqual(2);
+    const hub = new EventsHub(workspace, undefined, { maxClients: 2 });
+    const host = await hostHub(hub);
+    try {
+      const admitted = [await connectSse(host.port), await connectSse(host.port)];
+      await waitFor(() => hub.clientCount === 2);
+
+      const refused = await connectSse(host.port);
+      expect(refused.res.statusCode).toBe(503);
+      expect(refused.res.headers['retry-after']).toMatch(/^[0-9]+$/);
+      // The short body can land with the headers, so poll completion rather
+      // than racing an `end` listener against it.
+      await waitFor(() => refused.res.complete);
+      expect(hub.clientCount).toBe(2);
+
+      // The admitted clients are unaffected by the refusal.
+      hub.broadcast();
+      await waitFor(() => admitted.every(client => countChanged(client.data()) === 1));
+      expect(refused.data()).not.toContain('event: changed');
+
+      // A departure frees a seat for the next arrival.
+      admitted[0]!.req.destroy();
+      await waitFor(() => hub.clientCount === 1);
+      const next = await connectSse(host.port);
+      expect(next.res.statusCode).toBe(200);
+      await waitFor(() => hub.clientCount === 2);
+    } finally {
+      await host.close();
+    }
+  });
+
+  it('stops writing to a paused socket and drops it after the blocked timeout', async () => {
+    const hub = new EventsHub(workspace, undefined, { blockedTimeoutMs: 250 });
+    const host = await hostHub(hub);
+    try {
+      let received = 0;
+      let closed = false;
+      const socket = net.connect(host.port, '127.0.0.1', () => {
+        socket.write(`GET /api/events HTTP/1.1\r\nHost: 127.0.0.1:${host.port}\r\n\r\n`);
+        socket.pause();
+      });
+      socket.on('data', chunk => (received += chunk.length));
+      socket.on('error', () => {});
+      socket.on('close', () => (closed = true));
+      await waitFor(() => hub.clientCount === 1);
+
+      // Push until the kernel stops accepting and the hub marks the client
+      // blocked; keep pushing while blocked so the coalescing path is exercised
+      // and the timer, not the test, is what removes the client.
+      let attempts = 0;
+      let sawBlocked = false;
+      const deadline = Date.now() + 10000;
+      while (hub.clientCount === 1 && Date.now() < deadline) {
+        for (let i = 0; i < 5000; i++) hub.broadcast();
+        attempts += 5000;
+        if (hub.blockedClientCount === 1) sawBlocked = true;
+        await delay(5);
+      }
+      expect(sawBlocked).toBe(true);
+      expect(hub.clientCount).toBe(0);
+      expect(hub.blockedClientCount).toBe(0);
+
+      // The hub skipped writes while blocked: far fewer bytes reached the wire
+      // than were broadcast, and the server ended the connection.
+      socket.resume();
+      await waitFor(() => closed, 5000);
+      expect(received).toBeLessThan(attempts * CHANGED.length);
+      expect(received).toBeGreaterThan(0);
+    } finally {
+      await host.close();
+    }
+  }, 20000);
+
+  it('coalesces broadcasts to a blocked client into one changed event on drain and skips keep-alives', async () => {
+    const hub = new EventsHub(workspace, undefined, { keepAliveMs: 5, blockedTimeoutMs: 60000 });
+    const { req, res } = fakePair();
+    hub.handleConnection(...asHttp(req, res));
+    expect(res.writes).toEqual([': connected\n\n']);
+
+    // Keep-alives flow while the client is healthy.
+    await waitFor(() => res.writes.includes(': keep-alive\n\n'));
+
+    res.full = true;
+    hub.broadcast();
+    const blockedAt = res.writes.length;
+    expect(res.writes[blockedAt - 1]).toBe(CHANGED);
+    expect(hub.blockedClientCount).toBe(1);
+
+    for (let i = 0; i < 100; i++) hub.broadcast();
+    await delay(40);
+    expect(res.writes.length).toBe(blockedAt);
+
+    res.full = false;
+    res.emit('drain');
+    expect(hub.blockedClientCount).toBe(0);
+    expect(res.writes.length).toBe(blockedAt + 1);
+    expect(res.writes[blockedAt]).toBe(CHANGED);
+
+    // Nothing pending: a drain with no missed broadcast writes nothing.
+    res.emit('drain');
+    expect(res.writes.length).toBe(blockedAt + 1);
+
+    hub.broadcast();
+    expect(res.writes.length).toBe(blockedAt + 2);
+    await waitFor(() => res.writes.length > blockedAt + 2);
+    expect(res.writes[res.writes.length - 1]).toBe(': keep-alive\n\n');
+
+    hub.close();
+    expect(res.ended).toBe(true);
+    expect(hub.clientCount).toBe(0);
+  });
+
+  it('close() and disconnects clear every per-client timer and listener', () => {
+    vi.useFakeTimers();
+    try {
+      const hub = new EventsHub(workspace, undefined, { blockedTimeoutMs: 100 });
+      const healthy = fakePair();
+      const blocked = fakePair();
+      const leaving = fakePair();
+      hub.handleConnection(...asHttp(healthy.req, healthy.res));
+      hub.handleConnection(...asHttp(blocked.req, blocked.res));
+      hub.handleConnection(...asHttp(leaving.req, leaving.res));
+      expect(hub.clientCount).toBe(3);
+      expect(vi.getTimerCount()).toBe(3); // one keep-alive each
+
+      blocked.res.full = true;
+      hub.broadcast();
+      expect(hub.blockedClientCount).toBe(1);
+      expect(vi.getTimerCount()).toBe(4); // plus the blocked client's slow timer
+      expect(blocked.res.listenerCount('drain')).toBe(1);
+
+      // A client that disconnects on its own releases its timers and listeners.
+      leaving.req.emit('close');
+      expect(hub.clientCount).toBe(2);
+      expect(vi.getTimerCount()).toBe(3);
+      expect(leaving.res.listenerCount('close')).toBe(0);
+
+      // The blocked client never drains: the slow timer ends and removes it.
+      vi.advanceTimersByTime(100);
+      expect(blocked.res.destroyed).toBe(true);
+      expect(hub.clientCount).toBe(1);
+      expect(hub.blockedClientCount).toBe(0);
+      expect(vi.getTimerCount()).toBe(1);
+      expect(blocked.res.listenerCount('drain')).toBe(0);
+
+      hub.close();
+      expect(hub.clientCount).toBe(0);
+      expect(vi.getTimerCount()).toBe(0);
+      expect(healthy.res.ended).toBe(true);
+      expect(healthy.res.listenerCount('close')).toBe(0);
+      expect(healthy.req.listenerCount('close')).toBe(0);
+
+      // Late events from a departed client are inert.
+      healthy.req.emit('close');
+      blocked.res.emit('drain');
+      hub.broadcast();
+      expect(hub.clientCount).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a client reconnects after the server closes and reopens on the same port', async () => {
+    const root = path.join(workspace, '.ai', 'strikethroo');
+    fs.mkdirSync(path.join(root, 'plans'), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, '.init-metadata.json'),
+      JSON.stringify({ version: '0.0.0', workspaceSchemaVersion: 4 })
+    );
+    let handle = await startServer({ root, port: 0, open: false, assetsDir: os.tmpdir() });
+    const port = handle.port;
+    try {
+      const first = await connectSse(port);
+      await waitFor(() => handle.events.clientCount === 1);
+
+      const closed = new Promise<void>(resolve => handle.server.close(() => resolve()));
+      handle.server.closeAllConnections();
+      await closed;
+      expect(handle.events.clientCount).toBe(0);
+      first.req.destroy();
+
+      // Reopen on the same port (retry briefly in case it lingers in TIME_WAIT).
+      for (let attempt = 0; ; attempt++) {
+        try {
+          handle = await startServer({ root, port, open: false, assetsDir: os.tmpdir() });
+          break;
+        } catch (err) {
+          if (attempt >= 20) throw err;
+          await delay(50);
+        }
+      }
+
+      const second = await connectSse(port);
+      expect(second.res.statusCode).toBe(200);
+      await waitFor(() => handle.events.clientCount === 1);
+      handle.events.broadcast();
+      await waitFor(() => countChanged(second.data()) === 1);
+      second.req.destroy();
+      await waitFor(() => handle.events.clientCount === 0);
+    } finally {
+      handle.server.closeAllConnections();
+      await new Promise<void>(resolve => handle.server.close(() => resolve()));
+    }
   });
 });
 

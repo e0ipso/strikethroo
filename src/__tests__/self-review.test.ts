@@ -11,10 +11,14 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { EventEmitter } from 'events';
+import { setImmediate } from 'timers';
 import {
   isSelfReviewAvailable,
   resolveReviewPath,
   launchSelfReview,
+  createLaunchRegistry,
+  MAX_CONCURRENT_SELF_REVIEWS,
   SELF_REVIEW_BINARY,
 } from '../serve/self-review';
 
@@ -114,45 +118,186 @@ describe('resolveReviewPath', () => {
   });
 });
 
+/** A stand-in for the detached child: emits `spawn`/`error`/`exit` on command. */
+class FakeChild extends EventEmitter {
+  unrefCalls = 0;
+  unref(): void {
+    this.unrefCalls += 1;
+  }
+}
+
+/**
+ * A `spawn` seam that records every launch and hands back fake children. By
+ * default each child reports `spawn` on the next tick; `manual` children wait
+ * for the test to emit, and `fail` children report an ENOENT-style `error`.
+ */
+const fakeSpawner = (mode: 'auto' | 'manual' | 'fail' = 'auto') => {
+  const calls: Array<{ cmd: string; args: string[] }> = [];
+  const children: FakeChild[] = [];
+  const spawn = (cmd: string, args: string[]): FakeChild => {
+    calls.push({ cmd, args });
+    const child = new FakeChild();
+    children.push(child);
+    if (mode === 'auto') process.nextTick(() => child.emit('spawn'));
+    if (mode === 'fail') {
+      process.nextTick(() =>
+        child.emit(
+          'error',
+          Object.assign(new Error('spawn self-review ENOENT'), { code: 'ENOENT' })
+        )
+      );
+    }
+    return child;
+  };
+  return { spawn, calls, children };
+};
+
+/** Adds one more plan file to the workspace and returns its project-relative path. */
+const addPlan = (ws: ReturnType<typeof makeWorkspace>, n: number): string => {
+  const dir = path.join(ws.root, 'plans', `${n}--extra`);
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, `plan-${n}--extra.md`);
+  fs.writeFileSync(file, `# plan ${n}\n`);
+  return path.relative(ws.project, file);
+};
+
+const tick = (): Promise<void> => new Promise(resolve => setImmediate(resolve));
+
 describe('launchSelfReview', () => {
-  it('returns 409 when the binary is not available, without spawning', () => {
+  it('returns 409 when the binary is not available, without spawning', async () => {
     const ws = makeWorkspace();
     const rel = path.relative(ws.project, ws.planFile);
-    let spawned = false;
-    const result = launchSelfReview(ws.root, rel, {
+    const spawner = fakeSpawner();
+    const result = await launchSelfReview(ws.root, rel, {
       available: () => false,
-      spawnDetached: () => {
-        spawned = true;
-      },
+      spawn: spawner.spawn,
+      registry: createLaunchRegistry(),
     });
     expect(result.status).toBe(409);
     expect(result.body.ok).toBe(false);
-    expect(spawned).toBe(false);
+    expect(spawner.calls).toEqual([]);
   });
 
-  it('spawns the binary with the resolved absolute path when available', () => {
+  it('spawns the resolved absolute path, detaches the child, and succeeds only once spawn fires', async () => {
     const ws = makeWorkspace();
     const rel = path.relative(ws.project, ws.planFile);
-    const calls: Array<{ cmd: string; args: string[] }> = [];
-    const result = launchSelfReview(ws.root, rel, {
+    const spawner = fakeSpawner('manual');
+    let settled = false;
+    const pending = launchSelfReview(ws.root, rel, {
       available: () => true,
-      spawnDetached: (cmd, args) => calls.push({ cmd, args }),
+      spawn: spawner.spawn,
+      registry: createLaunchRegistry(),
+    }).then(result => {
+      settled = true;
+      return result;
     });
+
+    await tick();
+    expect(spawner.calls).toEqual([{ cmd: SELF_REVIEW_BINARY, args: [ws.planFile] }]);
+    expect(settled).toBe(false);
+
+    spawner.children[0]!.emit('spawn');
+    const result = await pending;
     expect(result.status).toBe(200);
     expect(result.body).toEqual({ ok: true });
-    expect(calls).toEqual([{ cmd: SELF_REVIEW_BINARY, args: [ws.planFile] }]);
+    expect(spawner.children[0]!.unrefCalls).toBe(1);
   });
 
-  it('does not spawn when available but the path is invalid', () => {
+  it('does not spawn when available but the path is invalid', async () => {
     const ws = makeWorkspace();
-    let spawned = false;
-    const result = launchSelfReview(ws.root, '../../etc/passwd', {
+    const spawner = fakeSpawner();
+    const result = await launchSelfReview(ws.root, '../../etc/passwd', {
       available: () => true,
-      spawnDetached: () => {
-        spawned = true;
-      },
+      spawn: spawner.spawn,
+      registry: createLaunchRegistry(),
     });
     expect(result.status).toBe(400);
-    expect(spawned).toBe(false);
+    expect(spawner.calls).toEqual([]);
+  });
+
+  it('deduplicates per plan, caps concurrent launches, and recovers capacity when a child exits', async () => {
+    const ws = makeWorkspace();
+    const registry = createLaunchRegistry();
+    const spawner = fakeSpawner();
+    const deps = { available: () => true, spawn: spawner.spawn, registry };
+    const plans = Array.from({ length: MAX_CONCURRENT_SELF_REVIEWS + 1 }, (_, i) =>
+      addPlan(ws, 10 + i)
+    );
+
+    // Two simultaneous requests for one plan: exactly one launch.
+    const [first, duplicate] = await Promise.all([
+      launchSelfReview(ws.root, plans[0]!, deps),
+      launchSelfReview(ws.root, plans[0]!, deps),
+    ]);
+    expect(first.status).toBe(200);
+    expect(duplicate.status).toBe(409);
+    expect(duplicate.body).toEqual({
+      ok: false,
+      error: 'A self-review is already running for this plan.',
+    });
+    expect(spawner.calls).toHaveLength(1);
+
+    // A running launch still answers 409, not a second process.
+    const again = await launchSelfReview(ws.root, plans[0]!, deps);
+    expect(again.status).toBe(409);
+    expect(spawner.calls).toHaveLength(1);
+
+    // Fill the remaining slots; the one past the limit is refused as busy.
+    for (let i = 1; i < MAX_CONCURRENT_SELF_REVIEWS; i++) {
+      expect((await launchSelfReview(ws.root, plans[i]!, deps)).status).toBe(200);
+    }
+    const busy = await launchSelfReview(ws.root, plans[MAX_CONCURRENT_SELF_REVIEWS]!, deps);
+    expect(busy.status).toBe(429);
+    expect(busy.body.ok).toBe(false);
+    expect(busy.headers?.['Retry-After']).toBeDefined();
+    expect(spawner.calls).toHaveLength(MAX_CONCURRENT_SELF_REVIEWS);
+    expect(registry.size).toBe(MAX_CONCURRENT_SELF_REVIEWS);
+
+    // The first child exits (and later errors too): one slot frees, exactly once.
+    spawner.children[0]!.emit('exit', 0, null);
+    spawner.children[0]!.emit('error', new Error('late'));
+    expect(registry.size).toBe(MAX_CONCURRENT_SELF_REVIEWS - 1);
+
+    const recovered = await launchSelfReview(ws.root, plans[MAX_CONCURRENT_SELF_REVIEWS]!, deps);
+    expect(recovered.status).toBe(200);
+    expect(spawner.calls).toHaveLength(MAX_CONCURRENT_SELF_REVIEWS + 1);
+    expect(registry.size).toBe(MAX_CONCURRENT_SELF_REVIEWS);
+  });
+
+  it('answers a launch failure with a fixed 500 and frees the slot', async () => {
+    const ws = makeWorkspace();
+    const rel = path.relative(ws.project, ws.planFile);
+    const registry = createLaunchRegistry();
+
+    const failing = fakeSpawner('fail');
+    const errored = await launchSelfReview(ws.root, rel, {
+      available: () => true,
+      spawn: failing.spawn,
+      registry,
+    });
+    expect(errored.status).toBe(500);
+    expect(errored.body).toEqual({ ok: false, error: 'Failed to launch self-review.' });
+    expect(registry.size).toBe(0);
+
+    const thrown = await launchSelfReview(ws.root, rel, {
+      available: () => true,
+      spawn: () => {
+        throw new Error('EACCES');
+      },
+      registry,
+    });
+    expect(thrown.status).toBe(500);
+    expect(thrown.body).toEqual({ ok: false, error: 'Failed to launch self-review.' });
+    expect(registry.size).toBe(0);
+
+    // The same plan launches cleanly once the failure is behind it.
+    const working = fakeSpawner();
+    const ok = await launchSelfReview(ws.root, rel, {
+      available: () => true,
+      spawn: working.spawn,
+      registry,
+    });
+    expect(ok.status).toBe(200);
+    expect(registry.size).toBe(1);
   });
 });

@@ -87,6 +87,7 @@ review.xml
 # Track the offloaded Cursor Cloud instructions (loaded on demand from AGENTS.md)
 !.cursor/cloud-instructions.md
 .claude
+.codex
 .agents/skills/
 .github/agents/
 skills-lock.json

@@ -40,14 +40,18 @@ var path4 = __toESM(require("path"));
 // src/skill-scripts/shared/git-utils.ts
 var import_child_process = require("child_process");
 var GIT_OUTPUT_LIMIT = 64 * 1024 * 1024;
-var execGit = (command) => {
+var run = (args, opts) => (0, import_child_process.execFileSync)("git", [...args], {
+  cwd: opts.cwd,
+  input: opts.input,
+  encoding: "utf8",
+  stdio: ["pipe", "pipe", "pipe"],
+  maxBuffer: GIT_OUTPUT_LIMIT
+});
+var execGit = (args, opts = {}) => {
   try {
-    return (0, import_child_process.execSync)(command, {
-      encoding: "utf8",
-      stdio: ["pipe", "pipe", "pipe"],
-      maxBuffer: GIT_OUTPUT_LIMIT
-    }).trim();
-  } catch (_error) {
+    const out = run(args, opts);
+    return opts.trim === false ? out : out.trim();
+  } catch {
     return null;
   }
 };
@@ -274,20 +278,20 @@ var _printInfo = (message) => {
   console.log(message);
 };
 var _isGitRepo = () => {
-  const result = execGit("git rev-parse --is-inside-work-tree");
+  const result = execGit(["rev-parse", "--is-inside-work-tree"]);
   return result === "true";
 };
 var _getCurrentBranch = () => {
-  return execGit("git rev-parse --abbrev-ref HEAD");
+  return execGit(["rev-parse", "--abbrev-ref", "HEAD"]);
 };
-var _getUncommittedChangesOutsideWorkspace = () => execGit("git status --porcelain -- ':(top)' ':(top,exclude).ai/strikethroo'");
+var _getUncommittedChangesOutsideWorkspace = () => execGit(["status", "--porcelain", "--", ":(top)", ":(top,exclude).ai/strikethroo"]);
 var _branchExists = (branchName) => {
-  const localMatch = execGit(`git branch --list "${branchName}"`);
+  const localMatch = execGit(["branch", "--list", branchName]);
   if (localMatch) {
     const names = localMatch.split("\n").map((b) => b.trim().replace(/^\*\s*/, "")).filter(Boolean);
     if (names.includes(branchName)) return true;
   }
-  const remoteMatch = execGit(`git branch -r --list "origin/${branchName}"`);
+  const remoteMatch = execGit(["branch", "-r", "--list", `origin/${branchName}`]);
   if (remoteMatch && remoteMatch.trim().length > 0) return true;
   return false;
 };
@@ -347,7 +351,7 @@ var main = (startPath = process.cwd()) => {
       process.exit(0);
     }
     _printWarning(`Branch "${branchName}" already exists`);
-    const checkoutResult = execGit(`git checkout "${branchName}"`);
+    const checkoutResult = execGit(["checkout", branchName]);
     if (checkoutResult === null) {
       _printError(`Failed to checkout branch "${branchName}"`);
       process.exit(1);
@@ -355,7 +359,7 @@ var main = (startPath = process.cwd()) => {
     _printSuccess(`Switched to existing branch: ${branchName}`);
     process.exit(0);
   }
-  const createResult = execGit(`git checkout -b "${branchName}"`);
+  const createResult = execGit(["checkout", "-b", branchName]);
   if (createResult === null) {
     _printError(`Failed to create branch "${branchName}"`);
     process.exit(1);

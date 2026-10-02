@@ -1,3 +1,9 @@
+## [4.1.0](https://github.com/e0ipso/strikethroo/compare/v4.0.0...v4.1.0) (2026-10-02)
+
+### Features
+
+* security hardening and opt-in serve --host ([#104](https://github.com/e0ipso/strikethroo/issues/104)) ([6520014](https://github.com/e0ipso/strikethroo/commit/6520014fbf1e85c8cd788f61eb1610655bb90f2f))
+
 ## 4.0.0 (2026-09-09)
 
 * feat!: default task routing to native harness ([dada7fe](https://github.com/e0ipso/strikethroo/commit/dada7fe)), closes [#101](https://github.com/e0ipso/strikethroo/issues/101)

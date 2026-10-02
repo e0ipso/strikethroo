@@ -42,14 +42,18 @@ var path4 = __toESM(require("path"));
 // src/skill-scripts/shared/git-utils.ts
 var import_child_process = require("child_process");
 var GIT_OUTPUT_LIMIT = 64 * 1024 * 1024;
-var execGit = (command) => {
+var run = (args, opts) => (0, import_child_process.execFileSync)("git", [...args], {
+  cwd: opts.cwd,
+  input: opts.input,
+  encoding: "utf8",
+  stdio: ["pipe", "pipe", "pipe"],
+  maxBuffer: GIT_OUTPUT_LIMIT
+});
+var execGit = (args, opts = {}) => {
   try {
-    return (0, import_child_process.execSync)(command, {
-      encoding: "utf8",
-      stdio: ["pipe", "pipe", "pipe"],
-      maxBuffer: GIT_OUTPUT_LIMIT
-    }).trim();
-  } catch (_error) {
+    const out = run(args, opts);
+    return opts.trim === false ? out : out.trim();
+  } catch {
     return null;
   }
 };
@@ -269,7 +273,7 @@ var emit = (result, exitCode) => {
 `);
   process.exit(exitCode);
 };
-var _isGitRepo = () => execGit("git rev-parse --is-inside-work-tree") === "true";
+var _isGitRepo = () => execGit(["rev-parse", "--is-inside-work-tree"]) === "true";
 var _isValidSha = (value) => typeof value === "string" && SHA_RE.test(value);
 var _readExistingBaseCommit = (filePath) => {
   let raw;
@@ -292,7 +296,7 @@ var main = (startPath = process.cwd()) => {
   if (!_isGitRepo()) {
     emit({ kind: "skipped", reason: "not-a-git-repository" }, 0);
   }
-  const head = execGit("git rev-parse HEAD");
+  const head = execGit(["rev-parse", "HEAD"]);
   if (!_isValidSha(head)) {
     emit({ kind: "skipped", reason: "no-commits" }, 0);
   }

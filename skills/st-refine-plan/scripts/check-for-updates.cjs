@@ -6,7 +6,11 @@ var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __commonJS = (cb, mod) => function __require() {
-  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+  try {
+    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+  } catch (e) {
+    throw mod = 0, e;
+  }
 };
 var __export = (target, all) => {
   for (var name in all)
@@ -880,10 +884,10 @@ var require_truncate = __commonJS({
   "node_modules/semver/functions/truncate.js"(exports2, module2) {
     "use strict";
     var parse = require_parse();
-    var constants = require_constants();
+    var constants2 = require_constants();
     var SemVer = require_semver();
     var truncate = (version, truncation, options) => {
-      if (!constants.RELEASE_TYPES.includes(truncation)) {
+      if (!constants2.RELEASE_TYPES.includes(truncation)) {
         return null;
       }
       const clonedVersion = cloneInputVersion(version, options);
@@ -1932,7 +1936,7 @@ var require_semver2 = __commonJS({
   "node_modules/semver/index.js"(exports2, module2) {
     "use strict";
     var internalRe = require_re();
-    var constants = require_constants();
+    var constants2 = require_constants();
     var SemVer = require_semver();
     var identifiers = require_identifiers();
     var parse = require_parse();
@@ -2016,8 +2020,8 @@ var require_semver2 = __commonJS({
       re: internalRe.re,
       src: internalRe.src,
       tokens: internalRe.t,
-      SEMVER_SPEC_VERSION: constants.SEMVER_SPEC_VERSION,
-      RELEASE_TYPES: constants.RELEASE_TYPES,
+      SEMVER_SPEC_VERSION: constants2.SEMVER_SPEC_VERSION,
+      RELEASE_TYPES: constants2.RELEASE_TYPES,
       compareIdentifiers: identifiers.compareIdentifiers,
       rcompareIdentifiers: identifiers.rcompareIdentifiers
     };
@@ -2090,8 +2094,8 @@ var findStrikethrooRoot = (startPath = process.cwd()) => {
 };
 
 // src/skill-scripts/shared/update-check.ts
-var fs2 = __toESM(require("fs"));
-var path2 = __toESM(require("path"));
+var fs3 = __toESM(require("fs"));
+var path3 = __toESM(require("path"));
 var import_child_process = require("child_process");
 var semver = __toESM(require_semver2());
 
@@ -2118,8 +2122,136 @@ function normalizeSavedHarnesses(saved) {
   return Array.from(new Set(harnesses));
 }
 
+// src/skill-scripts/shared/safe-fs.ts
+var fs2 = __toESM(require("fs"));
+var path2 = __toESM(require("path"));
+var import_crypto = require("crypto");
+var DEFAULT_MAX_READ_BYTES = 8 * 1024 * 1024;
+var fail = (error, message) => ({ error, message });
+var errno = (err) => typeof err === "object" && err !== null && "code" in err ? String(err.code) : void 0;
+var canonicalRootOf = (root) => {
+  try {
+    return fs2.realpathSync.native(path2.resolve(root));
+  } catch {
+    return fail("not-found", "Workspace root does not exist.");
+  }
+};
+var resolveContained = (root, input, options = {}) => {
+  if (typeof input !== "string" || input.includes("\0")) {
+    return fail("invalid-path", "Path is not valid.");
+  }
+  const givenRoot = path2.resolve(root);
+  const canonicalRoot = canonicalRootOf(givenRoot);
+  if (typeof canonicalRoot !== "string") return canonicalRoot;
+  const rel = path2.isAbsolute(input) ? path2.relative(givenRoot, input) : input;
+  const target = path2.resolve(canonicalRoot, rel);
+  const relative2 = path2.relative(canonicalRoot, target);
+  if (path2.isAbsolute(relative2) || relative2 === ".." || relative2.startsWith(`..${path2.sep}`) || relative2.includes("\0")) {
+    return fail("outside-root", "Path is outside the workspace root.");
+  }
+  const kind = options.expect ?? "file";
+  const parts = relative2 === "" ? [] : relative2.split(path2.sep);
+  let current = canonicalRoot;
+  let stats;
+  try {
+    stats = fs2.lstatSync(canonicalRoot);
+  } catch {
+    return fail("fs-error", "Could not inspect path.");
+  }
+  for (let i = 0; i < parts.length; i += 1) {
+    const isLeaf = i === parts.length - 1;
+    current = path2.join(current, parts[i]);
+    try {
+      stats = fs2.lstatSync(current);
+    } catch (err) {
+      const code = errno(err);
+      if (code === "ENOENT" || code === "ENOTDIR") {
+        if (isLeaf && options.allowMissingLeaf) {
+          return { path: current, relative: relative2, exists: false };
+        }
+        return fail("not-found", "Path does not exist.");
+      }
+      return fail("fs-error", "Could not inspect path.");
+    }
+    if (stats.isSymbolicLink()) {
+      return fail("symlink", "Symbolic links inside the workspace are not allowed.");
+    }
+    if (!isLeaf && !stats.isDirectory()) {
+      return fail("not-a-directory", "A path component is not a directory.");
+    }
+  }
+  if (kind === "directory" && !stats.isDirectory()) {
+    return fail("not-a-directory", "Path is not a directory.");
+  }
+  if (kind === "file" && !stats.isFile()) {
+    return fail("not-a-file", "Path is not a regular file.");
+  }
+  return { path: current, relative: relative2, exists: true, stats };
+};
+var planAtomicWrite = (root, input, options) => {
+  const mustExist = options.mustExist === true;
+  const resolved = resolveContained(root, input, { allowMissingLeaf: !mustExist });
+  if ("error" in resolved) return resolved;
+  if (mustExist && !resolved.exists) return fail("not-found", "Path does not exist.");
+  const target = resolved.path;
+  const mode = options.mode ?? (resolved.exists && resolved.stats ? resolved.stats.mode & 511 : 384);
+  const temp = path2.join(
+    path2.dirname(target),
+    `.${path2.basename(target)}.${(0, import_crypto.randomBytes)(8).toString("hex")}.tmp`
+  );
+  return { target, temp, mode, mustExist };
+};
+var recheckTarget = (target, mustExist) => {
+  try {
+    const again = fs2.lstatSync(target);
+    if (again.isSymbolicLink()) {
+      return fail("symlink", "Symbolic links inside the workspace are not allowed.");
+    }
+    if (!again.isFile()) return fail("not-a-file", "Path is not a regular file.");
+  } catch (err) {
+    if (errno(err) !== "ENOENT") return fail("fs-error", "Could not inspect path.");
+    if (mustExist) return fail("not-found", "Path does not exist.");
+  }
+  return void 0;
+};
+var writeFileAtomicSync = (root, input, content, options = {}) => {
+  const plan = planAtomicWrite(root, input, options);
+  if ("error" in plan) return plan;
+  const { target, temp, mode, mustExist } = plan;
+  let fd;
+  let renamed = false;
+  try {
+    fd = fs2.openSync(temp, "wx", 384);
+    fs2.writeFileSync(fd, content);
+    fs2.fsyncSync(fd);
+    if (mode !== 384) fs2.fchmodSync(fd, mode);
+    fs2.closeSync(fd);
+    fd = void 0;
+    const refused = recheckTarget(target, mustExist);
+    if (refused) return refused;
+    fs2.renameSync(temp, target);
+    renamed = true;
+    return { path: target };
+  } catch {
+    return fail("fs-error", "Could not write file.");
+  } finally {
+    if (fd !== void 0) {
+      try {
+        fs2.closeSync(fd);
+      } catch {
+      }
+    }
+    if (!renamed) {
+      try {
+        fs2.unlinkSync(temp);
+      } catch {
+      }
+    }
+  }
+};
+
 // src/skill-scripts/shared/update-check.ts
-var DEFAULT_SKILL_VERSION = true ? "4.0.0" : (() => {
+var DEFAULT_SKILL_VERSION = true ? "4.1.0" : (() => {
   try {
     return null.version;
   } catch {
@@ -2130,7 +2262,7 @@ var GITHUB_LATEST_RELEASE_URL = "https://api.github.com/repos/e0ipso/strikethroo
 var UPDATE_COMMAND = "npx strikethroo@latest update";
 var BUNDLED_UPDATE_NOTICE_TEMPLATE = "A newer Strikethroo release is available. Run `{{updateCommand}}` to update.";
 var BUNDLED_HARNESS_UPDATE_NOTICE = "A newer Strikethroo release is available. Ask the user which harnesses to use, then run `{{updateCommand}}` with `--harnesses <list>`.";
-var UPDATE_NOTICE_TEMPLATE_RELATIVE = path2.join(
+var UPDATE_NOTICE_TEMPLATE_RELATIVE = path3.join(
   "config",
   "templates",
   "UPDATE_NOTICE_TEMPLATE.md"
@@ -2140,8 +2272,8 @@ var MAX_RESPONSE_BYTES = 65536;
 var ATTEMPT_INTERVAL_MS = 24 * 60 * 60 * 1e3;
 var NOTICE_INTERVAL_MS = 24 * 60 * 60 * 1e3;
 var LOCK_STALE_MS = 3e4;
-var STATE_RELATIVE_PATH = path2.join("runtime", "update-check.json");
-var LOCK_RELATIVE_PATH = path2.join("runtime", "update-check.lock");
+var STATE_RELATIVE_PATH = path3.join("runtime", "update-check.json");
+var LOCK_RELATIVE_PATH = path3.join("runtime", "update-check.lock");
 var defaultFetchLatestRelease = async () => {
   try {
     const response = await fetch(GITHUB_LATEST_RELEASE_URL, {
@@ -2198,8 +2330,8 @@ var defaultIsStatePathGitignored = (projectRoot, statePath) => {
 };
 var readJsonFile = (filePath) => {
   try {
-    if (!fs2.existsSync(filePath)) return null;
-    const parsed = JSON.parse(fs2.readFileSync(filePath, "utf8"));
+    if (!fs3.existsSync(filePath)) return null;
+    const parsed = JSON.parse(fs3.readFileSync(filePath, "utf8"));
     return parsed && typeof parsed === "object" ? parsed : null;
   } catch {
     return null;
@@ -2222,21 +2354,21 @@ var isLockStale = (lock, nowMs) => {
 };
 var defaultTryAcquireLock = (lockPath, now) => {
   try {
-    fs2.mkdirSync(path2.dirname(lockPath), { recursive: true });
-    const fd = fs2.openSync(lockPath, "wx");
+    fs3.mkdirSync(path3.dirname(lockPath), { recursive: true });
+    const fd = fs3.openSync(lockPath, "wx");
     try {
       const payload = { pid: process.pid, claimedAt: new Date(now()).toISOString() };
-      fs2.writeFileSync(fd, JSON.stringify(payload));
+      fs3.writeFileSync(fd, JSON.stringify(payload));
     } finally {
-      fs2.closeSync(fd);
+      fs3.closeSync(fd);
     }
     return true;
   } catch (err) {
     const code = err.code;
     if (code !== "EEXIST") return false;
     try {
-      const lock = parseLock(fs2.readFileSync(lockPath, "utf8"));
-      const stale = lock ? isLockStale(lock, now()) : now() - fs2.statSync(lockPath).mtimeMs >= LOCK_STALE_MS;
+      const lock = parseLock(fs3.readFileSync(lockPath, "utf8"));
+      const stale = lock ? isLockStale(lock, now()) : now() - fs3.statSync(lockPath).mtimeMs >= LOCK_STALE_MS;
       if (!stale) return false;
       if (lock && Number.isInteger(lock.pid) && lock.pid > 0) {
         try {
@@ -2246,7 +2378,7 @@ var defaultTryAcquireLock = (lockPath, now) => {
           if (error.code !== "ESRCH") return false;
         }
       }
-      fs2.unlinkSync(lockPath);
+      fs3.unlinkSync(lockPath);
     } catch {
       return false;
     }
@@ -2255,18 +2387,16 @@ var defaultTryAcquireLock = (lockPath, now) => {
 };
 var defaultReleaseLock = (lockPath) => {
   try {
-    const lock = parseLock(fs2.readFileSync(lockPath, "utf8"));
-    if (lock?.pid === process.pid) fs2.unlinkSync(lockPath);
+    const lock = parseLock(fs3.readFileSync(lockPath, "utf8"));
+    if (lock?.pid === process.pid) fs3.unlinkSync(lockPath);
   } catch {
   }
 };
 var defaultWriteTextFile = (filePath, contents) => {
   try {
-    fs2.mkdirSync(path2.dirname(filePath), { recursive: true });
-    const tempPath = `${filePath}.tmp-${process.pid}`;
-    fs2.writeFileSync(tempPath, contents);
-    fs2.renameSync(tempPath, filePath);
-    return true;
+    const dir = path3.dirname(filePath);
+    fs3.mkdirSync(dir, { recursive: true });
+    return !("error" in writeFileAtomicSync(dir, path3.basename(filePath), contents));
   } catch {
     return false;
   }
@@ -2303,7 +2433,7 @@ var interpolateNoticeTemplate = (template, result) => template.replace(
 );
 var readNoticeTemplate = (strikethrooRoot, readTextFile) => {
   const workspaceTemplate = readTextFile(
-    path2.join(strikethrooRoot, UPDATE_NOTICE_TEMPLATE_RELATIVE)
+    path3.join(strikethrooRoot, UPDATE_NOTICE_TEMPLATE_RELATIVE)
   );
   return workspaceTemplate?.trim() || BUNDLED_UPDATE_NOTICE_TEMPLATE;
 };
@@ -2325,7 +2455,7 @@ var emptyResult = (skillVersion) => ({
   skillDisposition: "unknown"
 });
 var readWorkspaceMetadata = (strikethrooRoot, readTextFile) => {
-  const raw = readTextFile(path2.join(strikethrooRoot, ".init-metadata.json"));
+  const raw = readTextFile(path3.join(strikethrooRoot, ".init-metadata.json"));
   if (!raw) return { version: null, needsHarnessPrompt: true };
   try {
     const metadata = JSON.parse(raw);
@@ -2346,8 +2476,8 @@ var createDefaultDependencies = () => {
     findProjectRoot: defaultFindProjectRoot,
     readTextFile: (filePath) => {
       try {
-        if (!fs2.existsSync(filePath)) return null;
-        return fs2.readFileSync(filePath, "utf8");
+        if (!fs3.existsSync(filePath)) return null;
+        return fs3.readFileSync(filePath, "utf8");
       } catch {
         return null;
       }
@@ -2362,7 +2492,7 @@ var checkForUpdates = async (strikethrooRoot, partialDeps = {}) => {
   const skillVersion = semver.valid(deps.skillVersion) ?? "unknown";
   const metadata = readWorkspaceMetadata(strikethrooRoot, deps.readTextFile);
   const workspaceVersion = metadata.version;
-  const statePath = path2.join(strikethrooRoot, STATE_RELATIVE_PATH);
+  const statePath = path3.join(strikethrooRoot, STATE_RELATIVE_PATH);
   const projectRoot = deps.findProjectRoot(strikethrooRoot);
   if (!projectRoot || !deps.isStatePathGitignored(projectRoot, statePath)) {
     return {
@@ -2373,7 +2503,7 @@ var checkForUpdates = async (strikethrooRoot, partialDeps = {}) => {
       skillDisposition: compareToRelease(skillVersion, null)
     };
   }
-  const lockPath = path2.join(strikethrooRoot, LOCK_RELATIVE_PATH);
+  const lockPath = path3.join(strikethrooRoot, LOCK_RELATIVE_PATH);
   const nowMs = deps.now();
   const claimed = deps.tryAcquireLock(lockPath);
   if (!claimed) {
@@ -2441,7 +2571,7 @@ var checkForUpdates = async (strikethrooRoot, partialDeps = {}) => {
     const base = {
       noticeEligible,
       needsHarnessPrompt: metadata.needsHarnessPrompt,
-      updateCommand: `${UPDATE_COMMAND} --destination-directory '${path2.resolve(strikethrooRoot, "../..").replace(/'/g, "'\\''")}'`,
+      updateCommand: `${UPDATE_COMMAND} --destination-directory '${path3.resolve(strikethrooRoot, "../..").replace(/'/g, "'\\''")}'`,
       latestRelease,
       workspaceVersion,
       skillVersion,

@@ -126,12 +126,12 @@ describe('release workflow job split', () => {
   test('release depends on verify and holds only what semantic-release needs', () => {
     expect(release).toBeDefined();
     expect(release.needs).toBe('verify');
-    // No provenance/trusted publishing is configured (.releaserc.json has only
-    // npmPublish; package.json publishConfig has only access), so no id-token.
+    // id-token is for npm trusted publishing (OIDC); there is no NPM_TOKEN.
     expect(release.permissions).toEqual({
       contents: 'write',
       issues: 'write',
       'pull-requests': 'write',
+      'id-token': 'write',
     });
     expect(release.env).toBeUndefined();
   });
@@ -149,7 +149,6 @@ describe('release workflow job split', () => {
     expect(publish.run).toContain('npx semantic-release');
     expect(publish.env).toEqual({
       GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
-      NPM_TOKEN: '${{ secrets.NPM_TOKEN }}',
       HUSKY: 0,
     });
   });

@@ -79,6 +79,10 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
+      # npm trusted publishing: @semantic-release/npm exchanges this job's OIDC
+      # token for a short-lived npm publish credential and attaches provenance.
+      # There is no NPM_TOKEN secret.
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -124,6 +128,5 @@ jobs:
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           HUSKY: 0
         run: npx semantic-release

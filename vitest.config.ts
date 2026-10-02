@@ -12,7 +12,6 @@ export default defineConfig({
       'src/__tests__/code-review.integration.test.ts',
       'src/__tests__/config-write.test.ts',
       'src/__tests__/conflict-detection.integration.test.ts',
-      'src/__tests__/dependency-check.test.ts',
       'src/__tests__/dispatch-outcomes-prompt.test.ts',
       'src/__tests__/dispatch-task-execution.integration.test.ts',
       'src/__tests__/dispatch-target-selector.test.ts',

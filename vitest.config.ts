@@ -38,6 +38,7 @@ export default defineConfig({
       'src/__tests__/update-check.test.ts',
       'src/__tests__/update-notice-prompt.test.ts',
       'src/__tests__/release-version-stamp.test.ts',
+      'src/__tests__/release-notes.test.ts',
       'src/__tests__/validation-metadata-gate.test.ts',
       'src/__tests__/validation-strict-pass.test.ts',
       'src/__tests__/validation-workspace.integration.test.ts',

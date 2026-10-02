@@ -531,10 +531,12 @@ describe('checkForUpdates integration', () => {
 });
 
 describe('check-for-updates bundle', () => {
+  // tsc plus build:skills take about 7 s idle, which overruns the default
+  // 10 s hook timeout when the whole suite runs in parallel.
   beforeAll(() => {
     execFileSync('npx', ['tsc'], { cwd: REPO_ROOT, stdio: 'pipe' });
     execFileSync('npm', ['run', 'build:skills'], { cwd: REPO_ROOT, stdio: 'pipe' });
-  });
+  }, 60_000);
 
   test('parent bundle contains stamped package version', () => {
     const packageVersion = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8'))

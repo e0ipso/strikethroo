@@ -113,6 +113,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "@vitest/coverage-v8": "^5.0.3",
     "clsx": "^2.1.1",
+    "conventional-changelog-conventionalcommits": "^9.3.1",
     "dompurify": "^3.4.16",
     "esbuild": "^0.28.2",
     "eslint": "^9.34.0",

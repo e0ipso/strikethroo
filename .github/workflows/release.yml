@@ -57,7 +57,7 @@ jobs:
       - name: Test
         run: npm test
 
-      # Full-lockfile audit (dev included) gated by security/dependency-dispositions.json.
+      # Full-lockfile audit (dev included) using security/audit-ci.json.
       - name: Dependency security check
         run: npm run security:check
 

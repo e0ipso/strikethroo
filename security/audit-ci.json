@@ -1,0 +1,29 @@
+{
+  "$schema": "https://github.com/IBM/audit-ci/raw/main/docs/schema.json",
+  "package-manager": "npm",
+  "high": true,
+  "skip-dev": false,
+  "extra-args": ["--include=dev"],
+  "pass-enoaudit": false,
+  "report-type": "summary",
+  "allowlist": [
+    {
+      "GHSA-qhr7-859c-m2p7|brace-expansion": {
+        "active": true,
+        "notes": "Stack exhaustion on nested brace groups in brace-expansion@5.0.9, bundled inside npm@11.21.0 under @semantic-release/npm@13.2.0. Release tooling only; inputs are semantic-release's own glob patterns. Overrides cannot replace npm's bundled copy. Recheck when npm 11.x ships brace-expansion >=5.0.11 or @semantic-release/npm accepts npm 12."
+      }
+    },
+    {
+      "GHSA-6j4f-fj2g-mc7p|brace-expansion": {
+        "active": true,
+        "notes": "Stack exhaustion in parseCommaParts in brace-expansion@5.0.9, bundled inside npm@11.21.0 under @semantic-release/npm@13.2.0. Release tooling only; inputs are semantic-release's own glob patterns. Overrides cannot replace npm's bundled copy. Recheck when npm 11.x ships brace-expansion >=5.0.10 or @semantic-release/npm accepts npm 12."
+      }
+    },
+    {
+      "GHSA-rfgv-xxqx-mfg5|undici": {
+        "active": true,
+        "notes": "Unrequested WebSocket subprotocol DoS in undici@6.28.0, bundled inside npm@11.21.0 under @semantic-release/npm@13.2.0. Release tooling only; npm uses registry HTTP and never opens WebSockets. Overrides cannot replace npm's bundled copy. Recheck when npm 11.x ships undici >=6.28.1 or @semantic-release/npm accepts npm 12."
+      }
+    }
+  ]
+}

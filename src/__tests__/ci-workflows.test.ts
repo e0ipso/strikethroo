@@ -176,12 +176,36 @@ describe('docs workflow', () => {
 });
 
 describe('security:check script entry', () => {
-  test('package.json exposes the dependency check as npm run security:check', () => {
-    const { scripts } = JSON.parse(
+  test('uses a pinned audit-ci dependency with the checked-in policy', () => {
+    const { scripts, devDependencies } = JSON.parse(
       fs.readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8')
     ) as {
       scripts: Record<string, string>;
+      devDependencies: Record<string, string>;
     };
-    expect(scripts['security:check']).toBe('node scripts/dependency-check.cjs');
+    expect(scripts['security:check']).toBe('audit-ci --config security/audit-ci.json');
+    expect(devDependencies['audit-ci']).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  test('gates high/critical advisories, includes dev dependencies, and rejects audit errors', () => {
+    const config = JSON.parse(
+      fs.readFileSync(path.join(REPO_ROOT, 'security', 'audit-ci.json'), 'utf8')
+    );
+    expect(config['package-manager']).toBe('npm');
+    expect(config.high).toBe(true);
+    expect(config.low ?? false).toBe(false);
+    expect(config.moderate ?? false).toBe(false);
+    expect(config['skip-dev']).toBe(false);
+    expect(config['extra-args']).toEqual(['--include=dev']);
+    expect(config['pass-enoaudit']).toBe(false);
+
+    for (const record of config.allowlist) {
+      const entries = Object.entries(record);
+      expect(entries).toHaveLength(1);
+      const [id, content] = entries[0] as [string, { active: boolean; notes: string }];
+      expect(id).toMatch(/^GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}\|[\w@/.-]+(?:>[\w@/.-]+)*$/);
+      expect(content.active).toBe(true);
+      expect(content.notes).toContain('Recheck when');
+    }
   });
 });

@@ -13,9 +13,10 @@
  *     external self-review binary for a validated in-workspace plan path;
  *   - platform-aware browser auto-open on startup.
  *
- * The server is local-only by construction: it binds loopback, and every
- * request — static, API, and the `apiHandlers` extension point — passes through
- * {@link guardRequest} (Host authority, request-target parsing) and a single
+ * The server binds loopback unless the caller passes another IP address in
+ * `host`, and every request — static, API, and the `apiHandlers` extension
+ * point — passes through {@link guardRequest} (Host authority, request-target
+ * parsing) and a single
  * exception boundary before any route runs. Routes are matched by path first
  * and method second, so a wrong method answers `405` and a mutation path never
  * reaches a read handler. Body-bearing mutations require `application/json`.
@@ -39,6 +40,7 @@ import * as http from 'http';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import * as os from 'os';
 import { spawn } from 'child_process';
 import { URL } from 'url';
 import { getWorkspaceModel, getPlanDetail, getConfig } from './workspace-model';
@@ -74,9 +76,9 @@ export interface ServeOptions {
    */
   debounceMs?: number;
   /**
-   * Loopback address to bind. Defaults to `127.0.0.1`, falling back to `::1`
-   * when the platform has no IPv4 loopback. Test-only; deliberately not a CLI
-   * flag — the viewer is never served beyond the local machine.
+   * IP address to bind. Defaults to `127.0.0.1`, falling back to `::1` when the
+   * platform has no IPv4 loopback. A non-loopback address exposes the viewer to
+   * every peer that can reach it; see {@link ServeHandle.exposed}.
    */
   host?: string;
   /**
@@ -98,6 +100,14 @@ export interface ServeHandle {
   url: string;
   server: http.Server;
   port: number;
+  /**
+   * True when the bound address is not loopback. The capability guards against
+   * other web origins, not network peers: any peer that reaches the port can
+   * bootstrap it, so the caller must warn.
+   */
+  exposed: boolean;
+  /** URLs a browser can use, one per accepted IP authority. */
+  reachableUrls: string[];
   /** The SSE change-stream hub backing `GET /api/events`. */
   events: EventsHub;
   /**
@@ -811,6 +821,35 @@ const IPV6_LOOPBACK = '::1';
 const authorityOf = (address: string, port: number): string =>
   `${address.includes(':') ? `[${address}]` : address}:${port}`;
 
+const WILDCARD_ADDRESSES = new Set(['0.0.0.0', '::']);
+
+export const isLoopbackAddress = (address: string): boolean =>
+  address === IPV6_LOOPBACK || address.startsWith('127.') || address.startsWith('::ffff:127.');
+
+/**
+ * IP addresses a browser may name in `Host` for a server bound to `bound`. A
+ * wildcard bind accepts the machine's interface addresses as read at startup
+ * (IPv4 only for `0.0.0.0`). Link-local IPv6 is skipped: a browser cannot put a
+ * zone id in `Host`. Only IP literals are accepted because they cannot be
+ * DNS-rebound; `localhost` is added by the caller.
+ */
+export const hostAddressesFor = (
+  bound: string,
+  interfaces: ReturnType<typeof os.networkInterfaces> = os.networkInterfaces()
+): string[] => {
+  if (!WILDCARD_ADDRESSES.has(bound)) return [bound];
+  const addresses = new Set<string>();
+  for (const infos of Object.values(interfaces)) {
+    for (const info of infos ?? []) {
+      if (info.family === 'IPv6' && (bound === '0.0.0.0' || info.address.startsWith('fe80:'))) {
+        continue;
+      }
+      addresses.add(info.address);
+    }
+  }
+  return [...addresses];
+};
+
 /**
  * Creates and starts the HTTP server, resolving with the bound URL once it is
  * listening. Rejects only on a genuine listen/bind error.
@@ -911,15 +950,28 @@ export const startServer = async (opts: ServeOptions): Promise<ServeHandle> => {
     throw new Error('Server did not bind a TCP address.');
   }
   const boundPort = address.port;
-  const bound = authorityOf(address.address, boundPort);
-  // `[::1]` is allowed only when it is where the server listens; `127.0.0.1`
-  // and `localhost` always are, lower-cased to match the guard's comparison.
+  const authorities = hostAddressesFor(address.address).map(a => authorityOf(a, boundPort));
+  // `127.0.0.1` and `localhost` are always allowed; IPv6 and non-loopback
+  // authorities only where the server listens. Lower-cased to match the guard.
   guardContext.allowedHosts = new Set(
-    [bound, `${DEFAULT_HOST}:${boundPort}`, `localhost:${boundPort}`].map(a => a.toLowerCase())
+    [...authorities, `${DEFAULT_HOST}:${boundPort}`, `localhost:${boundPort}`].map(a =>
+      a.toLowerCase()
+    )
   );
 
-  const url = `http://${bound}`;
+  // A wildcard bind is opened locally through IPv4 loopback.
+  const url = WILDCARD_ADDRESSES.has(address.address)
+    ? `http://${authorityOf(DEFAULT_HOST, boundPort)}`
+    : `http://${authorityOf(address.address, boundPort)}`;
   events.start();
   if (opts.open) openBrowser(url);
-  return { url, server, port: boundPort, events, capability };
+  return {
+    url,
+    server,
+    port: boundPort,
+    exposed: !isLoopbackAddress(address.address),
+    reachableUrls: authorities.map(a => `http://${a}`),
+    events,
+    capability,
+  };
 };

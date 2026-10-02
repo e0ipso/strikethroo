@@ -7,6 +7,8 @@
  */
 
 import { Command } from 'commander';
+import chalk from 'chalk';
+import { isIP } from 'net';
 import { init } from './index';
 import { InitOptions, UpdateOptions } from './types';
 import { resolveWorkspaceRoot, isResolveError } from './serve/root';
@@ -103,11 +105,18 @@ exportCommand
 program
   .command('serve')
   .description('Serve the workspace as a local web app (static SPA, JSON API, SSE change stream)')
+  .option('--host <ip>', 'IP address to bind (0.0.0.0 or :: for all interfaces)', '127.0.0.1')
   .option('--port <n>', 'port to bind', '4317')
   .option('--no-open', 'do not open the browser on start')
   .option('--workspace <path>', 'override workspace root discovery')
-  .action(async (opts: { port: string; open: boolean; workspace?: string }) => {
+  .action(async (opts: { host: string; port: string; open: boolean; workspace?: string }) => {
     try {
+      if (isIP(opts.host) === 0) {
+        console.error(
+          `Invalid --host "${opts.host}": use an IP address such as 127.0.0.1, 0.0.0.0, or ::.`
+        );
+        process.exit(1);
+      }
       const resolved = resolveWorkspaceRoot({ workspace: opts.workspace });
       if (isResolveError(resolved)) {
         console.error(resolved.error);
@@ -116,11 +125,23 @@ program
 
       const handle = await startServer({
         root: resolved.root,
+        host: opts.host,
         port: Number(opts.port),
         open: opts.open,
         assetsDir: defaultAssetsDir(),
       });
       console.log(`Serving ${handle.url}`);
+      if (handle.exposed) {
+        console.error(
+          chalk.yellow.bold('\nWarning: the viewer is reachable from the network.\n') +
+            chalk.yellow(
+              'Anyone who can reach this address and port can read the workspace and edit its\n' +
+                'hooks, templates, and config.yaml, which agents run with their permissions.\n' +
+                'Use it only on a trusted network, such as a VM host-only bridge.\n' +
+                `Reachable at: ${handle.reachableUrls.join(', ')}\n`
+            )
+        );
+      }
     } catch (error) {
       console.error(
         `Failed to start serve: ${error instanceof Error ? error.message : String(error)}`

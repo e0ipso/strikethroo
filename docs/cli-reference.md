@@ -103,7 +103,7 @@ npx strikethroo serve [options]
 Boots a local web app over an initialized `.ai/strikethroo/` workspace: a dependency-light Node server hosts the prebuilt single-page viewer as static assets, exposes a read-only JSON API over the workspace model, and streams a coalesced change event over Server-Sent Events whenever the workspace mutates on disk. Run it from inside an initialized workspace; if none is found it prints guidance to run `init` and exits without binding.
 
 {% capture serve_local %}
-The server is **local-only**. It listens on loopback (`127.0.0.1`, or `::1` where IPv4 loopback is unavailable), has no option to bind another interface, and answers any request whose `Host` header is not its own loopback address with `421`. Open it in a browser on the same machine; it is not reachable from other hosts, and proxying it to other hosts is not supported.
+The server is **local-only by default**. It listens on loopback (`127.0.0.1`, or `::1` where IPv4 loopback is unavailable) and answers any request whose `Host` header is not one of its own addresses with `421`. `--host` binds another IP address, such as `0.0.0.0` inside a headless VM; see [Reaching the viewer from another machine](#reaching-the-viewer-from-another-machine).
 
 **Mutations need a session capability.** Each server start generates a random token. The viewer fetches it from `GET /api/session` and sends it in the `X-Strikethroo-Capability` header on the archive, config-write, and self-review requests; it is held in page memory only. A mutation without the right token, from another origin, or with a cross-site `Sec-Fetch-Site` gets `403`, and a body that is not `application/json` gets `415`. The token protects against other websites in your browser and DNS rebinding. It is not a barrier against another process running as you on the same machine, which can request a token the same way. A script that calls these routes does the same: `GET /api/session`, then send the returned `token` in the header with `Content-Type: application/json`.
 
@@ -111,7 +111,7 @@ The server is **local-only**. It listens on loopback (`127.0.0.1`, or `::1` wher
 
 **Links are not followed.** Reads and writes of workspace files refuse a symbolic link anywhere below the workspace and refuse anything that is not a regular file.
 {% endcapture %}
-{% include callout.html variant="warning" title="LOCAL-ONLY, WITH A MUTATION TOKEN" content=serve_local %}
+{% include callout.html variant="warning" title="LOCAL BY DEFAULT, WITH A MUTATION TOKEN" content=serve_local %}
 
 {% capture serve_readonly %}
 The viewer is **read-only except for two sanctioned mutations: the archive action and the config editor.**
@@ -128,9 +128,24 @@ Separately, the **Self Review** action (`POST /api/self-review`) writes nothing 
 
 | Flag | Description |
 |------|-------------|
+| `--host <ip>` | IP address to bind. Defaults to `127.0.0.1`. Use `0.0.0.0` (IPv4) or `::` (IPv4 and IPv6) for every interface, or one interface's address. Only IP addresses are accepted. |
 | `--port <n>` | Port to bind. Defaults to `4317`. |
 | `--no-open` | Do not open the browser on start. |
 | `--workspace <path>` | Override workspace root discovery. |
+
+### Reaching the viewer from another machine
+
+When Strikethroo runs inside a headless VM or on a remote box, bind a network address and browse to that machine's IP:
+
+```bash
+npx strikethroo serve --host 0.0.0.0 --port 4317 --no-open
+```
+
+On startup, `serve` lists every URL it answers on, for example `http://192.168.122.10:4317`.
+
+- **Browse by IP address.** The server accepts `Host` values naming one of its own IP addresses (or `localhost`) on the bound port, and answers anything else with `421`. That includes hostnames such as `myvm.local` and port-forwarded addresses on a different port. Accepting only IP literals keeps DNS rebinding blocked. A wildcard bind reads the machine's addresses once at startup, so restart `serve` if the VM's address changes.
+- **Anyone who can reach the port has full access.** The session token stops other websites in your browser. It does not stop another machine that can connect to the port, because that machine can request a token the same way the viewer does. Such a machine can read every plan and edit hooks, templates, and `config.yaml`, which agents run with their own permissions. `serve` prints a warning whenever it binds a non-loopback address. Use this only on a network you trust, such as a VM's host-only or NAT network, or a firewalled LAN.
+- **Prefer an SSH tunnel when you have one.** `ssh -L 4317:127.0.0.1:4317 <vm>` keeps the default loopback bind. Browse to `http://localhost:4317` on the same port number; a different local port makes `Host` disagree with the server's port.
 
 ## Skill Installation
 

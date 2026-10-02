@@ -420,6 +420,15 @@ describe('CLI Integration', () => {
     });
   });
 
+  describe('serve', () => {
+    it('refuses a --host that is not an IP address before binding anything', () => {
+      const result = executeCommand(`node "${cliPath}" serve --no-open --host myvm.local`);
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('Invalid --host "myvm.local"');
+    });
+  });
+
   describe('validate', () => {
     /**
      * Writes `<testDir>/.ai/strikethroo/.init-metadata.json` verbatim so a

@@ -22,7 +22,7 @@ import * as http from 'http';
 import * as net from 'net';
 import { AddressInfo } from 'net';
 import { EventEmitter } from 'events';
-import { startServer, ServeHandle, CAPABILITY_HEADER } from '../serve/server';
+import { startServer, ServeHandle, CAPABILITY_HEADER, hostAddressesFor } from '../serve/server';
 import { resolveWorkspaceRoot, isResolveError } from '../serve/root';
 import { EventsHub, MAX_SSE_CLIENTS } from '../serve/events';
 
@@ -258,6 +258,8 @@ describe('serve server: loopback binding and request guard', () => {
     const literal = addr.address.includes(':') ? `[${addr.address}]` : addr.address;
     expect(handle.url).toBe(`http://${literal}:${addr.port}`);
     expect(handle.port).toBe(addr.port);
+    expect(handle.exposed).toBe(false);
+    expect(handle.reachableUrls).toEqual([handle.url]);
   });
 
   it('rejects a forged or missing Host on both static and API paths, case-insensitively', async () => {
@@ -402,6 +404,80 @@ describe('serve server: loopback binding and request guard', () => {
 
 // Mutation routes are exercised against a disposable workspace so that a
 // regression can never rewrite the committed fixture.
+describe('serve server: opt-in network binding', () => {
+  let handle: ServeHandle;
+
+  beforeAll(async () => {
+    handle = await startServer({
+      root: FIXTURE_ROOT,
+      host: '0.0.0.0',
+      port: 0,
+      open: false,
+      assetsDir: ASSETS_DIR,
+    });
+  });
+
+  afterAll(async () => {
+    await new Promise<void>(resolve => handle.server.close(() => resolve()));
+  });
+
+  /** GET through IPv4 loopback with an explicit Host, whatever address is bound. */
+  const getWithHost = (host: string): Promise<number> =>
+    new Promise((resolve, reject) => {
+      const req = http.request(
+        { host: '127.0.0.1', port: handle.port, path: '/api/plans', headers: { Host: host } },
+        res => {
+          res.resume();
+          res.on('end', () => resolve(res.statusCode ?? 0));
+        }
+      );
+      req.on('error', reject);
+      req.end();
+    });
+
+  it('flags a wildcard bind as exposed and opens locally through loopback', () => {
+    expect(handle.exposed).toBe(true);
+    expect(handle.url).toBe(`http://127.0.0.1:${handle.port}`);
+    expect(handle.reachableUrls).toContain(`http://127.0.0.1:${handle.port}`);
+  });
+
+  it('accepts interface IP authorities and still refuses hostnames', async () => {
+    const lanAddress = Object.values(os.networkInterfaces())
+      .flat()
+      .find(info => info && info.family === 'IPv4' && !info.internal)?.address;
+    if (lanAddress) {
+      expect(handle.reachableUrls).toContain(`http://${lanAddress}:${handle.port}`);
+      expect(await getWithHost(`${lanAddress}:${handle.port}`)).toBe(200);
+    }
+    expect(await getWithHost(`localhost:${handle.port}`)).toBe(200);
+    expect(await getWithHost(`myvm.local:${handle.port}`)).toBe(421);
+    expect(await getWithHost(`evil.example:${handle.port}`)).toBe(421);
+    expect(await getWithHost(`127.0.0.1:${handle.port + 1}`)).toBe(421);
+  });
+
+  it('derives Host addresses from interfaces, skipping link-local IPv6 and wrong families', () => {
+    const interfaces = {
+      lo: [
+        { address: '127.0.0.1', family: 'IPv4' },
+        { address: '::1', family: 'IPv6' },
+      ],
+      eth0: [
+        { address: '192.168.122.10', family: 'IPv4' },
+        { address: 'fe80::1', family: 'IPv6' },
+        { address: '2001:db8::10', family: 'IPv6' },
+      ],
+    } as unknown as ReturnType<typeof os.networkInterfaces>;
+    expect(hostAddressesFor('0.0.0.0', interfaces)).toEqual(['127.0.0.1', '192.168.122.10']);
+    expect(hostAddressesFor('::', interfaces)).toEqual([
+      '127.0.0.1',
+      '::1',
+      '192.168.122.10',
+      '2001:db8::10',
+    ]);
+    expect(hostAddressesFor('192.168.122.10', interfaces)).toEqual(['192.168.122.10']);
+  });
+});
+
 describe('serve server: mutation media type and body rules', () => {
   let root: string;
   let handle: ServeHandle;

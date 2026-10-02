@@ -19,19 +19,19 @@ const _printInfo = (message: string): void => {
 };
 
 const _isGitRepo = (): boolean => {
-  const result = execGit('git rev-parse --is-inside-work-tree');
+  const result = execGit(['rev-parse', '--is-inside-work-tree']);
   return result === 'true';
 };
 
 const _getCurrentBranch = (): string | null => {
-  return execGit('git rev-parse --abbrev-ref HEAD');
+  return execGit(['rev-parse', '--abbrev-ref', 'HEAD']);
 };
 
 const _getUncommittedChangesOutsideWorkspace = (): string | null =>
-  execGit("git status --porcelain -- ':(top)' ':(top,exclude).ai/strikethroo'");
+  execGit(['status', '--porcelain', '--', ':(top)', ':(top,exclude).ai/strikethroo']);
 
 const _branchExists = (branchName: string): boolean => {
-  const localMatch = execGit(`git branch --list "${branchName}"`);
+  const localMatch = execGit(['branch', '--list', branchName]);
   if (localMatch) {
     const names = localMatch
       .split('\n')
@@ -40,7 +40,7 @@ const _branchExists = (branchName: string): boolean => {
     if (names.includes(branchName)) return true;
   }
 
-  const remoteMatch = execGit(`git branch -r --list "origin/${branchName}"`);
+  const remoteMatch = execGit(['branch', '-r', '--list', `origin/${branchName}`]);
   if (remoteMatch && remoteMatch.trim().length > 0) return true;
 
   return false;
@@ -122,7 +122,7 @@ const main = (startPath: string = process.cwd()): void => {
     }
 
     _printWarning(`Branch "${branchName}" already exists`);
-    const checkoutResult = execGit(`git checkout "${branchName}"`);
+    const checkoutResult = execGit(['checkout', branchName]);
     if (checkoutResult === null) {
       _printError(`Failed to checkout branch "${branchName}"`);
       process.exit(1);
@@ -131,7 +131,7 @@ const main = (startPath: string = process.cwd()): void => {
     process.exit(0);
   }
 
-  const createResult = execGit(`git checkout -b "${branchName}"`);
+  const createResult = execGit(['checkout', '-b', branchName]);
 
   if (createResult === null) {
     _printError(`Failed to create branch "${branchName}"`);

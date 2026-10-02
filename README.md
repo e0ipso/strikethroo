@@ -157,6 +157,20 @@ npx strikethroo serve
 
 This will open a web page that will help you navigate your plans and their tasks, present or archived.
 
+By default the viewer listens only on `127.0.0.1:4317`, so it is reachable from the same machine and nowhere else. Two flags change where it listens:
+
+| Flag | Default | Purpose |
+|------|---------|---------|
+| `--host <ip>` | `127.0.0.1` | IP address to bind. Use `0.0.0.0` (or `::` for IPv6 too) to reach the viewer from another machine, for example from your workstation when Strikethroo runs in a headless VM. Only IP addresses are accepted. |
+| `--port <n>` | `4317` | Port to bind. |
+
+```shell
+# Inside the VM: listen on every interface and skip opening a browser
+npx strikethroo serve --host 0.0.0.0 --no-open
+```
+
+Then browse to the VM's IP address, for example `http://192.168.122.10:4317`; `serve` prints every address it answers on. Hostnames such as `myvm.local` are refused, so use the IP address. **Binding a network address gives anyone who can reach that port full access to the workspace**, including editing the hooks and configuration your agents run with, and `serve` prints a warning when you do it. Use it only on a network you trust, such as a VM's host-only or NAT network. If you can SSH into the machine, a tunnel (`ssh -L 4317:127.0.0.1:4317 <vm>`) keeps the default loopback bind. See the [CLI reference](https://strikethroo.canpicasoft.com/cli-reference.html#reaching-the-viewer-from-another-machine) for details.
+
 ## Check the workspace
 
 ```shell

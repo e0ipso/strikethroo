@@ -18,6 +18,12 @@ function findHint(argv) {
   }
   return undefined;
 }
+function findRoot(argv) {
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--root' && i + 1 < argv.length) return argv[i + 1];
+  }
+  return undefined;
+}
 function detectFromEnv(env) {
   if (env.CLAUDECODE === '1') return 'claude';
   for (const d of ENV_DETECTORS) {
@@ -44,7 +50,8 @@ function readDefault(root) {
   const m = text.match(/^cliDefaultHarness:\s*(\S+)/m);
   return m ? m[1] : undefined;
 }
-const hint = findHint(process.argv.slice(2));
+const argv = process.argv.slice(2);
+const hint = findHint(argv);
 if (hint && REGISTERED.includes(hint)) {
   process.stdout.write(hint);
   process.exit(0);
@@ -54,7 +61,7 @@ if (fromEnv) {
   process.stdout.write(fromEnv);
   process.exit(0);
 }
-const fromDefault = readDefault(findRepoRoot(process.cwd()));
+const fromDefault = readDefault(findRoot(argv) ?? findRepoRoot(process.cwd()));
 if (fromDefault && REGISTERED.includes(fromDefault)) {
   process.stdout.write(fromDefault);
   process.exit(0);

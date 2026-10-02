@@ -1,7 +1,7 @@
 # Proposal Extraction Prompt
 
 <!--
-  Version: 1
+  Version: 8
   Used by: the kk-proposal-drain hook (via a headless harness session)
   Owner contract: produces the structured `proposals.practice` and `proposals.map` arrays
   for a session log. Must emit one JSON object on stdout as the final message.
@@ -52,7 +52,7 @@ This example exists to inoculate against the most common false positive: phantom
 
 **Commentary on why the gate fires (not part of the JSON output):**
 
-The session is meta-only. Its visible work is plan-authoring under `.ai/task-manager/plans/`. The statement "we always want a CI gate before merging" reads rule-shaped, but its subject is the plan's success criteria section, not a project-wide convention. The conservative gate skips the whole session, with no exception for the rule-shaped mid-thread statement. This is the failure mode the gate inoculates against: extracting a phantom project rule from a planning conversation. If the project genuinely adopts a CI-gate rule later, a follow-up session that states the rule in non-planning context will capture it then.
+The session is meta-only — plan-authoring under `.ai/task-manager/plans/` — so the rule-shaped statement "we always want a CI gate before merging" describes the plan's success-criteria section, not a project-wide convention. The conservative gate skips the whole session; if the project genuinely adopts the rule later, a follow-up session that states it in non-planning context captures it then.
 
 ---
 
@@ -104,12 +104,44 @@ When you see a `[USER /self-review-apply ...]:` tag, treat each narrated change 
 
 These describe the entities, features, vocabulary, and locations of the project:
 
-- **Features:** "Bravo Insider is our personalized section for authenticated users."
+- **Features:** "Rivermark Discover is our personalized section for authenticated users."
 - **Vocabulary:** Project-specific names and what they mean. "CardSourceResolver is the service that picks which entities go into a feed."
-- **Module/file locations:** "The card feed module lives at `modules/custom/bravo_cards`."
+- **Module/file locations:** "The card feed module lives at `modules/custom/rm_cards`."
 - **Architectural relationships:** "Module X depends on service Y."
 
 **Map nodes can be extracted from either `[USER]:` or `[AGENT]:` turns.** Sometimes the agent surfaces a module name or file location during exploration that's worth recording. Both roles are valid sources.
+
+#### Independent map-value gate
+
+Do not emit a map merely because a practice mentions a named service, module, file, command, event, entity, or field. Named references inside a rule often exist only to make that rule actionable; repeating the same information as a noun-phrase map creates a redundant companion node.
+
+A map candidate must teach independently useful structure about its subject, beyond the information needed to state or justify a practice. Qualifying structure includes:
+
+- a feature or project-specific term and what it means;
+- a canonical location or ownership boundary;
+- an architectural relationship, integration seam, or dependency;
+- how a substantial component is organized or operates beyond the immediate rule.
+
+Apply this counterfactual test: **if the related practice were removed, would the map still answer a useful question about what the subject is, where it belongs, or how it relates to the rest of the project?** If not, drop the map. A description that only converts "use service X because it does Y" into "service X does Y" fails this test.
+
+**Optional change-oriented clause (evidence-gated).** When the transcript actually surfaces what an editor must watch for when changing this entity — a check to run, an invariant to preserve, a related rule that constrains edits — you may end the map body with one short "When changing this, verify…" sentence that captures it. Include it only when the session evidenced the guidance; never invent a watch-out to fill a template. If nothing in the transcript speaks to editing the entity, omit the clause entirely.
+
+### Atomicity and granularity gate
+
+Each candidate must capture one indivisible concept. A concept is indivisible
+when separating it would make either resulting node incomplete or
+unintelligible. Keep the rule together with the boundaries, qualifiers, and
+rationale needed to apply it correctly.
+
+Do not merge independently reusable rules, decisions, gotchas, workflows, or
+system concepts merely because they appeared in the same session or concern the
+same component. Emit separate candidates when each would still guide future work
+on its own. Conversely, do not fragment one rule into a headline candidate plus
+separate candidates for its rationale or required boundary.
+
+Use this test: **could a future agent apply or update either part without
+loading the other?** If yes, they are separate concepts. If no, keep them
+together as one candidate.
 
 ---
 
@@ -124,9 +156,7 @@ Most of the transcript is not knowledge. Do not capture:
 - General programming knowledge (how to write a getter, what dependency injection is, how HTTP works).
 - Restatements of standard framework behavior that anyone reading the docs would know.
 - Anything that could be re-derived by reading the codebase.
-- Maintenance or lifecycle actions: version bumps, deprecations, releases, dependency updates, rebuilds, changelog edits. Record the current state, not the act that produced it.
-- Project story or history - and especially any reference to a plan, ticket, issue, work-order, or task id. That history belongs in git, not the knowledge base.
-- Incidental facts the agent hit once while fixing a one-off problem but that read like a convention. A practice is a rule the project deliberately and repeatedly follows.
+- Maintenance or lifecycle actions, project story or history (especially any reference to a plan, ticket, issue, work-order, or task id), and incidental one-off facts dressed up as conventions — all covered by the **Durability filter** below.
 
 The signal for capture is: **did the user have to teach the agent something the agent couldn't have known from the codebase or from general knowledge? Or did the user introduce a named thing that didn't exist in the project's vocabulary before?** Everything else is noise. When in doubt, skip.
 
@@ -143,19 +173,11 @@ Pair this filter with a confidence-bias rule: **when a corrective signal does no
 
 Framing aid: **the rule's *scope*, not its *occasion*, decides task-specificity.** A genuine project-wide rule that the user happens to mention "in this PR" (because that is where the violation was noticed) is still project-wide and is kept. A rule that only constrains code touched in this PR is task-specific and is dropped. Read the corrective signal carefully and ask: would this rule still be true on a different file, in a different change, six months from now? If yes, keep. If no, drop.
 
-### Transition narratives (change-oriented framing)
-
-Even outside corrective signals, transcripts often contain change-oriented framing: "we used to do X", "this was renamed", "we removed the old service", "we migrated to Y". Treat a **transition narrative** as a transcript artifact, not as knowledge. The only retainable content in such a turn is the resulting end-state claim, extracted in present tense. If no clean end-state claim is present, drop the whole turn.
-
 ### Durability filter: principles and facts, not actions or story
 
-The knowledge base holds only **durable operating principles** and **current-state facts** the project deliberately maintains. Activities, events, and history are not knowledge, even when stated as plain fact. Drop a candidate when it is any of the following:
+The knowledge base holds only **durable operating principles** and **current-state facts** the project deliberately maintains. Activities, events, and history are not knowledge, even when stated as plain fact. Apply the shared admission criteria in `.ai/kenkeep/.config/prompts/knowledge-admission.md` — the single source for these rules — which drop a candidate that is a **maintenance/lifecycle action** (version bumps, deprecations, releases, dependency updates, changelog edits), **project story or history** (**any reference to a plan, ticket, issue, work-order, or task id is a red flag**), or an **incidental fact disguised as a practice** (a one-off circumstance dressed up as a convention).
 
-- **Maintenance or lifecycle action.** Version bumps, deprecations, releases, dependency updates, rebuilds, changelog edits - "we deprecated the old npm package", "bumped the prompt to v5". Record the current state, never the act that produced it.
-- **Project story or history.** Narration of what was done. **Any reference to a plan, ticket, issue, work-order, or task id is a red flag** (for example "Plan 96 wire and fix serve UI interactions"): that history belongs in git, not the knowledge base. A candidate that names or links such an artifact is almost always a drop.
-- **Incidental fact disguised as a practice.** A fact the agent happened to hit while fixing a one-off problem, dressed up as a convention - "first publish of an npm package requires a token". A real practice is a rule the project deliberately and repeatedly follows, not a circumstance encountered once.
-
-The keep test: *would this still be a deliberate operating principle, or a current structural fact, six months from now - independent of the activity that surfaced it?* If yes, keep it; if it only makes sense as a record of something that happened, drop it. Examples that pass: "e2e tests must use stable semantic selectors", "CodeMirror is code-split in the markdown editor page". Examples that fail: the three bullets above.
+That file also carries the keep test: *would this still be a deliberate operating principle, or a current structural fact, six months from now — independent of the activity that surfaced it?* If yes, keep it; if it only makes sense as a record of something that happened, drop it. Examples that pass: "e2e tests must use stable semantic selectors", "CodeMirror is code-split in the markdown editor page". Examples that fail: the three shapes above.
 
 This filter stacks with the end-state framing rule rather than replacing it. A transition narrative describes a *change* ("X became Y"); a maintenance action or story need not describe any change at all - it is simply an activity or an event. Both are out. When a candidate carries a clean durable principle or current-state fact alongside the action or story, keep only that part, rewritten as a standing rule or a present-tense fact.
 
@@ -163,15 +185,17 @@ This filter stacks with the end-state framing rule rather than replacing it. A t
 
 ## Ownership boundary between the two passes
 
-A single user statement can contain both kinds of content. Split them:
+A single user statement can contain both kinds of content, but split it only when each candidate independently passes its own admission test:
 
-> "Use the bravo_analytics dispatcher for tracking - it's a service we built so we can swap backends without rewriting every module."
+> "Use the rm_analytics dispatcher for tracking - it's a service we built so we can swap backends without rewriting every module."
 
 This has:
-- A practice node: "Use the bravo_analytics dispatcher for all event tracking (rationale: swappable backends)."
-- A map node: "bravo_analytics.dispatcher - service that fans out tracking events to whatever backend is currently wired in."
+- A practice node: "Use the rm_analytics dispatcher for all event tracking (rationale: swappable backends)."
+- A map node: "rm_analytics.dispatcher - service that fans out tracking events to whatever backend is currently wired in."
 
-Practice owns the imperative knowledge (do/don't/why). Map owns the named entity (what it is). They reference each other later via `relates_to` populated by the curator; you do not need to populate `relates_to` in your output.
+Practice owns the imperative knowledge (do/don't/why). Map owns the named entity (what it is). They reference each other later via `kk_relates_to` populated by the curator; you do not need to populate `kk_relates_to` in your output.
+
+In this example, the map survives because it adds the dispatcher's backend-fan-out architecture, not because the practice happens to name `rm_analytics.dispatcher`. If the statement only said "use `rm_analytics.dispatcher` because it supports tracking," emit the practice alone.
 
 ---
 
@@ -184,8 +208,8 @@ Here is a small example transcript and the correct output, so you know exactly w
 ```
 [USER]: Let's add caching to the user profile page. Use Drupal's render cache.
 [AGENT]: I'll add #cache properties with appropriate contexts and tags.
-[USER]: No, don't use the default render cache for profile pages. We have a custom cache backend for anything with PII - the service is bravo_pii.cache. It encrypts at rest. Default Drupal cache stores plaintext in the database and we got dinged on that during the GDPR audit.
-[AGENT]: Got it. I'll use bravo_pii.cache instead.
+[USER]: No, don't use the default render cache for profile pages. We have a custom cache backend for anything with PII - the service is rm_pii.cache. It encrypts at rest. Default Drupal cache stores plaintext in the database and we got dinged on that during the GDPR audit.
+[AGENT]: Got it. I'll use rm_pii.cache instead.
 ```
 
 **Correct output:**
@@ -194,30 +218,22 @@ Here is a small example transcript and the correct output, so you know exactly w
 {
   "practice": [
     {
-      "kind": "practice",
+      "type": "practice",
       "tags": ["caching", "pii", "gdpr", "drupal"],
-      "title": "Use bravo_pii.cache for any content with PII",
-      "summary": "Don't use Drupal's default render cache for PII-bearing pages; use bravo_pii.cache (encrypts at rest).",
-      "body": "For pages that render personally-identifiable information, the default Drupal render cache is not acceptable because it stores plaintext in the database. Use the `bravo_pii.cache` service instead - it encrypts at rest. This was flagged during the GDPR audit.\n\nApplies to: any route or render array that includes user-identifying data.",
-      "confidence": "high"
+      "title": "Use rm_pii.cache for any content with PII",
+      "description": "Don't use Drupal's default render cache for PII-bearing pages; use rm_pii.cache (encrypts at rest).",
+      "body": "For pages that render personally-identifiable information, the default Drupal render cache is not acceptable because it stores plaintext in the database. Use the `rm_pii.cache` service instead - it encrypts at rest. This was flagged during the GDPR audit.\n\nApplies to: any route or render array that includes user-identifying data.",
+      "kk_confidence": "high"
     }
   ],
-  "map": [
-    {
-      "kind": "map",
-      "tags": ["service", "caching", "pii"],
-      "title": "bravo_pii.cache - encrypted cache backend for PII",
-      "summary": "Custom Drupal cache backend service that encrypts at rest; used wherever content includes user PII.",
-      "body": "`bravo_pii.cache` is a custom cache backend service. It encrypts cached entries at rest, unlike Drupal's default render cache which stores plaintext in the database. Adopted in response to a GDPR audit finding.",
-      "confidence": "high"
-    }
-  ]
+  "map": []
 }
 ```
 
 Notice what the example does NOT capture:
 - The agent's initial mention of "#cache properties" - that's just standard Drupal knowledge, not project-specific.
 - The agent's "Got it" acknowledgment - paraphrasing isn't a teaching moment.
+- A companion map for `rm_pii.cache` - its only facts repeat the practice's required service and rationale, so it has no independent structural value.
 
 ### Inline example: a self-review-apply turn
 
@@ -240,12 +256,12 @@ Second, the reviewer pointed out a typo in the JSDoc for `assembleHeroCard`: "re
 {
   "practice": [
     {
-      "kind": "practice",
+      "type": "practice",
       "tags": ["typescript", "naming", "readability"],
       "title": "Loop variables use descriptive names",
-      "summary": "Loop variables in this codebase use descriptive names (for example cardIndex) rather than single letters, so intent is readable at a glance.",
+      "description": "Loop variables in this codebase use descriptive names (for example cardIndex) rather than single letters, so intent is readable at a glance.",
       "body": "Loop variables in this codebase use descriptive names that convey what is being iterated, such as `cardIndex` or `userId`. Single-letter loop counters like `i`, `j`, or `k` are not used. The rule applies to every loop in the codebase, not only to the file where it was flagged.\n\nRationale: readability at a glance. A descriptive loop variable removes the need to scan the loop body to remember what is being indexed.",
-      "confidence": "high"
+      "kk_confidence": "high"
     }
   ],
   "map": []
@@ -254,9 +270,7 @@ Second, the reviewer pointed out a typo in the JSDoc for `assembleHeroCard`: "re
 
 **Commentary on what was dropped (not part of the JSON output):**
 
-The second review comment (the "recieves" typo in `assembleHeroCard`'s JSDoc) is dropped. The drop reason is **task-specific scope**: the comment names one specific docstring in one specific function, and the underlying rule (spell words correctly) is general programming knowledge rather than a project convention. No practice candidate is emitted for it. Producing nothing for that comment is correct; emitting a low-confidence "spell things correctly" practice candidate would be noise.
-
-Notice how the kept candidate's body is written in present tense as an end-state rule. It does not say "the agent used to write single-letter loop variables and was corrected"; it says "loop variables in this codebase use descriptive names". The transition (the rename of `i` to `cardIndex`) is the occasion that surfaced the rule; the rule itself is the captured knowledge.
+The second review comment (the "recieves" typo in `assembleHeroCard`'s JSDoc) is dropped for **task-specific scope** plus general knowledge: it names one docstring in one function, and "spell words correctly" is not a project convention. Emitting a low-confidence "spell things correctly" candidate would be noise.
 
 ---
 
@@ -266,12 +280,12 @@ You must produce exactly one JSON object as your final output. It has two keys: 
 
 Each candidate has these required fields:
 
-- `kind`: `"practice"` or `"map"` (must match the array it's in).
+- `type`: `"practice"` or `"map"` (must match the array it's in).
 - `tags`: array of 1-5 short lowercase tags. Prefer existing tag conventions if visible from the transcript.
 - `title`: short imperative (for practice) or noun phrase (for map). Max ~80 characters.
-- `summary`: max 140 characters. This is what shows up in the knowledge base index.
+- `description`: max 140 characters. This is what shows up in the knowledge base index.
 - `body`: markdown explaining the knowledge. Include rationale when present in the source ("because…", "since…"). Keep concise - 1-4 short paragraphs is typical.
-- `confidence`: `"low"`, `"medium"`, or `"high"`. Use `"high"` when the user stated it explicitly with rationale; `"medium"` when the user stated it without rationale; `"low"` when you're inferring from context.
+- `kk_confidence`: `"low"`, `"medium"`, or `"high"`. Use `"high"` when the user stated it explicitly with rationale; `"medium"` when the user stated it without rationale; `"low"` when you're inferring from context.
 
 The wrapper rejects any additional keys on a candidate (including the legacy `supports_existing_node` / `contradicts_existing_node` hints).
 
@@ -283,10 +297,11 @@ Either array may be empty. Many sessions produce zero of one kind or both - that
 
 1. Read the transcript carefully.
 2. For each `[USER]:` turn, ask: is the user teaching the agent something project-specific, or stating a project convention/prohibition/rationale? If yes, that's a practice candidate.
-3. For each `[USER]:` or `[AGENT]:` turn, ask: does this introduce a named entity, feature, module, file location, or vocabulary term that someone unfamiliar with the project wouldn't know? If yes, that's a map candidate.
-4. Apply the ownership boundary: split combined statements into a practice piece and a map piece.
-5. Reject anything that fails the "could be derived from the codebase or general knowledge" test, plus anything that is a maintenance or lifecycle action, project story or history (especially plan/ticket/issue references), or an incidental one-off fact dressed up as a practice.
-6. Emit one final JSON object matching the schema above. No prose before or after the JSON.
+3. For each `[USER]:` or `[AGENT]:` turn, ask: does this independently teach what a named entity, feature, module, location, or vocabulary term is, where it belongs, or how it relates to the project? If yes, that's a map candidate. A name mentioned only to state or justify a practice is not enough.
+4. Apply the ownership boundary: split combined statements only when both pieces independently qualify. Never create a companion map by default.
+5. Apply the atomicity gate: one indivisible concept per candidate. Split independently reusable concepts, but keep application-critical rationale, qualifiers, and boundaries with their rule.
+6. Reject anything that fails the "could be derived from the codebase or general knowledge" test, plus anything that is a maintenance or lifecycle action, project story or history (especially plan/ticket/issue references), or an incidental one-off fact dressed up as a practice.
+7. Emit one final JSON object matching the schema above. No prose before or after the JSON.
 
 The transcript begins below.
 

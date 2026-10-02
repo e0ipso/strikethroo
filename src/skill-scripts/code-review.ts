@@ -3,13 +3,15 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { SUPPORTED_HARNESSES, type Harness } from '../types';
-import { execGit, execGitDiffAllowingChanges } from './shared/git-utils';
+import { execGit, execGitDiffAllowingChanges, splitNulDelimited } from './shared/git-utils';
 import { findStrikethrooRoot } from './shared/root';
 import { resolvePlan } from './shared/plan-resolve';
 import { discoverHarnesses } from './shared/harness-discovery';
 import { dispatchReview, executableOnPath } from './shared/external-dispatch';
 import {
+  countCommentsWithXmllint,
   countFindings,
+  hasForbiddenDeclarations,
   parseReviewFindings,
   SEVERITIES,
   validateAgainstSchema,
@@ -101,13 +103,20 @@ export type FindingsGateOutcome =
 /** Supply this to evaluate the reviewer's emitted findings. */
 export type FindingsGate = (context: FindingsEvaluationContext) => Promise<FindingsGateOutcome>;
 
+export interface FindingsGateOptions {
+  /** Independent `<comment>` count the scanner is checked against. Injectable for tests only. */
+  countComments?: (xmlFile: string) => Promise<number | null>;
+}
+
 /**
- * Validate the delivered document against the XSD and record the outcome to
- * `<plan-dir>/review/findings.json`, on every outcome including failures.
+ * Refuse DTD syntax, validate the delivered document against the XSD, read its
+ * findings, cross-check that read against libxml's count, and record the outcome
+ * to `<plan-dir>/review/findings.json`, on every outcome including failures.
  */
 export const createFindingsGate =
-  (): FindingsGate =>
+  (options: FindingsGateOptions = {}): FindingsGate =>
   async (context: FindingsEvaluationContext): Promise<FindingsGateOutcome> => {
+    const countComments = options.countComments ?? countCommentsWithXmllint;
     const reviewDir = path.dirname(context.reviewFile);
     const findingsFile = path.join(reviewDir, FINDINGS_FILE_NAME);
     const record = (payload: Record<string, unknown>): void => {
@@ -149,6 +158,16 @@ export const createFindingsGate =
       );
     }
 
+    if (hasForbiddenDeclarations(delivered)) {
+      const detail =
+        `${context.reviewFile} carries a DOCTYPE or entity declaration (<!DOCTYPE, <!ENTITY, ` +
+        "<!ELEMENT, <!ATTLIST or <!NOTATION). The review gate accepts only the schema's own " +
+        'syntax, so the document was refused before validation and none of its findings was ' +
+        'recorded.';
+      record({ ...base, status: 'schema-invalid', detail, findings: [] });
+      return { kind: 'schema-invalid', detail };
+    }
+
     const validation = await validateAgainstSchema(context.xsdFile, context.reviewFile);
     if (validation.kind === 'validator-unavailable') {
       record({
@@ -174,8 +193,26 @@ export const createFindingsGate =
       return { kind: 'findings-absent', detail };
     }
 
-    // Safe only after validation: the scan assumes the XSD's shape.
+    // Safe only after validation: the scan assumes the XSD's shape. Even then it
+    // certifies only a count libxml confirms.
     const findings = parseReviewFindings(xml);
+    const independent = await countComments(context.reviewFile);
+    if (independent === null) {
+      const detail =
+        `${context.reviewFile} validated, but xmllint could not independently count its ` +
+        `<comment> elements, so the ${findings.length} finding(s) the scanner read could not ` +
+        'be certified and none was recorded.';
+      record({ ...base, status: 'validator-unavailable', detail, findings: [] });
+      return { kind: 'validator-unavailable', detail };
+    }
+    if (independent !== findings.length) {
+      const detail =
+        `${context.reviewFile} validated, but the scanner read ${findings.length} finding(s) ` +
+        `where xmllint counted ${independent} <comment> element(s). A count that disagrees ` +
+        'with the validated document cannot be certified, so none of the findings was recorded.';
+      record({ ...base, status: 'findings-absent', detail, findings: [] });
+      return { kind: 'findings-absent', detail };
+    }
     const counts = countFindings(findings);
     record({ ...base, status: 'evaluated', counts, findings });
     return { kind: 'evaluated', counts, findingsFile };
@@ -306,24 +343,25 @@ export const _readBaseCommit = (filePath: string): string | null => {
 
 const GENERATED_ATTRIBUTES = ['linguist-generated', 'linguist-vendored'] as const;
 
-/** The subset of `files` that `.gitattributes` marks generated or vendored. */
-const attributeExcluded = (workspace: string, files: readonly string[]): Set<string> => {
+/**
+ * The subset of `files` that `.gitattributes` marks generated or vendored.
+ * Paths go to git over stdin, NUL-delimited, so a name is never an argument
+ * and the set has no length limit. `null` when the check itself failed; the
+ * caller propagates that rather than treating it as "nothing excluded".
+ */
+const attributeExcluded = (workspace: string, files: readonly string[]): Set<string> | null => {
   const excluded = new Set<string>();
   if (files.length === 0) return excluded;
   const report = execGit(
-    `git -C ${JSON.stringify(workspace)} check-attr ${GENERATED_ATTRIBUTES.join(' ')} -- ` +
-      files.map(file => JSON.stringify(file)).join(' ')
+    ['-C', workspace, 'check-attr', '--stdin', '-z', ...GENERATED_ATTRIBUTES],
+    { input: files.map(file => `${file}\0`).join(''), trim: false }
   );
-  if (report === null) return excluded;
-  // Each line is `<path>: <attribute>: <value>`; a path may appear once per
-  // attribute. Split from the right so a path containing ": " stays intact.
-  for (const line of report.split('\n')) {
-    const marker = line.lastIndexOf(': ');
-    if (marker === -1 || line.slice(marker + 2).trim() !== 'true') continue;
-    const withoutValue = line.slice(0, marker);
-    const attribute = withoutValue.lastIndexOf(': ');
-    if (attribute === -1) continue;
-    excluded.add(withoutValue.slice(0, attribute));
+  if (report === null) return null;
+  // `-z` output is a flat sequence of `<path>\0<attribute>\0<value>\0` records;
+  // a path appears once per attribute asked about.
+  const fields = report.split('\0');
+  for (let i = 0; i + 2 < fields.length; i += 3) {
+    if (fields[i + 2] === 'true') excluded.add(fields[i]!);
   }
   return excluded;
 };
@@ -331,56 +369,92 @@ const attributeExcluded = (workspace: string, files: readonly string[]): Set<str
 /**
  * Changed paths marked generated or vendored. `--no-renames` so `--name-only`
  * lists both sides of a rename; excluding only the destination would leave the
- * source in the diff as a full deletion.
+ * source in the diff as a full deletion. `null` when the listing or the
+ * attribute check failed.
  */
-const excludedPaths = (workspace: string, baseCommit: string): string[] => {
+const excludedPaths = (workspace: string, baseCommit: string): string[] | null => {
   const changed = execGit(
-    `git -C ${JSON.stringify(workspace)} diff --no-renames --name-only ${baseCommit} --`
+    ['-C', workspace, 'diff', '--no-renames', '--name-only', '-z', baseCommit, '--'],
+    { trim: false }
   );
-  if (changed === null || changed.trim() === '') return [];
-  const files = changed.split('\n').filter(line => line.trim() !== '');
-  return [...attributeExcluded(workspace, files)];
+  if (changed === null) return null;
+  const excluded = attributeExcluded(workspace, splitNulDelimited(changed));
+  return excluded === null ? null : [...excluded];
 };
 
 /**
  * Untracked, unignored paths minus generated and vendored ones.
  * `core.quotePath=false`: a quoted non-ASCII name would not resolve in
- * `git diff --no-index`, and the file would silently drop out.
+ * `git diff --no-index`, and the file would silently drop out. `null` when
+ * the listing or the attribute check failed.
  */
-const untrackedPaths = (workspace: string): string[] => {
+const untrackedPaths = (workspace: string): string[] | null => {
   const listed = execGit(
-    `git -c core.quotePath=false -C ${JSON.stringify(workspace)} ls-files --others --exclude-standard`
+    [
+      '-c',
+      'core.quotePath=false',
+      '-C',
+      workspace,
+      'ls-files',
+      '--others',
+      '--exclude-standard',
+      '-z',
+    ],
+    { trim: false }
   );
-  if (listed === null || listed.trim() === '') return [];
-  const files = listed.split('\n').filter(line => line.trim() !== '');
+  if (listed === null) return null;
+  const files = splitNulDelimited(listed);
   const excluded = attributeExcluded(workspace, files);
+  if (excluded === null) return null;
   return files.filter(file => !excluded.has(file));
 };
 
 /** Add-diff for one untracked file. `--no-index` numbers the prefixes otherwise. */
 const untrackedDiff = (workspace: string, file: string): string | null =>
-  execGitDiffAllowingChanges(
-    `git -C ${JSON.stringify(workspace)} diff --no-index --src-prefix=a/ --dst-prefix=b/ ` +
-      `-- /dev/null ${JSON.stringify(file)}`
-  );
+  execGitDiffAllowingChanges([
+    '-C',
+    workspace,
+    'diff',
+    '--no-index',
+    '--src-prefix=a/',
+    '--dst-prefix=b/',
+    '--',
+    '/dev/null',
+    file,
+  ]);
 
 /**
  * Scope: two-dot `git diff <base>` against the working tree, plus an add-diff
  * per untracked unignored path, minus paths `.gitattributes` marks generated
  * or vendored. Why each: AGENTS.md, "Code Review Gate".
+ *
+ * Every Git step is argv-based: paths from the repository are data, never part
+ * of a command string. Any step failing — the listings, the attribute check,
+ * the tracked diff, or any one untracked add-diff — makes the whole read `null`,
+ * so the gate reports infrastructure failure instead of reviewing a scope that
+ * silently lost a file.
  */
 export const _readCumulativeDiff = (workspace: string, baseCommit: string): string | null => {
-  const exclusions = excludedPaths(workspace, baseCommit)
-    .map(file => ` ${JSON.stringify(`:(exclude,literal)${file}`)}`)
-    .join('');
-  const tracked = execGit(
-    `git -C ${JSON.stringify(workspace)} diff ${baseCommit} -- .${exclusions}`
-  );
-  // A failed tracked read is infrastructure; a failed untracked diff is dropped.
+  const excluded = excludedPaths(workspace, baseCommit);
+  if (excluded === null) return null;
+  const tracked = execGit([
+    '-C',
+    workspace,
+    'diff',
+    baseCommit,
+    '--',
+    '.',
+    ...excluded.map(file => `:(exclude,literal)${file}`),
+  ]);
   if (tracked === null) return null;
-  const added = untrackedPaths(workspace)
-    .map(file => untrackedDiff(workspace, file))
-    .filter((diff): diff is string => diff !== null && diff.trim() !== '');
+  const untracked = untrackedPaths(workspace);
+  if (untracked === null) return null;
+  const added: string[] = [];
+  for (const file of untracked) {
+    const diff = untrackedDiff(workspace, file);
+    if (diff === null) return null;
+    if (diff.trim() !== '') added.push(diff);
+  }
   return [tracked, ...added].filter(part => part.trim() !== '').join('\n');
 };
 

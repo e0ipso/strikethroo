@@ -14,6 +14,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { execFileSync } from 'child_process';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { writeConfigFile } from '../serve/config-write';
 
@@ -120,4 +121,58 @@ describe('writeConfigFile', () => {
       fs.readFileSync(path.join(root, 'config', 'templates', 'PLAN_TEMPLATE.md'), 'utf8')
     ).toBe(next);
   });
+});
+
+describe('writeConfigFile filesystem containment', () => {
+  let outside: string;
+  let sentinel: string;
+  const tmpFilesIn = (dir: string): string[] =>
+    fs.existsSync(dir) ? fs.readdirSync(dir).filter(n => /\.tmp$/.test(n)) : [];
+
+  beforeEach(() => {
+    outside = path.join(tmpRoot, 'outside');
+    fs.mkdirSync(outside, { recursive: true });
+    sentinel = path.join(outside, 'sentinel.md');
+    fs.writeFileSync(sentinel, 'untouched\n', 'utf8');
+  });
+
+  it('refuses a symlinked hook file, a symlinked hooks dir, and a symlinked config.yaml', async () => {
+    fs.symlinkSync(sentinel, path.join(root, 'config', 'hooks', 'LINKED.md'));
+    fs.rmSync(path.join(root, 'config', 'templates'), { recursive: true, force: true });
+    fs.symlinkSync(outside, path.join(root, 'config', 'templates'), 'dir');
+    fs.rmSync(path.join(root, 'config', 'config.yaml'));
+    fs.symlinkSync(sentinel, path.join(root, 'config', 'config.yaml'));
+
+    const attempts = [
+      await writeConfigFile(root, 'hooks', 'LINKED', 'pwned'),
+      await writeConfigFile(root, 'templates', 'sentinel', 'pwned'),
+      await writeConfigFile(root, 'workspace', 'config', 'pwned'),
+    ];
+    for (const result of attempts) {
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(['not-found', 'invalid-id']).toContain(result.reason);
+        expect(result.message).not.toMatch(/symlink|outside|\//);
+      }
+    }
+    expect(fs.readFileSync(sentinel, 'utf8')).toBe('untouched\n');
+    expect(tmpFilesIn(outside)).toEqual([]);
+    expect(tmpFilesIn(path.join(root, 'config', 'hooks'))).toEqual([]);
+    // Unlinked siblings keep working.
+    expect(await writeConfigFile(root, 'hooks', 'SAMPLE', '# still fine\n')).toEqual({ ok: true });
+  });
+
+  it.skipIf(process.platform === 'win32')(
+    'refuses a FIFO at a hook path without blocking',
+    async () => {
+      const fifo = path.join(root, 'config', 'hooks', 'FIFO.md');
+      execFileSync('mkfifo', [fifo]);
+      const result = await writeConfigFile(root, 'hooks', 'FIFO', 'x');
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe('not-found');
+      expect(fs.lstatSync(fifo).isFIFO()).toBe(true);
+      expect(tmpFilesIn(path.join(root, 'config', 'hooks'))).toEqual([]);
+    },
+    5000
+  );
 });

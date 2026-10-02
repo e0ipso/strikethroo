@@ -305,6 +305,59 @@ describe('Profiles Integration', () => {
       );
       await expectAbortedInit(profileDir, path.join(sandbox, 'project'));
     });
+
+    it('rejects an option-like source before git runs', async () => {
+      const destDir = path.join(sandbox, 'project');
+      const result = await init({
+        harnesses: 'claude',
+        destinationDirectory: destDir,
+        profile: '--upload-pack=touch marker',
+      });
+      expect(result.success).toBe(false);
+      expect(result.error).toBeInstanceOf(ProfileError);
+      expect(result.message).toMatch(/must not start with "-"/);
+      expect(await fs.pathExists(path.join(process.cwd(), 'marker'))).toBe(false);
+      expect(await fs.pathExists(path.join(sandbox, 'marker'))).toBe(false);
+      expect(await fs.pathExists(path.join(destDir, '.ai/strikethroo'))).toBe(false);
+    });
+
+    it.skipIf(process.platform === 'win32')(
+      'rejects a linked config/ root and a linked profile.yaml, naming the entry',
+      async () => {
+        const profileDir = path.join(sandbox, 'profile');
+        const destDir = path.join(sandbox, 'project');
+        const real = path.join(sandbox, 'real-profile');
+        await makeFixtureProfile(real);
+        await fs.ensureDir(profileDir);
+        await fs.copy(path.join(real, 'profile.yaml'), path.join(profileDir, 'profile.yaml'));
+        await fs.symlink(path.join(real, 'config'), path.join(profileDir, 'config'), 'dir');
+
+        const linkedConfig = await init({
+          harnesses: 'claude',
+          destinationDirectory: destDir,
+          profile: profileDir,
+        });
+        expect(linkedConfig.success).toBe(false);
+        expect(linkedConfig.error).toBeInstanceOf(ProfileError);
+        expect(linkedConfig.message).toMatch(/config\/.*symbolic link/);
+        expect(await fs.pathExists(path.join(destDir, '.ai/strikethroo'))).toBe(false);
+
+        await fs.remove(profileDir);
+        await fs.ensureDir(profileDir);
+        await fs.copy(path.join(real, 'config'), path.join(profileDir, 'config'));
+        await fs.symlink(path.join(real, 'profile.yaml'), path.join(profileDir, 'profile.yaml'));
+
+        const linkedManifest = await init({
+          harnesses: 'claude',
+          destinationDirectory: destDir,
+          profile: profileDir,
+        });
+        expect(linkedManifest.success).toBe(false);
+        expect(linkedManifest.error).toBeInstanceOf(ProfileError);
+        expect(linkedManifest.message).toMatch(/profile\.yaml.*symbolic link/);
+        expect(await fs.pathExists(path.join(destDir, '.ai/strikethroo'))).toBe(false);
+      }
+    );
   });
 
   describe('re-init conflict protection', () => {
@@ -372,6 +425,14 @@ describe('Profiles Integration', () => {
       });
       expect(exported.success).toBe(true);
 
+      // The sharing notice follows a successful export, naming what the package carries
+      const logged = consoleLogSpy.mock.calls.map(call => call.map(String).join(' ')).join('\n');
+      expect(logged).toMatch(/Review .* before sharing/);
+      expect(logged).toContain('config.yaml');
+      expect(logged).toMatch(/hooks/);
+      expect(logged).toMatch(/machine-local paths/);
+      expect(logged).toMatch(/harness/);
+
       // The package carries the manifest and excludes the CLI-owned schemas/
       const manifest = yaml.load(
         await fs.readFile(path.join(exportDir, 'profile.yaml'), 'utf-8')
@@ -399,6 +460,34 @@ describe('Profiles Integration', () => {
       expect(metadata!.profile!.name).toBe('tuned-profile');
       expect(metadata!.profile!.source).toBe(exportDir);
     });
+
+    it.skipIf(process.platform === 'win32')(
+      'refuses to export a config/ tree that contains a symbolic link',
+      async () => {
+        const workspaceProject = path.join(sandbox, 'linked-project');
+        const exportDir = path.join(sandbox, 'exported-profile');
+        const outsideFile = path.join(sandbox, 'outside.md');
+        await fs.writeFile(outsideFile, '# outside\n', 'utf-8');
+
+        const setup = await init({ harnesses: 'claude', destinationDirectory: workspaceProject });
+        expect(setup.success).toBe(true);
+        await fs.symlink(
+          outsideFile,
+          path.join(workspaceProject, '.ai/strikethroo/config/hooks/LINKED.md')
+        );
+
+        const exported = await exportProfile({
+          destinationDirectory: exportDir,
+          manifest: { name: 'linked-profile', description: 'Must be refused' },
+          cwd: workspaceProject,
+        });
+        expect(exported.success).toBe(false);
+        expect(exported.error).toBeInstanceOf(ProfileError);
+        expect(exported.message).toContain(path.join('hooks', 'LINKED.md'));
+        expect(exported.message).toMatch(/symbolic link/);
+        expect(await fs.pathExists(exportDir)).toBe(false);
+      }
+    );
   });
 
   describe('plain init backwards compatibility', () => {

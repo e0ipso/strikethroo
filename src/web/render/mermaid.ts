@@ -54,6 +54,32 @@ const THEME_COLORS: Record<MermaidTheme, Record<string, string>> = {
 };
 
 /**
+ * Configuration keys a diagram's own `%%{init: …}%%` directive or front-matter
+ * `config:` block may NOT override. Mermaid strips these from every directive
+ * (`sanitize` in its config module), and it applies the list at every nesting
+ * level, so `htmlLabels` here also covers `flowchart.htmlLabels`; a dotted key
+ * would match nothing. Mermaid's own default list is the first six; the rest
+ * close the gaps a document could otherwise use to restyle the page
+ * (`theme*`, `fontFamily` — `themeCSS` is raw CSS and can carry `url()`),
+ * switch label rendering, or loosen mermaid's internal DOMPurify pass.
+ */
+const MERMAID_SECURE_KEYS = [
+  'secure',
+  'securityLevel',
+  'startOnLoad',
+  'maxTextSize',
+  'maxEdges',
+  'suppressErrorRendering',
+  'theme',
+  'themeVariables',
+  'themeCSS',
+  'fontFamily',
+  'altFontFamily',
+  'htmlLabels',
+  'dompurifyConfig',
+];
+
+/**
  * Loads the mermaid library lazily (once) via dynamic import. Configuration is
  * applied per-render in {@link renderMermaid} rather than here, so a theme
  * switch takes effect on the next render without reloading the library.
@@ -89,6 +115,12 @@ export async function renderMermaid(
     // mermaid's `strict` default so authored diagram labels cannot inject
     // active HTML. Do NOT regress this to 'loose'.
     securityLevel: 'strict',
+    secure: MERMAID_SECURE_KEYS,
+    // Conservative input bounds: a plan diagram is a few dozen nodes, so these
+    // leave headroom while refusing a document-sized source or an edge count
+    // that would stall layout. Both are in the secure list above.
+    maxTextSize: 50_000,
+    maxEdges: 500,
     // Graceful degradation, NOT a fix for malformed diagrams. Without this,
     // mermaid v11's `render` paints its own red "Syntax error" bomb SVG into a
     // temp element under `<body>` and, on the throw path, never calls

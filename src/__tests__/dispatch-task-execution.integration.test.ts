@@ -55,6 +55,94 @@ describe('dispatch task execution entrypoint', () => {
     expect(JSON.parse(result.stdout)).toEqual({ kind: 'native-default' });
   });
 
+  it('rejects executable frontmatter languages without evaluating them', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'st-dispatch-'));
+    const bundle = makeBundle(directory);
+    const marker = path.join(directory, 'marker');
+    const payload = `require('fs').writeFileSync(${JSON.stringify(marker)}, 'x')`;
+    for (const tag of ['js', 'javascript', 'coffee', ' js ']) {
+      const taskFile = path.join(directory, 'task.md');
+      fs.writeFileSync(
+        taskFile,
+        `---${tag}\n${payload}; module.exports = { execution_profile: 'x' };\n---\n# Task\n`
+      );
+
+      const result = run(bundle, ['resolve', taskFile, 'codex', directory, '12', '3']);
+
+      expect(fs.existsSync(marker)).toBe(false);
+      expect(result.status).toBe(2);
+      expect(result.stderr).toBe('');
+      expect(result.stdout.trim().split('\n')).toHaveLength(1);
+      expect(JSON.parse(result.stdout)).toEqual({
+        kind: 'infrastructure-failure',
+        detail: expect.stringContaining('Task metadata rejected'),
+      });
+    }
+  });
+
+  it('rejects malformed task metadata with a structured failure', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'st-dispatch-'));
+    const bundle = makeBundle(directory);
+    const taskFile = path.join(directory, 'task.md');
+    const cases = [
+      '---\nexecution_profile: [unclosed\n---\n# Task\n',
+      '---\n- id: 3\n- execution_profile: mixed\n---\n# Task\n',
+      '---\njust a scalar\n---\n# Task\n',
+      '---\nid: 3\nexecution_profile: 5\n---\n# Task\n',
+      '---\nid: 3\nexecution_profile: "  "\n---\n# Task\n',
+      '---\nid: 3\nexecution_profile: !!js/function "function () {}"\n---\n# Task\n',
+      '---\nid: 3\nexecution_profile: mixed\n# Task without a closing fence\n',
+      `---\nid: 3\nnotes: "${'a'.repeat(70 * 1024)}"\n---\n# Task\n`,
+    ];
+    for (const markdown of cases) {
+      fs.writeFileSync(taskFile, markdown);
+
+      const result = run(bundle, ['resolve', taskFile, 'codex', directory, '12', '3']);
+
+      expect(result.status).toBe(2);
+      expect(result.stderr).toBe('');
+      expect(result.stdout.trim().split('\n')).toHaveLength(1);
+      expect(JSON.parse(result.stdout)).toEqual({
+        kind: 'infrastructure-failure',
+        detail: expect.stringMatching(/^Task metadata rejected: /),
+      });
+    }
+  });
+
+  it('reads ordinary YAML task metadata across line endings and without frontmatter', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'st-dispatch-'));
+    const bundle = makeBundle(directory);
+    fs.mkdirSync(path.join(directory, '.ai/strikethroo/config'), { recursive: true });
+    fs.writeFileSync(
+      path.join(directory, '.ai/strikethroo/config/config.yaml'),
+      'execution_routing:\n  enabled: false\n'
+    );
+    const taskFile = path.join(directory, 'task.md');
+    const resolve = (markdown: string) => {
+      fs.writeFileSync(taskFile, markdown);
+      const result = run(bundle, ['resolve', taskFile, 'codex', directory, '12', '3']);
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe('');
+      return JSON.parse(result.stdout) as Record<string, unknown>;
+    };
+
+    expect(resolve('# Task without metadata\n')).toEqual({ kind: 'native-default' });
+    expect(resolve('---\r\nid: 3\r\nstatus: pending\r\n---\r\n# Task\r\n')).toEqual({
+      kind: 'native-default',
+    });
+    expect(resolve('---\n---\n# Task\n')).toEqual({ kind: 'native-default' });
+    for (const markdown of [
+      '---\r\nid: 3\r\nexecution_profile: mixed\r\n---\r\n# Task\r\n',
+      '﻿---  \nid: 3\nexecution_profile: mixed\n...\n# Task\n',
+    ]) {
+      expect(resolve(markdown)).toEqual({
+        kind: 'fallback',
+        reason: 'invalid-execution',
+        detail: expect.stringContaining('Execution profile "mixed"'),
+      });
+    }
+  });
+
   it('retries an unavailable external target and selects the current harness', () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'st-dispatch-'));
     const bundle = makeBundle(directory);

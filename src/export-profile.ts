@@ -29,6 +29,16 @@ const TERM_WIDTH = 80;
 const DIVIDER = '─'.repeat(TERM_WIDTH);
 
 /**
+ * Printed after every successful export. The package is a verbatim copy of
+ * local configuration; nothing is detected or redacted, so the user has to
+ * read it before handing it to anyone.
+ */
+export const EXPORT_SHARING_NOTICE =
+  '  Review the package before sharing it. It contains config/config.yaml and the\n' +
+  '  hooks, templates, and shared files verbatim, including machine-local paths and\n' +
+  '  harness CLI arguments. Nothing is detected or redacted.\n';
+
+/**
  * Kebab-case: lowercase alphanumeric segments separated by single hyphens.
  * Mirrors the manifest contract enforced by `validateProfilePackage`.
  */
@@ -93,6 +103,10 @@ export async function exportProfile(options: ExportProfileOptions): Promise<Comm
       );
     }
 
+    // A package must carry its own copies: refuse links before prompting or
+    // touching the destination.
+    await assertNoSymbolicLinks(workspaceConfigDir);
+
     const destination = path.resolve(options.destinationDirectory);
     await assertDestinationUsable(destination);
 
@@ -122,6 +136,7 @@ export async function exportProfile(options: ExportProfileOptions): Promise<Comm
     console.log(
       `\n${chalk.green('✓')} strikethroo profile '${manifest.name}' exported to ${destination}\n`
     );
+    console.log(chalk.yellow(EXPORT_SHARING_NOTICE));
     console.log(
       chalk.gray(
         '  Publish it by pushing the folder to a git host, or import it directly with\n' +
@@ -185,11 +200,42 @@ async function assertDestinationUsable(destination: string): Promise<void> {
  */
 async function copyConfigSurface(sourceConfigDir: string, destConfigDir: string): Promise<void> {
   await fs.copy(sourceConfigDir, destConfigDir, {
-    filter: src => {
-      const rel = path.relative(sourceConfigDir, src);
-      return rel !== 'schemas' && !rel.startsWith(`schemas${path.sep}`);
-    },
+    filter: src => !isExcludedFromExport(path.relative(sourceConfigDir, src)),
   });
+}
+
+/**
+ * Whether a `config/`-relative path is the CLI-owned `schemas/` subtree
+ * @param rel - Path relative to the workspace `config/` directory
+ */
+function isExcludedFromExport(rel: string): boolean {
+  return rel === 'schemas' || rel.startsWith(`schemas${path.sep}`);
+}
+
+/**
+ * Refuse to package a `config/` tree that contains a symbolic link anywhere
+ * in its exported surface. The walk uses directory entry types (lstat
+ * semantics), so a link is seen as a link rather than as its target.
+ *
+ * @param configDir - Workspace `config/` directory
+ */
+async function assertNoSymbolicLinks(configDir: string): Promise<void> {
+  const walk = async (dir: string): Promise<void> => {
+    for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
+      const fullPath = path.join(dir, entry.name);
+      const rel = path.relative(configDir, fullPath);
+      if (isExcludedFromExport(rel)) continue;
+      if (entry.isSymbolicLink()) {
+        throw new ProfileError(
+          `Cannot export a strikethroo profile: config/${rel} is a symbolic link. A package ` +
+            `must carry its own copies of every file, so replace the link with a regular ` +
+            `file or directory (or remove it) and re-run the export.`
+        );
+      }
+      if (entry.isDirectory()) await walk(fullPath);
+    }
+  };
+  await walk(configDir);
 }
 
 /**

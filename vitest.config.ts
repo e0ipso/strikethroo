@@ -1,23 +1,21 @@
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
-  esbuild: {
-    jsx: 'automatic',
-  },
   test: {
     globals: true,
     environment: 'node',
     include: [
       'src/__tests__/utils.test.ts',
       'src/__tests__/capture-base-commit.integration.test.ts',
+      'src/__tests__/ci-workflows.test.ts',
       'src/__tests__/cli.integration.test.ts',
       'src/__tests__/code-review.integration.test.ts',
       'src/__tests__/config-write.test.ts',
       'src/__tests__/conflict-detection.integration.test.ts',
+      'src/__tests__/dependency-check.test.ts',
       'src/__tests__/dispatch-outcomes-prompt.test.ts',
       'src/__tests__/dispatch-task-execution.integration.test.ts',
       'src/__tests__/dispatch-target-selector.test.ts',
-      'src/__tests__/execution-policy.test.ts',
       'src/__tests__/execution-routing.test.ts',
       'src/__tests__/external-dispatch.test.ts',
       'src/__tests__/harness-configuration.test.ts',
@@ -27,7 +25,9 @@ export default defineConfig({
       'src/__tests__/profiles.integration.test.ts',
       'src/__tests__/review-findings.integration.test.ts',
       'src/__tests__/review-gate-prompt.test.ts',
+      'src/__tests__/review-scope-paths.integration.test.ts',
       'src/__tests__/route-task-execution.integration.test.ts',
+      'src/__tests__/safe-fs.integration.test.ts',
       'src/__tests__/self-review.test.ts',
       'src/__tests__/serve-archive.integration.test.ts',
       'src/__tests__/serve-server.integration.test.ts',
@@ -46,6 +46,7 @@ export default defineConfig({
       'src/web/__tests__/router.test.ts',
       'src/web/archive/__tests__/helpers.test.tsx',
       'src/web/customize/__tests__/configYaml.test.ts',
+      'src/web/data/__tests__/api-mutations.test.ts',
       'src/web/components/__tests__/railCollapse.test.ts',
       'src/web/plans/__tests__/derive.test.ts',
       'src/web/plans/__tests__/taskNav.test.ts',

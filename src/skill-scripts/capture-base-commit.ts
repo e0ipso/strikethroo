@@ -16,7 +16,7 @@ const emit = (result: CaptureResult, exitCode: number): never => {
   process.exit(exitCode);
 };
 
-const _isGitRepo = (): boolean => execGit('git rev-parse --is-inside-work-tree') === 'true';
+const _isGitRepo = (): boolean => execGit(['rev-parse', '--is-inside-work-tree']) === 'true';
 
 const _isValidSha = (value: unknown): value is string =>
   typeof value === 'string' && SHA_RE.test(value);
@@ -54,7 +54,7 @@ const main = (startPath: string = process.cwd()): void => {
     emit({ kind: 'skipped', reason: 'not-a-git-repository' }, 0);
   }
 
-  const head = execGit('git rev-parse HEAD');
+  const head = execGit(['rev-parse', 'HEAD']);
   if (!_isValidSha(head)) {
     emit({ kind: 'skipped', reason: 'no-commits' }, 0);
   }

@@ -106,11 +106,9 @@ describe('release skill bundle stamp rehearsal', () => {
         recursive: true,
       });
     }
-    fs.mkdirSync(path.join(fixtureRoot, 'dist'));
-    fs.copyFileSync(
-      path.join(REPO_ROOT, 'dist/metadata.js'),
-      path.join(fixtureRoot, 'dist/metadata.js')
-    );
+    // build-skills.cjs requires dist/metadata.js, which requires its own
+    // compiled siblings, so the whole compiled tree is copied.
+    fs.cpSync(path.join(REPO_ROOT, 'dist'), path.join(fixtureRoot, 'dist'), { recursive: true });
     fs.symlinkSync(
       path.join(REPO_ROOT, 'node_modules'),
       path.join(fixtureRoot, 'node_modules'),

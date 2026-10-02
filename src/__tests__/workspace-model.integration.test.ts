@@ -21,6 +21,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { execFileSync } from 'child_process';
 import { getWorkspaceModel, getPlanDetail, getConfig } from '../serve/workspace-model';
 
 const FIXTURE_ROOT = path.resolve(process.cwd(), 'src', '__tests__', 'fixtures', 'serve-workspace');
@@ -246,6 +247,38 @@ describe('workspace-model against synthetic fixtures', () => {
     expect(detail!.tasks.find(t => t.id === 7)!.complexity_score).toBe(7);
     expect(detail!.tasks.find(t => t.id === 8)!.complexity_score).toBe(8);
   });
+
+  it('does not expose outside content through linked config files or directories', () => {
+    const root = path.join(tmpRoot, 'strikethroo');
+    const outside = path.join(tmpRoot, 'outside');
+    fs.mkdirSync(path.join(outside, 'templates'), { recursive: true });
+    fs.writeFileSync(path.join(outside, 'secret.yaml'), 'leaked: true\n', 'utf8');
+    fs.writeFileSync(path.join(outside, 'templates', 'LEAK.md'), '# leaked\n', 'utf8');
+    fs.mkdirSync(path.join(root, 'config', 'hooks'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'config', 'hooks', 'REAL.md'), '# real\n', 'utf8');
+    fs.symlinkSync(path.join(outside, 'secret.yaml'), path.join(root, 'config', 'config.yaml'));
+    fs.symlinkSync(path.join(outside, 'templates'), path.join(root, 'config', 'templates'), 'dir');
+
+    const config = getConfig(root);
+    expect(config.workspace).toBeNull();
+    expect(config.templates).toEqual([]);
+    expect(config.hooks.map(h => h.id)).toEqual(['REAL']);
+    expect(config.hooks[0]!.content).toBe('# real\n');
+    expect(config.hooks[0]!.relPath).toBe(path.join('config', 'hooks', 'REAL.md'));
+  });
+
+  it.skipIf(process.platform === 'win32')(
+    'omits a FIFO at a hook path without blocking',
+    () => {
+      const root = path.join(tmpRoot, 'strikethroo');
+      fs.mkdirSync(path.join(root, 'config', 'hooks'), { recursive: true });
+      fs.writeFileSync(path.join(root, 'config', 'hooks', 'REAL.md'), '# real\n', 'utf8');
+      execFileSync('mkfifo', [path.join(root, 'config', 'hooks', 'FIFO.md')]);
+      const config = getConfig(root);
+      expect(config.hooks.map(h => h.id)).toEqual(['REAL']);
+    },
+    5000
+  );
 
   it('returns undefined complexity_score for legacy fixture tasks without the field', () => {
     const detail = getPlanDetail(FIXTURE_ROOT, '83--workspace-data-layer');

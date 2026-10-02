@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 import * as fs from 'fs';
 import * as path from 'path';
-import matter from 'gray-matter';
 import { SUPPORTED_HARNESSES, type Harness } from '../types';
 import { selectDispatchTarget } from './shared/dispatch-target-selector';
 import { dispatchExternalTask, type RoutedDispatchRequest } from './shared/external-dispatch';
 import { checkHarnessAvailability } from './shared/harness-availability';
 import { loadHarnessConfiguration } from './shared/harness-configuration';
 import { loadRoutingConfig } from './shared/execution-routing';
+import { readYamlFrontmatter } from './shared/task-frontmatter';
 
 interface ExternalHandoff {
   version: 1;
@@ -21,6 +21,7 @@ type ResolvedRoute =
   | { kind: 'native-default' }
   | { kind: 'native-override'; model: string; reasoningEffort?: string }
   | { kind: 'fallback'; reason: string; detail: string }
+  | { kind: 'infrastructure-failure'; detail: string }
   | ({ kind: 'external-override'; harness: Harness; model: string; reasoningEffort?: string } & {
       handoff: string;
     });
@@ -77,10 +78,25 @@ const externalRoute = (
   return { ...exact, handoff: encodeHandoff(exact) };
 };
 
-const readProfile = (taskMarkdown: string): string | undefined => {
-  const parsed = matter(taskMarkdown, {});
-  const profile = parsed.data.execution_profile;
-  return typeof profile === 'string' && profile.trim() ? profile : undefined;
+type ProfileRead = { kind: 'profile'; profile?: string } | { kind: 'rejected'; reason: string };
+
+/**
+ * Task markdown is untrusted input. It is read as YAML data only, and any
+ * metadata that cannot be read that way is rejected rather than guessed at,
+ * so suspicious content never silently degrades to a native run.
+ */
+const readProfile = (taskMarkdown: string): ProfileRead => {
+  const frontmatter = readYamlFrontmatter(taskMarkdown);
+  if (frontmatter.kind === 'none') return { kind: 'profile' };
+  if (frontmatter.kind === 'invalid') return { kind: 'rejected', reason: frontmatter.reason };
+  if (!Object.prototype.hasOwnProperty.call(frontmatter.data, 'execution_profile')) {
+    return { kind: 'profile' };
+  }
+  const profile = frontmatter.data.execution_profile;
+  if (typeof profile !== 'string' || profile.trim() === '') {
+    return { kind: 'rejected', reason: 'execution_profile must be a non-empty string.' };
+  }
+  return { kind: 'profile', profile };
 };
 
 export interface ResolveDispatchRequest {
@@ -95,8 +111,12 @@ export interface ResolveDispatchRequest {
 export const resolveDispatchRoute = async (
   request: ResolveDispatchRequest
 ): Promise<ResolvedRoute> => {
-  const profile = readProfile(request.taskMarkdown);
-  if (!profile) return { kind: 'native-default' };
+  const read = readProfile(request.taskMarkdown);
+  if (read.kind === 'rejected') {
+    return { kind: 'infrastructure-failure', detail: `Task metadata rejected: ${read.reason}` };
+  }
+  const profile = read.profile;
+  if (profile === undefined) return { kind: 'native-default' };
 
   const configResult = loadRoutingConfig(request.strikethrooRoot, SUPPORTED_HARNESSES);
   if (configResult.kind !== 'config') {
@@ -204,16 +224,14 @@ const main = async (): Promise<void> => {
   const taskPath = path.resolve(validTaskFile);
   const taskMarkdown = fs.readFileSync(taskPath, 'utf8');
   if (mode === 'resolve') {
-    emit(
-      await resolveDispatchRoute({
-        taskMarkdown,
-        currentHarness: validCurrentHarness,
-        workspace: path.resolve(validWorkspace),
-        strikethrooRoot: path.join(path.resolve(validWorkspace), '.ai', 'strikethroo'),
-        taskId: Number(validTaskId),
-      }),
-      0
-    );
+    const route = await resolveDispatchRoute({
+      taskMarkdown,
+      currentHarness: validCurrentHarness,
+      workspace: path.resolve(validWorkspace),
+      strikethrooRoot: path.join(path.resolve(validWorkspace), '.ai', 'strikethroo'),
+      taskId: Number(validTaskId),
+    });
+    emit(route, route.kind === 'infrastructure-failure' ? 2 : 0);
   }
 
   const handoff = decodeHandoff(handoffArg!);

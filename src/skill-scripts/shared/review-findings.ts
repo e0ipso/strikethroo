@@ -34,65 +34,142 @@ export type SchemaValidation =
   | { kind: 'invalid'; detail: string }
   | { kind: 'validator-unavailable'; detail: string };
 
+type XmllintRun =
+  | { kind: 'exited'; code: number | null; stdout: string; stderr: string }
+  | { kind: 'launch-failed'; code: string | undefined; message: string }
+  | { kind: 'timed-out' };
+
+const OUTPUT_CAP = 2000;
+
 /**
- * Validate one document against the XSD via `xmllint`. `spawn`, never `exec`,
- * so a path cannot become a command. An invalid document and an unavailable
- * validator are distinct outcomes; neither is ever a clean review.
+ * One `xmllint` run. `spawn`, never `exec`, so a path cannot become a command.
+ * `--nonet` is unconditional: the schema and the document are both local, so
+ * nothing here has any business reaching the network. Entity expansion is never
+ * enabled (no `--noent`, `--dtdattr`, `--loaddtd`); do not add those flags.
  */
-export const validateAgainstSchema = (
-  xsdFile: string,
-  xmlFile: string,
-  timeoutMs: number = XMLLINT_TIMEOUT_MS
-): Promise<SchemaValidation> =>
+const runXmllint = (args: readonly string[], timeoutMs: number): Promise<XmllintRun> =>
   new Promise(resolve => {
     let settled = false;
-    let diagnostics = '';
-    const finish = (result: SchemaValidation): void => {
+    let stdout = '';
+    let stderr = '';
+    const finish = (run: XmllintRun): void => {
       if (settled) return;
       settled = true;
-      resolve(result);
+      resolve(run);
     };
-    // --nonet: the schema and the document are both local, so nothing here has
-    // any business reaching the network to resolve an entity or an import.
-    const child = spawn('xmllint', ['--nonet', '--schema', xsdFile, xmlFile, '--noout'], {
+    const capped = (current: string, chunk: unknown): string =>
+      current.length < OUTPUT_CAP
+        ? current + String(chunk).slice(0, OUTPUT_CAP - current.length)
+        : current;
+    const child = spawn('xmllint', ['--nonet', ...args], {
       shell: false,
-      stdio: ['ignore', 'ignore', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
     const timer = setTimeout(() => {
       child.kill('SIGKILL');
-      finish({
-        kind: 'validator-unavailable',
-        detail: `xmllint did not return a verdict on ${xmlFile} within ${timeoutMs} ms, so the findings could not be validated.`,
-      });
+      finish({ kind: 'timed-out' });
     }, timeoutMs);
+    child.stdout?.on('data', chunk => {
+      stdout = capped(stdout, chunk);
+    });
     child.stderr?.on('data', chunk => {
-      if (diagnostics.length < 2000) {
-        diagnostics += String(chunk).slice(0, 2000 - diagnostics.length);
-      }
+      stderr = capped(stderr, chunk);
     });
     child.once('error', error => {
       clearTimeout(timer);
-      const code = (error as { code?: string }).code;
       finish({
-        kind: 'validator-unavailable',
-        detail:
-          code === 'ENOENT'
-            ? '`xmllint` was not found on PATH. The review gate validates every emitted review.xml against the vendored schema and cannot certify findings without it. Install libxml2-utils (or your platform equivalent) and re-run.'
-            : `\`xmllint\` could not be run (${code ?? 'unknown error'}): ${error.message}`,
+        kind: 'launch-failed',
+        code: (error as { code?: string }).code,
+        message: error.message,
       });
     });
     child.once('close', code => {
       clearTimeout(timer);
-      finish(
-        code === 0
-          ? { kind: 'valid' }
-          : {
-              kind: 'invalid',
-              detail: diagnostics.trim() || `xmllint exited ${code ?? 'with no status'}.`,
-            }
-      );
+      finish({ kind: 'exited', code, stdout, stderr });
     });
   });
+
+/**
+ * Validate one document against the XSD via `xmllint`. An invalid document and
+ * an unavailable validator are distinct outcomes; neither is ever a clean review.
+ */
+export const validateAgainstSchema = async (
+  xsdFile: string,
+  xmlFile: string,
+  timeoutMs: number = XMLLINT_TIMEOUT_MS
+): Promise<SchemaValidation> => {
+  const run = await runXmllint(['--schema', xsdFile, xmlFile, '--noout'], timeoutMs);
+  switch (run.kind) {
+    case 'timed-out':
+      return {
+        kind: 'validator-unavailable',
+        detail: `xmllint did not return a verdict on ${xmlFile} within ${timeoutMs} ms, so the findings could not be validated.`,
+      };
+    case 'launch-failed':
+      return {
+        kind: 'validator-unavailable',
+        detail:
+          run.code === 'ENOENT'
+            ? '`xmllint` was not found on PATH. The review gate validates every emitted review.xml against the vendored schema and cannot certify findings without it. Install libxml2-utils (or your platform equivalent) and re-run.'
+            : `\`xmllint\` could not be run (${run.code ?? 'unknown error'}): ${run.message}`,
+      };
+    case 'exited':
+      return run.code === 0
+        ? { kind: 'valid' }
+        : {
+            kind: 'invalid',
+            detail: run.stderr.trim() || `xmllint exited ${run.code ?? 'with no status'}.`,
+          };
+  }
+};
+
+const COMMENT_COUNT_XPATH = "count(//*[local-name()='comment'])";
+
+/**
+ * libxml's own count of `<comment>` elements, by local name, for cross-checking
+ * `parseReviewFindings`. `null` for anything but a clean numeric answer, so a
+ * failed count can never agree with the scanner by accident.
+ */
+export const countCommentsWithXmllint = async (
+  xmlFile: string,
+  timeoutMs: number = XMLLINT_TIMEOUT_MS
+): Promise<number | null> => {
+  const run = await runXmllint(['--xpath', COMMENT_COUNT_XPATH, xmlFile], timeoutMs);
+  if (run.kind !== 'exited' || run.code !== 0) return null;
+  const answer = run.stdout.trim();
+  return /^\d+(\.0+)?$/.test(answer) ? Number(answer) : null;
+};
+
+/** Comments and CDATA removed; an unterminated section runs to the end, as in the scanner. */
+const stripCommentsAndCdata = (xml: string): string => {
+  let kept = '';
+  let index = 0;
+  while (index < xml.length) {
+    const comment = xml.indexOf('<!--', index);
+    const cdata = xml.indexOf('<![CDATA[', index);
+    const next = Math.min(comment === -1 ? Infinity : comment, cdata === -1 ? Infinity : cdata);
+    if (next === Infinity) {
+      kept += xml.slice(index);
+      break;
+    }
+    kept += xml.slice(index, next);
+    const [opener, closer] = next === comment ? ['<!--', '-->'] : ['<![CDATA[', ']]>'];
+    const end = xml.indexOf(closer, next + opener.length);
+    index = end === -1 ? xml.length : end + closer.length;
+  }
+  return kept;
+};
+
+const FORBIDDEN_DECLARATION_RE = /<!(DOCTYPE|ENTITY|ELEMENT|ATTLIST|NOTATION)\b/i;
+
+/**
+ * Whether the document carries a DTD or entity declaration outside comments and
+ * CDATA. The gate accepts only the XSD's instance syntax: a DTD can change what
+ * the validator sees, and a `<!…` construct is what the tag scanner cannot read
+ * safely, so such a document is refused before validation.
+ */
+export const hasForbiddenDeclarations = (xml: string): boolean =>
+  FORBIDDEN_DECLARATION_RE.test(stripCommentsAndCdata(xml));
 
 export interface ReviewFinding {
   /** `path` of the enclosing `<file>`. */
@@ -190,9 +267,12 @@ interface PartialFinding {
  * be bound: the document declares `urn:self-review:v2` as its default namespace
  * and a reviewer emitting it under a prefix is read identically.
  *
- * Comments, CDATA sections, processing instructions and doctype declarations are
- * skipped rather than scanned, so a `<body>` quoting XML at itself cannot be
- * mistaken for structure. An attribute value that arrives as an unexpanded
+ * Comments, CDATA sections and processing instructions are skipped rather than
+ * scanned, so a `<body>` quoting XML at itself cannot be mistaken for structure.
+ * DTD and entity declarations are not handled here: `hasForbiddenDeclarations`
+ * refuses them upstream, and the caller checks this scan's count against
+ * `countCommentsWithXmllint`, so a scan that disagrees with the validated
+ * document never certifies. An attribute value that arrives as an unexpanded
  * entity reference reads as an unrecognised enum value, which becomes a null
  * label rather than a guessed one.
  */
@@ -230,6 +310,7 @@ export const parseReviewFindings = (xml: string): ReviewFinding[] => {
       continue;
     }
     if (xml.startsWith('<!', open)) {
+      // Declarations are refused upstream; this only keeps the scan moving.
       index = findTagEnd(xml, open);
       continue;
     }

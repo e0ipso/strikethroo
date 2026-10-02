@@ -121,6 +121,30 @@ describe('checkForUpdates integration', () => {
     expect(JSON.parse(fs.readFileSync(statePath, 'utf8')).lastAttemptAt).toBeDefined();
   });
 
+  test.skipIf(process.platform === 'win32')(
+    'never writes through a link planted at the old predictable temp path',
+    async () => {
+      const root = initGitWorkspace(tempDir, { workspaceVersion: '3.0.0' });
+      const statePath = path.join(root, STATE_RELATIVE_PATH);
+      const outside = path.join(tempDir, 'outside-sentinel.json');
+      fs.writeFileSync(outside, 'untouched');
+      fs.mkdirSync(path.dirname(statePath), { recursive: true });
+      const planted = `${statePath}.tmp-${process.pid}`;
+      fs.symlinkSync(outside, planted);
+
+      // Default dependencies, so the real writeTextFile runs.
+      const result = await checkForUpdates(root, makeDeps(root));
+      expect(result.latestRelease).toBe('3.21.0');
+
+      expect(fs.readFileSync(outside, 'utf8')).toBe('untouched');
+      expect(fs.readlinkSync(planted)).toBe(outside);
+      expect(fs.lstatSync(statePath).isFile()).toBe(true);
+      expect(fs.statSync(statePath).mode & 0o777).toBe(0o600);
+      expect(JSON.parse(fs.readFileSync(statePath, 'utf8')).lastSuccessfulRelease).toBe('3.21.0');
+      expect(fs.readdirSync(path.dirname(statePath)).filter(n => n.endsWith('.tmp'))).toEqual([]);
+    }
+  );
+
   test('does not attempt a request when the throttle cannot be saved', async () => {
     const root = initGitWorkspace(tempDir, { workspaceVersion: '3.0.0' });
     const fetchLatestRelease = vi.fn(async () => '3.21.0');

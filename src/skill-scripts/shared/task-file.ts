@@ -61,31 +61,55 @@ export type TaskMetadataResult =
 const MAX_VALUE_PREVIEW = 80;
 
 /**
- * `JSON.stringify` replacer that prints a value already on its own ancestor
- * path as `"[Circular]"`. A YAML alias can reference its enclosing node
- * (`&d [*d]`), which the plain call throws on. The ancestor path, not a seen
- * set, is what keeps a shared alias (`[&a {x: 1}, *a]`) printing both copies.
+ * JSON preview of an offending value, bounded so a reason stays one line.
+ * Never throws.
+ *
+ * Writing stops once the preview is full, so shared YAML aliases cannot make
+ * the work exponential: `&a1 [*a0, *a0]` doubled 32 times is a few hundred
+ * bytes of YAML and billions of nodes. A value already on its own ancestor
+ * path (`&d [*d]`) prints as `"[Circular]"`; a shared alias that is not a
+ * cycle (`[&a {x: 1}, *a]`) prints both copies.
  */
-const circularReplacer = (): ((this: unknown, key: string, value: unknown) => unknown) => {
-  const ancestors: unknown[] = [];
-  return function (this: unknown, _key: string, value: unknown): unknown {
-    if (typeof value !== 'object' || value === null) return value;
-    while (ancestors.length > 0 && ancestors[ancestors.length - 1] !== this) ancestors.pop();
-    if (ancestors.includes(value)) return '[Circular]';
-    ancestors.push(value);
-    return value;
-  };
-};
-
-/** JSON preview of an offending value, bounded so a reason stays one line. Never throws. */
 const describeValue = (value: unknown): string => {
-  let json: string | undefined;
+  let text = '';
+  const ancestors: object[] = [];
+  const full = () => text.length > MAX_VALUE_PREVIEW;
+  const write = (node: unknown): void => {
+    if (full()) return;
+    if (typeof node !== 'object' || node === null || node instanceof Date) {
+      text += JSON.stringify(node) ?? String(node);
+      return;
+    }
+    if (ancestors.includes(node)) {
+      text += '"[Circular]"';
+      return;
+    }
+    ancestors.push(node);
+    if (Array.isArray(node)) {
+      text += '[';
+      for (let i = 0; i < node.length && !full(); i++) {
+        if (i > 0) text += ',';
+        write(node[i] ?? null);
+      }
+      text += ']';
+    } else {
+      text += '{';
+      let first = true;
+      for (const [key, item] of Object.entries(node)) {
+        if (full()) break;
+        text += `${first ? '' : ','}${JSON.stringify(key)}:`;
+        first = false;
+        write(item);
+      }
+      text += '}';
+    }
+    ancestors.pop();
+  };
   try {
-    json = JSON.stringify(value, circularReplacer());
+    write(value);
   } catch {
-    json = undefined;
+    text = String(value);
   }
-  const text = json ?? String(value);
   return text.length > MAX_VALUE_PREVIEW ? `${text.slice(0, MAX_VALUE_PREVIEW)}…` : text;
 };
 
@@ -102,9 +126,12 @@ const toTaskId = (value: unknown): number | null => {
   return null;
 };
 
-/** Absent means no dependencies; anything but a list of task ids is `null`. */
+/**
+ * Absent, or a bare `dependencies:` key (YAML null), means no dependencies, as
+ * `validate` accepts it; anything but a list of task ids is `null`.
+ */
 const readDependencies = (value: unknown): readonly number[] | null => {
-  if (value === undefined) return [];
+  if (value === undefined || value === null) return [];
   if (!Array.isArray(value)) return null;
   const ids: number[] = [];
   for (const item of value) {

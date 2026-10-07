@@ -16,7 +16,9 @@
  * replace whatever the user typed in between, including a revert to the old
  * baseline, which reads clean against that baseline and is otherwise
  * indistinguishable from an editor with nothing to lose. The pending key is
- * set by `beginSave` and cleared only by `commitSave` or `failSave`.
+ * set by `beginSave` and cleared only by `commitSave` or `failSave`. A disk
+ * change observed while it is set may be another writer's, so `commitSave`
+ * keeps it unless it is the submitted snapshot itself.
  *
  * Derived: `dirty = key(draft) !== baseline`; `conflict = dirty && disk !==
  * baseline`. Both editors drive their state through these pure transitions,
@@ -39,6 +41,8 @@ export interface DraftState<D, K> {
   acknowledged: boolean;
   /** The key of the snapshot a save is persisting; `null` between saves. */
   pending: K | null;
+  /** True once `disk` has changed since the pending save began. */
+  observedDuringSave: boolean;
 }
 
 export interface DraftFlags {
@@ -56,7 +60,14 @@ const diskKey = <D, K>(state: DraftState<D, K>): K | null => state.disk?.key ?? 
 
 /** A clean editor over `disk`: draft, baseline, and disk all agree, and no save is in flight. */
 export function seedDraft<D, K>(disk: DiskContent<D, K>): DraftState<D, K> {
-  return { draft: disk.adopt(), baseline: disk.key, disk, acknowledged: false, pending: null };
+  return {
+    draft: disk.adopt(),
+    baseline: disk.key,
+    disk,
+    acknowledged: false,
+    pending: null,
+    observedDuringSave: false,
+  };
 }
 
 export function draftFlags<D, K>(state: DraftState<D, K>, keyOf: (draft: D) => K): DraftFlags {
@@ -83,10 +94,11 @@ export function observeDisk<D, K>(
 ): DraftState<D, K> {
   const key = disk?.key ?? null;
   if (key === diskKey(state)) return state;
-  if (key === state.baseline) return { ...state, disk, acknowledged: false };
+  const observedDuringSave = state.pending !== null;
+  if (key === state.baseline) return { ...state, disk, acknowledged: false, observedDuringSave };
   const dirty = keyOf(state.draft) !== state.baseline;
-  if (!dirty && disk !== null && state.pending === null) return seedDraft(disk);
-  return { ...state, disk, acknowledged: false };
+  if (!dirty && disk !== null && !observedDuringSave) return seedDraft(disk);
+  return { ...state, disk, acknowledged: false, observedDuringSave };
 }
 
 /**
@@ -95,35 +107,47 @@ export function observeDisk<D, K>(
  * may clear it.
  */
 export function loadDisk<D, K>(state: DraftState<D, K>): DraftState<D, K> {
-  return state.disk ? { ...seedDraft(state.disk), pending: state.pending } : state;
+  return state.disk
+    ? {
+        ...seedDraft(state.disk),
+        pending: state.pending,
+        observedDuringSave: state.observedDuringSave,
+      }
+    : state;
 }
 
 /** A save of the snapshot keyed `submitted` has been dispatched; its outcome is not yet known. */
 export function beginSave<D, K>(state: DraftState<D, K>, submitted: K): DraftState<D, K> {
-  return { ...state, pending: submitted };
+  return { ...state, pending: submitted, observedDuringSave: false };
 }
 
 /**
  * Records a successful save of `submitted`. The baseline advances to that
- * exact snapshot, and the disk is known to hold it too, so edits typed while
- * the request was in flight stay in the draft and read as dirty.
+ * exact snapshot, so edits typed while the request was in flight stay in the
+ * draft and read as dirty. The disk becomes the submission unless a different
+ * version was observed during the save: that may be a later write, and
+ * dropping it would hide the conflict. If it was a read that raced ahead of
+ * this save's write, the watcher's next pass observes the submission and
+ * clears it.
  */
 export function commitSave<D, K>(
   state: DraftState<D, K>,
   submitted: DiskContent<D, K>
 ): DraftState<D, K> {
+  const keepDisk = state.observedDuringSave && diskKey(state) !== submitted.key;
   return {
     ...state,
     baseline: submitted.key,
-    disk: submitted,
+    disk: keepDisk ? state.disk : submitted,
     acknowledged: false,
     pending: null,
+    observedDuringSave: false,
   };
 }
 
 /** The save did not persist anything: draft, baseline, and disk are all unchanged. */
 export function failSave<D, K>(state: DraftState<D, K>): DraftState<D, K> {
-  return state.pending === null ? state : { ...state, pending: null };
+  return state.pending === null ? state : { ...state, pending: null, observedDuringSave: false };
 }
 
 /** The user keeps editing over the current disk version; a later change shows again. */

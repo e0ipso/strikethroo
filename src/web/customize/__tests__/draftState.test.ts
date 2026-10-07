@@ -83,6 +83,45 @@ describe('draftState: a save in flight', () => {
     expect(failSave(failed)).toBe(failed);
   });
 
+  it('keeps a newer disk observation when a delayed save response lands', () => {
+    // Disk and baseline are the original; the user saves `submitted`.
+    let state = beginSave({ ...seedDraft(text(original)), draft: submitted }, submitted);
+    // The server writes it and a revalidation observes that write.
+    state = observeDisk(state, text(submitted), identity);
+    // The user keeps typing, then another writer saves `other`.
+    state = { ...state, draft: `${submitted}more\n` };
+    state = observeDisk(state, text(other), identity);
+
+    // The success response only now arrives. The disk still holds `other`.
+    state = commitSave(state, text(submitted));
+    expect(state.baseline).toBe(submitted);
+    expect(state.disk?.key).toBe(other);
+    expect(draftFlags(state, identity)).toEqual({
+      dirty: true,
+      conflict: true,
+      conflictVisible: true,
+    });
+    // An identical re-read of `other` is a no-op that leaves the conflict standing.
+    expect(observeDisk(state, text(other), identity)).toBe(state);
+  });
+
+  it('treats a disk observed before the save as overwritten by it', () => {
+    // The user saves over a conflict: the disk already held `other`.
+    let state = observeDisk(
+      { ...seedDraft(text(original)), draft: submitted },
+      text(other),
+      identity
+    );
+    state = beginSave(state, submitted);
+    state = commitSave(state, text(submitted));
+    expect(state.disk?.key).toBe(submitted);
+    expect(draftFlags(state, identity)).toEqual({
+      dirty: false,
+      conflict: false,
+      conflictVisible: false,
+    });
+  });
+
   it('leaves the rules for an editor with no save in flight unchanged', () => {
     // A clean editor adopts new disk content.
     const clean = seedDraft(text(original));

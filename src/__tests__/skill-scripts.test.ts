@@ -32,6 +32,7 @@ import {
   resolvePlan,
   type PlanInput,
 } from '../skill-scripts/shared/plan-resolve';
+import { validateWorkspace } from '../validation/workspace';
 import { builtSkillDir } from './built-skills';
 import {
   BLUEPRINT_SECTION,
@@ -863,6 +864,12 @@ describe('task metadata reader', () => {
           dependencies: [],
         },
         {
+          name: 'dependencies key with no value means no dependencies',
+          markdown: doc('status: pending\ndependencies:'),
+          status: 'pending',
+          dependencies: [],
+        },
+        {
           name: 'BOM and CRLF before the fence',
           markdown: '\ufeff' + doc('status: completed\ndependencies: [1]', '\r\n'),
           status: 'completed',
@@ -930,11 +937,6 @@ describe('task metadata reader', () => {
         name: 'dependencies with a fractional item',
         markdown: doc('status: pending\ndependencies: [1.5]'),
         reason: 'dependencies must be a list of integer task ids; got [1.5]',
-      },
-      {
-        name: 'dependencies key with no value',
-        markdown: doc('status: pending\ndependencies:'),
-        reason: 'dependencies must be a list of integer task ids; got null',
       },
       // A self-referencing alias parses as a cyclic value. The preview must
       // describe it, not throw out of a reader that promises never to.
@@ -1487,6 +1489,69 @@ describe('check-task-dependencies scenarios', () => {
       exitCode = e.status ?? null;
     }
     expect(exitCode).toBe(1);
+  });
+
+  /** Writes one plan whose blueprint lists every task, so `validate` has nothing else to say. */
+  const writeRawTasks = (planName: string, tasks: Array<{ id: number; frontmatter: string }>) => {
+    const tm = path.join(tempDir, '.ai', 'strikethroo');
+    fs.mkdirSync(tm, { recursive: true });
+    fs.writeFileSync(
+      path.join(tm, '.init-metadata.json'),
+      JSON.stringify({ version: 'test', workspaceSchemaVersion: 4, files: {} })
+    );
+    const planDir = path.join(tm, 'plans', `01--${planName}`);
+    fs.mkdirSync(path.join(planDir, 'tasks'), { recursive: true });
+    const members = tasks.map(t => `- Task ${String(t.id).padStart(2, '0')}`).join('\n');
+    fs.writeFileSync(
+      path.join(planDir, `plan-01--${planName}.md`),
+      `---\nid: 1\nsummary: "${planName}"\ncreated: 2026-01-01\n---\n\n## Execution Blueprint\n\n### Phase 1\n${members}\n`
+    );
+    for (const t of tasks) {
+      fs.writeFileSync(
+        path.join(planDir, 'tasks', `${String(t.id).padStart(2, '0')}--task-${t.id}.md`),
+        `---\nid: ${t.id}\ngroup: g\n${t.frontmatter}\nskills: [typescript]\ncreated: 2026-01-01\n---\n# Task ${t.id}\n`
+      );
+    }
+    return tm;
+  };
+
+  const runDependencyCheck = (taskId: string) =>
+    spawnSync(
+      'node',
+      [
+        path.join(builtSkillDir('st-execute-task'), 'scripts', 'check-task-dependencies.cjs'),
+        '1',
+        taskId,
+      ],
+      { cwd: tempDir, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' }, timeout: 2000 }
+    );
+
+  test('a bare dependencies key that validate accepts is an empty list at execution', () => {
+    const tm = writeRawTasks('bare-deps', [
+      { id: 1, frontmatter: 'status: pending\ndependencies:' },
+      { id: 2, frontmatter: 'status: pending\ndependencies:  # none yet' },
+    ]);
+    expect(validateWorkspace(tm).findings).toEqual([]);
+    for (const id of ['1', '2']) {
+      const result = runDependencyCheck(id);
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toContain('no dependencies');
+    }
+  });
+
+  test('rejects a doubling alias graph promptly with a bounded preview', () => {
+    const anchors = ['a0: &a0 [x, x]'];
+    for (let i = 1; i < 32; i++) anchors.push(`a${i}: &a${i} [*a${i - 1}, *a${i - 1}]`);
+    writeRawTasks('alias-bomb', [
+      { id: 1, frontmatter: `${anchors.join('\n')}\nstatus: *a31\ndependencies: []` },
+    ]);
+    const result = runDependencyCheck('1');
+    expect(result.signal).toBeNull();
+    expect(result.status).toBe(1);
+    const line = result.stderr.split('\n').find(l => l.startsWith('ERROR: status '));
+    expect(line).toBeDefined();
+    expect(line).toMatch(/^ERROR: status \[\[\[\[.*… is not one of pending/);
+    expect(line!.length).toBeLessThan(200);
   });
 
   test('plan not found', () => {

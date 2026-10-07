@@ -174,6 +174,13 @@ describe('docs workflow', () => {
   });
 });
 
+const readPackageScripts = (): Record<string, string> =>
+  (
+    JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8')) as {
+      scripts: Record<string, string>;
+    }
+  ).scripts;
+
 describe('security:check script entry', () => {
   test('uses a pinned audit-ci dependency with the checked-in policy', () => {
     const { scripts, devDependencies } = JSON.parse(
@@ -206,5 +213,43 @@ describe('security:check script entry', () => {
       expect(content.active).toBe(true);
       expect(content.notes).toContain('Recheck when');
     }
+  });
+});
+
+describe('frontend type gate', () => {
+  // `vite build` transpiles without type-checking and tsconfig.json excludes
+  // src/web/**, so the SPA's types are checked only because typecheck:web runs
+  // inside `npm run build`, ahead of build:web. Both CI workflows run that
+  // script; that is what puts the check on the required path.
+  test('typecheck:web runs inside npm run build before build:web, and both workflows run build', () => {
+    const scripts = readPackageScripts();
+    expect(scripts['typecheck:web']).toBe('tsc --noEmit -p tsconfig.web.json');
+    const build = scripts.build ?? '';
+    const typecheckAt = build.search(/npm run typecheck:web(?![\w-])/);
+    const buildWebAt = build.indexOf('npm run build:web');
+    expect(typecheckAt).toBeGreaterThanOrEqual(0);
+    expect(buildWebAt).toBeGreaterThan(typecheckAt);
+
+    const runs = (job: Job) => job.steps.map(step => step.run ?? '');
+    const { 'test-and-lint': pullRequest } = readWorkflow('test.yml').jobs;
+    const { verify } = readWorkflow('release.yml').jobs;
+    expect(runs(pullRequest)).toContain('npm run build');
+    expect(runs(verify)).toContain('npm run build');
+    expect(runs(pullRequest)).toContain('npm test');
+    expect(runs(verify)).toContain('npm test');
+  });
+
+  // Vitest runs suites through esbuild, which never type-checks, so a test can
+  // drift from the production types it exercises and still pass. The web test
+  // config therefore runs ahead of vitest in test:unit, which `npm test` and
+  // both workflows call.
+  test('typecheck:web-tests runs inside test:unit ahead of vitest', () => {
+    const scripts = readPackageScripts();
+    expect(scripts['typecheck:web-tests']).toBe('tsc --noEmit -p tsconfig.web-tests.json');
+    const unit = scripts['test:unit'] ?? '';
+    const typecheckAt = unit.indexOf('npm run typecheck:web-tests');
+    expect(typecheckAt).toBeGreaterThanOrEqual(0);
+    expect(unit.indexOf('vitest run')).toBeGreaterThan(typecheckAt);
+    expect(scripts.test).toBe('npm run test:unit && npm run test:e2e');
   });
 });

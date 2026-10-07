@@ -11,12 +11,15 @@ import { FileConflict, InitMetadata } from './types';
 import { calculateFileHash } from './metadata';
 
 /**
- * Get all config files that should be checked for conflicts
- * @param destDir - Destination directory (.ai/strikethroo)
- * @returns Array of relative paths from destDir
+ * List every file under `<rootDir>/config/`, relative to `rootDir`, sorted.
+ *
+ * Shared by conflict detection and the refresh pass in `src/index.ts` so both
+ * walk the same incoming paths in the same order.
+ *
+ * @param rootDir - Workspace or template root holding a `config/` tree
  */
-async function getConfigFiles(destDir: string): Promise<string[]> {
-  const configDir = path.join(destDir, 'config');
+export async function getConfigFiles(rootDir: string): Promise<string[]> {
+  const configDir = path.join(rootDir, 'config');
   const files: string[] = [];
 
   async function walkDir(dir: string, relativeTo: string): Promise<void> {
@@ -35,10 +38,10 @@ async function getConfigFiles(destDir: string): Promise<string[]> {
   }
 
   if (await fs.pathExists(configDir)) {
-    await walkDir(configDir, destDir);
+    await walkDir(configDir, rootDir);
   }
 
-  return files;
+  return files.sort();
 }
 
 /**

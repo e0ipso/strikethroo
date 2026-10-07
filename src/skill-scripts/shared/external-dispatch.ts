@@ -294,6 +294,18 @@ export const harnessExecutableAvailable = (harness: string): boolean => {
 export const CAPTURED_STDOUT_LIMIT = 262_144;
 
 /**
+ * Upper bound on the authentication/status probe, and on nothing else. Task
+ * implementation and code review run for many minutes and stay unbounded.
+ *
+ * The value is compiled, not configured. `config.yaml` says what a harness is
+ * launched with, not how long orchestration may wait for its status check, and a
+ * local value could be set back to "forever", which is the hang this deadline
+ * stops. A cold-starting CLI answers well inside 30 seconds, and a wedged one
+ * now fails inside half a minute instead of never.
+ */
+export const AUTHENTICATION_TIMEOUT_MS = 30_000;
+
+/**
  * How the child's stdout is wired. `capture` pipes it, tees every chunk to this
  * process's stderr so operator-visible progress survives, and retains a bounded
  * tail. Child stderr stays inherited in `capture` exactly as in `inherit`.
@@ -306,20 +318,38 @@ const STDIO_SLOTS: Readonly<Record<OutputMode, { stdout: 'ignore' | 'inherit' | 
   capture: { stdout: 'pipe' },
 };
 
+/**
+ * A settled child: its exit code, the captured stdout when capture was
+ * requested, and `timedOut` when a deadline killed it. Only a call that supplied
+ * a `timeoutMs` can set that flag, so this is one shape with an optional field
+ * rather than a union the unbounded launch path would have to narrow. The
+ * sibling bounded spawn, `ProbeResult` in `harness-availability.ts`, has the
+ * same shape.
+ */
+type ProcessOutcome = { exitCode: number; stdout?: string; timedOut?: true };
+
+/**
+ * Spawn one child and settle exactly once.
+ *
+ * `timeoutMs` is optional and only the authentication probe passes it. Omitted,
+ * no timer is armed and the promise settles solely on the child's own `close` or
+ * `error`. That is what leaves task implementation and code review, which
+ * legitimately run for many minutes, unbounded.
+ *
+ * The bounded half follows `runXmllint` in `shared/review-findings.ts`: arm the
+ * timer after `spawn`, `SIGKILL` the child, settle once, and clear the timer on
+ * every other exit path.
+ */
 const runProcess = (
   executable: string,
   argv: string[],
   cwd: string,
   stdin?: string,
-  outputMode: OutputMode = 'ignore'
-): Promise<{ exitCode: number; stdout?: string }> =>
+  outputMode: OutputMode = 'ignore',
+  timeoutMs?: number
+): Promise<ProcessOutcome> =>
   new Promise((resolve, reject) => {
     let settled = false;
-    const fail = (error: Error): void => {
-      if (settled) return;
-      settled = true;
-      reject(error);
-    };
     const child = spawn(executable, argv, {
       cwd,
       shell: false,
@@ -329,6 +359,29 @@ const runProcess = (
         outputMode === 'ignore' ? 'ignore' : 'inherit',
       ],
     });
+    const timer =
+      timeoutMs === undefined
+        ? undefined
+        : setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            child.kill('SIGKILL');
+            // The exit code `close` would have reported for a killed child
+            // anyway; `timedOut` is what a bounded caller branches on.
+            resolve({ exitCode: 1, timedOut: true });
+          }, timeoutMs);
+    const settle = (outcome: ProcessOutcome): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(outcome);
+    };
+    const fail = (error: Error): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(error);
+    };
     let captured = '';
     if (outputMode === 'capture') {
       // `setEncoding` makes Node decode multibyte sequences across chunk
@@ -347,9 +400,7 @@ const runProcess = (
     // `close` (unlike `exit`) fires only after every stdio stream has closed, so
     // the captured text is complete by the time this resolves.
     child.once('close', code => {
-      if (settled) return;
-      settled = true;
-      resolve({
+      settle({
         exitCode: code ?? 1,
         ...(outputMode === 'capture' ? { stdout: captured } : {}),
       });
@@ -364,25 +415,60 @@ const runProcess = (
     }
   });
 
-const dependencies: ExternalDispatchDependencies = {
-  executableExists: executableOnPath,
-  authenticate: async (commandSpec, adapter) => {
-    try {
-      const result = await runProcess(
-        commandSpec.executable,
-        adapter.authenticationArgv(),
-        commandSpec.cwd
-      );
-      return result.exitCode === 0
-        ? { ok: true }
-        : { ok: false, detail: `${commandSpec.executable} authentication check failed.` };
-    } catch (error) {
+/**
+ * The authentication/status probe, bounded. It runs before every task and
+ * reviewer dispatch, so a harness CLI whose status check waits on a prompt, a
+ * stuck network call, or a lock file would otherwise hang orchestration with no
+ * output at all.
+ *
+ * The three failures stay distinguishable in `detail`, because "not logged in",
+ * "wedged", and "gone from PATH" need different fixes. `adapter`'s
+ * authentication command is literal by contract and never receives `cli_args`.
+ *
+ * `timeoutMs` defaults to the compiled {@link AUTHENTICATION_TIMEOUT_MS}; the
+ * only caller that overrides it is a test that must not wait that long.
+ */
+export const authenticateHarness = async (
+  commandSpec: StructuredCommand,
+  adapter: ExternalHarnessAdapter,
+  timeoutMs: number = AUTHENTICATION_TIMEOUT_MS
+): Promise<{ ok: boolean; detail?: string }> => {
+  const executable = commandSpec.executable;
+  try {
+    const result = await runProcess(
+      executable,
+      adapter.authenticationArgv(),
+      commandSpec.cwd,
+      undefined,
+      'ignore',
+      timeoutMs
+    );
+    if (result.timedOut === true) {
       return {
         ok: false,
-        detail: `${commandSpec.executable} authentication check failed: ${errorMessage(error)}`,
+        detail: `${executable} authentication check timed out after ${timeoutMs} ms and was terminated.`,
       };
     }
-  },
+    return result.exitCode === 0
+      ? { ok: true }
+      : {
+          ok: false,
+          detail: `${executable} authentication check failed: exited ${result.exitCode}.`,
+        };
+  } catch (error) {
+    const code = (error as { code?: string }).code;
+    return {
+      ok: false,
+      detail: `${executable} authentication check could not launch${
+        code === undefined ? '' : ` (${code})`
+      }: ${errorMessage(error)}`,
+    };
+  }
+};
+
+const dependencies: ExternalDispatchDependencies = {
+  executableExists: executableOnPath,
+  authenticate: authenticateHarness,
   launch: (commandSpec, options) =>
     runProcess(
       commandSpec.executable,

@@ -38,10 +38,17 @@ const getParentPaths = (currentPath: string, acc: string[] = []): string[] => {
   return getParentPaths(parentPath, nextAcc);
 };
 
-const checkWorkspaceSchema = (metadataPath: string): void => {
+/**
+ * The one workspace-schema gate. Every plan-resolution route reaches it, so the
+ * verdict and the message are the same however a workspace was addressed.
+ * Terminates the process on skew.
+ */
+export const checkWorkspaceSchema = (strikethrooRoot: string): void => {
   let metadata: { workspaceSchemaVersion?: unknown };
   try {
-    metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+    metadata = JSON.parse(
+      fs.readFileSync(path.join(strikethrooRoot, '.init-metadata.json'), 'utf8')
+    );
   } catch {
     return;
   }
@@ -67,6 +74,6 @@ export const findStrikethrooRoot = (startPath: string = process.cwd()): string |
   const found = paths.find(p => getStrikethrooAt(p));
   if (!found) return null;
   const root = getStrikethrooAt(found);
-  if (root) checkWorkspaceSchema(path.join(root, '.init-metadata.json'));
+  if (root) checkWorkspaceSchema(root);
   return root;
 };

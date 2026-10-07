@@ -23,6 +23,11 @@ import * as os from 'os';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
 import { getWorkspaceModel, getPlanDetail, getConfig } from '../serve/workspace-model';
+import {
+  BLUEPRINT_SECTION,
+  TRAILING_EXECUTION_SUMMARY,
+  EXPECTED_PHASE_TASK_IDS,
+} from './fixtures/blueprint-trailing-summary';
 
 const FIXTURE_ROOT = path.resolve(process.cwd(), 'src', '__tests__', 'fixtures', 'serve-workspace');
 
@@ -287,5 +292,41 @@ describe('workspace-model against synthetic fixtures', () => {
     for (const task of detail!.tasks) {
       expect(task.complexity_score).toBeUndefined();
     }
+  });
+
+  it('reads phases from the blueprint section only, and infers them when no blueprint exists', () => {
+    const root = path.join(tmpRoot, 'strikethroo');
+    const planHead = (id: number): string =>
+      `---\nid: ${id}\nsummary: "Plan ${id}"\ncreated: 2026-10-07\n---\n# Plan ${id}\n\nBody.\n`;
+    const taskFile = (id: number, deps: number[]): { name: string; body: string } => ({
+      name: `0${id}--task.md`,
+      body: `---\nid: ${id}\ngroup: "g"\ndependencies: [${deps.join(', ')}]\nstatus: "completed"\nskills: [typescript]\n---\n# Task ${id}\n`,
+    });
+    const tasks = [taskFile(1, []), taskFile(2, []), taskFile(3, [1, 2])];
+
+    makePlan(root, '20--blueprint-only', planHead(20) + BLUEPRINT_SECTION, tasks);
+    makePlan(
+      root,
+      '21--with-summary',
+      planHead(21) + BLUEPRINT_SECTION + TRAILING_EXECUTION_SUMMARY,
+      tasks
+    );
+    makePlan(root, '22--no-blueprint', planHead(22), tasks);
+
+    const bare = getPlanDetail(root, '20--blueprint-only')!;
+    const appended = getPlanDetail(root, '21--with-summary')!;
+    expect(bare.phases.map(p => p.taskIds)).toEqual(EXPECTED_PHASE_TASK_IDS);
+    expect(bare.phases.map(p => p.parallel)).toEqual([true, false]);
+    // The appended `## Execution Summary` names tasks 01, 03, and 04 in bullets;
+    // none of them may join the last phase.
+    expect(appended.phases).toEqual(bare.phases);
+    const summaries = getWorkspaceModel(root).plans;
+    expect(summaries.find(p => p.id === 21)!.phaseCount).toBe(2);
+
+    // No authored blueprint: phases come from dependencies, with `parallel` set.
+    expect(getPlanDetail(root, '22--no-blueprint')!.phases).toEqual([
+      { index: 1, taskIds: [1, 2], parallel: true },
+      { index: 2, taskIds: [3], parallel: false },
+    ]);
   });
 });

@@ -16,6 +16,10 @@
  * routes — never a blank screen or a crash. The header carries a
  * `workspace / config / <kind> / <id>` breadcrumb (last crumb inert), the file's
  * workspace-relative path, and a way back to the listing.
+ *
+ * Editing state follows `draftState.ts`: the draft, the baseline this editor
+ * last saved, and the content observed on disk are kept apart, so a live
+ * revalidation, a slow save, or a failed background read cannot destroy typing.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -25,6 +29,16 @@ import { ErrorSurface, LoadingSurface } from '../components/StateSurface';
 import { useConfig, saveConfigFile, type ConfigFile } from '../data/api';
 import { cn } from '../vendor/utils/cn';
 import { MarkdownEditor } from './MarkdownEditor';
+import { DiskConflictBanner, RefreshErrorBanner } from './DiskConflictBanner';
+import {
+  acknowledgeDisk,
+  commitSave,
+  draftFlags,
+  loadDisk,
+  observeDisk,
+  seedDraft,
+  type DiskContent,
+} from './draftState';
 import { useTheme } from '../theme/ThemeProvider';
 
 /** The two valid config kinds the route accepts. */
@@ -65,46 +79,77 @@ type SaveState =
   | { phase: 'saved' }
   | { phase: 'error'; message: string };
 
-/** The loaded editor screen for a resolved hook/template file. */
-function LoadedEditor({ kind, file }: { kind: ConfigKind; file: ConfigFile }) {
-  const { resolved } = useTheme();
+/** Markdown content is its own comparison key. */
+const identity = (content: string): string => content;
+const diskText = (content: string): DiskContent<string, string> => ({
+  key: content,
+  adopt: () => content,
+});
 
-  // The editor's working copy, plus the saved baseline it is diffed against.
-  // `dirty` gates the Save button. When the underlying file content changes
-  // (a live revalidation re-read, or after a successful save the caller folds
-  // in), the baseline is re-seeded so the dirty check stays correct.
-  const [value, setValue] = useState(file.content);
-  const [baseline, setBaseline] = useState(file.content);
+/**
+ * The loaded editor screen for a resolved hook/template file. Mounted with a
+ * key per file, so a different file starts from a fresh state.
+ */
+function LoadedEditor({
+  kind,
+  file,
+  readError,
+}: {
+  kind: ConfigKind;
+  file: ConfigFile;
+  readError?: Error;
+}) {
+  const { resolved } = useTheme();
+  const [editor, setEditor] = useState(() => seedDraft(diskText(file.content)));
   const [save, setSave] = useState<SaveState>({ phase: 'idle' });
 
+  // Every observed disk content is folded in through the shared rules; the
+  // save state is never reset from here.
   useEffect(() => {
-    setValue(file.content);
-    setBaseline(file.content);
-    setSave({ phase: 'idle' });
-  }, [file.content, file.id]);
+    setEditor(prev => observeDisk(prev, diskText(file.content), identity));
+  }, [file.content]);
 
-  const dirty = value !== baseline;
+  const { dirty, conflictVisible } = draftFlags(editor, identity);
   const saving = save.phase === 'saving';
 
   const onSave = useCallback(async () => {
+    const submitted = editor.draft;
     setSave({ phase: 'saving' });
     try {
-      await saveConfigFile(kind, file.id, value);
-      // Reset the baseline to the just-saved content so the editor reads clean.
-      setBaseline(value);
+      await saveConfigFile(kind, file.id, submitted);
+      setEditor(prev => commitSave(prev, diskText(submitted)));
       setSave({ phase: 'saved' });
     } catch (err) {
       setSave({ phase: 'error', message: err instanceof Error ? err.message : String(err) });
     }
-  }, [kind, file.id, value]);
+  }, [kind, file.id, editor.draft]);
 
   // Editing after a saved/error message clears the transient feedback.
   const onChange = useCallback((next: string) => {
-    setValue(next);
+    setEditor(prev => ({ ...prev, draft: next }));
     setSave(prev => (prev.phase === 'idle' || prev.phase === 'saving' ? prev : { phase: 'idle' }));
   }, []);
 
+  const onLoadDisk = useCallback(() => {
+    setEditor(loadDisk);
+    setSave({ phase: 'idle' });
+  }, []);
+  const onKeepEditing = useCallback(() => setEditor(acknowledgeDisk), []);
+
   const kindLabel = kind === 'hooks' ? 'hook' : 'template';
+
+  // Ordered by what the user must know first. A `saved` phase with a dirty
+  // draft means edits were typed while the save was in flight.
+  const status =
+    save.phase === 'error'
+      ? `save failed: ${save.message}`
+      : saving
+        ? 'saving…'
+        : dirty
+          ? 'unsaved changes'
+          : save.phase === 'saved'
+            ? 'saved'
+            : 'no changes';
 
   return (
     <>
@@ -118,14 +163,11 @@ function LoadedEditor({ kind, file }: { kind: ConfigKind; file: ConfigFile }) {
               className={cn(
                 'font-sans text-sm',
                 // Bold the message when there are unsaved changes so it stands out.
-                save.phase === 'idle' && dirty ? 'font-bold' : 'font-normal',
+                save.phase !== 'error' && !saving && dirty ? 'font-bold' : 'font-normal',
                 save.phase === 'error' ? 'text-dalia-deep' : 'text-ink-3'
               )}
             >
-              {save.phase === 'saving' && 'saving…'}
-              {save.phase === 'saved' && 'saved'}
-              {save.phase === 'error' && `save failed: ${save.message}`}
-              {save.phase === 'idle' && (dirty ? 'unsaved changes' : 'no changes')}
+              {status}
             </span>
             <Button
               kind="primary"
@@ -138,12 +180,23 @@ function LoadedEditor({ kind, file }: { kind: ConfigKind; file: ConfigFile }) {
           </>
         }
       />
+      {readError && <RefreshErrorBanner error={readError} />}
+      {/* While a save is in flight its own write may be observed before the
+          response lands; the banner waits for the outcome. */}
+      {conflictVisible && !saving && (
+        <DiskConflictBanner
+          fileLabel={file.relPath}
+          canLoad
+          onLoad={onLoadDisk}
+          onKeep={onKeepEditing}
+        />
+      )}
       {file.description && (
         <p className="m-0 px-7 py-3 font-sans text-sm text-ink-3">{file.description}</p>
       )}
       <div className="flex-1 min-h-0 overflow-auto">
         <MarkdownEditor
-          value={value}
+          value={editor.draft}
           onChange={onChange}
           theme={resolved}
           fallback={<LoadingSurface label="Loading editor…" />}
@@ -172,5 +225,7 @@ export function CustomizeDetailRoute({ kind, id }: { kind: string; id: string })
     return <ConfigNotFound kind={kind} id={id} />;
   }
 
-  return <LoadedEditor kind={kind} file={file} />;
+  return (
+    <LoadedEditor key={`${kind}/${file.id}`} kind={kind} file={file} readError={config.error} />
+  );
 }

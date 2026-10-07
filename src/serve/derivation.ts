@@ -19,6 +19,7 @@ import {
   sectionBody,
   type MarkdownSection,
 } from './markdown';
+import { parseBlueprintPhases, type BlueprintPhase } from '../skill-scripts/shared/blueprint-parse';
 
 /** A single task parsed from a plan's `tasks/` directory. */
 export interface Task {
@@ -49,14 +50,8 @@ export interface DerivedState {
   total: number;
 }
 
-/** An execution phase: an ordered group of task ids that run together. */
-export interface Phase {
-  /** 1-based phase index. */
-  index: number;
-  /** Optional descriptive name (from a blueprint doc). */
-  name?: string;
-  /** Task ids scheduled in this phase. */
-  taskIds: number[];
+/** An execution phase as the viewer presents it: the shared shape plus `parallel`. */
+export interface Phase extends BlueprintPhase {
   /** True when the phase holds more than one task. */
   parallel: boolean;
 }
@@ -152,61 +147,6 @@ export const deriveState = (tasks: Task[]): DerivedState => {
   return { state, done, total };
 };
 
-const BLUEPRINT_SECTION_RE = /^##[ \t]+Execution Blueprint[ \t]*$/m;
-const PHASE_HEADING_RE = /^###[ \t]+(?:✅[ \t]*)?Phase[ \t]+(\d+)[ \t]*:?[ \t]*(.*?)[ \t]*$/gm;
-const TASK_REF_RE = /Task[ \t]+0*(\d+)/i;
-
-/**
- * Parses phases from an "## Execution Blueprint" section if the plan body
- * contains one. Returns undefined when no blueprint section is present.
- */
-export const parseBlueprintPhases = (planBody: string): Phase[] | undefined => {
-  const sectionMatch = planBody.match(BLUEPRINT_SECTION_RE);
-  if (!sectionMatch || sectionMatch.index === undefined) return undefined;
-
-  const blueprint = planBody.slice(sectionMatch.index);
-  const headings: Array<{ index: number; afterHeading: number; name: string }> = [];
-  PHASE_HEADING_RE.lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = PHASE_HEADING_RE.exec(blueprint)) !== null) {
-    headings.push({
-      index: m.index,
-      afterHeading: m.index + m[0].length,
-      name: (m[2] ?? '').trim(),
-    });
-  }
-  if (headings.length === 0) return undefined;
-
-  const phases: Phase[] = [];
-  for (let i = 0; i < headings.length; i++) {
-    const current = headings[i]!;
-    const next = headings[i + 1];
-    const end = next ? next.index : blueprint.length;
-    const segment = blueprint.slice(current.afterHeading, end);
-
-    const taskIds: number[] = [];
-    for (const line of segment.split(/\r?\n/)) {
-      const trimmed = line.trim();
-      // Only consider bulleted task references to avoid matching prose.
-      if (!trimmed.startsWith('-') && !trimmed.startsWith('*')) continue;
-      const ref = trimmed.match(TASK_REF_RE);
-      if (ref && ref[1] !== undefined) {
-        const id = parseInt(ref[1], 10);
-        if (!Number.isNaN(id) && !taskIds.includes(id)) taskIds.push(id);
-      }
-    }
-
-    phases.push({
-      index: i + 1,
-      name: current.name.length > 0 ? current.name : undefined,
-      taskIds,
-      parallel: taskIds.length > 1,
-    });
-  }
-
-  return phases;
-};
-
 /**
  * Infers phases from tasks by grouping on satisfied dependencies. Tasks whose
  * dependencies are all already emitted (or absent from the task set) form a
@@ -243,11 +183,14 @@ export const inferPhases = (tasks: Task[]): Phase[] => {
 };
 
 /**
- * Resolves a plan's phases: parses a blueprint document's phase list when the
- * plan body contains one, otherwise infers phases from task dependencies.
+ * Resolves a plan's phases: the shared blueprint parser's phases when the plan
+ * body carries an `## Execution Blueprint` section with phase headings, otherwise
+ * phases inferred from task dependencies.
  */
 export const resolvePhases = (planBody: string, tasks: Task[]): Phase[] => {
   const fromBlueprint = parseBlueprintPhases(planBody);
-  if (fromBlueprint && fromBlueprint.length > 0) return fromBlueprint;
+  if (fromBlueprint && fromBlueprint.length > 0) {
+    return fromBlueprint.map(phase => ({ ...phase, parallel: phase.taskIds.length > 1 }));
+  }
   return inferPhases(tasks);
 };

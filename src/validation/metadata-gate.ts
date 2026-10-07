@@ -3,7 +3,8 @@
  *
  * Four findings come out of this file — an unreadable or unparsable metadata
  * file, an absent `files` map, a `workspaceSchemaVersion` other than the current
- * constant, and any path recorded in `files` that is no longer on disk.
+ * constant, and any path recorded in `files` that is no longer on disk and is
+ * not optional by absence.
  *
  * Hash drift is deliberately NOT reported. `src/conflict-detector.ts` documents
  * that a hash mismatch is how the tool detects *user modification* — a
@@ -23,6 +24,19 @@ import { CURRENT_WORKSPACE_SCHEMA_VERSION } from '../metadata';
 import { Finding } from './types';
 
 const METADATA_FILENAME = '.init-metadata.json';
+
+/**
+ * Tracked paths AGENTS.md documents as optional by absence: deleting one is the
+ * supported way to turn its feature off — the review gate skips cleanly, XSD
+ * certification reports `validator-absent`, and the update notice falls back to
+ * the bundled default. Absence is a valid state, so none of them is a deletion.
+ * Encoded here because nothing machine-readable ships the contract.
+ */
+const OPTIONAL_BY_ABSENCE = new Set([
+  'config/hooks/CODE_REVIEW.md',
+  'config/schemas/self-review-v2.xsd',
+  'config/templates/UPDATE_NOTICE_TEMPLATE.md',
+]);
 
 /** Shape actually observed on disk — every field is untrusted. */
 type RawMetadata = Record<string, unknown>;
@@ -86,6 +100,8 @@ export function metadataGate(root: string): Finding[] {
   }
 
   for (const relativePath of Object.keys(files as Record<string, unknown>)) {
+    // `files` keys come from `path.relative`, so they carry the host separator.
+    if (OPTIONAL_BY_ABSENCE.has(relativePath.split(path.sep).join('/'))) continue;
     if (!fs.existsSync(path.join(root, relativePath))) {
       findings.push({
         check: 'metadata/file-deleted',

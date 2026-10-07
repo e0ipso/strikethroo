@@ -56,7 +56,11 @@ function ConfigCard({ file, kind }: { file: ConfigFile; kind: ConfigKind }) {
         'hover:border-ink-4 hover:bg-cream-mid hover:shadow',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dalia'
       )}
-      onClick={() => navigate(`/customize/${kind}/${file.id}`)}
+      // A file id is a filename, so it can carry a space or `#`, `%`, `+`.
+      // Every segment is encoded here and `parsePath` decodes it once.
+      onClick={() =>
+        navigate(`/customize/${encodeURIComponent(kind)}/${encodeURIComponent(file.id)}`)
+      }
     >
       <span data-testid="config-card-eyebrow" className="break-all font-mono text-xs text-ink-3">
         {WORKSPACE_PREFIX}

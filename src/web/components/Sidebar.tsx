@@ -46,15 +46,21 @@ function BrandMark({ size = 28 }: { size?: number }) {
   );
 }
 
-/** Maps the active route section to the nav item label that should highlight. */
+/**
+ * Maps the active route section to the nav item label that should highlight.
+ * No `default`: with the declared return type, a `RouteSection` member missing
+ * from the switch is a compile error (TS2366), not a silent `undefined`.
+ */
 function activeLabelFor(section: RouteSection): NavItem['label'] {
   switch (section) {
     case 'plans':
     case 'planDetail':
+    case 'taskDetail':
       return 'Plans';
     case 'archive':
       return 'Archive';
     case 'customize':
+    case 'customizeDetail':
       return 'Customize';
   }
 }

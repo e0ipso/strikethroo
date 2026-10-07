@@ -120,6 +120,19 @@ test.describe('app shell (Playwright)', () => {
       await page.getByRole('navigation').getByText('Customize', { exact: true }).click();
       await page.waitForFunction(() => location.pathname === '/customize');
       expect(await page.locator('[aria-current="page"]').textContent()).toContain('Customize');
+
+      // Detail routes highlight their parent destination: a task page is
+      // Plans, a hook editor is Customize. Neither has its own nav item, so an
+      // unmapped route section would leave nothing highlighted.
+      await page.goto(`${full.url}/plans/38--fix-jekyll-link-baseurl/tasks/1`, {
+        waitUntil: 'domcontentloaded',
+      });
+      await page.getByRole('complementary').waitFor();
+      await expect(page.locator('[aria-current="page"]')).toContainText('Plans');
+
+      await page.goto(`${full.url}/customize/hooks/PRE_PLAN`, { waitUntil: 'domcontentloaded' });
+      await page.getByRole('complementary').waitFor();
+      await expect(page.locator('[aria-current="page"]')).toContainText('Customize');
     } finally {
       await page.close();
     }

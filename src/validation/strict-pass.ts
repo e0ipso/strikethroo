@@ -35,7 +35,15 @@ import { Finding } from './types';
  * The task `status` enum, from `templates/strikethroo/config/templates/TASK_TEMPLATE.md`.
  * Encoded here because nothing machine-readable ships it.
  */
-const TASK_STATUSES = ['pending', 'in-progress', 'completed', 'needs-clarification'] as const;
+const TASK_STATUSES = [
+  'pending',
+  'in-progress',
+  'completed',
+  'needs-clarification',
+  // Written by st-execute-task step 9 and by dispatch-outcomes on
+  // `launched-failure`, so a failed task is a legitimate state, not a defect.
+  'failed',
+] as const;
 
 /** Anchors the leading `---`-delimited block. A later `---` is body, not frontmatter. */
 const FRONTMATTER_RE = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/;
@@ -72,10 +80,41 @@ const stripQuotes = (value: string): string => {
   return trimmed;
 };
 
-/** Strips a trailing unquoted YAML comment. Quoted scalars keep their `#`. */
+/**
+ * Index one past the closing quote of the quoted scalar at index 0, or `-1` when
+ * it is unterminated. A `\` escape in a double-quoted scalar and a doubled quote
+ * in a single-quoted one do not close it.
+ */
+const quotedScalarEnd = (value: string, quote: string): number => {
+  for (let i = 1; i < value.length; i++) {
+    if (quote === '"' && value[i] === '\\') {
+      i++;
+      continue;
+    }
+    if (value[i] !== quote) continue;
+    if (quote === "'" && value[i + 1] === "'") {
+      i++;
+      continue;
+    }
+    return i + 1;
+  }
+  return -1;
+};
+
+/**
+ * Drops a trailing YAML comment. A quoted scalar is consumed to its closing
+ * quote and everything after it discarded, so `"a # b"` keeps its `#` and
+ * `"completed"  # done` loses its comment; an unterminated quote is returned
+ * whole and stays malformed, which it is. The quotes themselves are left on, so
+ * `bareText` remains the one composition point and `stripQuotes` runs once.
+ */
 const stripComment = (value: string): string => {
   const trimmed = value.trim();
-  if (trimmed.startsWith('"') || trimmed.startsWith("'")) return trimmed;
+  const quote = trimmed[0];
+  if (quote === '"' || quote === "'") {
+    const end = quotedScalarEnd(trimmed, quote);
+    return end === -1 ? trimmed : trimmed.slice(0, end);
+  }
   const hashIndex = trimmed.indexOf('#');
   return hashIndex === -1 ? trimmed : trimmed.slice(0, hashIndex).trim();
 };
@@ -83,11 +122,11 @@ const stripComment = (value: string): string => {
 /** Normalizes a written value to its bare text: comment stripped, then unquoted. */
 const bareText = (value: string): string => stripQuotes(stripComment(value));
 
-/** Splits `[a, b]` into trimmed, unquoted items. `[]` yields an empty list. */
+/** Splits `[a, b]` into bare items, as the dashed-list path does. `[]` is empty. */
 const parseInlineList = (value: string): string[] => {
   const inner = value.slice(1, -1).trim();
   if (inner.length === 0) return [];
-  return inner.split(',').map(item => stripQuotes(item));
+  return inner.split(',').map(item => bareText(item));
 };
 
 /**

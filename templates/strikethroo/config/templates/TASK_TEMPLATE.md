@@ -2,7 +2,7 @@
 id: [TASK-ID]
 group: "user-authentication"
 dependencies: []  # List of task IDs, e.g., [2, 3]
-status: "[STATUS]"  # pending | in-progress | completed | needs-clarification
+status: "[STATUS]"  # pending | in-progress | completed | needs-clarification | failed
 created: [YYYY-MM-DD]
 skills: # Technical skills required for this task
   - [SKILL-1]

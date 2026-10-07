@@ -1,4 +1,10 @@
 {
+  // Production type check for the SPA. `vite build` only transpiles and the
+  // root tsconfig.json excludes src/web/**, so `npm run build` runs this config
+  // (typecheck:web) ahead of build:web. Test files are excluded on purpose:
+  // they need the Vitest globals, which tsconfig.web-tests.json layers on top
+  // of this config. Kept apart, a failure here is always shipped-code typing,
+  // never test-runner noise.
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
@@ -14,5 +20,6 @@
     "isolatedModules": true,
     "useDefineForClassFields": true
   },
-  "include": ["src/web/**/*"]
+  "include": ["src/web/**/*"],
+  "exclude": ["src/web/**/__tests__/**", "src/web/**/*.test.ts", "src/web/**/*.test.tsx"]
 }

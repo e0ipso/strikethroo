@@ -3,7 +3,9 @@
  * of the live-update pipeline).
  *
  * Translates the possibly-bursty `changed` signal from the connection layer
- * (Task 001) into at most one revalidation pass per quiet window, and exposes a
+ * (Task 001) into at most one revalidation pass per quiet window, runs one
+ * immediate pass on the connection layer's `reconnected` signal (a change
+ * written while the stream was down never arrives as `changed`), and exposes a
  * reactive "revalidation token" that the existing fetch layer
  * (`data/api.ts#useResource`) folds into its effect dependencies. When the token
  * bumps, every currently-mounted resource re-reads its endpoint.
@@ -48,8 +50,8 @@ interface RevalidationValue {
    */
   token: number;
   /**
-   * Force an immediate revalidation pass (bypasses the coalescing window). Used
-   * by the "Live" control (Task 003) to snap to current state on activation.
+   * Force an immediate revalidation pass (bypasses the coalescing window). The
+   * provider itself runs it on `reconnected`.
    */
   revalidateNow: () => void;
   /**
@@ -69,7 +71,7 @@ const RevalidationContext = createContext<RevalidationValue | null>(null);
  * mounted screens can read the token.
  */
 export function RevalidationProvider({ children }: { children: ReactNode }) {
-  const { subscribe } = useLiveConnection();
+  const { subscribe, subscribeReconnected } = useLiveConnection();
   const [token, setToken] = useState(0);
   const [passCount, setPassCount] = useState(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -97,22 +99,27 @@ export function RevalidationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Trailing-edge debounce: each `changed` (re)starts the window; the pass
     // runs only after the window elapses with no further events.
-    const unsubscribe = subscribe(() => {
+    const unsubscribeChanged = subscribe(() => {
       if (timerRef.current !== null) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
         timerRef.current = null;
         runPass();
       }, COALESCE_WINDOW_MS);
     });
+    // A reopen after a drop is one discrete recovery, not a burst: run the pass
+    // now. This one re-read of everything mounted stands in for whatever
+    // `changed` frames the drop swallowed.
+    const unsubscribeReconnected = subscribeReconnected(revalidateNow);
 
     return () => {
-      unsubscribe();
+      unsubscribeChanged();
+      unsubscribeReconnected();
       if (timerRef.current !== null) {
         clearTimeout(timerRef.current);
         timerRef.current = null;
       }
     };
-  }, [subscribe, runPass]);
+  }, [subscribe, subscribeReconnected, runPass, revalidateNow]);
 
   const value = useMemo<RevalidationValue>(
     () => ({ token, revalidateNow, passCount }),

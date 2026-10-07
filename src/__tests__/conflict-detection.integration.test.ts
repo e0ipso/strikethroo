@@ -11,11 +11,14 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } from 'vitest';
 import * as fs from 'fs-extra';
+import * as os from 'os';
 import * as path from 'path';
 import { init } from '../index';
 import { update } from '../update';
-import { loadMetadata, calculateFileHash } from '../metadata';
-import { FileSystemError } from '../types';
+import { loadMetadata, saveMetadata, calculateFileHash } from '../metadata';
+import { promptForConflicts } from '../prompts';
+import { metadataGate } from '../validation/metadata-gate';
+import { FileSystemError, type ConflictResolution } from '../types';
 
 // Mock chalk before importing modules to avoid ESM issues in tests
 vi.mock('chalk', () => {
@@ -414,5 +417,180 @@ describe('Conflict Detection Integration Tests', () => {
       expect(result.message).toContain('strikethroo');
       expect(await fs.readdir(linkedTarget)).toEqual([]);
     });
+  });
+});
+
+describe('Workspace refresh outcomes', () => {
+  const SHIPPED_TEMPLATE_DIR = path.resolve(__dirname, '../../templates/strikethroo');
+  const PROFILE_MANIFEST =
+    'schema_version: 1\nname: refresh-fixture\ndescription: Stages a changed and a new incoming hook\n';
+  const promptMock = vi.mocked(promptForConflicts);
+
+  let sandbox: string;
+  let project: string;
+  let workspace: string;
+  let metadataPath: string;
+  let consoleLogSpy: MockInstance;
+  let consoleErrorSpy: MockInstance;
+
+  /** Answer every prompted conflict the same way. */
+  function answerEveryConflict(resolution: ConflictResolution): void {
+    promptMock.mockImplementation(
+      async conflicts =>
+        new Map<string, ConflictResolution>(
+          conflicts.map(conflict => [conflict.relativePath, resolution])
+        )
+    );
+  }
+
+  /** Relative paths the prompt was asked about on its n-th call. */
+  function promptedPaths(call: number): string[] {
+    const conflicts = promptMock.mock.calls[call]?.[0] ?? [];
+    return conflicts.map(conflict => conflict.relativePath);
+  }
+
+  async function shippedContent(relativePath: string): Promise<string> {
+    return fs.readFile(path.join(SHIPPED_TEMPLATE_DIR, relativePath), 'utf-8');
+  }
+
+  beforeEach(async () => {
+    sandbox = await fs.mkdtemp(path.join(os.tmpdir(), 'strikethroo-refresh-'));
+    project = path.join(sandbox, 'project');
+    workspace = path.join(project, '.ai/strikethroo');
+    metadataPath = path.join(workspace, '.init-metadata.json');
+    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    promptMock.mockReset();
+    expect((await init({ harnesses: 'claude', destinationDirectory: project })).success).toBe(true);
+  });
+
+  afterEach(async () => {
+    await fs.remove(sandbox);
+    consoleLogSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+    promptMock.mockReset();
+    promptMock.mockResolvedValue(new Map());
+  });
+
+  it('keeps a customization across repeated refreshes and prompts for it every time', async () => {
+    const hookPath = path.join(workspace, 'config/hooks/PRE_PLAN.md');
+    const first = (await loadMetadata(metadataPath))!;
+    const shippedHash = first.files['config/hooks/PRE_PLAN.md'];
+    expect(shippedHash).toBeDefined();
+
+    // Seed provenance so the refresh has something to carry besides harnesses.
+    first.profile = { name: 'seeded', source: '/seeded', importedAt: '2026-01-01T00:00:00.000Z' };
+    await saveMetadata(metadataPath, first);
+
+    const customized = `${await fs.readFile(hookPath, 'utf-8')}\n# Local customization\n`;
+    await fs.writeFile(hookPath, customized, 'utf-8');
+    answerEveryConflict('keep');
+
+    for (const run of [1, 2]) {
+      const result = await init({ harnesses: 'claude', destinationDirectory: project });
+      expect(result.success).toBe(true);
+      expect(promptMock).toHaveBeenCalledTimes(run);
+      expect(promptedPaths(run - 1)).toEqual(['config/hooks/PRE_PLAN.md']);
+      expect(await fs.readFile(hookPath, 'utf-8')).toBe(customized);
+
+      const metadata = (await loadMetadata(metadataPath))!;
+      // The baseline keeps describing shipped content, never the user's edit.
+      expect(metadata.files['config/hooks/PRE_PLAN.md']).toBe(shippedHash);
+      expect(metadata.files['config/hooks/PRE_PLAN.md']).not.toBe(
+        await calculateFileHash(hookPath)
+      );
+      expect(metadata.harnesses).toEqual(['claude']);
+      expect(metadata.profile?.name).toBe('seeded');
+    }
+  });
+
+  it('refreshes every unrelated incoming path around a kept conflict and records what happened', async () => {
+    const before = (await loadMetadata(metadataPath))!;
+
+    // One customization the user will keep.
+    const keptPath = path.join(workspace, 'config/hooks/PRE_PLAN.md');
+    const keptContent = '# Mine, hands off\n';
+    await fs.writeFile(keptPath, keptContent, 'utf-8');
+
+    // One shipped file the user deleted; the refresh restores it.
+    const restoredPath = path.join(workspace, 'config/hooks/POST_PLAN.md');
+    await fs.remove(restoredPath);
+
+    // One tracked path that is gone from disk and absent from the incoming tree.
+    const retiredHash = 'f'.repeat(64);
+    before.files['config/hooks/RETIRED.md'] = retiredHash;
+    await saveMetadata(metadataPath, before);
+
+    // The incoming tree: shipped templates with a changed hook and a new hook overlaid.
+    const profileDir = path.join(sandbox, 'profile');
+    const changedContent = '# PRE_PHASE as the profile ships it\n';
+    const addedContent = '# A hook the shipped tree does not have\n';
+    await fs.ensureDir(path.join(profileDir, 'config/hooks'));
+    await fs.writeFile(path.join(profileDir, 'profile.yaml'), PROFILE_MANIFEST, 'utf-8');
+    await fs.writeFile(path.join(profileDir, 'config/hooks/PRE_PHASE.md'), changedContent, 'utf-8');
+    await fs.writeFile(path.join(profileDir, 'config/hooks/ADDED.md'), addedContent, 'utf-8');
+
+    answerEveryConflict('keep');
+    const result = await init({
+      harnesses: 'claude',
+      destinationDirectory: project,
+      profile: profileDir,
+    });
+    expect(result.success).toBe(true);
+    expect(promptMock).toHaveBeenCalledTimes(1);
+    expect(promptedPaths(0)).toEqual(['config/hooks/PRE_PLAN.md']);
+
+    // Disk: kept, refreshed, installed, restored.
+    const changedPath = path.join(workspace, 'config/hooks/PRE_PHASE.md');
+    const addedPath = path.join(workspace, 'config/hooks/ADDED.md');
+    expect(await fs.readFile(keptPath, 'utf-8')).toBe(keptContent);
+    expect(await fs.readFile(changedPath, 'utf-8')).toBe(changedContent);
+    expect(await fs.readFile(addedPath, 'utf-8')).toBe(addedContent);
+    expect(await fs.readFile(restoredPath, 'utf-8')).toBe(
+      await shippedContent('config/hooks/POST_PLAN.md')
+    );
+
+    // Metadata: the trusted baseline for the kept path, on-disk hashes for the rest,
+    // and the retired path carried forward so validate still reports it.
+    const after = (await loadMetadata(metadataPath))!;
+    expect(after.files['config/hooks/PRE_PLAN.md']).toBe(before.files['config/hooks/PRE_PLAN.md']);
+    expect(after.files['config/hooks/PRE_PLAN.md']).not.toBe(await calculateFileHash(keptPath));
+    expect(after.files['config/hooks/PRE_PHASE.md']).toBe(await calculateFileHash(changedPath));
+    expect(after.files['config/hooks/ADDED.md']).toBe(await calculateFileHash(addedPath));
+    expect(after.files['config/hooks/POST_PLAN.md']).toBe(await calculateFileHash(restoredPath));
+    expect(after.files['config/hooks/RETIRED.md']).toBe(retiredHash);
+    expect(after.harnesses).toEqual(['claude']);
+    expect(after.profile?.name).toBe('refresh-fixture');
+    expect(after.workspaceSchemaVersion).toBe(4);
+
+    const deleted = metadataGate(workspace).filter(
+      finding => finding.check === 'metadata/file-deleted'
+    );
+    expect(deleted.map(finding => finding.path)).toEqual(['config/hooks/RETIRED.md']);
+  });
+
+  it('does not report success or restamp metadata when a write fails after a kept conflict', async () => {
+    const hookPath = path.join(workspace, 'config/hooks/PRE_PLAN.md');
+    await fs.writeFile(hookPath, '# Mine\n', 'utf-8');
+    const restoredPath = path.join(workspace, 'config/hooks/POST_PLAN.md');
+    await fs.remove(restoredPath);
+
+    // A regular file where config/shared/ should be makes restoring its tracked
+    // files fail with ENOTDIR, after the hooks above were already processed.
+    const sharedDir = path.join(workspace, 'config/shared');
+    await fs.remove(sharedDir);
+    await fs.writeFile(sharedDir, 'not a directory\n', 'utf-8');
+    const metadataBefore = await fs.readFile(metadataPath, 'utf-8');
+
+    answerEveryConflict('keep');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    const result = await init({ harnesses: 'claude', destinationDirectory: project });
+
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/ENOTDIR|not a directory/);
+    expect(await fs.readFile(metadataPath, 'utf-8')).toBe(metadataBefore);
+    expect(await fs.readFile(hookPath, 'utf-8')).toBe('# Mine\n');
+    // Work done before the failure stays on disk; only the success stamp is withheld.
+    expect(await fs.pathExists(restoredPath)).toBe(true);
   });
 });

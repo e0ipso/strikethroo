@@ -32,7 +32,7 @@ function profileCount(config: Config): number {
 }
 
 /** The Customize screen body once config has loaded. */
-function CustomizeScreen({ config }: { config: Config }) {
+function CustomizeScreen({ config, readError }: { config: Config; readError?: Error }) {
   const [tab, setTab] = useState<CustomizeTab>('hooks');
   return (
     <>
@@ -45,7 +45,9 @@ function CustomizeScreen({ config }: { config: Config }) {
       />
       {tab === 'hooks' && <ConfigCardGrid files={config.hooks} kind="hooks" />}
       {tab === 'templates' && <ConfigCardGrid files={config.templates} kind="templates" />}
-      {tab === 'config' && <WorkspaceConfigTab workspace={config.workspace} />}
+      {tab === 'config' && (
+        <WorkspaceConfigTab workspace={config.workspace} readError={readError} />
+      )}
     </>
   );
 }
@@ -82,5 +84,5 @@ export function CustomizeRoute() {
       </>
     );
   }
-  return <CustomizeScreen config={config.data} />;
+  return <CustomizeScreen config={config.data} readError={config.error} />;
 }

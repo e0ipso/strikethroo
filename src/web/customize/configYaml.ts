@@ -154,6 +154,10 @@ const parseHarnesses = (section: unknown): HarnessArgsForm | { message: string }
  * section, both parse to the empty form.
  */
 export function parseWorkspaceConfig(content: string): ParsedWorkspaceConfig {
+  // Deliberate mirror of `hasYamlContent` in
+  // `skill-scripts/shared/task-frontmatter.ts`: this module is bundled into
+  // the SPA by Vite and must not import across the skill-scripts build
+  // boundary, so the shared predicate cannot reach it. Keep the two in step.
   const hasContent = content
     .split(/\r?\n/)
     .some(line => line.trim() !== '' && !line.trim().startsWith('#'));
@@ -272,7 +276,13 @@ export function serializeWorkspaceConfig(
   harnesses: HarnessArgsForm,
   routing: RoutingForm
 ): string {
-  const profiles: Record<string, unknown> = {};
+  // Profile names are user-supplied and unrestricted, so one can be
+  // `__proto__`. On a plain object literal that assignment hits the inherited
+  // setter and replaces the prototype instead of creating an own key, the
+  // profile vanishes, and `dump` then rejects the object. A null prototype has
+  // no accessor to hit. The `models` entries below stay plain literals, since
+  // their keys are this module's own fixed names.
+  const profiles = Object.create(null) as Record<string, unknown>;
   for (const profile of routing.profiles) {
     const models = profile.targets.map(target => {
       const entry: Record<string, string> = {};

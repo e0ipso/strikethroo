@@ -8,7 +8,11 @@ import {
   hashHarnessCliArgs,
   loadHarnessConfiguration,
 } from '../skill-scripts/shared/harness-configuration';
-import { WORKSPACE_CONFIG_RELPATH } from '../skill-scripts/shared/execution-routing';
+import {
+  loadRoutingConfig,
+  WORKSPACE_CONFIG_RELPATH,
+} from '../skill-scripts/shared/execution-routing';
+import { parseWorkspaceConfig } from '../web/customize/configYaml';
 import { SUPPORTED_HARNESSES } from '../types';
 
 describe('harness configuration', () => {
@@ -94,5 +98,81 @@ harnesses:
     const first = hashHarnessCliArgs('claude', ['--permission-mode', 'acceptEdits']);
     expect(hashHarnessCliArgs('claude', ['acceptEdits', '--permission-mode'])).not.toBe(first);
     expect(hashHarnessCliArgs('codex', ['--permission-mode', 'acceptEdits'])).not.toBe(first);
+  });
+
+  // One config.yaml, three readers: the harness loader, the routing loader,
+  // and the Customize form's parser. A content-free file must mean "nothing
+  // configured" in all three; a malformed one must stay a named error in all
+  // three. Each reader keeps its own vocabulary for "nothing configured",
+  // so the verdicts are classified before being compared.
+  it('agrees with the routing loader and the Customize parser on a content-free config.yaml', () => {
+    const configPath = path.join(root, WORKSPACE_CONFIG_RELPATH);
+
+    const classify = (message: string): string => {
+      const unnamed = message.includes('config.yaml') ? '' : ':file-not-named';
+      if (message.includes('must be a YAML mapping')) return `error:not-a-mapping${unnamed}`;
+      if (message.includes('is not valid YAML')) return `error:invalid-yaml${unnamed}`;
+      return `error:unclassified(${message})`;
+    };
+
+    const verdicts = (contents: string | null): Record<string, string> => {
+      fs.mkdirSync(path.dirname(configPath), { recursive: true });
+      if (contents === null) fs.rmSync(configPath, { force: true });
+      else fs.writeFileSync(configPath, contents);
+
+      const harnessVerdict = (): string => {
+        const result = loadHarnessConfiguration(root);
+        if (result.kind === 'invalid') return classify(result.errors.join(' '));
+        const bare = SUPPORTED_HARNESSES.every(h => result.config[h].cliArgs.length === 0);
+        return bare ? 'defaults' : 'configured';
+      };
+
+      const routingVerdict = (): string => {
+        const result = loadRoutingConfig(root, SUPPORTED_HARNESSES);
+        if (result.kind === 'invalid') return classify(result.errors.join(' '));
+        return result.kind;
+      };
+
+      // parseWorkspaceConfig takes content, not a path, so an absent file
+      // reaches it the way the Config tab shows one: as the empty document.
+      const webVerdict = (): string => {
+        const result = parseWorkspaceConfig(contents ?? '');
+        if (result.kind === 'unsupported') return classify(result.message);
+        const bare =
+          result.routing.profiles.length === 0 &&
+          SUPPORTED_HARNESSES.every(h => result.harnesses[h].cliArgs.length === 0);
+        return bare ? 'defaults' : 'configured';
+      };
+
+      return { harness: harnessVerdict(), routing: routingVerdict(), web: webVerdict() };
+    };
+
+    const documents: ReadonlyArray<readonly [string, string | null]> = [
+      ['absent', null],
+      ['zero-byte', ''],
+      ['comment-only', '# nothing configured yet\n\n   \n'],
+      ['malformed', 'harnesses: [\n'],
+      ['non-mapping', '- a\n'],
+    ];
+
+    const actual = Object.fromEntries(
+      documents.map(([label, contents]) => [label, verdicts(contents)])
+    );
+
+    expect(actual).toEqual({
+      absent: { harness: 'defaults', routing: 'no-config', web: 'defaults' },
+      'zero-byte': { harness: 'defaults', routing: 'disabled', web: 'defaults' },
+      'comment-only': { harness: 'defaults', routing: 'disabled', web: 'defaults' },
+      malformed: {
+        harness: 'error:invalid-yaml',
+        routing: 'error:invalid-yaml',
+        web: 'error:invalid-yaml',
+      },
+      'non-mapping': {
+        harness: 'error:not-a-mapping',
+        routing: 'error:not-a-mapping',
+        web: 'error:not-a-mapping',
+      },
+    });
   });
 });

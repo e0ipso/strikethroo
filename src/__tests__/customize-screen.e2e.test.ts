@@ -20,7 +20,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { startServer, ServeHandle } from '../serve/server';
 
 const ASSETS_DIR = path.resolve(process.cwd(), 'dist-web');
@@ -387,6 +387,384 @@ test.describe('Customize section (Playwright, fixture)', () => {
     await page.reload({ waitUntil: 'domcontentloaded' });
     await openConfigTab();
     await expect(page.getByTestId('routing-enabled')).not.toBeChecked();
+  });
+
+  test('a reserved-character id opens, reloads, and traverses history to one file', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
+    // A space plus the three reserved characters that make link construction and
+    // route parsing disagree unless both ends encode/decode exactly once.
+    const id = 'WEIRD HOOK #1+2 50%';
+    fs.writeFileSync(path.join(root, 'config', 'hooks', `${id}.md`), '# reserved\n', 'utf8');
+
+    const detailPath = `/customize/hooks/${encodeURIComponent(id)}`;
+    const atDetail = async () => {
+      await page.waitForSelector('.cm-editor');
+      expect(await page.locator('[role="alert"]').count()).toBe(0);
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(`${id} hook`);
+    };
+
+    await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
+    await page.getByTestId('config-card').first().waitFor();
+    await page.getByTestId('config-card').filter({ hasText: id }).first().click();
+    expect(new URL(page.url()).pathname).toBe(detailPath);
+    await atDetail();
+
+    // Back to the grid, then forward through `popstate`.
+    await page.goBack();
+    await page.getByTestId('config-grid').waitFor();
+    await page.goForward();
+    await atDetail();
+
+    // And a full reload of the encoded URL, which is where the browser reports
+    // `location.pathname` percent-encoded.
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await atDetail();
+  });
+
+  test('a malformed percent-encoding renders the not-found surface, not a blank screen', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
+    const errors: string[] = [];
+    page.on('pageerror', err => errors.push(err.message));
+
+    await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
+    await page.getByTestId('config-card').first().waitFor();
+
+    // The server refuses an undecodable request target with 400, so the only way
+    // this reaches the SPA is client-side history, which is where `parsePath`
+    // must not throw.
+    await page.evaluate(() => {
+      history.pushState({}, '', '/customize/hooks/%zz');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+
+    await page.waitForSelector('[role="alert"]');
+    expect(await page.locator('[role="alert"]').innerText()).toContain('%zz');
+    expect(errors).toEqual([]);
+  });
+
+  /* -------------------------------------------------------------------------
+   * Draft preservation (plan 2, task 3). The editor keeps three values apart:
+   * the draft, the baseline this editor last persisted, and the content most
+   * recently observed on disk. These flows prove a live revalidation, a slow
+   * save, or a failed background read cannot destroy typing.
+   * ----------------------------------------------------------------------- */
+
+  /** Reads the window-mirrored revalidation pass counter (see revalidation.tsx). */
+  const revalidationCount = (page: Page): Promise<number> =>
+    page.evaluate(
+      () => (window as unknown as { __stRevalidationCount?: number }).__stRevalidationCount ?? 0
+    );
+
+  /**
+   * Writes `content` to `file` and waits for the SPA to run a revalidation
+   * pass. The shared `EventSource` has no replay, so a write that lands before
+   * the stream opens is lost; the write is repeated (idempotently) until a pass
+   * is observed.
+   */
+  const writeAndRevalidate = async (page: Page, file: string, content: string): Promise<void> => {
+    const before = await revalidationCount(page);
+    for (let attempt = 0; attempt < 10; attempt++) {
+      fs.writeFileSync(file, content, 'utf8');
+      try {
+        await page.waitForFunction(
+          prev =>
+            ((window as unknown as { __stRevalidationCount?: number }).__stRevalidationCount ?? 0) >
+            prev,
+          before,
+          { timeout: 1_500 }
+        );
+        return;
+      } catch {
+        // Stream not open yet; write again.
+      }
+    }
+    throw new Error(`No revalidation pass observed after writing ${file}`);
+  };
+
+  /** Types `text` at the end of the CodeMirror document. */
+  const appendToEditor = async (page: Page, text: string): Promise<void> => {
+    await page.locator('.cm-editor .cm-content').click();
+    await page.keyboard.press('Control+End');
+    await page.keyboard.type(text);
+  };
+
+  /**
+   * Holds every PUT to `pathname` until the returned `release` is called; GETs
+   * and other methods pass through untouched.
+   */
+  const holdSaves = async (page: Page, pathname: string): Promise<() => void> => {
+    let release: () => void = () => {};
+    const held = new Promise<void>(resolve => {
+      release = resolve;
+    });
+    await page.route(
+      url => new URL(url).pathname === pathname,
+      async route => {
+        if (route.request().method() !== 'PUT') {
+          await route.continue();
+          return;
+        }
+        await held;
+        await route.continue();
+      }
+    );
+    return release;
+  };
+
+  // POST_PLAN is five lines in the fixture, so CodeMirror renders the whole
+  // document and `.cm-content` text assertions see every line.
+  const SHORT_HOOK = 'POST_PLAN';
+  const hookVersion = (label: string) => `# ${SHORT_HOOK}\n\n${label}\n`;
+
+  test('Markdown editor: a dirty draft survives an external disk change and the conflict is explicit', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
+    const hookPath = path.join(root, 'config', 'hooks', `${SHORT_HOOK}.md`);
+    fs.writeFileSync(hookPath, hookVersion('seed version'), 'utf8');
+
+    await page.goto(`${handle.url}/customize/hooks/${SHORT_HOOK}`, {
+      waitUntil: 'domcontentloaded',
+    });
+    await page.waitForSelector('.cm-editor');
+    const content = page.locator('.cm-editor .cm-content');
+    const actions = page.getByTestId('chrome-actions');
+    const conflict = page.getByTestId('config-disk-conflict');
+    await expect(content).toContainText('seed version');
+
+    // Clean editor: the external change is adopted.
+    await writeAndRevalidate(page, hookPath, hookVersion('external version one'));
+    await expect(content).toContainText('external version one');
+    await expect(conflict).toHaveCount(0);
+    await expect(actions).toContainText('no changes');
+
+    // Dirty editor: the typed text stays and the change on disk is reported.
+    await appendToEditor(page, 'draft marker');
+    await expect(actions).toContainText('unsaved changes');
+    await writeAndRevalidate(page, hookPath, hookVersion('external version two'));
+    await expect(conflict).toBeVisible();
+    await expect(content).toContainText('draft marker');
+    await expect(content).toContainText('external version one');
+    await expect(content).not.toContainText('external version two');
+    await expect(actions).toContainText('unsaved changes');
+    expect(await page.locator('.cm-editor').count()).toBe(1);
+
+    // Keep editing dismisses the banner for this disk version.
+    await page.getByRole('button', { name: 'Keep editing' }).click();
+    await expect(conflict).toHaveCount(0);
+    await expect(content).toContainText('draft marker');
+
+    // A revalidation that re-reads identical content changes nothing.
+    const unrelated = path.join(root, 'config', 'hooks', 'PRE_PLAN.md');
+    await writeAndRevalidate(page, unrelated, fs.readFileSync(unrelated, 'utf8') + '\n');
+    await expect(conflict).toHaveCount(0);
+    await expect(content).toContainText('draft marker');
+    await expect(actions).toContainText('unsaved changes');
+
+    // A further disk change brings the banner back; loading it is confirmed
+    // and discards the draft.
+    await writeAndRevalidate(page, hookPath, hookVersion('external version three'));
+    await expect(conflict).toBeVisible();
+    await page.getByRole('button', { name: 'Load disk version' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Discard and load' }).click();
+    await expect(content).toContainText('external version three');
+    await expect(content).not.toContainText('draft marker');
+    await expect(conflict).toHaveCount(0);
+    await expect(actions).toContainText('no changes');
+  });
+
+  test('Markdown editor: a save resolving after further typing advances the baseline to the submitted snapshot only', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
+    const hookPath = path.join(root, 'config', 'hooks', `${SHORT_HOOK}.md`);
+    fs.writeFileSync(hookPath, hookVersion('seed version'), 'utf8');
+    const release = await holdSaves(page, `/api/config/hooks/${SHORT_HOOK}`);
+
+    await page.goto(`${handle.url}/customize/hooks/${SHORT_HOOK}`, {
+      waitUntil: 'domcontentloaded',
+    });
+    await page.waitForSelector('.cm-editor');
+    const content = page.locator('.cm-editor .cm-content');
+    const actions = page.getByTestId('chrome-actions');
+
+    await appendToEditor(page, 'marker A');
+    const before = await revalidationCount(page);
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(actions).toContainText('saving');
+
+    // Typing while the request is in flight.
+    await appendToEditor(page, ' marker B');
+    expect(fs.readFileSync(hookPath, 'utf8')).not.toContain('marker A');
+
+    release();
+    await expect(actions).toContainText('unsaved changes');
+    const onDisk = fs.readFileSync(hookPath, 'utf8');
+    expect(onDisk).toContain('marker A');
+    expect(onDisk).not.toContain('marker B');
+    await expect(content).toContainText('marker A marker B');
+
+    // The post-save re-read matches the new baseline: no conflict.
+    await page.waitForFunction(
+      prev =>
+        ((window as unknown as { __stRevalidationCount?: number }).__stRevalidationCount ?? 0) >
+        prev,
+      before
+    );
+    await expect(page.getByTestId('config-disk-conflict')).toHaveCount(0);
+    await expect(content).toContainText('marker A marker B');
+
+    // The next save persists the whole draft.
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(actions).toContainText('saved');
+    expect(fs.readFileSync(hookPath, 'utf8')).toContain('marker A marker B');
+  });
+
+  test('Markdown editor: failed saves and failed background re-reads keep the draft and recover', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
+    const hookPath = path.join(root, 'config', 'hooks', `${SHORT_HOOK}.md`);
+    fs.writeFileSync(hookPath, hookVersion('seed version'), 'utf8');
+
+    let failReads = false;
+    let failSaves = false;
+    await page.route(
+      url => new URL(url).pathname.startsWith('/api/config'),
+      async route => {
+        const method = route.request().method();
+        const pathname = new URL(route.request().url()).pathname;
+        if (failReads && method === 'GET' && pathname === '/api/config') {
+          await route.abort('failed');
+          return;
+        }
+        if (failSaves && method === 'PUT') {
+          await route.fulfill({
+            status: 500,
+            contentType: 'application/json',
+            body: JSON.stringify({ error: 'Failed to write config file.' }),
+          });
+          return;
+        }
+        await route.continue();
+      }
+    );
+
+    await page.goto(`${handle.url}/customize/hooks/${SHORT_HOOK}`, {
+      waitUntil: 'domcontentloaded',
+    });
+    await page.waitForSelector('.cm-editor');
+    const content = page.locator('.cm-editor .cm-content');
+    const actions = page.getByTestId('chrome-actions');
+    const readError = page.getByTestId('config-read-error');
+    await appendToEditor(page, 'draft marker');
+
+    // A failed save keeps the draft and reports a recoverable error.
+    failSaves = true;
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(actions).toContainText('save failed: Failed to write config file.');
+    await expect(content).toContainText('draft marker');
+    expect(fs.readFileSync(hookPath, 'utf8')).not.toContain('draft marker');
+    failSaves = false;
+
+    // A failed background re-read keeps the editor mounted with its draft.
+    failReads = true;
+    const unrelated = path.join(root, 'config', 'hooks', 'PRE_PLAN.md');
+    await writeAndRevalidate(page, unrelated, fs.readFileSync(unrelated, 'utf8') + '\n');
+    await expect(readError).toBeVisible();
+    await expect(content).toContainText('draft marker');
+    expect(await page.locator('.cm-editor').count()).toBe(1);
+
+    // The next successful re-read clears the error; the draft is untouched.
+    failReads = false;
+    await writeAndRevalidate(page, unrelated, fs.readFileSync(unrelated, 'utf8') + '\n');
+    await expect(readError).toHaveCount(0);
+    await expect(content).toContainText('draft marker');
+
+    // And the draft still saves.
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(actions).toContainText('saved');
+    expect(fs.readFileSync(hookPath, 'utf8')).toContain('draft marker');
+  });
+
+  test('Config tab: the form keeps a dirty draft through external changes and an in-flight save', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
+    const configPath = path.join(root, 'config', 'config.yaml');
+    const yamlWith = (model: string, description = 'Localized work.') =>
+      'execution_routing:\n' +
+      '  enabled: true\n' +
+      '  profiles:\n' +
+      '    routine:\n' +
+      `      description: ${description}\n` +
+      '      models:\n' +
+      `        - model: ${model}\n`;
+    fs.writeFileSync(configPath, yamlWith('model-one'), 'utf8');
+    const release = await holdSaves(page, '/api/config/workspace/config');
+
+    await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
+    await page.getByTestId('config-card').first().waitFor();
+    await page.getByRole('tab').nth(2).click();
+    await page.getByTestId('workspace-config-form').waitFor();
+
+    const model = page.getByTestId('routing-target-model');
+    const description = page.getByTestId('routing-profile-description');
+    const status = page.getByTestId('workspace-config-status');
+    const conflict = page.getByTestId('config-disk-conflict');
+    await expect(model).toHaveValue('model-one');
+
+    // Clean form: the external change is adopted.
+    await writeAndRevalidate(page, configPath, yamlWith('model-two'));
+    await expect(model).toHaveValue('model-two');
+    await expect(conflict).toHaveCount(0);
+
+    // Dirty form: the draft stays and the change on disk is reported.
+    await description.fill('Edited while the file changed.');
+    await expect(status).toContainText('Unsaved changes');
+    await writeAndRevalidate(page, configPath, yamlWith('model-three'));
+    await expect(conflict).toBeVisible();
+    await expect(description).toHaveValue('Edited while the file changed.');
+    await expect(model).toHaveValue('model-two');
+
+    // Loading the disk version is confirmed and discards the draft.
+    await page.getByRole('button', { name: 'Load disk version' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Discard and load' }).click();
+    await expect(model).toHaveValue('model-three');
+    await expect(description).toHaveValue('Localized work.');
+    await expect(conflict).toHaveCount(0);
+
+    // Delayed save: edits made while the request is in flight survive, and
+    // only the submitted snapshot becomes the baseline.
+    await description.fill('Submitted description.');
+    const before = await revalidationCount(page);
+    await page.getByRole('button', { name: 'Save configuration' }).click();
+    await expect(status).toContainText('Saving');
+    await page.getByTestId('routing-resolver').fill('./scripts/select-target.cjs');
+    release();
+    await expect(status).toContainText('Unsaved changes');
+    const onDisk = fs.readFileSync(configPath, 'utf8');
+    expect(onDisk).toContain('Submitted description.');
+    expect(onDisk).not.toContain('select-target.cjs');
+    await expect(page.getByTestId('routing-resolver')).toHaveValue('./scripts/select-target.cjs');
+
+    // The post-save re-read serializes to the submitted baseline: no conflict.
+    await page.waitForFunction(
+      prev =>
+        ((window as unknown as { __stRevalidationCount?: number }).__stRevalidationCount ?? 0) >
+        prev,
+      before
+    );
+    await expect(conflict).toHaveCount(0);
+    await expect(page.getByTestId('routing-resolver')).toHaveValue('./scripts/select-target.cjs');
+
+    await page.getByRole('button', { name: 'Save configuration' }).click();
+    await expect(status).toContainText('Saved');
+    expect(fs.readFileSync(configPath, 'utf8')).toContain('select-target.cjs');
   });
 
   test('an unknown config id renders the designed not-found surface', async ({ page }) => {

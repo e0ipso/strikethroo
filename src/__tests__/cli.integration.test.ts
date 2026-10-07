@@ -89,7 +89,12 @@ describe('CLI Integration', () => {
 
       const versionFlag = executeCommand(`node "${cliPath}" --version`);
       expect(versionFlag.exitCode).toBe(0);
-      expect(versionFlag.stdout.trim()).toBe('0.1.0');
+      // The CLI reports the package version, so the oracle is package.json
+      // itself, not a literal that goes stale at every release.
+      const { version } = fs.readJsonSync(path.resolve(__dirname, '../../package.json')) as {
+        version: string;
+      };
+      expect(versionFlag.stdout.trim()).toBe(version);
     });
 
     it('should reject unknown subcommands', () => {

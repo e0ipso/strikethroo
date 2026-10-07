@@ -26,6 +26,10 @@ import * as path from 'path';
 import { validateWorkspace } from '../validation/workspace';
 import { CURRENT_WORKSPACE_SCHEMA_VERSION } from '../metadata';
 import { Finding } from '../validation/types';
+import {
+  BLUEPRINT_SECTION,
+  TRAILING_EXECUTION_SUMMARY,
+} from './fixtures/blueprint-trailing-summary';
 
 // --------------------------------------------------------------------------
 // Workspace builders
@@ -485,16 +489,27 @@ describe('dependency cycle messages', () => {
 // Known limitation, documented rather than fixed.
 // --------------------------------------------------------------------------
 
+describe('blueprint section boundary', () => {
+  it('ignores task bullets in the execution summary appended after the blueprint', () => {
+    // `st-execute-blueprint` appends `## Execution Summary` after the blueprint.
+    // Its bullets name tasks 01, 03, and 04; read into the last phase they would
+    // produce a phantom `blueprint/reference-unresolved` for task 04.
+    meta(root);
+    plan(root, '1--p', { id: 1, extra: BLUEPRINT_SECTION + TRAILING_EXECUTION_SUMMARY });
+    for (const id of [1, 2, 3]) task(root, '1--p', `0${id}--t.md`, { id });
+
+    expect(validateWorkspace(root).findings).toEqual([]);
+  });
+});
+
 describe('blueprint prose false positive (documented current behavior)', () => {
   it('reads a bulleted prose mention of "Task NN" as a phase reference', () => {
-    // `TASK_REF_RE` in `src/serve/derivation.ts` matches the first `Task NN` in
-    // ANY bulleted line, so a bullet whose prose merely mentions a task number
-    // is indistinguishable from a phase assignment. Hardening the parser is out
-    // of scope for plan 110 — it belongs to whoever deduplicates the two copies
-    // of `parseBlueprintPhases` (serve + skill-scripts). This test pins the
-    // current behavior so the next reader meets it as a known limitation, and
-    // asserts the finding message spells the false positive out. Do NOT "fix"
-    // this test by relaxing it; fix the parser and update it.
+    // `TASK_REF_RE` in `src/skill-scripts/shared/blueprint-parse.ts` matches the
+    // first `Task NN` in ANY bulleted line, so a bullet whose prose merely
+    // mentions a task number is indistinguishable from a phase assignment. This
+    // test pins the current behavior so the next reader meets it as a known
+    // limitation, and asserts the finding message spells the false positive
+    // out. Do NOT "fix" this test by relaxing it; fix the parser and update it.
     meta(root);
     plan(root, '1--p', {
       id: 1,

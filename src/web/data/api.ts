@@ -141,11 +141,15 @@ export interface Capabilities {
  * State machine
  * ------------------------------------------------------------------------- */
 
-/** Discriminated fetch state for a single resource. */
+/**
+ * Discriminated fetch state for a single resource. `error` on the `data`
+ * state is a failed revalidation: the last good payload stays, and the next
+ * successful read clears it.
+ */
 export type Resource<T> =
   | { status: 'loading' }
   | { status: 'error'; error: Error }
-  | { status: 'data'; data: T };
+  | { status: 'data'; data: T; error?: Error };
 
 /**
  * Generic resource hook: fetches `url` (re-fetching if `url` changes, or when
@@ -154,10 +158,13 @@ export type Resource<T> =
  * to `error` on ANY failure (network/unreachable, non-2xx, or bad JSON).
  * State is never set after unmount.
  *
- * A live re-read keeps the existing data on screen until the new payload (or an
- * error) resolves, rather than flashing the loading surface: only the initial
- * fetch (`token === 0` for this url) shows `loading`. Subsequent token-driven
+ * A live re-read keeps the existing data on screen until the new payload
+ * resolves, rather than flashing the loading surface: only the initial fetch
+ * (`token === 0` for this url) shows `loading`. Subsequent token-driven
  * re-reads swap data in place, so a `changed` event does not blank the view.
+ * A re-read that fails keeps the loaded data too and carries the error beside
+ * it, so an editor mounted on the data is not unmounted by a transient read
+ * failure; only the initial load moves to `error`.
  */
 export function useResource<T>(url: string): Resource<T> {
   const [state, setState] = useState<Resource<T>>({ status: 'loading' });
@@ -187,7 +194,13 @@ export function useResource<T>(url: string): Resource<T> {
       } catch (err) {
         if (controller.signal.aborted) return;
         const error = err instanceof Error ? err : new Error(String(err));
-        if (active) setState({ status: 'error', error });
+        if (active) {
+          setState(prev =>
+            prev.status === 'data'
+              ? { status: 'data', data: prev.data, error }
+              : { status: 'error', error }
+          );
+        }
       }
     })();
 
@@ -228,7 +241,7 @@ function withDescriptions(cfg: Config): Config {
 export function useConfig(): Resource<Config> {
   const resource = useResource<Config>('/api/config');
   if (resource.status === 'data') {
-    return { status: 'data', data: withDescriptions(resource.data) };
+    return { ...resource, data: withDescriptions(resource.data) };
   }
   return resource;
 }

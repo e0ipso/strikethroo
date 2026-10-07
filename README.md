@@ -177,7 +177,7 @@ Then browse to the VM's IP address, for example `http://192.168.122.10:4317`; `s
 npx strikethroo validate
 ```
 
-Reads your workspace and reports internal inconsistencies -- missing or malformed plan and task frontmatter, dependencies pointing at tasks that do not exist, dependency cycles, blueprint phases and task files that disagree, duplicate ids. It only reads: nothing is written or fixed for you. Every finding is an error, so the command exits non-zero as soon as it reports one, which makes it usable as a CI step. Add `--json` for a machine-readable report on stdout, or `--workspace <path>` to point it at a workspace other than the one discovered from the current directory.
+Reads your workspace and reports internal inconsistencies -- missing or malformed plan and task frontmatter, dependencies pointing at tasks that do not exist, dependency cycles, blueprint phases and task files that disagree, duplicate ids. It only reads: nothing is written or fixed for you. Every finding is an error, so the command exits non-zero as soon as it reports one, which makes it usable as a CI step. Add `--json` for a machine-readable report on stdout, or `--workspace <path>` to point it at a workspace other than the one discovered from the current directory. A workspace without `CODE_REVIEW.md`, `schemas/self-review-v2.xsd`, or `templates/UPDATE_NOTICE_TEMPLATE.md` is valid and produces no finding for them, while a missing required file is reported. `init` and `update` restore any shipped file you deleted.
 
 | Plans board                                                 | Plan detail page                                                                                                       | Archive                                                     |
 |-------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------|
@@ -187,7 +187,7 @@ Reads your workspace and reports internal inconsistencies -- missing or malforme
 
 After blueprint execution, an optional automated code review gate runs once when a second harness is discovered. The reviewer critiques the cumulative diff against the plan's requirements and emits findings validated against a schema. The gate reports; it does not decide -- there are no severity or confidence floors, and nothing is applied automatically. You read the findings and choose what to act on.
 
-**To disable:** Edit `.ai/strikethroo/config/hooks/CODE_REVIEW.md` to empty or delete it. The gate skips cleanly with a note in the execution summary.
+**To disable:** Empty `.ai/strikethroo/config/hooks/CODE_REVIEW.md`. The gate skips cleanly with a note in the execution summary. A deleted file is restored by the next `init` or `update`.
 
 **Important:** A green review gate is not a correctness guarantee. The gate reduces exposure to the same class of error a human PR approval reduces, and leaves the same class of error behind. See [Customization](https://strikethroo.canpicasoft.com/customization.html) for limitations and configuration.
 

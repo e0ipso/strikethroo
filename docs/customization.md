@@ -103,11 +103,11 @@ Terminal review gate, terminal only — runs once per plan, creates no task file
 
 Reviewer discovery uses the same local `harnesses.<name>.cli_args` and readiness check as task dispatch. Permission flags may give the reviewer CLI technical write access, but the reviewer prompt still says to detect and report without changing source files. The reviewer prints its findings document to stdout; the Strikethroo process writes `review.xml` and checks the artifact and diff. Local harness permissions do not turn review findings into automatic fixes.
 
-**Reviewed scope**: a two-dot diff from a base commit recorded before phase execution against the **working tree**, so committed phase work and uncommitted fixes are both included. Untracked, unignored files are included too — the gate synthesizes an add-diff for each with `git diff --no-index` against `/dev/null`, so nothing needs to be staged or committed for the reviewer to see it, and the gate never writes to the git index. Paths are passed to Git as arguments, never through a shell, so file names with spaces, quotes, or shell syntax are reviewed like any other. If Git cannot list the changed files or produce a diff for one of them, the gate reports an infrastructure failure instead of reviewing a partial scope.
+**Reviewed scope**: a two-dot diff from a base commit recorded before phase execution against the **working tree**, so committed phase work and uncommitted fixes are both included. Untracked, unignored files are included too — the gate synthesizes an add-diff for each with `git diff --no-index` against `/dev/null`, so nothing needs to be staged or committed for the reviewer to see it, and the gate never writes to the git index. Paths are passed to Git as arguments, never through a shell, so file names with spaces, quotes, or shell syntax are reviewed like any other. If Git cannot list the changed files or produce a diff for one of them, the gate reports an infrastructure failure instead of reviewing a partial scope. An untracked file whose name is not valid UTF-8 is one the gate cannot open, so it ends the review that way too; rename it or ignore it. Tracked files with such names are reviewed normally.
 
 **Configuration**: The hook body specifies the mandate — which finding categories are in scope and how the reviewer should grade `severity` (`critical`, `major`, `minor`, `info`) and `confidence` (`high`, `medium`, `low`). Both are advisory labels that help you sort the review; nothing is filtered or applied on the strength of them.
 
-**To disable**: Empty or delete this file. The gate skips cleanly and notes it in the execution summary. No error. `init` preserves your edits on re-run unless you pass `--force`.
+**To disable**: Empty this file. The gate skips cleanly and notes it in the execution summary. No error. Deleting the file skips the gate too, but `init` and `update` restore a deleted shipped file, so only an empty file stays disabled through a refresh. `init` preserves your edits on re-run unless you pass `--force`.
 
 **Uses `xmllint` when available**: findings are validated against the vendored schema by shelling out to it. It is a soft dependency — without it the gate skips cleanly and says so in the execution summary, exactly as it does when the hook is missing. Your plan still completes. Install `libxml2-utils` (Debian/Ubuntu), `libxml2` (Homebrew), or your platform's equivalent to turn the gate on. A skip is never reported as a review that passed. Findings documents that declare a DTD or entities (`<!DOCTYPE`, `<!ENTITY`) are refused as invalid, and a count of findings that `xmllint` cannot confirm is not recorded.
 
@@ -117,7 +117,7 @@ Reviewer discovery uses the same local `harnesses.<name>.cli_args` and readiness
 - Findings do not survive a fresh clone — `init` ships a workspace `.gitignore` that excludes `plans/*/review/` and `archive/*/review/`, so the gate never sees its own output as changed content. That exclusion covers review artifacts only; whether you track the rest of `.ai/strikethroo/` is your project's call.
 - Conformance-only scope has a blind spot — correct code matching the plan but badly abstracted passes.
 - Blast-radius checking is partial — the full `POST_EXECUTION` re-run is the real catcher.
-- Generated and vendored files are outside the review scope — paths that `.gitattributes` marks `linguist-generated` or `linguist-vendored` are dropped from the diff, so changes to build output or vendored code are never reviewed. Fix the authored source instead; the mandatory `POST_EXECUTION` re-run regenerates build output.
+- Generated and vendored files are outside the review scope — paths that `.gitattributes` marks `linguist-generated` or `linguist-vendored` are dropped from the diff, so changes to build output or vendored code are never reviewed. The bare form (`out/* linguist-generated`) and `=true` both mark a path. `-linguist-generated` and `=false` do not. Fix the authored source instead; the mandatory `POST_EXECUTION` re-run regenerates build output.
 - Ignored files are outside the review scope — the gate honours your ignore rules, which also keeps its own `review/` output out of the reviewed diff.
 
 ### Workflow Control Hooks
@@ -170,6 +170,8 @@ git rm --cached .ai/strikethroo/config/config.yaml
 
 The command leaves the working copy in place. Commit the resulting deletion if the repository should stop distributing the file. Strikethroo never runs this command automatically because changing tracked files is a project decision.
 
+An absent, blank, or comment-only `config.yaml` means nothing is configured: execution routing is off and every harness runs with no extra arguments. Malformed YAML in a file that has content is an error.
+
 There are two ways to edit the local file:
 
 - **The Customize view's Config tab.** The web app renders a form for each section it understands, harness invocation arguments and execution routing, and preserves other top-level sections structurally. Harness argument values are written exactly as typed. Saving rewrites the file, so YAML comments are not preserved.
@@ -213,6 +215,8 @@ Strikethroo checks an external harness before using it for a task or code review
 
 For an external target, Strikethroo makes one request in a disposable Git directory using the exact configured arguments. The prompt tells the harness to run a shell command that creates one nonce-bearing file. Strikethroo verifies the file contents and removes the directory afterward. A zero exit without the file is a failed check.
 
+Before it launches an external task or review, Strikethroo also runs the harness's own authentication status command. That command gets 30 seconds, a fixed limit that `config.yaml` cannot change. A CLI that has not answered by then is stopped, and the launch is refused with an `authentication-failed` diagnostic that says the check timed out. A non-zero exit and a launch failure get their own messages. The task or review itself has no time limit.
+
 Results live in `.ai/strikethroo/runtime/harness-availability.json`. Ready results last 30 minutes; unavailable results last 5 minutes. The cache key includes the harness, resolved executable path, ordered-argument hash, normalization version, and probe-registry version. Changing an argument or its order, moving the executable, or updating the readiness contract causes a new check.
 
 Readiness errors do not print model output or configured arguments:
@@ -220,8 +224,10 @@ Readiness errors do not print model output or configured arguments:
 | Error | What to check |
 | --- | --- |
 | Harness configuration is invalid | Fix the reported `config.yaml` path and exact-array shape. |
-| Harness executable is unavailable | Install the CLI and make its executable available on `PATH`. |
+| Harness executable is unavailable | Install the CLI and make an executable file of that name available on `PATH`. On macOS and Linux it needs the execute permission. |
 | Harness readiness check failed | Check authentication and adjust the local arguments so the harness can run a command that creates a file. |
+
+On Windows, `PATHEXT` suffixes such as `.exe` are tried. That detection was exercised through a platform fixture on Linux, not on a Windows host, and finding a `.cmd` shim does not show that it launches.
 
 Task dispatch and code review use the same harness baseline that passed readiness. A zero exit code means only that the external process completed. Task status and verification evidence decide whether a task completed; the review gate separately requires a valid findings document.
 

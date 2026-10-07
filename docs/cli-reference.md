@@ -8,7 +8,7 @@ description: "Command reference for the Strikethroo CLI and skills installer"
 
 # CLI Reference
 
-Strikethroo has two distribution channels: the **CLI** (workspace bootstrapping) and the **skills installer** (workflow delivery). They are independently re-runnable; the only coupling point is the workspace schema version.
+Strikethroo has two distribution channels: the **CLI** (workspace bootstrapping) and the **skills installer** (workflow delivery). They are independently re-runnable; the only coupling point is the workspace schema version. `npx strikethroo --version` prints the version in the installed package's `package.json`.
 
 ## Workspace Initialization
 
@@ -32,7 +32,11 @@ Creates the shared `.ai/strikethroo/` directory (plans, archive, config, hooks, 
 | `--force` | Overwrite all files without prompting, even if the user has customized them. Useful for CI/automation. |
 | `--profile <value>` | Seed the workspace `config/` from a [strikethroo profile](customization.html#strikethroo-profiles): a local directory, a GitHub `<user>/<repo>` shorthand, or any git URL. Remote profiles are shallow-cloned (`git` required on PATH). A value that starts with `-` and is not an existing directory is rejected, and so is a package whose `profile.yaml` or `config/` is a symbolic link. A profile carries hooks and harness arguments that run with your agent's permissions, so import only profiles you trust. |
 
-**File conflict detection:** On re-run, `init` compares file hashes against `.ai/strikethroo/.init-metadata.json`. Unchanged files are updated silently; modified files trigger a unified-diff prompt. Use `--force` to bypass prompts.
+**File conflict detection:** `init` records a SHA-256 hash for every file it writes under `.ai/strikethroo/config/` in `.ai/strikethroo/.init-metadata.json`, then decides each file on its own. A missing file is installed. A file that is identical to the incoming version, or that still matches its recorded hash, is updated silently. Any other file is a conflict and triggers a unified-diff prompt, where you keep or overwrite it one file at a time or for every remaining conflict. A file you keep stays protected: its recorded hash does not change, so it is offered again on every later `init`, `update`, or `--profile` refresh until you overwrite it, and the other files still refresh in the same run. Files outside `config/`, such as `README.md`, are not hashed and refresh every time. The prompt needs an interactive terminal. When standard input is not one, as in most CI jobs, `init` lists every conflicting path, exits 1 before it overwrites a file, and `--force` is the only way through. `--force` overwrites every conflicting file with the incoming version.
+
+**Missing or unusable metadata:** If `.ai/strikethroo/` already holds files but `.init-metadata.json` is missing, unparsable, or has no `files` map, Strikethroo has no record of what it wrote. Every existing file that differs from the incoming version is then a conflict, and the prompt says the file is not tracked. A file identical to the incoming version refreshes without a question. A file you keep stays untracked and is offered again on the next run.
+
+**Deleted files:** `init` and `update` restore a shipped file you deleted, including the optional `config/hooks/CODE_REVIEW.md`, `config/schemas/self-review-v2.xsd`, and `config/templates/UPDATE_NOTICE_TEMPLATE.md`. To keep the [code review gate](customization.html#code_review) off through a refresh, empty `CODE_REVIEW.md` instead of deleting it.
 
 **Examples:**
 

@@ -377,6 +377,41 @@ describe('cumulative diff scope: generated and vendored files', () => {
     expect(diff).not.toContain('GENERATED_BUNDLE_CONTENT');
   });
 
+  /**
+   * `check-attr -z` reports a marked path as `set` (bare `out/* linguist-generated`),
+   * `true` (`=true`), or whatever value was written; GitHub's linguist treats every
+   * one except `false` as marked. The bare form is the one that read as unmarked.
+   */
+  it('drops the bare `set` form as well as `=true`, and keeps unset and `=false` paths', () => {
+    fs.writeFileSync(
+      path.join(repo, '.gitattributes'),
+      'out/* linguist-generated\nvendor/* linguist-vendored=true\nsrc/* -linguist-generated\nkept/* linguist-generated=false\n'
+    );
+    for (const dir of ['out', 'vendor', 'src', 'kept']) fs.mkdirSync(path.join(repo, dir));
+    fs.writeFileSync(path.join(repo, 'out/gen.cjs'), 'original\n');
+    fs.writeFileSync(path.join(repo, 'vendor/lib.xsd'), 'original\n');
+    fs.writeFileSync(path.join(repo, 'src/real.ts'), 'original\n');
+    fs.writeFileSync(path.join(repo, 'kept/k.ts'), 'original\n');
+    git('add -A');
+    git('commit -q -m attrs');
+    const base = baseSha();
+
+    fs.writeFileSync(path.join(repo, 'out/gen.cjs'), 'BARE_SET_GENERATED\n');
+    fs.writeFileSync(path.join(repo, 'out/new.cjs'), 'BARE_SET_UNTRACKED\n');
+    fs.writeFileSync(path.join(repo, 'vendor/lib.xsd'), 'EXPLICIT_TRUE_VENDORED\n');
+    fs.writeFileSync(path.join(repo, 'src/real.ts'), 'UNSET_SOURCE\n');
+    fs.writeFileSync(path.join(repo, 'kept/k.ts'), 'EXPLICIT_FALSE_KEPT\n');
+
+    const diff = _readCumulativeDiff(repo, base);
+
+    expect(diff).not.toBeNull();
+    expect(diff).not.toContain('BARE_SET_GENERATED');
+    expect(diff).not.toContain('BARE_SET_UNTRACKED');
+    expect(diff).not.toContain('EXPLICIT_TRUE_VENDORED');
+    expect(diff).toContain('UNSET_SOURCE');
+    expect(diff).toContain('EXPLICIT_FALSE_KEPT');
+  });
+
   it('summarizes an untracked binary instead of inlining it', () => {
     const base = baseSha();
     fs.writeFileSync(path.join(repo, 'blob.bin'), Buffer.from([0, 1, 2, 0, 3]));

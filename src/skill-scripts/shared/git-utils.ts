@@ -51,7 +51,10 @@ export const execGit = (args: readonly string[], opts: GitOptions = {}): string 
  * `execGit` for commands whose success case is a non-zero exit. `git diff
  * --no-index` exits 1 when the two paths differ, which is exactly when it has
  * produced the output the caller wants — through `execGit` every such diff would
- * read as a failure. Status 0 or 1 returns stdout; anything else stays `null`.
+ * read as a failure. Status 0 returns stdout. Status 1 returns stdout only when
+ * there is some: `--no-index` also exits 1 for a path it could not open, and
+ * then prints nothing, while differences always print a header. Anything else
+ * stays `null`.
  *
  * Untrimmed on purpose: callers concatenate these into a single diff, where a
  * stripped trailing newline would run one file's last line into the next file's
@@ -65,7 +68,9 @@ export const execGitDiffAllowingChanges = (
     return run(args, opts);
   } catch (error) {
     const failure = error as { status?: unknown; stdout?: unknown };
-    if (failure.status === 1 && typeof failure.stdout === 'string') return failure.stdout;
+    if (failure.status === 1 && typeof failure.stdout === 'string' && failure.stdout.length > 0) {
+      return failure.stdout;
+    }
     return null;
   }
 };

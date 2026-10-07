@@ -315,6 +315,15 @@ describe('workspace-model against synthetic fixtures', () => {
     5000
   );
 
+  it('omits a directory at a hook path', () => {
+    const root = path.join(tmpRoot, 'strikethroo');
+    fs.mkdirSync(path.join(root, 'config', 'hooks', 'DIR.md'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'config', 'hooks', 'DIR.md', 'inner.md'), '# inner\n', 'utf8');
+    fs.writeFileSync(path.join(root, 'config', 'hooks', 'REAL.md'), '# real\n', 'utf8');
+    const config = getConfig(root);
+    expect(config.hooks.map(h => h.id)).toEqual(['REAL']);
+  });
+
   it('returns undefined complexity_score for legacy fixture tasks without the field', () => {
     const detail = getPlanDetail(FIXTURE_ROOT, '83--workspace-data-layer');
     expect(detail).toBeDefined();

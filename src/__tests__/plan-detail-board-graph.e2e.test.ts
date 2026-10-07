@@ -83,6 +83,31 @@ test.describe('Plan Detail Graph (Playwright)', () => {
         timeout: 20_000,
       });
       expect(await page.locator('.mermaid-host svg').count()).toBe(1);
+      // A diagram that renders is not the same as a diagram that is visible.
+      // `markdown.ts` registers its attribute policy on the shared DOMPurify
+      // instance; mermaid's own `securityLevel: 'strict'` pass runs through the
+      // same instance, so a policy that keeps only prose attributes strips every
+      // `viewBox`, `d`, and `x`, leaving a correctly-shaped but blank SVG. An
+      // SVG-presence assertion cannot see that, so geometry is asserted here.
+      const geometry = await page.evaluate(() => {
+        const svg = document.querySelector('.mermaid-host svg');
+        if (!svg) return null;
+        let attributes = svg.attributes.length;
+        for (const el of Array.from(svg.querySelectorAll('*'))) {
+          attributes += el.attributes.length;
+        }
+        return {
+          attributes,
+          viewBox: svg.getAttribute('viewBox'),
+          nodes: svg.querySelectorAll('g.node').length,
+          shapes: svg.querySelectorAll('path, rect, polygon, circle, ellipse, line').length,
+        };
+      });
+      expect(geometry).not.toBeNull();
+      expect(geometry!.viewBox).toBeTruthy();
+      expect(geometry!.nodes).toBeGreaterThan(0);
+      expect(geometry!.shapes).toBeGreaterThan(0);
+      expect(geometry!.attributes).toBeGreaterThan(50);
 
       // Toggle to Source: the raw mermaid text equals the model's block (trimmed).
       await page.getByText('Source', { exact: true }).click();

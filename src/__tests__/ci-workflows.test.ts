@@ -209,7 +209,9 @@ describe('security:check script entry', () => {
       const entries = Object.entries(record);
       expect(entries).toHaveLength(1);
       const [id, content] = entries[0] as [string, { active: boolean; notes: string }];
-      expect(id).toMatch(/^GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}\|[\w@/.-]+(?:>[\w@/.-]+)*$/);
+      // audit-ci emits a trailing `>` on some dependency paths, so the key grammar
+      // ends with an optional one. Everything else about the shape still holds.
+      expect(id).toMatch(/^GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}\|[\w@/.-]+(?:>[\w@/.-]+)*>?$/);
       expect(content.active).toBe(true);
       expect(content.notes).toContain('Recheck when');
     }

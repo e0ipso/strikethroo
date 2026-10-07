@@ -1,7 +1,7 @@
-import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import { SUPPORTED_HARNESSES, type Harness } from '../../types';
+import { executableResolves } from './executable-resolution';
 
 /**
  * CLI contracts were verified against their official CLI documentation:
@@ -258,33 +258,6 @@ export const buildExternalCommand = (request: ExternalDispatchRequest): Structur
 export const buildReviewCommand = (request: ReviewDispatchRequest): StructuredCommand =>
   EXTERNAL_HARNESS_ADAPTERS[request.harness].buildCommand(reviewCommandRequest(request));
 
-/** Whether a bare executable name resolves on `PATH`. Shared so callers do not
- * each reimplement PATH scanning. */
-export const executableOnPath = (executable: string): boolean =>
-  (/[\\/]/.test(executable) ? [''] : (process.env.PATH ?? '').split(path.delimiter)).some(
-    directory => {
-      if (!directory && !/[\\/]/.test(executable)) return false;
-      const candidate = directory === '' ? executable : path.join(directory, executable);
-      try {
-        return fs.statSync(candidate).isFile();
-      } catch {
-        return false;
-      }
-    }
-  );
-
-/**
- * Whether the CLI for a harness is installed on this machine, keyed by the
- * canonical adapter executable (e.g. `cursor` resolves to `cursor-agent`). An
- * unknown harness is treated as unavailable. Shared so execution-routing's
- * default resolver can filter unavailable external targets without duplicating
- * the executable-name knowledge held here.
- */
-export const harnessExecutableAvailable = (harness: string): boolean => {
-  const adapter = EXTERNAL_HARNESS_ADAPTERS[harness as Harness];
-  return adapter ? executableOnPath(adapter.executable) : false;
-};
-
 /**
  * Upper bound on retained reviewer stdout. The delivered document is the
  * reviewer's *final* output, so the tail is the load-bearing part: truncation
@@ -467,7 +440,7 @@ export const authenticateHarness = async (
 };
 
 const dependencies: ExternalDispatchDependencies = {
-  executableExists: executableOnPath,
+  executableExists: executableResolves,
   authenticate: authenticateHarness,
   launch: (commandSpec, options) =>
     runProcess(

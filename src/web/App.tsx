@@ -19,7 +19,7 @@ import { RevalidationProvider } from './data/revalidation';
 import { ThemeProvider } from './theme/ThemeProvider';
 import { Sidebar } from './components/Sidebar';
 import { persistCollapsed, readStoredCollapsed } from './components/railCollapse';
-import { usePlans } from './data/api';
+import { PlansProvider, usePlans } from './data/api';
 import { PlansRoute } from './plans/PlansRoute';
 import { PlanDetailRoute } from './plans/detail/PlanDetailRoute';
 import { TaskDetailRoute } from './plans/detail/TaskDetailRoute';
@@ -123,6 +123,8 @@ function Shell() {
  *     (no per-screen duplicate streams);
  *   - RevalidationProvider: subscribes to the connection's `changed` signal and
  *     exposes the coalesced revalidation token the data layer folds in;
+ *   - PlansProvider: the one `/api/plans` resource the Sidebar and the routed
+ *     screens share, inside the revalidation seam so the token refreshes it;
  *   - RouterProvider: route state the mounted screens read at fetch time.
  *
  * ThemeProvider wraps the whole stack so the Sidebar (and its ThemeToggle) and
@@ -133,9 +135,11 @@ export function App() {
     <ThemeProvider>
       <LiveConnectionProvider>
         <RevalidationProvider>
-          <RouterProvider>
-            <Shell />
-          </RouterProvider>
+          <PlansProvider>
+            <RouterProvider>
+              <Shell />
+            </RouterProvider>
+          </PlansProvider>
         </RevalidationProvider>
       </LiveConnectionProvider>
     </ThemeProvider>

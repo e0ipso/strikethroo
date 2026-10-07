@@ -10,6 +10,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } from 'vitest';
+import { spawnSync } from 'child_process';
 import * as fs from 'fs-extra';
 import * as os from 'os';
 import * as path from 'path';
@@ -242,57 +243,6 @@ describe('Conflict Detection Integration Tests', () => {
       const currentHash = await calculateFileHash(configFile);
 
       expect(metadata?.files['config/STRIKETHROO.md']).toBe(currentHash);
-    });
-  });
-
-  describe('Corrupted metadata handling', () => {
-    it('should treat corrupted metadata as first-time init', async () => {
-      // First init
-      await init({
-        harnesses: 'claude',
-        destinationDirectory: testDir,
-      });
-
-      // Corrupt metadata
-      const metadataPath = path.join(testDir, '.ai/strikethroo/.init-metadata.json');
-      await fs.writeFile(metadataPath, '{ invalid json }', 'utf-8');
-
-      // Second init should succeed (treating as first-time)
-      const result = await init({
-        harnesses: 'claude',
-        destinationDirectory: testDir,
-      });
-
-      expect(result.success).toBe(true);
-
-      // Check metadata was recreated
-      const metadata = await loadMetadata(metadataPath);
-      expect(metadata).not.toBeNull();
-      expect(metadata?.files).toBeDefined();
-    });
-
-    it('should treat missing metadata as first-time init', async () => {
-      // First init
-      await init({
-        harnesses: 'claude',
-        destinationDirectory: testDir,
-      });
-
-      // Delete metadata
-      const metadataPath = path.join(testDir, '.ai/strikethroo/.init-metadata.json');
-      await fs.remove(metadataPath);
-
-      // Second init should succeed (treating as first-time)
-      const result = await init({
-        harnesses: 'claude',
-        destinationDirectory: testDir,
-      });
-
-      expect(result.success).toBe(true);
-
-      // Check metadata was recreated
-      const metadata = await loadMetadata(metadataPath);
-      expect(metadata).not.toBeNull();
     });
   });
 
@@ -569,6 +519,37 @@ describe('Workspace refresh outcomes', () => {
     expect(deleted.map(finding => finding.path)).toEqual(['config/hooks/RETIRED.md']);
   });
 
+  it('prompts an untracked differing collision as untracked: keep leaves it untracked, overwrite tracks it', async () => {
+    const hookRel = 'config/hooks/PRE_PLAN.md';
+    const hookPath = path.join(workspace, hookRel);
+    const customized = '# Mine, hands off\n';
+    const before = (await loadMetadata(metadataPath))!;
+    delete before.files[hookRel];
+    await saveMetadata(metadataPath, before);
+    await fs.writeFile(hookPath, customized, 'utf-8');
+
+    answerEveryConflict('keep');
+    expect((await init({ harnesses: 'claude', destinationDirectory: project })).success).toBe(true);
+    expect(promptMock).toHaveBeenCalledTimes(1);
+    const [prompted] = promptMock.mock.calls[0]![0];
+    expect(prompted?.relativePath).toBe(hookRel);
+    // No recorded baseline: the prompt must not claim one.
+    expect(prompted?.originalHash).toBe('');
+    expect(await fs.readFile(hookPath, 'utf-8')).toBe(customized);
+    // Kept and never tracked stays untracked, so the next run asks again rather
+    // than adopting the user's bytes as a shipped baseline.
+    expect((await loadMetadata(metadataPath))!.files[hookRel]).toBeUndefined();
+
+    answerEveryConflict('overwrite');
+    expect((await init({ harnesses: 'claude', destinationDirectory: project })).success).toBe(true);
+    expect(promptMock).toHaveBeenCalledTimes(2);
+    expect(promptedPaths(1)).toEqual([hookRel]);
+    expect(await fs.readFile(hookPath, 'utf-8')).toBe(await shippedContent(hookRel));
+    expect((await loadMetadata(metadataPath))!.files[hookRel]).toBe(
+      await calculateFileHash(hookPath)
+    );
+  });
+
   it('does not report success or restamp metadata when a write fails after a kept conflict', async () => {
     const hookPath = path.join(workspace, 'config/hooks/PRE_PLAN.md');
     await fs.writeFile(hookPath, '# Mine\n', 'utf-8');
@@ -592,5 +573,158 @@ describe('Workspace refresh outcomes', () => {
     expect(await fs.readFile(hookPath, 'utf-8')).toBe('# Mine\n');
     // Work done before the failure stays on disk; only the success stamp is withheld.
     expect(await fs.pathExists(restoredPath)).toBe(true);
+  });
+});
+
+/**
+ * The gate through the real CLI with piped (non-TTY) stdin. The prompt cannot
+ * run, so every decision outcome is observable as an exit code plus the bytes
+ * and metadata left on disk.
+ */
+describe('Untrusted baseline gate (CLI, non-interactive stdin)', () => {
+  const cliPath = path.resolve(__dirname, '../../dist/cli.js');
+  const SHIPPED_TEMPLATE_DIR = path.resolve(__dirname, '../../templates/strikethroo');
+  const HOOK = 'config/hooks/PRE_PLAN.md';
+  const OTHER_HOOK = 'config/hooks/POST_PLAN.md';
+  const CUSTOM = '# Mine, hands off\n';
+
+  let sandbox: string;
+  let project: string;
+  let workspace: string;
+  let metadataPath: string;
+
+  function runInit(...args: string[]): { status: number | null; output: string } {
+    const result = spawnSync(
+      process.execPath,
+      [cliPath, 'init', '--destination-directory', project, ...args],
+      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], input: '' }
+    );
+    return { status: result.status, output: `${result.stdout}${result.stderr}` };
+  }
+
+  const hookPath = (): string => path.join(workspace, HOOK);
+  const otherHookPath = (): string => path.join(workspace, OTHER_HOOK);
+
+  async function shippedContent(relativePath: string): Promise<string> {
+    return fs.readFile(path.join(SHIPPED_TEMPLATE_DIR, relativePath), 'utf-8');
+  }
+
+  /** Byte-for-byte snapshot of the metadata file, or null when absent. */
+  async function metadataBytes(): Promise<string | null> {
+    return (await fs.pathExists(metadataPath)) ? fs.readFile(metadataPath, 'utf-8') : null;
+  }
+
+  function expectRefusal(result: { status: number | null; output: string }): void {
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('--force');
+    expect(result.output).toContain(HOOK);
+    expect(result.output).toMatch(/not tracked|no recorded baseline|cannot be trusted/i);
+  }
+
+  function expectNoDecisionAsked(result: { status: number | null; output: string }): void {
+    expect(result.status).toBe(0);
+    expect(result.output).not.toMatch(/conflict|--force|not tracked|baseline/i);
+  }
+
+  beforeEach(async () => {
+    sandbox = await fs.mkdtemp(path.join(os.tmpdir(), 'strikethroo-gate-'));
+    project = path.join(sandbox, 'project');
+    workspace = path.join(project, '.ai/strikethroo');
+    metadataPath = path.join(workspace, '.init-metadata.json');
+  });
+
+  afterEach(async () => {
+    await fs.remove(sandbox);
+  });
+
+  it('installs into an empty destination without asking anything', async () => {
+    expectNoDecisionAsked(runInit('--harnesses', 'claude'));
+    const metadata = await loadMetadata(metadataPath);
+    expect(metadata?.files[HOOK]).toBe(await calculateFileHash(hookPath()));
+    expect(await fs.readFile(hookPath(), 'utf-8')).toBe(await shippedContent(HOOK));
+  });
+
+  describe.each<[string, (metadataFile: string) => Promise<void>]>([
+    ['absent', async file => fs.remove(file)],
+    [
+      'truncated JSON',
+      async file => fs.writeFile(file, '{"version":"4.1.0","timestamp":"2026-01-01T00', 'utf-8'),
+    ],
+    [
+      'missing its files map',
+      async file => {
+        const metadata = (await fs.readJson(file)) as Record<string, unknown>;
+        delete metadata.files;
+        await fs.writeJson(file, metadata);
+      },
+    ],
+  ])('when metadata is %s and config/ holds a differing file', (_label, breakMetadata) => {
+    it('refuses without --force even with --harnesses, then overwrites with --force', async () => {
+      expect(runInit('--harnesses', 'claude').status).toBe(0);
+      await fs.writeFile(hookPath(), CUSTOM, 'utf-8');
+      await breakMetadata(metadataPath);
+      const hookBefore = await calculateFileHash(hookPath());
+      const metadataBefore = await metadataBytes();
+
+      expectRefusal(runInit('--harnesses', 'claude'));
+      expect(await calculateFileHash(hookPath())).toBe(hookBefore);
+      expect(await metadataBytes()).toBe(metadataBefore);
+
+      expect(runInit('--harnesses', 'claude', '--force').status).toBe(0);
+      expect(await fs.readFile(hookPath(), 'utf-8')).toBe(await shippedContent(HOOK));
+      const metadata = await loadMetadata(metadataPath);
+      expect(metadata?.files[HOOK]).toBe(await calculateFileHash(hookPath()));
+      expect(metadata?.harnesses).toEqual(['claude']);
+    });
+  });
+
+  it.each([
+    ['absent', async (file: string) => fs.remove(file)],
+    ['truncated JSON', async (file: string) => fs.writeFile(file, '{ invalid json ', 'utf-8')],
+  ])(
+    'recovers without asking when metadata is %s but every file matches the incoming tree',
+    async (_label, breakMetadata) => {
+      expect(runInit('--harnesses', 'claude').status).toBe(0);
+      await breakMetadata(metadataPath);
+
+      expectNoDecisionAsked(runInit('--harnesses', 'claude'));
+      const metadata = await loadMetadata(metadataPath);
+      expect(metadata).not.toBeNull();
+      expect(metadata?.files[HOOK]).toBe(await calculateFileHash(hookPath()));
+      expect(metadata?.files[OTHER_HOOK]).toBe(await calculateFileHash(otherHookPath()));
+    }
+  );
+
+  it('protects an untracked differing collision until --force and re-tracks a matching one silently', async () => {
+    expect(runInit('--harnesses', 'claude').status).toBe(0);
+    const tracked = (await loadMetadata(metadataPath))!;
+    delete tracked.files[HOOK];
+    delete tracked.files[OTHER_HOOK];
+    await saveMetadata(metadataPath, tracked);
+    await fs.writeFile(hookPath(), CUSTOM, 'utf-8');
+    const metadataBefore = await metadataBytes();
+
+    // Differing and untracked: refused, and nothing on disk moves.
+    const declined = runInit();
+    expectRefusal(declined);
+    // The matching untracked sibling is not a decision.
+    expect(declined.output).not.toContain(OTHER_HOOK);
+    expect(await fs.readFile(hookPath(), 'utf-8')).toBe(CUSTOM);
+    expect(await metadataBytes()).toBe(metadataBefore);
+
+    // --force is the overwrite route.
+    expect(runInit('--force').status).toBe(0);
+    expect(await fs.readFile(hookPath(), 'utf-8')).toBe(await shippedContent(HOOK));
+    const forced = (await loadMetadata(metadataPath))!;
+    expect(forced.files[HOOK]).toBe(await calculateFileHash(hookPath()));
+    expect(forced.files[OTHER_HOOK]).toBe(await calculateFileHash(otherHookPath()));
+
+    // Untracked but byte-identical: refreshed silently and tracked again.
+    delete forced.files[OTHER_HOOK];
+    await saveMetadata(metadataPath, forced);
+    expectNoDecisionAsked(runInit());
+    expect((await loadMetadata(metadataPath))!.files[OTHER_HOOK]).toBe(
+      await calculateFileHash(otherHookPath())
+    );
   });
 });

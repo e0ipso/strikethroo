@@ -247,6 +247,61 @@ test.describe('Plans section (Playwright)', () => {
     }
   });
 
+  test('issues one /api/plans request per load and per revalidation pass, shared by sidebar and screen', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
+    // Every list request the page issues; detail requests (`/api/plans/:id`)
+    // have a different pathname and are not counted.
+    const listRequests: string[] = [];
+    page.on('request', r => {
+      if (new URL(r.url()).pathname === '/api/plans') listRequests.push(r.url());
+    });
+    const revalidationCount = (): Promise<number> =>
+      page.evaluate(
+        () => (window as unknown as { __stRevalidationCount?: number }).__stRevalidationCount ?? 0
+      );
+    try {
+      // Plans screen: the Sidebar's archive count and the board share one read.
+      await page.goto(handle.url, { waitUntil: 'domcontentloaded' });
+      await page.getByTestId('board-column').first().waitFor();
+      // Let the shared event stream open before mutating the workspace.
+      await page.waitForTimeout(800);
+      expect(listRequests).toHaveLength(1);
+
+      // One disk change drives one coalesced revalidation pass, which must cost
+      // exactly one list request. The appended comment changes no task status, so
+      // the derived counts the sibling tests read stay the same.
+      const passesBefore = await revalidationCount();
+      const probe = path.join(root, 'plans', '202--fixture-ready', 'tasks', '01--task-01.md');
+      fs.appendFileSync(probe, '\n<!-- revalidation probe -->\n');
+      await page.waitForFunction(
+        prev =>
+          ((window as unknown as { __stRevalidationCount?: number }).__stRevalidationCount ?? 0) >
+          prev,
+        passesBefore
+      );
+      await expect.poll(() => listRequests.length).toBe(2);
+      await page.waitForTimeout(500);
+      expect(listRequests).toHaveLength(2);
+
+      // Navigating in-app to Archive mounts another consumer of the resource that
+      // is already held; no request is issued for it.
+      await page.getByRole('navigation').getByText('Archive', { exact: true }).click();
+      await page.getByTestId('archive-row').first().waitFor();
+      expect(listRequests).toHaveLength(2);
+
+      // A fresh Archive load: the Sidebar and the Archive screen share one read.
+      listRequests.length = 0;
+      await page.goto(`${handle.url}/archive`, { waitUntil: 'domcontentloaded' });
+      await page.getByTestId('archive-row').first().waitFor();
+      await page.waitForTimeout(300);
+      expect(listRequests).toHaveLength(1);
+    } finally {
+      await page.close();
+    }
+  });
+
   test('ships no legacy naming strings in the served bundle', () => {
     const bundle = fs
       .readdirSync(BUNDLE_DIR)

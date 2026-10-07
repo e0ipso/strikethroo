@@ -7,7 +7,8 @@ import { execGit, execGitDiffAllowingChanges, splitNulDelimited } from './shared
 import { findStrikethrooRoot } from './shared/root';
 import { resolvePlan } from './shared/plan-resolve';
 import { discoverHarnesses } from './shared/harness-discovery';
-import { dispatchReview, executableOnPath } from './shared/external-dispatch';
+import { executableResolves } from './shared/executable-resolution';
+import { dispatchReview } from './shared/external-dispatch';
 import {
   countCommentsWithXmllint,
   countFindings,
@@ -462,7 +463,7 @@ const defaultDependencies: ReviewDependencies = {
   discover: discoverHarnesses,
   dispatch: dispatchReview,
   readDiff: _readCumulativeDiff,
-  validatorAvailable: () => executableOnPath('xmllint'),
+  validatorAvailable: () => executableResolves('xmllint'),
 };
 
 /** The reviewer skill's SKILL.md, inlined; falls back to naming the skill. */
@@ -598,7 +599,7 @@ interface ReviewContext {
 /** The workspace shape the gate needs, or the skip or failure that ends the run. */
 const resolveReviewContext = (
   startPath: string,
-  validatorAvailable: () => boolean = () => executableOnPath('xmllint')
+  validatorAvailable: () => boolean = () => executableResolves('xmllint')
 ): { kind: 'resolved'; context: ReviewContext } | { kind: 'ended'; result: ReviewResult } => {
   // findStrikethrooRoot owns the workspace schema check; never bypass it.
   const strikethrooRoot = findStrikethrooRoot(startPath);

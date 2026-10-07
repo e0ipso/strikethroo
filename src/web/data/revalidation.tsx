@@ -13,8 +13,9 @@
  * Scoping falls out of React's mount tree rather than a bespoke route switch:
  * `useResource` only runs for mounted components, so a token bump re-fetches
  * exactly the resources the active view depends on —
- *   - the Plans list is always eligible (the Sidebar's `usePlans` is always
- *     mounted, and the Plans screen mounts its own),
+ *   - the Plans list is always eligible (`PlansProvider` holds the one
+ *     `/api/plans` resource for the SPA's lifetime; the Sidebar and the routed
+ *     screen both read it),
  *   - the open Plan Detail re-reads only when a detail route is mounted, and
  *   - Config re-reads only when the Customize screen is mounted.
  * Because the bump targets whatever is mounted *now*, the open-detail

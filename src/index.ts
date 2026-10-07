@@ -318,21 +318,27 @@ async function recordHarnessSelection(metadataPath: string, harnesses: Harness[]
  * metadata records for it afterwards.
  *
  * Every kind except `kept` leaves the incoming bytes on disk, so it records the
- * incoming hash. `kept` records the previously recorded baseline. Hashing the
- * kept destination instead would make the user's edit the baseline, and the
- * next refresh would find no divergence and overwrite it without a prompt.
+ * incoming hash. `kept` records the previously recorded baseline, or nothing
+ * when there was none: hashing the kept destination instead would make the
+ * user's edit the baseline, and the next refresh would find no divergence and
+ * overwrite it without a prompt. A kept untracked path therefore stays
+ * untracked and is asked about again.
  */
 interface RefreshOutcome {
   relativePath: string;
   kind: 'installed' | 'refreshed' | 'kept' | 'overwritten' | 'unchanged';
-  hash: string;
+  hash: string | undefined;
 }
 
 /**
  * Copy common template files to .ai/strikethroo directory with conflict detection
  *
  * Each incoming `config/` path gets its own outcome, so one conflict never stops
- * another path from being installed, refreshed, or restored. The tracked tree is
+ * another path from being installed, refreshed, or restored. Missing or
+ * unusable metadata is not a first install: every existing destination is then
+ * untracked, and each one that differs from its incoming file needs a decision
+ * before anything is written. An empty or byte-identical tree needs none, and
+ * `force` is the only route that skips the question. The tracked tree is
  * written first and the metadata last; a failed copy throws before
  * `saveMetadata` runs, leaving the previous metadata in place.
  *
@@ -355,12 +361,19 @@ async function copyCommonTemplates(
   const baseline = existingMetadata?.files ?? {};
 
   let resolutions = new Map<string, ConflictResolution>();
-  if (existingMetadata && !force) {
-    const conflicts = await detectConflicts(destDir, sourceDir, existingMetadata);
+  if (!force) {
+    const conflicts = await detectConflicts(destDir, sourceDir, baseline);
     if (conflicts.length > 0) {
+      if (!existingMetadata) {
+        console.log(
+          chalk.yellow(
+            '\n⚠  .init-metadata.json is missing or unusable, so nothing under config/ has a trusted baseline.'
+          )
+        );
+      }
       console.log(
         chalk.yellow(
-          `\n⚠  Detected ${conflicts.length} modified file(s). Prompting for resolution...\n`
+          `\n⚠  ${conflicts.length} file(s) differ from the incoming version and need a decision.\n`
         )
       );
       resolutions = await promptForConflicts(conflicts);
@@ -405,10 +418,10 @@ async function refreshConfigTree(
 /**
  * Classify one destination against its incoming file and recorded baseline.
  *
- * A destination that diverged from its baseline is replaced only by `force` or
- * an explicit `overwrite` answer; with no answer it is kept, because only the
- * prompt may authorize destroying a customization. A destination with no
- * recorded baseline is replaced the way a fresh install would be.
+ * A destination that diverged from its baseline, or that has no baseline, is
+ * replaced only by `force` or an explicit `overwrite` answer; with no answer it
+ * is kept, because only the prompt may authorize destroying a file this refresh
+ * did not write. A kept destination with no baseline records none.
  */
 async function decideRefreshOutcome(
   destPath: string,
@@ -424,10 +437,7 @@ async function decideRefreshOutcome(
   if (currentHash === incomingHash) {
     return { kind: 'unchanged', hash: incomingHash };
   }
-  if (recordedHash === undefined) {
-    return { kind: 'installed', hash: incomingHash };
-  }
-  if (currentHash === recordedHash) {
+  if (recordedHash !== undefined && currentHash === recordedHash) {
     return { kind: 'refreshed', hash: incomingHash };
   }
   if (force || resolution === 'overwrite' || resolution === 'overwrite-all') {
@@ -441,7 +451,8 @@ async function decideRefreshOutcome(
  *
  * A recorded path the incoming tree no longer ships keeps its recorded hash:
  * the refresh learned nothing new about it, and dropping one that is also gone
- * from disk would erase the deletion `validate` reports.
+ * from disk would erase the deletion `validate` reports. An outcome with no
+ * hash records nothing.
  */
 function recordBaselines(
   baseline: Record<string, string>,
@@ -449,7 +460,9 @@ function recordBaselines(
 ): Record<string, string> {
   const files: Record<string, string> = { ...baseline };
   for (const { relativePath, hash } of outcomes) {
-    files[relativePath] = hash;
+    if (hash !== undefined) {
+      files[relativePath] = hash;
+    }
   }
   return files;
 }

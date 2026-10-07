@@ -18,6 +18,7 @@ import {
   extractTitle,
   sectionBody,
   type MarkdownSection,
+  type ParsedFrontmatter,
 } from './markdown';
 import { parseBlueprintPhases, type BlueprintPhase } from '../skill-scripts/shared/blueprint-parse';
 
@@ -40,6 +41,9 @@ export interface Task {
   sections: MarkdownSection[];
 }
 
+/** The task frontmatter that state derivation and phase inference read. */
+export type TaskMeta = Pick<Task, 'id' | 'dependencies' | 'status'>;
+
 /** Derived lifecycle state of a plan. */
 export type PlanState = 'drafted' | 'ready' | 'doing' | 'done';
 
@@ -59,8 +63,16 @@ export interface Phase extends BlueprintPhase {
 const STATUS_DONE = 'completed';
 const STATUS_NOT_STARTED = 'pending';
 
-/** Reads a plan directory's `tasks/*.md` into structured records. Missing dir -> []. */
-export const scanTasks = (planDir: string): Task[] => {
+/** One task file, read and its frontmatter parsed, before either projection. */
+interface TaskSource {
+  /** Source filename (basename). */
+  file: string;
+  fm: ParsedFrontmatter;
+  content: string;
+}
+
+/** Reads a plan directory's `tasks/*.md` in name order. Missing dir -> []. */
+const readTaskSources = (planDir: string): TaskSource[] => {
   const tasksDir = path.join(planDir, 'tasks');
   let entries: fs.Dirent[];
   try {
@@ -73,34 +85,50 @@ export const scanTasks = (planDir: string): Task[] => {
     .filter(e => e.isFile() && e.name.endsWith('.md'))
     .sort((a, b) => a.name.localeCompare(b.name))
     .flatMap(e => {
-      const filePath = path.join(tasksDir, e.name);
       let content: string;
       try {
-        content = fs.readFileSync(filePath, 'utf8');
+        content = fs.readFileSync(path.join(tasksDir, e.name), 'utf8');
       } catch {
         return [];
       }
-      const fm = parseFrontmatter(content);
-      const body = extractBody(content);
-      const dependencies = fm.dependencies
-        .map(d => (typeof d === 'number' ? d : parseInt(d, 10)))
-        .filter((d): d is number => !Number.isNaN(d));
-      return [
-        {
-          id: fm.id,
-          name: extractTitle(body) ?? e.name.replace(/\.md$/, ''),
-          group: fm.group,
-          complexity_score: fm.complexity_score,
-          dependencies,
-          status: fm.status,
-          skills: fm.skills,
-          file: e.name,
-          body,
-          sections: sectionBody(body).sections,
-        },
-      ];
+      return [{ file: e.name, fm: parseFrontmatter(content), content }];
     });
 };
+
+/** Numeric dependency ids; entries that are not numbers are dropped. */
+const numericDependencies = (fm: ParsedFrontmatter): number[] =>
+  fm.dependencies
+    .map(d => (typeof d === 'number' ? d : parseInt(d, 10)))
+    .filter((d): d is number => !Number.isNaN(d));
+
+/** Reads a plan directory's `tasks/*.md` into full records. Missing dir -> []. */
+export const scanTasks = (planDir: string): Task[] =>
+  readTaskSources(planDir).map(({ file, fm, content }) => {
+    const body = extractBody(content);
+    return {
+      id: fm.id,
+      name: extractTitle(body) ?? file.replace(/\.md$/, ''),
+      group: fm.group,
+      complexity_score: fm.complexity_score,
+      dependencies: numericDependencies(fm),
+      status: fm.status,
+      skills: fm.skills,
+      file,
+      body,
+      sections: sectionBody(body).sections,
+    };
+  });
+
+/**
+ * The list read's task scan: frontmatter only. No title, body, or sections are
+ * built, which is what keeps `/api/plans` cheap.
+ */
+export const scanTaskMeta = (planDir: string): TaskMeta[] =>
+  readTaskSources(planDir).map(({ fm }) => ({
+    id: fm.id,
+    dependencies: numericDependencies(fm),
+    status: fm.status,
+  }));
 
 /** Classifies a task status. Unknown/in-progress values count as "started". */
 const classify = (status: string | undefined): 'done' | 'notStarted' | 'started' => {
@@ -117,7 +145,7 @@ const classify = (status: string | undefined): 'done' | 'notStarted' | 'started'
  * - all done -> `done`
  * - otherwise -> `doing`
  */
-export const deriveState = (tasks: Task[]): DerivedState => {
+export const deriveState = (tasks: readonly TaskMeta[]): DerivedState => {
   const total = tasks.length;
   if (total === 0) {
     return { state: 'drafted', done: 0, total: 0 };
@@ -154,8 +182,8 @@ export const deriveState = (tasks: Task[]): DerivedState => {
  * progress is made, the remaining tasks are emitted as a final phase rather
  * than looping forever. Never throws.
  */
-export const inferPhases = (tasks: Task[]): Phase[] => {
-  const withIds = tasks.filter((t): t is Task & { id: number } => typeof t.id === 'number');
+export const inferPhases = (tasks: readonly TaskMeta[]): Phase[] => {
+  const withIds = tasks.filter((t): t is TaskMeta & { id: number } => typeof t.id === 'number');
   if (withIds.length === 0) return [];
 
   const idSet = new Set(withIds.map(t => t.id));
@@ -187,7 +215,7 @@ export const inferPhases = (tasks: Task[]): Phase[] => {
  * body carries an `## Execution Blueprint` section with phase headings, otherwise
  * phases inferred from task dependencies.
  */
-export const resolvePhases = (planBody: string, tasks: Task[]): Phase[] => {
+export const resolvePhases = (planBody: string, tasks: readonly TaskMeta[]): Phase[] => {
   const fromBlueprint = parseBlueprintPhases(planBody);
   if (fromBlueprint && fromBlueprint.length > 0) {
     return fromBlueprint.map(phase => ({ ...phase, parallel: phase.taskIds.length > 1 }));

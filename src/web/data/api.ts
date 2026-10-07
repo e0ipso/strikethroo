@@ -14,9 +14,22 @@
  * event bumps the token, every mounted resource re-reads its endpoint — the
  * token is the only coupling to the SSE pipeline; this layer still owns no
  * cache and no stream.
+ *
+ * The plan list is the one resource with several simultaneous consumers (the
+ * Sidebar count plus the routed screen), so `PlansProvider` holds it once and
+ * `usePlans` reads it from context. That is a shared mounted resource, not a
+ * cache: nothing outlives the provider.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import {
+  createContext,
+  createElement,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { useRevalidationToken } from './revalidation';
 import { descriptionFor } from '../customize/descriptions';
 
@@ -165,13 +178,18 @@ export type Resource<T> =
  * A re-read that fails keeps the loaded data too and carries the error beside
  * it, so an editor mounted on the data is not unmounted by a transient read
  * failure; only the initial load moves to `error`.
+ *
+ * A `null` url fetches nothing and leaves the state as it is. It lets a hook
+ * that reads a provider-held resource keep a stable hook order when no
+ * provider is mounted.
  */
-export function useResource<T>(url: string): Resource<T> {
+export function useResource<T>(url: string | null): Resource<T> {
   const [state, setState] = useState<Resource<T>>({ status: 'loading' });
   const token = useRevalidationToken();
   const lastUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (url === null) return;
     let active = true;
     const controller = new AbortController();
 
@@ -214,9 +232,29 @@ export function useResource<T>(url: string): Resource<T> {
   return state;
 }
 
-/** Fetches the plan summary list. */
+const PlansContext = createContext<Resource<PlanSummary[]> | null>(null);
+
+/**
+ * Owns the single `/api/plans` resource for every `usePlans` beneath it, so the
+ * Sidebar and the routed screen cost one request per load and one per
+ * revalidation pass. The resource is passed through unchanged, including a
+ * failed revalidation's `error` beside the retained data. State lives in this
+ * component's `useResource`: unmounting the provider drops it, remounting
+ * fetches again, and the revalidation token stays the only refresh trigger.
+ */
+export function PlansProvider({ children }: { children: ReactNode }) {
+  const plans = useResource<PlanSummary[]>('/api/plans');
+  return createElement(PlansContext.Provider, { value: plans }, children);
+}
+
+/**
+ * The plan summary list. Reads the provider's resource when one is mounted;
+ * outside a provider (the `?gallery=1` harness) it degrades to its own fetch.
+ */
 export function usePlans(): Resource<PlanSummary[]> {
-  return useResource<PlanSummary[]>('/api/plans');
+  const shared = useContext(PlansContext);
+  const own = useResource<PlanSummary[]>(shared ? null : '/api/plans');
+  return shared ?? own;
 }
 
 /** Fetches a single plan's full detail by id. */

@@ -16,6 +16,7 @@ export default defineConfig({
       'src/__tests__/dispatch-task-execution.integration.test.ts',
       'src/__tests__/dispatch-target-selector.test.ts',
       'src/__tests__/execution-routing.test.ts',
+      'src/__tests__/executable-resolution.test.ts',
       'src/__tests__/external-dispatch.test.ts',
       'src/__tests__/harness-configuration.test.ts',
       'src/__tests__/harness-availability.test.ts',

@@ -2,15 +2,17 @@
  * Workspace data layer for `npx strikethroo serve`.
  *
  * A pure, synchronous, side-effect-free module that scans a project's
- * `.ai/strikethroo/` directory tree and returns a stable JSON model describing
- * every plan, its derived lifecycle state, tasks, inferred execution phases,
- * embedded mermaid diagrams, the archive, and the customizable hooks and
- * templates under `config/`.
+ * `.ai/strikethroo/` directory tree and returns a stable JSON model. Three
+ * reads: `getPlanSummaries` (the list — plan and task frontmatter plus the
+ * phase count), `getPlanDetail` (one plan with its sections, mermaid blocks,
+ * tasks, and phases), and `getConfig` (the customizable hooks, templates, and
+ * `config.yaml`). The summary fields of both plan reads are assembled by one
+ * function so the list can never disagree with the detail.
  *
  * This module performs reads only: no `fs.watch`, no `http`/`net`, no writes.
- * HTTP, file-watching, and caching belong to the runtime server (a later plan),
- * not here. Discovery and plan enumeration reuse the existing shared helpers
- * rather than re-walking directories.
+ * HTTP, file-watching, and caching belong to the runtime server, not here.
+ * Discovery and plan enumeration reuse the existing shared helpers rather than
+ * re-walking directories.
  */
 
 import * as fs from 'fs';
@@ -24,8 +26,18 @@ import {
   sectionBody,
   extractMermaidBlocks,
   MarkdownSection,
+  ParsedFrontmatter,
 } from './markdown';
-import { scanTasks, deriveState, resolvePhases, Task, Phase, PlanState } from './derivation';
+import {
+  scanTasks,
+  scanTaskMeta,
+  deriveState,
+  resolvePhases,
+  DerivedState,
+  Task,
+  Phase,
+  PlanState,
+} from './derivation';
 
 export type { Task, Phase, PlanState } from './derivation';
 export type { MarkdownSection, MermaidBlock, ParsedFrontmatter } from './markdown';
@@ -86,12 +98,6 @@ export interface WorkspaceConfig {
   workspace: ConfigFile | null;
 }
 
-/** The complete workspace model. */
-export interface WorkspaceModel {
-  plans: PlanSummary[];
-  config: WorkspaceConfig;
-}
-
 /** Resolves the workspace root, falling back to discovery when none is given. */
 const resolveRoot = (root?: string): string => {
   if (root) return root;
@@ -104,16 +110,51 @@ const resolveRoot = (root?: string): string => {
   return discovered;
 };
 
+/** Reads the plan file; an unreadable file reads as empty rather than throwing. */
+const readPlanFile = (entry: PlanEntry): string => {
+  try {
+    return fs.readFileSync(entry.file, 'utf8');
+  } catch {
+    return '';
+  }
+};
+
+/**
+ * Assembles the summary fields. Both plan reads go through here, so the state,
+ * the counts, and the key order cannot drift between the list and the detail.
+ */
+const toSummary = (
+  entry: PlanEntry,
+  fm: ParsedFrontmatter,
+  derived: DerivedState,
+  phaseCount: number
+): PlanSummary => ({
+  id: entry.id,
+  name: entry.name,
+  summary: fm.summary,
+  created: fm.created,
+  state: derived.state,
+  done: derived.done,
+  total: derived.total,
+  phaseCount,
+  archived: entry.isArchive,
+});
+
+/**
+ * The list read: plan frontmatter, task frontmatter, and the phase count from
+ * the shared blueprint parser (or dependency inference). No sections, no
+ * mermaid, no retained body.
+ */
+const buildSummary = (entry: PlanEntry): PlanSummary => {
+  const content = readPlanFile(entry);
+  const tasks = scanTaskMeta(entry.dir);
+  const phaseCount = resolvePhases(extractBody(content), tasks).length;
+  return toSummary(entry, parseFrontmatter(content), deriveState(tasks), phaseCount);
+};
+
 /** Builds the full detail for a single plan entry. */
 const buildDetail = (entry: PlanEntry): PlanDetail => {
-  let content = '';
-  try {
-    content = fs.readFileSync(entry.file, 'utf8');
-  } catch {
-    content = '';
-  }
-
-  const fm = parseFrontmatter(content);
+  const content = readPlanFile(entry);
   const body = extractBody(content);
   const { rawBody, sections } = sectionBody(body);
   const mermaid: ModelMermaidBlock[] = extractMermaidBlocks(body).map(b => ({
@@ -121,19 +162,10 @@ const buildDetail = (entry: PlanEntry): PlanDetail => {
     isArchitecturalApproach: b.isArchitecturalApproach,
   }));
   const tasks = scanTasks(entry.dir);
-  const { state, done, total } = deriveState(tasks);
   const phases = resolvePhases(body, tasks);
 
   return {
-    id: entry.id,
-    name: entry.name,
-    summary: fm.summary,
-    created: fm.created,
-    state,
-    done,
-    total,
-    phaseCount: phases.length,
-    archived: entry.isArchive,
+    ...toSummary(entry, parseFrontmatter(content), deriveState(tasks), phases.length),
     file: entry.file,
     dir: entry.dir,
     rawBody,
@@ -143,19 +175,6 @@ const buildDetail = (entry: PlanEntry): PlanDetail => {
     phases,
   };
 };
-
-/** Projects a detail down to its summary fields. */
-const toSummary = (detail: PlanDetail): PlanSummary => ({
-  id: detail.id,
-  name: detail.name,
-  summary: detail.summary,
-  created: detail.created,
-  state: detail.state,
-  done: detail.done,
-  total: detail.total,
-  phaseCount: detail.phaseCount,
-  archived: detail.archived,
-});
 
 /**
  * Enumerates `*.md` regular files in the config subdirectory `relDir` (relative
@@ -226,15 +245,6 @@ export const getPlanDetail = (root: string | undefined, name: string): PlanDetai
   return buildDetail(entry);
 };
 
-/**
- * Returns the complete workspace model: plan summaries for active and archived
- * plans, plus the config block.
- */
-export const getWorkspaceModel = (root?: string): WorkspaceModel => {
-  const resolved = resolveRoot(root);
-  const plans = getAllPlans(resolved).map(entry => toSummary(buildDetail(entry)));
-  return {
-    plans,
-    config: getConfig(resolved),
-  };
-};
+/** Returns the summaries of every active and archived plan, in enumeration order. */
+export const getPlanSummaries = (root?: string): PlanSummary[] =>
+  getAllPlans(resolveRoot(root)).map(buildSummary);

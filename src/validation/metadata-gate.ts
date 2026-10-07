@@ -11,11 +11,6 @@
  * first-class, protected state that the whole hash-tracking mechanism exists to
  * preserve. Reporting it would fire on every customized or profiled workspace.
  * Only deletions are reported.
- *
- * `isFileDeleted` from `src/conflict-detector.ts` is not reused: it evaluates
- * `relativePath in metadata.files`, which throws when `files` is `undefined`.
- * Any workspace initialized before the hash map was recorded is in that state,
- * so the absent-map finding short-circuits the deletion scan below.
  */
 
 import * as fs from 'fs';

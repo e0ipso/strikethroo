@@ -10,8 +10,8 @@ const { version } = createRequire(import.meta.url)('./package.json');
 
 // Application build for the Strikethroo SPA. Distinct from Dalia's library
 // build: this emits an HTML entry and static assets into dist-web/, separate
-// from the CLI's dist/. Not wired into `npm run build` (deferred to a later
-// plan).
+// from the CLI's dist/. Runs as the `build:web` step of `npm run build`, after
+// `typecheck:web` has checked the production types this transpile does not.
 export default defineConfig({
   root: 'src/web',
   base: '/',

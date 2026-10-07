@@ -10,8 +10,8 @@
 _None._
 
 ## Conventions (how we build)
-- Open [**npm run lint only covers .ts files; .tsx web files need separate type-check**](practice-npm-run-lint-only-covers-ts-files-tsx-web-files-need-separate-type-check.md) to learn about: The lint script globs src/**/*.ts only, leaving src/web/**/*.tsx outside the automated gate. #web #lint #tsx #build
 - Open [**src/web/vendor/ and dist-web/ are excluded from Prettier formatting**](practice-src-web-vendor-and-dist-web-are-excluded-from-prettier-formatting.md) to learn about: Vendored CSS under src/web/vendor/ must not be reformatted. Both src/web/vendor/ and dist-web/ are excluded via .prettierignore. #prettier #vendor #css #build
+- Open [**The required gate lints tsx and type-checks the web production code**](practice-npm-run-lint-only-covers-ts-files-tsx-web-files-need-separate-type-check.md) to learn about: npm run lint globs ts and tsx, and the web type check runs inside npm run build as typecheck:web, with the SPA suites checked by typecheck:web-tests. #web #lint #tsx #build
 
 ## Components (what exists)
 - Open [**ESLint config: eslint.config.mjs (flat config, ESLint 9)**](map-eslint-config-eslint-config-mjs-flat-config-eslint-9.md) to learn about: The active ESLint config is eslint.config.mjs (flat config, ESLint 9). A legacy .eslintrc.js at the repo root is dead cruft ignored by ESLint 9. #eslint #tooling #config
@@ -35,7 +35,7 @@ _None._
 - Open [**ESLint config: eslint.config.mjs (flat config, ESLint 9)**](map-eslint-config-eslint-config-mjs-flat-config-eslint-9.md) — The active ESLint config is eslint.config.mjs (flat config, ESLint 9). A legacy .eslintrc.js at the repo root is dead cruft ignored by ESLint 9.
 - Open [**ESLint test block must include browser globals for page.evaluate callbacks**](../testing/practice-eslint-test-block-must-include-browser-globals-for-page-evaluate-callbacks.md) — Playwright e2e tests use page.evaluate with browser globals (location, URL, document); the ESLint test block must include browserGlobals to avoid no-undef errors.
 ### #lint
-- Open [**npm run lint only covers .ts files; .tsx web files need separate type-check**](practice-npm-run-lint-only-covers-ts-files-tsx-web-files-need-separate-type-check.md) — The lint script globs src/**/*.ts only, leaving src/web/**/*.tsx outside the automated gate.
+- Open [**The required gate lints tsx and type-checks the web production code**](practice-npm-run-lint-only-covers-ts-files-tsx-web-files-need-separate-type-check.md) — npm run lint globs ts and tsx, and the web type check runs inside npm run build as typecheck:web, with the SPA suites checked by typecheck:web-tests.
 ### #prettier
 - Open [**lint-staged scopes lint/format but pre-commit still runs the full test suite**](../git/practice-lint-staged-scopes-lint-format-but-pre-commit-still-runs-the-full-test-suite.md) — lint-staged runs eslint+prettier on staged src files; the pre-commit hook still runs the full npm test suite after lint-staged completes.
 - Open [**src/web/vendor/ and dist-web/ are excluded from Prettier formatting**](practice-src-web-vendor-and-dist-web-are-excluded-from-prettier-formatting.md) — Vendored CSS under src/web/vendor/ must not be reformatted. Both src/web/vendor/ and dist-web/ are excluded via .prettierignore.
@@ -44,7 +44,7 @@ _None._
 - Open [**lint-staged scopes lint/format but pre-commit still runs the full test suite**](../git/practice-lint-staged-scopes-lint-format-but-pre-commit-still-runs-the-full-test-suite.md) — lint-staged runs eslint+prettier on staged src files; the pre-commit hook still runs the full npm test suite after lint-staged completes.
 - Open [**Hot-reload dev loop requires three concurrent processes**](../dev/practice-hot-reload-dev-loop-requires-three-concurrent-processes.md) — Backend: ts-node via node --watch. Frontend: Vite at localhost:5173 with /api/* proxied to localhost:4317. No dist/ involvement.
 ### #tsx
-- Open [**npm run lint only covers .ts files; .tsx web files need separate type-check**](practice-npm-run-lint-only-covers-ts-files-tsx-web-files-need-separate-type-check.md) — The lint script globs src/**/*.ts only, leaving src/web/**/*.tsx outside the automated gate.
+- Open [**The required gate lints tsx and type-checks the web production code**](practice-npm-run-lint-only-covers-ts-files-tsx-web-files-need-separate-type-check.md) — npm run lint globs ts and tsx, and the web type check runs inside npm run build as typecheck:web, with the SPA suites checked by typecheck:web-tests.
 ### #vendor
 - Open [**SPA vendor styles: five retained CSS files under src/web/vendor/styles/**](../web/styling/map-spa-vendor-styles-five-retained-css-files-under-src-web-vendor-styles.md) — After the Plan 102 Tailwind migration, the CSS foundation is exactly five files: index.css, fonts.css, tokens.css, base.css, mermaid.css. All component/screen CSS deleted.
 - Open [**src/web/vendor/ and dist-web/ are excluded from Prettier formatting**](practice-src-web-vendor-and-dist-web-are-excluded-from-prettier-formatting.md) — Vendored CSS under src/web/vendor/ must not be reformatted. Both src/web/vendor/ and dist-web/ are excluded via .prettierignore.

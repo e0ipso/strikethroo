@@ -74,7 +74,7 @@ Those controls once answered which findings could be applied to working code wit
 
 The reviewed scope is a two-dot `git diff <base>` from the commit recorded before phase execution against the working tree, never `base...HEAD`. The gate must see uncommitted post-execution cleanup, which `base...HEAD` would miss.
 
-The scope includes untracked, unignored files through synthesized add-diffs. It excludes paths marked `linguist-generated=true` or `linguist-vendored=true` in `.gitattributes`. The reviewer sees authored source, not generated skill bundles, the release mirror, or vendored schemas.
+The scope includes untracked, unignored files through synthesized add-diffs. It excludes paths `.gitattributes` marks generated or vendored, resolved through `git check-attr`: a path is excluded for any attribute value other than `unspecified`, `unset`, or `false`, so the bare `out/* linguist-generated` form and `=true` behave identically while `-linguist-generated` and `=false` stay in scope. The reviewer sees authored source, not generated skill bundles, the release mirror, or vendored schemas.
 
 ## Reviewer invocation uses local harness configuration
 

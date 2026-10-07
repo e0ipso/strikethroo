@@ -11,6 +11,7 @@ _None._
 
 ## Conventions (how we build)
 - Open [**Set suppressErrorRendering: true in mermaid initialization**](practice-set-suppresserrorrendering-true-in-mermaid-initialization.md) to learn about: Without this flag, mermaid v11 injects an orphaned error SVG into <body> on parse failure even when the caller catches the error. #mermaid #spa #rendering #error-handling
+- Open [**markdown.ts needs a private DOMPurify instance or mermaid loses every SVG attribute**](practice-markdown-policy-needs-its-own-dompurify-instance.md) to learn about: markdown.ts registers its sanitize hooks on a private DOMPurify instance; on the shared default they also apply to mermaid's strict-mode SVG pass and blank the Graph tab. #web #rendering #mermaid #dompurify #sanitization #gotcha
 - Open [**Reuse shared SPA prose-rendering components across all markdown-rendering screens**](practice-reuse-shared-spa-prose-rendering-components-across-all-markdown-rendering-screens.md) to learn about: The project has a standing code-reuse mandate: all markdown-rendering screens must use the shared Section/ReaderProse renderer. #web #spa #components #reuse #architecture
 
 ## Components (what exists)
@@ -18,6 +19,10 @@ _None._
 
 ## By topic
 
+### #mermaid
+- Open [**Set suppressErrorRendering: true in mermaid initialization**](practice-set-suppresserrorrendering-true-in-mermaid-initialization.md) — Without this flag, mermaid v11 injects an orphaned error SVG into <body> on parse failure even when the caller catches the error.
+- Open [**MermaidError.tsx — shared mermaid render-error component**](map-mermaiderror-tsx-shared-mermaid-render-error-component.md) — src/web/plans/detail/MermaidError.tsx renders a Lucide Frown icon with a collapsed Details disclosure for the verbatim parse error.
+- Open [**markdown.ts needs a private DOMPurify instance or mermaid loses every SVG attribute**](practice-markdown-policy-needs-its-own-dompurify-instance.md) — markdown.ts registers its sanitize hooks on a private DOMPurify instance; on the shared default they also apply to mermaid's strict-mode SVG pass and blank the Graph tab.
 ### #spa
 - Open [**Plan Detail: blueprint markdown section is distinct from the tasks-frontmatter Tasks tab**](../../serve/practice-plan-detail-blueprint-markdown-vs-tasks-frontmatter.md) — Four data sources feed the Plan Detail tabs; the blueprint prose and tasks-frontmatter rendering must not be conflated
 - Open [**serve UI PRD and tickets live under .ai/strikethroo/scratch/ui/**](../../serve/map-serve-ui-prd-and-tickets-live-under-ai-strikethroo-scratch-ui.md) — The PRD and 13 dependency-ordered tickets for the serve SPA feature are in .ai/strikethroo/scratch/ui/, not in the formal plans/ flow.
@@ -30,18 +35,24 @@ _None._
 - Open [**MermaidError.tsx — shared mermaid render-error component**](map-mermaiderror-tsx-shared-mermaid-render-error-component.md) — src/web/plans/detail/MermaidError.tsx renders a Lucide Frown icon with a collapsed Details disclosure for the verbatim parse error.
 - Open [**Set suppressErrorRendering: true in mermaid initialization**](practice-set-suppresserrorrendering-true-in-mermaid-initialization.md) — Without this flag, mermaid v11 injects an orphaned error SVG into <body> on parse failure even when the caller catches the error.
 - Open [**Serve layer uses discriminated-union result types for guarded operations**](../../serve/practice-serve-layer-uses-discriminated-union-result-types-not-custom-error-classes.md) — Archive, config-write, and self-review operations return typed result unions; route handlers map their variants to HTTP responses.
-### #mermaid
-- Open [**MermaidError.tsx — shared mermaid render-error component**](map-mermaiderror-tsx-shared-mermaid-render-error-component.md) — src/web/plans/detail/MermaidError.tsx renders a Lucide Frown icon with a collapsed Details disclosure for the verbatim parse error.
-- Open [**Set suppressErrorRendering: true in mermaid initialization**](practice-set-suppresserrorrendering-true-in-mermaid-initialization.md) — Without this flag, mermaid v11 injects an orphaned error SVG into <body> on parse failure even when the caller catches the error.
-### #architecture
-- Open [**Serve layer uses discriminated-union result types for guarded operations**](../../serve/practice-serve-layer-uses-discriminated-union-result-types-not-custom-error-classes.md) — Archive, config-write, and self-review operations return typed result unions; route handlers map their variants to HTTP responses.
-- Open [**CLI exposes five thin commands and no plan-management surface**](../../skills/map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md) — src/cli.ts registers init, update, export profile, serve, and validate; there are no visualization/management (status, plan) commands.
-- Open [**Serve SPA has two sanctioned workspace mutations; self-review writes nothing**](../../serve/practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files.md) — Archive moves done plans into archive/. Config writes overwrite one existing allowlisted file. Self-review spawns a process but writes no files.
 ### #rendering
 - Open [**Set suppressErrorRendering: true in mermaid initialization**](practice-set-suppresserrorrendering-true-in-mermaid-initialization.md) — Without this flag, mermaid v11 injects an orphaned error SVG into <body> on parse failure even when the caller catches the error.
-### #reuse
-- Open [**Reuse shared SPA prose-rendering components across all markdown-rendering screens**](practice-reuse-shared-spa-prose-rendering-components-across-all-markdown-rendering-screens.md) — The project has a standing code-reuse mandate: all markdown-rendering screens must use the shared Section/ReaderProse renderer.
+- Open [**markdown.ts needs a private DOMPurify instance or mermaid loses every SVG attribute**](practice-markdown-policy-needs-its-own-dompurify-instance.md) — markdown.ts registers its sanitize hooks on a private DOMPurify instance; on the shared default they also apply to mermaid's strict-mode SVG pass and blank the Graph tab.
 ### #web
 - Open [**Serve SPA has two sanctioned workspace mutations; self-review writes nothing**](../../serve/practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files.md) — Archive moves done plans into archive/. Config writes overwrite one existing allowlisted file. Self-review spawns a process but writes no files.
 - Open [**Plan Detail: blueprint markdown section is distinct from the tasks-frontmatter Tasks tab**](../../serve/practice-plan-detail-blueprint-markdown-vs-tasks-frontmatter.md) — Four data sources feed the Plan Detail tabs; the blueprint prose and tasks-frontmatter rendering must not be conflated
 - Open [**serve UI PRD and tickets live under .ai/strikethroo/scratch/ui/**](../../serve/map-serve-ui-prd-and-tickets-live-under-ai-strikethroo-scratch-ui.md) — The PRD and 13 dependency-ordered tickets for the serve SPA feature are in .ai/strikethroo/scratch/ui/, not in the formal plans/ flow.
+### #architecture
+- Open [**Serve layer uses discriminated-union result types for guarded operations**](../../serve/practice-serve-layer-uses-discriminated-union-result-types-not-custom-error-classes.md) — Archive, config-write, and self-review operations return typed result unions; route handlers map their variants to HTTP responses.
+- Open [**CLI exposes five thin commands and no plan-management surface**](../../skills/map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md) — src/cli.ts registers init, update, export profile, serve, and validate; there are no visualization/management (status, plan) commands.
+- Open [**Serve SPA has two sanctioned workspace mutations; self-review writes nothing**](../../serve/practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files.md) — Archive moves done plans into archive/. Config writes overwrite one existing allowlisted file. Self-review spawns a process but writes no files.
+### #dompurify
+- Open [**markdown.ts needs a private DOMPurify instance or mermaid loses every SVG attribute**](practice-markdown-policy-needs-its-own-dompurify-instance.md) — markdown.ts registers its sanitize hooks on a private DOMPurify instance; on the shared default they also apply to mermaid's strict-mode SVG pass and blank the Graph tab.
+### #gotcha
+- Open [**Add every new test file to the manual include list in vitest.config.ts**](../../testing/practice-add-every-new-test-file-to-the-manual-include-list-in-vitest-config-ts.md) — vitest.config.ts enumerates test files explicitly rather than by glob, so an unlisted new test file is never collected and silently never runs.
+- Open [**Use resolveWorkspaceRoot, not findStrikethrooRoot, outside skill bundles**](../../skills/practice-use-resolveworkspaceroot-not-findstrikethrooroot-outside-skill-bundles.md) — findStrikethrooRoot calls process.exit(1) on schema-version skew; resolveWorkspaceRoot returns a typed result and never exits.
+- Open [**markdown.ts needs a private DOMPurify instance or mermaid loses every SVG attribute**](practice-markdown-policy-needs-its-own-dompurify-instance.md) — markdown.ts registers its sanitize hooks on a private DOMPurify instance; on the shared default they also apply to mermaid's strict-mode SVG pass and blank the Graph tab.
+### #reuse
+- Open [**Reuse shared SPA prose-rendering components across all markdown-rendering screens**](practice-reuse-shared-spa-prose-rendering-components-across-all-markdown-rendering-screens.md) — The project has a standing code-reuse mandate: all markdown-rendering screens must use the shared Section/ReaderProse renderer.
+### #sanitization
+- Open [**markdown.ts needs a private DOMPurify instance or mermaid loses every SVG attribute**](practice-markdown-policy-needs-its-own-dompurify-instance.md) — markdown.ts registers its sanitize hooks on a private DOMPurify instance; on the shared default they also apply to mermaid's strict-mode SVG pass and blank the Graph tab.

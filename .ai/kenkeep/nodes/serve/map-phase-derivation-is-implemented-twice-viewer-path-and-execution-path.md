@@ -1,10 +1,10 @@
 ---
 type: map
-title: Phase derivation is implemented twice — viewer path and execution path
+title: One blueprint parser serves the viewer, the validator, and execution
 description: >-
-  src/serve/derivation.ts serves the read-only viewer;
-  src/skill-scripts/shared/blueprint-parse.ts serves execution. A change to one
-  does not reach the other.
+  parseBlueprintPhases lives once in src/skill-scripts/shared/blueprint-parse.ts
+  and serves the viewer, the validator, and execution. Only inferPhases, the
+  no-blueprint fallback, is viewer-only.
 tags:
   - blueprint
   - phase
@@ -21,13 +21,11 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-Phase structure is computed by two independent implementations with different inputs and different consumers.
+One `parseBlueprintPhases` reads the author-written `## Execution Blueprint` section, in `src/skill-scripts/shared/blueprint-parse.ts`. Three consumers share it: `resolvePhases` in `src/serve/derivation.ts` for the viewer, `graph-checks.ts` for `strikethroo validate`, and `check-phase-readiness.ts` for execution. It returns `BlueprintPhase` (`index`, optional `name`, `taskIds`); the viewer maps that to its own `Phase` by adding the presentational `parallel` flag. `src/serve/derivation.ts` does **not** export a parser, so a change to phase semantics reaches every consumer at once.
 
-The viewer path lives in `src/serve/derivation.ts`. `resolvePhases` (`:252`) prefers the author-written blueprint via that file's own `parseBlueprintPhases` (`:163`) and falls back to `inferPhases` (`:217`), which derives phases from task `dependencies`. Its only caller chain is `resolvePhases` → `buildDetail` (`src/serve/workspace-model.ts`), i.e. the read-only viewer. Because the blueprint wins when one exists, `inferPhases` is reachable only for plans that have tasks but no blueprint — plans that are not yet executable. Its behaviour on a dependency cycle is to absorb the cycle into one mega-phase, which is a wrong *display*, not wrong execution.
+What remains viewer-only is `inferPhases` in `src/serve/derivation.ts`, the fallback `resolvePhases` uses when a plan has tasks but no authored blueprint — a plan that is not yet executable. Its behaviour on a dependency cycle is to absorb the cycle into one phase, which is a wrong *display*, not wrong execution. Execution never infers phases from `dependencies`.
 
-The execution path uses a separate `parseBlueprintPhases` in `src/skill-scripts/shared/blueprint-parse.ts:11`, consumed by `src/skill-scripts/check-phase-readiness.ts`. It reads the author-written `## Execution Blueprint` section and never infers phases from `dependencies`.
-
-The two blueprint parsers are near-identical and are a standing duplication. A change to phase semantics that touches only one of them changes only the viewer or only execution, never both.
+The import direction is fixed: `src/serve/` and `src/validation/` may import `src/skill-scripts/shared/`, never the reverse, because the skill entrypoints are bundled whole by esbuild. `blueprint-parse` is consequently part of the `dist/skill-scripts/shared/` closure.
 
 <!-- kk:related:start -->
 # Related

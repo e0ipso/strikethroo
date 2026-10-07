@@ -1,16 +1,16 @@
 ---
 type: map
-title: parseBlueprintPhases slices blueprint section to end-of-document
+title: The blueprint parser is bounded to its own section
 description: >-
-  The blueprint parser slices from ## Execution Blueprint to EOF, so an appended
-  ## Execution Summary with Task NN bullets is miscounted as task references in
-  the last phase.
+  parseBlueprintPhases reads from ## Execution Blueprint only as far as the next
+  peer ## heading, so an appended ## Execution Summary cannot contribute task
+  references to the last phase.
 tags:
   - serve
   - blueprint
   - parser
   - derivation
-  - gotcha
+  - parser-contract
 kk_schema_version: 3
 kk_id: map-parseblueprintphases-slices-blueprint-section-to-end-of-document
 kk_derived_from: []
@@ -19,11 +19,11 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-`parseBlueprintPhases` in `src/serve/derivation.ts` extracts the blueprint region by slicing from the `## Execution Blueprint` heading to **end of document**. It does not stop at the next `##` heading. Within that slice, each `### Phase` segment ends at the next phase heading, while the final phase ends at the slice boundary.
+`parseBlueprintPhases` in `src/skill-scripts/shared/blueprint-parse.ts` extracts the blueprint region from the `## Execution Blueprint` heading up to the next **peer** `##` heading, or to end of document when none follows. `###` subsections stay inside, so a blueprint may carry its own `### Post-phase Actions` and `### Execution Summary`. Within the region each `### Phase` segment ends at the next phase heading.
 
-This means content appended after the blueprint, most notably `## Execution Summary`, falls inside the final phase's parse region. Any bulleted line matching `TASK_REF_RE` in that later content is treated as a task reference and inflates the phase's task count.
+The boundary is what makes the region stable as a plan grows. `st-execute-blueprint` appends an `## Execution Summary` section after execution, and that section ends the blueprint rather than joining the last phase, so a bulleted line there matching `TASK_REF_RE` is not read as a task reference.
 
-The symptom is a mismatch between the number of task files on disk and the count displayed in the Plan Detail rail, for example four task files but five rail tasks. The parser must bound the blueprint slice at the next `##` heading to remove this failure mode.
+The failure this prevents is a silent one: an inflated phase would disagree with the task files on disk, and both the Plan Detail rail and `check-phase-readiness` would report the phantom task. Keep the peer-heading bound when editing the region logic, and keep the fixture that appends a summary carrying `Task NN` bullets.
 
 <!-- kk:related:start -->
 # Related

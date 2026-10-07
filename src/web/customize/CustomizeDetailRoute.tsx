@@ -32,8 +32,10 @@ import { MarkdownEditor } from './MarkdownEditor';
 import { DiskConflictBanner, RefreshErrorBanner } from './DiskConflictBanner';
 import {
   acknowledgeDisk,
+  beginSave,
   commitSave,
   draftFlags,
+  failSave,
   loadDisk,
   observeDisk,
   seedDraft,
@@ -114,12 +116,14 @@ function LoadedEditor({
 
   const onSave = useCallback(async () => {
     const submitted = editor.draft;
+    setEditor(prev => beginSave(prev, identity(submitted)));
     setSave({ phase: 'saving' });
     try {
       await saveConfigFile(kind, file.id, submitted);
       setEditor(prev => commitSave(prev, diskText(submitted)));
       setSave({ phase: 'saved' });
     } catch (err) {
+      setEditor(failSave);
       setSave({ phase: 'error', message: err instanceof Error ? err.message : String(err) });
     }
   }, [kind, file.id, editor.draft]);
@@ -181,9 +185,9 @@ function LoadedEditor({
         }
       />
       {readError && <RefreshErrorBanner error={readError} />}
-      {/* While a save is in flight its own write may be observed before the
-          response lands; the banner waits for the outcome. */}
-      {conflictVisible && !saving && (
+      {/* `conflictVisible` is already false while a save is pending (see
+          draftState.ts): the disk may hold that save's own write. */}
+      {conflictVisible && (
         <DiskConflictBanner
           fileLabel={file.relPath}
           canLoad

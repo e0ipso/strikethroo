@@ -30,8 +30,10 @@ import { SUPPORTED_HARNESSES, type Harness } from '../../types';
 import { DiskConflictBanner, RefreshErrorBanner } from './DiskConflictBanner';
 import {
   acknowledgeDisk,
+  beginSave,
   commitSave,
   draftFlags,
+  failSave,
   loadDisk,
   observeDisk,
   seedDraft,
@@ -405,12 +407,14 @@ function ConfigForm({ file, readError }: { file: ConfigFile; readError?: Error }
     if (!state || !flags?.dirty || errors.length > 0 || saving) return;
     const submittedDraft = state.draft;
     const submitted = keyOf(submittedDraft);
+    setState(prev => prev && beginSave(prev, submitted));
     setSave({ phase: 'saving' });
     try {
       await saveConfigFile('workspace', file.id, submitted);
       setState(prev => prev && commitSave(prev, { key: submitted, adopt: () => submittedDraft }));
       setSave({ phase: 'saved' });
     } catch (err) {
+      setState(prev => prev && failSave(prev));
       setSave({ phase: 'error', message: err instanceof Error ? err.message : String(err) });
     }
   }, [state, flags?.dirty, errors.length, saving, file.id]);
@@ -449,9 +453,9 @@ function ConfigForm({ file, readError }: { file: ConfigFile; readError?: Error }
   return (
     <>
       {readError && <RefreshErrorBanner error={readError} />}
-      {/* While a save is in flight its own write may be observed before the
-          response lands; the banner waits for the outcome. */}
-      {conflictVisible && !saving && (
+      {/* `conflictVisible` is already false while a save is pending (see
+          draftState.ts): the disk may hold that save's own write. */}
+      {conflictVisible && (
         <DiskConflictBanner
           fileLabel={file.relPath}
           canLoad={state.disk !== null}

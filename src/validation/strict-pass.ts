@@ -54,6 +54,9 @@ const KEY_LINE_RE = /^([A-Za-z_][A-Za-z0-9_-]*)[ \t]*:(.*)$/;
 /** A dashed list item belonging to the key above it. */
 const DASH_ITEM_RE = /^[ \t]*-[ \t]+(.*)$/;
 
+/** What may follow a quoted scalar's closing quote: nothing, or a whitespace-led comment. */
+const QUOTED_SUFFIX_RE = /^(?:[ \t]+#.*)?$/;
+
 const INTEGER_RE = /^-?\d+$/;
 const NON_NEGATIVE_INTEGER_RE = /^\d+$/;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -103,17 +106,20 @@ const quotedScalarEnd = (value: string, quote: string): number => {
 
 /**
  * Drops a trailing YAML comment. A quoted scalar is consumed to its closing
- * quote and everything after it discarded, so `"a # b"` keeps its `#` and
- * `"completed"  # done` loses its comment; an unterminated quote is returned
- * whole and stays malformed, which it is. The quotes themselves are left on, so
- * `bareText` remains the one composition point and `stripQuotes` runs once.
+ * quote, so `"a # b"` keeps its `#` and `"completed"  # done` loses its
+ * comment. Only a whitespace-led comment may follow the closing quote: any
+ * other suffix (`"completed" garbage`, `"completed"# done`) is malformed YAML
+ * and is returned whole so the pass reports it, as is an unterminated quote.
+ * The quotes themselves are left on, so `bareText` remains the one composition
+ * point and `stripQuotes` runs once.
  */
 const stripComment = (value: string): string => {
   const trimmed = value.trim();
   const quote = trimmed[0];
   if (quote === '"' || quote === "'") {
     const end = quotedScalarEnd(trimmed, quote);
-    return end === -1 ? trimmed : trimmed.slice(0, end);
+    if (end === -1 || !QUOTED_SUFFIX_RE.test(trimmed.slice(end))) return trimmed;
+    return trimmed.slice(0, end);
   }
   const hashIndex = trimmed.indexOf('#');
   return hashIndex === -1 ? trimmed : trimmed.slice(0, hashIndex).trim();

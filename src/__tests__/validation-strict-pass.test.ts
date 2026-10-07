@@ -130,7 +130,9 @@ describe('strict frontmatter pass', () => {
    * row's plan carries `summary: "a # b"`, so a quoted scalar whose value
    * legitimately contains `#` is asserted clean throughout; the `status` rows
    * prove the `#` actually survives into the value, since a malformed-value
-   * message is the only place the pass echoes what it read.
+   * message is the only place the pass echoes what it read. After a closing
+   * quote only whitespace and a whitespace-led `#` comment may follow; any
+   * other suffix is malformed YAML and must be reported, not discarded.
    */
   it('separates a trailing comment from a value, in every written form', () => {
     const commentedTask = [
@@ -167,6 +169,23 @@ describe('strict frontmatter pass', () => {
       {
         label: 'an unterminated quote',
         frontmatter: VALID_TASK.replace('"pending"', '"pending'),
+        checks: ['task/status-invalid'],
+      },
+      {
+        label: 'a quoted value followed by text that is not a comment',
+        frontmatter: VALID_TASK.replace('"pending"', '"completed" garbage'),
+        checks: ['task/status-invalid'],
+        messageContains: '`"completed" garbage`',
+      },
+      {
+        label: 'a single-quoted value followed by text, then a comment',
+        frontmatter: VALID_TASK.replace('"pending"', "'completed' x # c"),
+        checks: ['task/status-invalid'],
+        messageContains: "'completed' x",
+      },
+      {
+        label: 'a comment glued to the closing quote',
+        frontmatter: VALID_TASK.replace('"pending"', '"completed"# done'),
         checks: ['task/status-invalid'],
       },
       {

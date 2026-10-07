@@ -936,6 +936,25 @@ describe('task metadata reader', () => {
         markdown: doc('status: pending\ndependencies:'),
         reason: 'dependencies must be a list of integer task ids; got null',
       },
+      // A self-referencing alias parses as a cyclic value. The preview must
+      // describe it, not throw out of a reader that promises never to.
+      {
+        name: 'dependencies as a self-referencing alias',
+        markdown: doc('status: pending\ndependencies: &d [*d]'),
+        reason: 'dependencies must be a list of integer task ids; got ["[Circular]"]',
+      },
+      {
+        name: 'status as a self-referencing alias',
+        markdown: doc('status: &s [*s]\ndependencies: []'),
+        reason: 'status ["[Circular]"] is not one of',
+      },
+      // A shared alias is the same reference twice, not a cycle; the preview
+      // must print both copies.
+      {
+        name: 'dependencies sharing one non-cyclic alias',
+        markdown: doc('status: pending\ndependencies: [&a {x: 1}, *a]'),
+        reason: 'dependencies must be a list of integer task ids; got [{"x":1},{"x":1}]',
+      },
     ];
     for (const c of cases) {
       const result = readTaskMetadata(c.markdown);
@@ -961,6 +980,8 @@ describe('task metadata reader', () => {
       write('08--no-status.md', doc('id: 8\ndependencies: []'));
       write('09--ask.md', doc('status: "needs-clarification" # ask first\ndependencies: [1]'));
       write('10--tagged.md', '---js\nstatus: pending\n---\n');
+      write('12--cyclic-deps.md', doc('status: pending\ndependencies: &d [*d]'));
+      write('13--waits-on-cyclic.md', doc('status: pending\ndependencies: [12]'));
 
       expect(collectTaskReadinessIssues(planDir, 2)).toEqual([]);
       expect(collectTaskReadinessIssues(planDir, '03')).toEqual([]);
@@ -1012,6 +1033,21 @@ describe('task metadata reader', () => {
       ]);
       expect(collectTaskReadinessIssues(planDir, 11)).toEqual([
         { taskId: '11', kind: 'missing', detail: 'task file not found' },
+      ]);
+      expect(collectTaskReadinessIssues(planDir, 12)).toEqual([
+        {
+          taskId: '12',
+          kind: 'invalid-metadata',
+          detail: 'dependencies must be a list of integer task ids; got ["[Circular]"]',
+        },
+      ]);
+      expect(collectTaskReadinessIssues(planDir, 13)).toEqual([
+        {
+          taskId: '13',
+          kind: 'unresolved-dependency',
+          detail:
+            'dependency 12 has invalid metadata: dependencies must be a list of integer task ids; got ["[Circular]"]',
+        },
       ]);
     } finally {
       fs.rmSync(planDir, { recursive: true, force: true });

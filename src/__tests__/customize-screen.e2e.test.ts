@@ -515,6 +515,60 @@ test.describe('Customize section (Playwright, fixture)', () => {
     return release;
   };
 
+  /**
+   * Holds every PUT to `pathname` twice: before it reaches the server
+   * (`sendRequest`) and before its response reaches the page
+   * (`deliverResponse`). Between the two the server has written the file, so
+   * the live revalidation can observe the save's own write while the page
+   * still has the save in flight. Other methods pass through untouched.
+   */
+  const holdSaveTwice = async (
+    page: Page,
+    pathname: string
+  ): Promise<{ sendRequest: () => void; deliverResponse: () => void }> => {
+    let sendRequest: () => void = () => {};
+    let deliverResponse: () => void = () => {};
+    const requestHeld = new Promise<void>(resolve => {
+      sendRequest = resolve;
+    });
+    const responseHeld = new Promise<void>(resolve => {
+      deliverResponse = resolve;
+    });
+    await page.route(
+      url => new URL(url).pathname === pathname,
+      async route => {
+        if (route.request().method() !== 'PUT') {
+          await route.continue();
+          return;
+        }
+        await requestHeld;
+        const response = await route.fetch();
+        await responseHeld;
+        await route.fulfill({ response });
+      }
+    );
+    return { sendRequest, deliverResponse };
+  };
+
+  /**
+   * Resolves once the next `/api/config` re-read has arrived and React has had
+   * two frames to fold it in. Start it before the write it waits for. The pass
+   * counter bumps when a pass starts, before its read lands, so it cannot
+   * stand in for this.
+   */
+  const configReread = async (page: Page): Promise<void> => {
+    await page.waitForResponse(
+      response =>
+        new URL(response.url()).pathname === '/api/config' && response.request().method() === 'GET'
+    );
+    await page.evaluate(
+      () =>
+        new Promise<void>(resolve =>
+          window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()))
+        )
+    );
+  };
+
   // POST_PLAN is five lines in the fixture, so CodeMirror renders the whole
   // document and `.cm-content` text assertions see every line.
   const SHORT_HOOK = 'POST_PLAN';
@@ -765,6 +819,116 @@ test.describe('Customize section (Playwright, fixture)', () => {
     await page.getByRole('button', { name: 'Save configuration' }).click();
     await expect(status).toContainText('Saved');
     expect(fs.readFileSync(configPath, 'utf8')).toContain('select-target.cjs');
+  });
+
+  test("Markdown editor: a revert typed during a save survives the save's own write being observed before its response", async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
+    const hookPath = path.join(root, 'config', 'hooks', `${SHORT_HOOK}.md`);
+    const seed = hookVersion('seed version');
+    fs.writeFileSync(hookPath, seed, 'utf8');
+    const { sendRequest, deliverResponse } = await holdSaveTwice(
+      page,
+      `/api/config/hooks/${SHORT_HOOK}`
+    );
+
+    await page.goto(`${handle.url}/customize/hooks/${SHORT_HOOK}`, {
+      waitUntil: 'domcontentloaded',
+    });
+    await page.waitForSelector('.cm-editor');
+    const content = page.locator('.cm-editor .cm-content');
+    const actions = page.getByTestId('chrome-actions');
+    const marker = 'marker A';
+
+    await appendToEditor(page, marker);
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(actions).toContainText('saving');
+
+    // While the request is held the user deletes the marker again, so the
+    // draft equals the old baseline and reads clean against it.
+    await content.click();
+    await page.keyboard.press('Control+End');
+    for (let i = 0; i < marker.length; i++) await page.keyboard.press('Backspace');
+    await expect(content).not.toContainText(marker);
+
+    // The server writes the submission and the live revalidation observes it
+    // while the response is still held. The revert must not be adopted over.
+    const reread = configReread(page);
+    sendRequest();
+    await reread;
+    expect(fs.readFileSync(hookPath, 'utf8')).toContain(marker);
+    await expect(content).not.toContainText(marker);
+    await expect(actions).toContainText('saving');
+
+    // The response lands: the submission is the baseline now, so the revert
+    // is an unsaved edit rather than a clean editor.
+    deliverResponse();
+    await expect(actions).toContainText('unsaved changes');
+    await expect(content).not.toContainText(marker);
+    await expect(page.getByTestId('config-disk-conflict')).toHaveCount(0);
+
+    // Saving again persists the revert.
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(actions).toContainText('saved');
+    expect(fs.readFileSync(hookPath, 'utf8')).toBe(seed);
+  });
+
+  test("Config tab: a form edit reverted during a save survives the save's own write being observed before its response", async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(15_000);
+    const configPath = path.join(root, 'config', 'config.yaml');
+    fs.writeFileSync(
+      configPath,
+      'execution_routing:\n' +
+        '  enabled: true\n' +
+        '  profiles:\n' +
+        '    routine:\n' +
+        '      description: Localized work.\n' +
+        '      models:\n' +
+        '        - model: model-one\n',
+      'utf8'
+    );
+    const { sendRequest, deliverResponse } = await holdSaveTwice(
+      page,
+      '/api/config/workspace/config'
+    );
+
+    await page.goto(`${handle.url}/customize`, { waitUntil: 'domcontentloaded' });
+    await page.getByTestId('config-card').first().waitFor();
+    await page.getByRole('tab').nth(2).click();
+    await page.getByTestId('workspace-config-form').waitFor();
+
+    const description = page.getByTestId('routing-profile-description');
+    const status = page.getByTestId('workspace-config-status');
+    await expect(description).toHaveValue('Localized work.');
+
+    await description.fill('Submitted description.');
+    await page.getByRole('button', { name: 'Save configuration' }).click();
+    await expect(status).toContainText('Saving');
+
+    // Reverted while the request is held: the form serializes to the old
+    // baseline again.
+    await description.fill('Localized work.');
+
+    const reread = configReread(page);
+    sendRequest();
+    await reread;
+    expect(fs.readFileSync(configPath, 'utf8')).toContain('Submitted description.');
+    await expect(description).toHaveValue('Localized work.');
+    await expect(status).toContainText('Saving');
+
+    deliverResponse();
+    await expect(status).toContainText('Unsaved changes');
+    await expect(description).toHaveValue('Localized work.');
+    await expect(page.getByTestId('config-disk-conflict')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Save configuration' }).click();
+    await expect(status).toContainText('Saved');
+    const onDisk = fs.readFileSync(configPath, 'utf8');
+    expect(onDisk).toContain('description: Localized work.');
+    expect(onDisk).not.toContain('Submitted description.');
   });
 
   test('an unknown config id renders the designed not-found surface', async ({ page }) => {

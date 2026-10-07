@@ -60,10 +60,33 @@ export type TaskMetadataResult =
 
 const MAX_VALUE_PREVIEW = 80;
 
-/** JSON preview of an offending value, bounded so a reason stays one line. */
+/**
+ * `JSON.stringify` replacer that prints a value already on its own ancestor
+ * path as `"[Circular]"`. A YAML alias can reference its enclosing node
+ * (`&d [*d]`), which the plain call throws on. The ancestor path, not a seen
+ * set, is what keeps a shared alias (`[&a {x: 1}, *a]`) printing both copies.
+ */
+const circularReplacer = (): ((this: unknown, key: string, value: unknown) => unknown) => {
+  const ancestors: unknown[] = [];
+  return function (this: unknown, _key: string, value: unknown): unknown {
+    if (typeof value !== 'object' || value === null) return value;
+    while (ancestors.length > 0 && ancestors[ancestors.length - 1] !== this) ancestors.pop();
+    if (ancestors.includes(value)) return '[Circular]';
+    ancestors.push(value);
+    return value;
+  };
+};
+
+/** JSON preview of an offending value, bounded so a reason stays one line. Never throws. */
 const describeValue = (value: unknown): string => {
-  const json = JSON.stringify(value) ?? String(value);
-  return json.length > MAX_VALUE_PREVIEW ? `${json.slice(0, MAX_VALUE_PREVIEW)}…` : json;
+  let json: string | undefined;
+  try {
+    json = JSON.stringify(value, circularReplacer());
+  } catch {
+    json = undefined;
+  }
+  const text = json ?? String(value);
+  return text.length > MAX_VALUE_PREVIEW ? `${text.slice(0, MAX_VALUE_PREVIEW)}…` : text;
 };
 
 const isTaskStatus = (value: unknown): value is TaskStatus =>

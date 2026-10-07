@@ -47,6 +47,7 @@ export default defineConfig({
       'src/web/__tests__/router.test.ts',
       'src/web/archive/__tests__/helpers.test.tsx',
       'src/web/customize/__tests__/configYaml.test.ts',
+      'src/web/customize/__tests__/draftState.test.ts',
       'src/web/data/__tests__/api-mutations.test.ts',
       'src/web/components/__tests__/railCollapse.test.ts',
       'src/web/plans/__tests__/derive.test.ts',

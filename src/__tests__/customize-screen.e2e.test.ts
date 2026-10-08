@@ -551,15 +551,19 @@ test.describe('Customize section (Playwright, fixture)', () => {
   };
 
   /**
-   * Resolves once the next `/api/config` re-read has arrived and React has had
-   * two frames to fold it in. Start it before the write it waits for. The pass
+   * Resolves once an `/api/config` re-read containing `observed` has arrived
+   * and React has had two frames to fold it in. Start it before the write it
+   * waits for. Matching on content matters: a pass already in flight when the
+   * write starts would otherwise satisfy the wait with the old file. The pass
    * counter bumps when a pass starts, before its read lands, so it cannot
    * stand in for this.
    */
-  const configReread = async (page: Page): Promise<void> => {
+  const configReread = async (page: Page, observed: string): Promise<void> => {
     await page.waitForResponse(
-      response =>
-        new URL(response.url()).pathname === '/api/config' && response.request().method() === 'GET'
+      async response =>
+        new URL(response.url()).pathname === '/api/config' &&
+        response.request().method() === 'GET' &&
+        (await response.text()).includes(observed)
     );
     await page.evaluate(
       () =>
@@ -854,7 +858,7 @@ test.describe('Customize section (Playwright, fixture)', () => {
 
     // The server writes the submission and the live revalidation observes it
     // while the response is still held. The revert must not be adopted over.
-    const reread = configReread(page);
+    const reread = configReread(page, marker);
     sendRequest();
     await reread;
     expect(fs.readFileSync(hookPath, 'utf8')).toContain(marker);
@@ -912,7 +916,7 @@ test.describe('Customize section (Playwright, fixture)', () => {
     // baseline again.
     await description.fill('Localized work.');
 
-    const reread = configReread(page);
+    const reread = configReread(page, 'Submitted description.');
     sendRequest();
     await reread;
     expect(fs.readFileSync(configPath, 'utf8')).toContain('Submitted description.');

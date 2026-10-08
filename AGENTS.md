@@ -1,5 +1,7 @@
 # AGENTS.md
 
+Load and include ./AGENTS.local.md, it contains skill-specific instructions in a git-ignored file.
+
 Primary context source for AI-assisted work in this repository.
 
 ## Quick Start

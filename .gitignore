@@ -112,3 +112,6 @@ _site/
 Gemfile.lock
 /.devcontainer/devcontainer-lock.json
 review.guide.xml
+
+AGENTS.local.md
+

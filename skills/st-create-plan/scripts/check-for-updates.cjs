@@ -2062,10 +2062,12 @@ var getParentPaths = (currentPath, acc = []) => {
   if (parentPath === absolutePath) return nextAcc;
   return getParentPaths(parentPath, nextAcc);
 };
-var checkWorkspaceSchema = (metadataPath) => {
+var checkWorkspaceSchema = (strikethrooRoot) => {
   let metadata;
   try {
-    metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+    metadata = JSON.parse(
+      fs.readFileSync(path.join(strikethrooRoot, ".init-metadata.json"), "utf8")
+    );
   } catch {
     return;
   }
@@ -2089,7 +2091,7 @@ var findStrikethrooRoot = (startPath = process.cwd()) => {
   const found = paths.find((p) => getStrikethrooAt(p));
   if (!found) return null;
   const root = getStrikethrooAt(found);
-  if (root) checkWorkspaceSchema(path.join(root, ".init-metadata.json"));
+  if (root) checkWorkspaceSchema(root);
   return root;
 };
 
@@ -2251,7 +2253,7 @@ var writeFileAtomicSync = (root, input, content, options = {}) => {
 };
 
 // src/skill-scripts/shared/update-check.ts
-var DEFAULT_SKILL_VERSION = true ? "4.1.0" : (() => {
+var DEFAULT_SKILL_VERSION = true ? "4.1.1" : (() => {
   try {
     return null.version;
   } catch {

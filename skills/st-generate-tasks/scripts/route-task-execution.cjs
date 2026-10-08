@@ -68,10 +68,12 @@ var getParentPaths = (currentPath, acc = []) => {
   if (parentPath === absolutePath) return nextAcc;
   return getParentPaths(parentPath, nextAcc);
 };
-var checkWorkspaceSchema = (metadataPath) => {
+var checkWorkspaceSchema = (strikethrooRoot) => {
   let metadata;
   try {
-    metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+    metadata = JSON.parse(
+      fs.readFileSync(path.join(strikethrooRoot, ".init-metadata.json"), "utf8")
+    );
   } catch {
     return;
   }
@@ -95,7 +97,7 @@ var findStrikethrooRoot = (startPath = process.cwd()) => {
   const found = paths.find((p) => getStrikethrooAt(p));
   if (!found) return null;
   const root = getStrikethrooAt(found);
-  if (root) checkWorkspaceSchema(path.join(root, ".init-metadata.json"));
+  if (root) checkWorkspaceSchema(root);
   return root;
 };
 
@@ -173,6 +175,13 @@ var getAllPlans = (taskManagerRoot) => {
 };
 
 // src/skill-scripts/shared/plan-resolve.ts
+var _classifyPlanInput = (input, isAbsolute2 = path3.isAbsolute) => {
+  if (input === null || input === void 0 || input === "") return { kind: "invalid" };
+  const candidate = String(input);
+  if (isAbsolute2(candidate)) return { kind: "path", planFile: candidate };
+  const planId = parseInt(candidate, 10);
+  return Number.isNaN(planId) ? { kind: "invalid" } : { kind: "id", planId };
+};
 var isValidRootDir = (strikethrooPath) => {
   try {
     if (!fs3.existsSync(strikethrooPath)) return false;
@@ -180,7 +189,7 @@ var isValidRootDir = (strikethrooPath) => {
     const metadataPath = path3.join(strikethrooPath, ".init-metadata.json");
     if (!fs3.existsSync(metadataPath)) return false;
     const metadata = JSON.parse(fs3.readFileSync(metadataPath, "utf8"));
-    return metadata && typeof metadata === "object" && "version" in metadata;
+    return typeof metadata === "object" && metadata !== null;
   } catch (_err) {
     return false;
   }
@@ -196,6 +205,12 @@ var checkStandardRootShortcut = (filePath) => {
   if (path3.basename(dotAiDir) !== ".ai") return null;
   return isValidRootDir(possibleRoot) ? possibleRoot : null;
 };
+var locateRootForPlanFile = (planFile) => {
+  const shortcut = checkStandardRootShortcut(planFile);
+  if (!shortcut) return findStrikethrooRoot(path3.dirname(planFile));
+  checkWorkspaceSchema(shortcut);
+  return shortcut;
+};
 var resolveByPath = (absolutePath) => {
   let content;
   try {
@@ -205,7 +220,7 @@ var resolveByPath = (absolutePath) => {
   }
   const planId = extractPlanId(content, absolutePath);
   if (planId === null) return null;
-  const tmRoot = checkStandardRootShortcut(absolutePath) || findStrikethrooRoot(path3.dirname(absolutePath));
+  const tmRoot = locateRootForPlanFile(absolutePath);
   if (!tmRoot) return null;
   return {
     planFile: absolutePath,
@@ -214,35 +229,28 @@ var resolveByPath = (absolutePath) => {
     planId
   };
 };
-var resolveByIdInAncestry = (planId, startPath, searched = /* @__PURE__ */ new Set()) => {
+var resolveById = (planId, startPath) => {
   const tmRoot = findStrikethrooRoot(startPath);
   if (!tmRoot) return null;
-  const normalized = path3.normalize(tmRoot);
-  if (searched.has(normalized)) return null;
-  searched.add(normalized);
-  const plans = getAllPlans(tmRoot);
-  const match = plans.find((p) => p.id === planId);
-  if (match) {
-    return {
-      planFile: match.file,
-      planDir: match.dir,
-      strikethrooRoot: tmRoot,
-      planId
-    };
-  }
-  const parentOfRoot = path3.dirname(path3.dirname(tmRoot));
-  if (parentOfRoot === tmRoot) return null;
-  return resolveByIdInAncestry(planId, parentOfRoot, searched);
+  const match = getAllPlans(tmRoot).find((p) => p.id === planId);
+  if (!match) return null;
+  return {
+    planFile: match.file,
+    planDir: match.dir,
+    strikethrooRoot: tmRoot,
+    planId
+  };
 };
 var resolvePlan = (input, startPath = process.cwd()) => {
-  if (input === null || input === void 0 || input === "") return null;
-  const inputStr = String(input);
-  if (inputStr.startsWith("/")) {
-    return resolveByPath(inputStr);
+  const classified = _classifyPlanInput(input);
+  switch (classified.kind) {
+    case "path":
+      return resolveByPath(classified.planFile);
+    case "id":
+      return resolveById(classified.planId, startPath);
+    case "invalid":
+      return null;
   }
-  const planId = parseInt(inputStr, 10);
-  if (Number.isNaN(planId)) return null;
-  return resolveByIdInAncestry(planId, startPath);
 };
 
 // src/skill-scripts/shared/execution-routing.ts
@@ -2708,6 +2716,13 @@ var CHOMPING_CLIP = CHOMPING_MODE.CLIP;
 var CHOMPING_STRIP = CHOMPING_MODE.STRIP;
 var CHOMPING_KEEP = CHOMPING_MODE.KEEP;
 
+// src/skill-scripts/shared/task-frontmatter.ts
+var MAX_FRONTMATTER_BYTES = 64 * 1024;
+var hasYamlContent = (block) => block.split(/\r?\n/).some((line) => {
+  const trimmed = line.trim();
+  return trimmed !== "" && !trimmed.startsWith("#");
+});
+
 // src/skill-scripts/shared/execution-routing.ts
 var WORKSPACE_CONFIG_RELPATH = path4.join("config", "config.yaml");
 var EXECUTION_ROUTING_SECTION = "execution_routing";
@@ -2791,11 +2806,7 @@ var loadRoutingConfig = (strikethrooRoot, supportedHarnesses) => {
   } catch {
     return { kind: "no-config" };
   }
-  const hasContent = contents.split(/\r?\n/).some((line) => {
-    const trimmed = line.trim();
-    return trimmed !== "" && !trimmed.startsWith("#");
-  });
-  if (!hasContent) return { kind: "disabled" };
+  if (!hasYamlContent(contents)) return { kind: "disabled" };
   let document;
   try {
     document = load(contents);

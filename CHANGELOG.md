@@ -1,3 +1,9 @@
+## [4.1.1](https://github.com/e0ipso/strikethroo/compare/v4.1.0...v4.1.1) (2026-10-08)
+
+### Bug Fixes
+
+* harden workspace refresh, document contracts, and runtime correctness ([#116](https://github.com/e0ipso/strikethroo/issues/116)) ([f4a696c](https://github.com/e0ipso/strikethroo/commit/f4a696c3746b81a1af94d9a01931d7891cf59e4a)), closes [#109](https://github.com/e0ipso/strikethroo/issues/109) [#111](https://github.com/e0ipso/strikethroo/issues/111) [#112](https://github.com/e0ipso/strikethroo/issues/112) [#113](https://github.com/e0ipso/strikethroo/issues/113) [#114](https://github.com/e0ipso/strikethroo/issues/114)
+
 ## [4.1.0](https://github.com/e0ipso/strikethroo/compare/v4.0.0...v4.1.0) (2026-10-02)
 
 ### Features

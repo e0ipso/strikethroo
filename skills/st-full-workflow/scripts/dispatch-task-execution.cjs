@@ -35,7 +35,7 @@ __export(dispatch_task_execution_exports, {
 });
 module.exports = __toCommonJS(dispatch_task_execution_exports);
 var fs5 = __toESM(require("fs"));
-var path6 = __toESM(require("path"));
+var path7 = __toESM(require("path"));
 
 // src/types.ts
 var SUPPORTED_HARNESSES = [
@@ -152,14 +152,41 @@ var selectDispatchTarget = (config, profileName, avoidedIds, options) => {
 };
 
 // src/skill-scripts/shared/external-dispatch.ts
+var path3 = __toESM(require("path"));
+var import_child_process2 = require("child_process");
+
+// src/skill-scripts/shared/executable-resolution.ts
 var fs = __toESM(require("fs"));
 var path2 = __toESM(require("path"));
-var import_child_process2 = require("child_process");
+var DEFAULT_PATHEXT = ".EXE;.CMD;.BAT;.COM";
+var hasPathSeparator = (executable) => /[\\/]/.test(executable);
+var resolveExecutablePath = (executable, environment = {}) => {
+  const env = environment.env ?? process.env;
+  const platform = environment.platform ?? process.platform;
+  const win32 = platform === "win32";
+  const suffixes = win32 ? ["", ...(env.PATHEXT ?? DEFAULT_PATHEXT).split(";").filter(Boolean)] : [""];
+  const directories = hasPathSeparator(executable) ? [""] : (env.PATH ?? "").split(path2.delimiter).filter(Boolean);
+  const mode = win32 ? fs.constants.F_OK : fs.constants.X_OK;
+  for (const directory of directories) {
+    for (const suffix of suffixes) {
+      const candidate = path2.resolve(directory, `${executable}${suffix}`);
+      try {
+        fs.accessSync(candidate, mode);
+        if (fs.statSync(candidate).isFile()) return fs.realpathSync(candidate);
+      } catch {
+      }
+    }
+  }
+  return null;
+};
+var executableResolves = (executable, environment) => resolveExecutablePath(executable, environment) !== null;
+
+// src/skill-scripts/shared/external-dispatch.ts
 var taskPrompt = (request) => `Strikethroo external task dispatch \u2014 Plan ${request.planId}, Task ${request.taskId}.
 Workspace: ${request.workspace}
 Task file: ${request.taskFile}
 You are a delegated execution worker. Do not run check-for-updates.cjs or emit update notices.
-Before implementation, read and execute ${path2.join(
+Before implementation, read and execute ${path3.join(
   request.workspace,
   ".ai/strikethroo/config/hooks/PRE_TASK_EXECUTION.md"
 )}. Halt if that hook fails.
@@ -253,30 +280,15 @@ var taskCommandRequest = (request) => ({
   workspace: request.workspace,
   prompt: taskPrompt(request)
 });
-var executableOnPath = (executable) => (/[\\/]/.test(executable) ? [""] : (process.env.PATH ?? "").split(path2.delimiter)).some(
-  (directory) => {
-    if (!directory && !/[\\/]/.test(executable)) return false;
-    const candidate = directory === "" ? executable : path2.join(directory, executable);
-    try {
-      return fs.statSync(candidate).isFile();
-    } catch {
-      return false;
-    }
-  }
-);
 var CAPTURED_STDOUT_LIMIT = 262144;
+var AUTHENTICATION_TIMEOUT_MS = 3e4;
 var STDIO_SLOTS = {
   ignore: { stdout: "ignore" },
   inherit: { stdout: "inherit" },
   capture: { stdout: "pipe" }
 };
-var runProcess = (executable, argv, cwd, stdin, outputMode = "ignore") => new Promise((resolve4, reject) => {
+var runProcess = (executable, argv, cwd, stdin, outputMode = "ignore", timeoutMs) => new Promise((resolve4, reject) => {
   let settled = false;
-  const fail = (error) => {
-    if (settled) return;
-    settled = true;
-    reject(error);
-  };
   const child = (0, import_child_process2.spawn)(executable, argv, {
     cwd,
     shell: false,
@@ -286,6 +298,24 @@ var runProcess = (executable, argv, cwd, stdin, outputMode = "ignore") => new Pr
       outputMode === "ignore" ? "ignore" : "inherit"
     ]
   });
+  const timer = timeoutMs === void 0 ? void 0 : setTimeout(() => {
+    if (settled) return;
+    settled = true;
+    child.kill("SIGKILL");
+    resolve4({ exitCode: 1, timedOut: true });
+  }, timeoutMs);
+  const settle = (outcome2) => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timer);
+    resolve4(outcome2);
+  };
+  const fail = (error) => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timer);
+    reject(error);
+  };
   let captured = "";
   if (outputMode === "capture") {
     child.stdout.setEncoding("utf8");
@@ -300,9 +330,7 @@ var runProcess = (executable, argv, cwd, stdin, outputMode = "ignore") => new Pr
   }
   child.once("error", fail);
   child.once("close", (code) => {
-    if (settled) return;
-    settled = true;
-    resolve4({
+    settle({
       exitCode: code ?? 1,
       ...outputMode === "capture" ? { stdout: captured } : {}
     });
@@ -316,23 +344,38 @@ var runProcess = (executable, argv, cwd, stdin, outputMode = "ignore") => new Pr
     }
   }
 });
-var dependencies = {
-  executableExists: executableOnPath,
-  authenticate: async (commandSpec, adapter) => {
-    try {
-      const result = await runProcess(
-        commandSpec.executable,
-        adapter.authenticationArgv(),
-        commandSpec.cwd
-      );
-      return result.exitCode === 0 ? { ok: true } : { ok: false, detail: `${commandSpec.executable} authentication check failed.` };
-    } catch (error) {
+var authenticateHarness = async (commandSpec, adapter, timeoutMs = AUTHENTICATION_TIMEOUT_MS) => {
+  const executable = commandSpec.executable;
+  try {
+    const result = await runProcess(
+      executable,
+      adapter.authenticationArgv(),
+      commandSpec.cwd,
+      void 0,
+      "ignore",
+      timeoutMs
+    );
+    if (result.timedOut === true) {
       return {
         ok: false,
-        detail: `${commandSpec.executable} authentication check failed: ${errorMessage(error)}`
+        detail: `${executable} authentication check timed out after ${timeoutMs} ms and was terminated.`
       };
     }
-  },
+    return result.exitCode === 0 ? { ok: true } : {
+      ok: false,
+      detail: `${executable} authentication check failed: exited ${result.exitCode}.`
+    };
+  } catch (error) {
+    const code = error.code;
+    return {
+      ok: false,
+      detail: `${executable} authentication check could not launch${code === void 0 ? "" : ` (${code})`}: ${errorMessage(error)}`
+    };
+  }
+};
+var dependencies = {
+  executableExists: executableResolves,
+  authenticate: authenticateHarness,
   launch: (commandSpec, options) => runProcess(
     commandSpec.executable,
     commandSpec.argv,
@@ -406,12 +449,12 @@ var import_crypto2 = require("crypto");
 var import_child_process3 = require("child_process");
 var fs4 = __toESM(require("fs"));
 var os = __toESM(require("os"));
-var path5 = __toESM(require("path"));
+var path6 = __toESM(require("path"));
 
 // src/skill-scripts/shared/harness-configuration.ts
 var import_crypto = require("crypto");
 var fs3 = __toESM(require("fs"));
-var path4 = __toESM(require("path"));
+var path5 = __toESM(require("path"));
 
 // node_modules/js-yaml/dist/js-yaml.mjs
 var NOT_RESOLVED = /* @__PURE__ */ Symbol("NOT_RESOLVED");
@@ -2874,14 +2917,67 @@ var CHOMPING_KEEP = CHOMPING_MODE.KEEP;
 
 // src/skill-scripts/shared/execution-routing.ts
 var fs2 = __toESM(require("fs"));
-var path3 = __toESM(require("path"));
-var WORKSPACE_CONFIG_RELPATH = path3.join("config", "config.yaml");
+var path4 = __toESM(require("path"));
+
+// src/skill-scripts/shared/task-frontmatter.ts
+var MAX_FRONTMATTER_BYTES = 64 * 1024;
+var OPENING_FENCE = /^---([^\r\n]*)\r?\n/;
+var CLOSING_FENCE = /^(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/m;
+var isPlainObject2 = (value) => {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+};
+var hasYamlContent = (block) => block.split(/\r?\n/).some((line) => {
+  const trimmed = line.trim();
+  return trimmed !== "" && !trimmed.startsWith("#");
+});
+var readYamlFrontmatter = (markdown) => {
+  const source = markdown.startsWith("\uFEFF") ? markdown.slice(1) : markdown;
+  const opening = OPENING_FENCE.exec(source);
+  if (!opening) return { kind: "none" };
+  if ((opening[1] ?? "").trim() !== "") {
+    return {
+      kind: "invalid",
+      reason: "Executable or non-YAML frontmatter is not supported."
+    };
+  }
+  const rest = source.slice(opening[0].length);
+  const closing = CLOSING_FENCE.exec(rest);
+  if (!closing) {
+    return { kind: "invalid", reason: "Frontmatter has no closing fence." };
+  }
+  const block = rest.slice(0, closing.index);
+  if (Buffer.byteLength(block, "utf8") > MAX_FRONTMATTER_BYTES) {
+    return {
+      kind: "invalid",
+      reason: `Frontmatter exceeds the ${MAX_FRONTMATTER_BYTES}-byte limit.`
+    };
+  }
+  if (!hasYamlContent(block)) return { kind: "data", data: {} };
+  let parsed;
+  try {
+    parsed = load(block);
+  } catch (error) {
+    return {
+      kind: "invalid",
+      reason: `Frontmatter is not valid YAML: ${error instanceof Error ? error.message.split("\n")[0] : String(error)}`
+    };
+  }
+  if (!isPlainObject2(parsed)) {
+    return { kind: "invalid", reason: "Frontmatter must be a YAML mapping." };
+  }
+  return { kind: "data", data: parsed };
+};
+
+// src/skill-scripts/shared/execution-routing.ts
+var WORKSPACE_CONFIG_RELPATH = path4.join("config", "config.yaml");
 var EXECUTION_ROUTING_SECTION = "execution_routing";
-var isPlainObject2 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+var isPlainObject3 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 var isNonEmptyString = (value) => typeof value === "string" && value.trim().length > 0;
 var validateTarget = (profileName, index, raw, supportedHarnesses, errors) => {
   const label = `profile "${profileName}" models[${index}]`;
-  if (!isPlainObject2(raw)) {
+  if (!isPlainObject3(raw)) {
     errors.push(`${label} must be a mapping with an exact "model" string.`);
     return null;
   }
@@ -2917,7 +3013,7 @@ var validateTarget = (profileName, index, raw, supportedHarnesses, errors) => {
   return target;
 };
 var validateProfile = (name, raw, supportedHarnesses, errors) => {
-  if (!isPlainObject2(raw)) {
+  if (!isPlainObject3(raw)) {
     errors.push(`profile "${name}" must be a mapping with "description" and "models".`);
     return null;
   }
@@ -2950,18 +3046,14 @@ var validateProfile = (name, raw, supportedHarnesses, errors) => {
   return { name, description: raw.description.trim(), targets };
 };
 var loadRoutingConfig = (strikethrooRoot, supportedHarnesses) => {
-  const configPath = path3.join(strikethrooRoot, WORKSPACE_CONFIG_RELPATH);
+  const configPath = path4.join(strikethrooRoot, WORKSPACE_CONFIG_RELPATH);
   let contents;
   try {
     contents = fs2.readFileSync(configPath, "utf8");
   } catch {
     return { kind: "no-config" };
   }
-  const hasContent = contents.split(/\r?\n/).some((line) => {
-    const trimmed = line.trim();
-    return trimmed !== "" && !trimmed.startsWith("#");
-  });
-  if (!hasContent) return { kind: "disabled" };
+  if (!hasYamlContent(contents)) return { kind: "disabled" };
   let document;
   try {
     document = load(contents);
@@ -2974,13 +3066,13 @@ var loadRoutingConfig = (strikethrooRoot, supportedHarnesses) => {
     };
   }
   if (document === null || document === void 0) return { kind: "disabled" };
-  if (!isPlainObject2(document)) {
+  if (!isPlainObject3(document)) {
     return { kind: "invalid", errors: ["config.yaml must be a YAML mapping."] };
   }
   const section = document[EXECUTION_ROUTING_SECTION];
   if (section === null || section === void 0) return { kind: "disabled" };
   const errors = [];
-  if (!isPlainObject2(section)) {
+  if (!isPlainObject3(section)) {
     return {
       kind: "invalid",
       errors: [`config.yaml "${EXECUTION_ROUTING_SECTION}" must be a YAML mapping.`]
@@ -3005,7 +3097,7 @@ var loadRoutingConfig = (strikethrooRoot, supportedHarnesses) => {
       return errors.length > 0 ? { kind: "invalid", errors } : { kind: "disabled" };
   }
   const rawProfiles = "profiles" in section && section.profiles == null ? {} : section.profiles;
-  if (!("profiles" in section) || !isPlainObject2(rawProfiles)) {
+  if (!("profiles" in section) || !isPlainObject3(rawProfiles)) {
     errors.push(`${EXECUTION_ROUTING_SECTION} requires a "profiles" mapping.`);
     return { kind: "invalid", errors };
   }
@@ -3017,7 +3109,7 @@ var loadRoutingConfig = (strikethrooRoot, supportedHarnesses) => {
   let resolverScript;
   if ("resolver" in section) {
     const resolver = section.resolver;
-    if (!isPlainObject2(resolver) || !isNonEmptyString(resolver.script)) {
+    if (!isPlainObject3(resolver) || !isNonEmptyString(resolver.script)) {
       errors.push('resolver must be a mapping with a non-empty "script" path.');
     } else {
       for (const key of Object.keys(resolver)) {
@@ -3039,7 +3131,7 @@ var loadRoutingConfig = (strikethrooRoot, supportedHarnesses) => {
 // src/skill-scripts/shared/harness-configuration.ts
 var HARNESS_CONFIGURATION_SECTION = "harnesses";
 var HARNESS_CONFIGURATION_NORMALIZATION_VERSION = 1;
-var isPlainObject3 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+var isPlainObject4 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 var hashHarnessCliArgs = (harness, cliArgs, normalizationVersion = HARNESS_CONFIGURATION_NORMALIZATION_VERSION) => (0, import_crypto.createHash)("sha256").update(
   JSON.stringify({
     schema: normalizationVersion,
@@ -3062,7 +3154,7 @@ var emptyConfiguration = () => Object.freeze(
 );
 var validateHarnessEntry = (harness, raw, errors) => {
   const entryPath = `config.yaml ${HARNESS_CONFIGURATION_SECTION}.${harness}`;
-  if (!isPlainObject3(raw)) {
+  if (!isPlainObject4(raw)) {
     errors.push(`${entryPath} must be a mapping.`);
     return null;
   }
@@ -3090,7 +3182,7 @@ var validateHarnessEntry = (harness, raw, errors) => {
   return normalizeInvocation(harness, cliArgs);
 };
 var loadHarnessConfiguration = (strikethrooRoot) => {
-  const configPath = path4.join(strikethrooRoot, WORKSPACE_CONFIG_RELPATH);
+  const configPath = path5.join(strikethrooRoot, WORKSPACE_CONFIG_RELPATH);
   let contents;
   try {
     contents = fs3.readFileSync(configPath, "utf8");
@@ -3105,6 +3197,7 @@ var loadHarnessConfiguration = (strikethrooRoot) => {
       ]
     };
   }
+  if (!hasYamlContent(contents)) return { kind: "config", config: emptyConfiguration() };
   let document;
   try {
     document = load(contents);
@@ -3119,14 +3212,14 @@ var loadHarnessConfiguration = (strikethrooRoot) => {
   if (document === null || document === void 0) {
     return { kind: "config", config: emptyConfiguration() };
   }
-  if (!isPlainObject3(document)) {
+  if (!isPlainObject4(document)) {
     return { kind: "invalid", errors: ["config.yaml must be a YAML mapping."] };
   }
   const section = document[HARNESS_CONFIGURATION_SECTION];
   if (section === null || section === void 0) {
     return { kind: "config", config: emptyConfiguration() };
   }
-  if (!isPlainObject3(section)) {
+  if (!isPlainObject4(section)) {
     return {
       kind: "invalid",
       errors: [`config.yaml ${HARNESS_CONFIGURATION_SECTION} must be a YAML mapping.`]
@@ -3157,7 +3250,7 @@ var AVAILABILITY_REGISTRY_VERSION = 4;
 var AVAILABLE_TTL_MS = 30 * 60 * 1e3;
 var UNAVAILABLE_TTL_MS = 5 * 60 * 1e3;
 var PROBE_TIMEOUT_MS = 2e4;
-var AVAILABILITY_CACHE_RELATIVE_PATH = path5.join("runtime", "harness-availability.json");
+var AVAILABILITY_CACHE_RELATIVE_PATH = path6.join("runtime", "harness-availability.json");
 var CACHE_VERSION = 2;
 var availabilityDefinition = (harness) => {
   const adapter = EXTERNAL_HARNESS_ADAPTERS[harness];
@@ -3171,24 +3264,6 @@ var HARNESS_AVAILABILITY_REGISTRY = Object.freeze(
     SUPPORTED_HARNESSES.map((harness) => [harness, availabilityDefinition(harness)])
   )
 );
-var resolveExecutable = (executable) => {
-  const extensions = process.platform === "win32" ? ["", ...(process.env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";")] : [""];
-  const directories = /[\\/]/.test(executable) ? [""] : (process.env.PATH ?? "").split(path5.delimiter).filter(Boolean);
-  for (const directory of directories) {
-    for (const extension of extensions) {
-      const candidate = path5.resolve(directory, `${executable}${extension}`);
-      try {
-        fs4.accessSync(
-          candidate,
-          process.platform === "win32" ? fs4.constants.F_OK : fs4.constants.X_OK
-        );
-        if (fs4.statSync(candidate).isFile()) return fs4.realpathSync(candidate);
-      } catch {
-      }
-    }
-  }
-  return void 0;
-};
 var runProbe = (command2, timeoutMs) => new Promise((resolve4) => {
   let stdout = "";
   let stderr = "";
@@ -3240,7 +3315,7 @@ var probeFailureReason = (probe) => {
 };
 var defaultDependencies = {
   now: Date.now,
-  resolveExecutable,
+  resolveExecutable: resolveExecutablePath,
   runProbe
 };
 var isHarness = (value) => typeof value === "string" && SUPPORTED_HARNESSES.includes(value);
@@ -3262,7 +3337,7 @@ var readCache = (cachePath) => {
   }
 };
 var writeCache = (cachePath, entry) => {
-  fs4.mkdirSync(path5.dirname(cachePath), { recursive: true });
+  fs4.mkdirSync(path6.dirname(cachePath), { recursive: true });
   const cache = readCache(cachePath);
   const existingIndex = cache.entries.findIndex((candidate) => candidate.key === entry.key);
   if (existingIndex === -1) cache.entries.push(entry);
@@ -3302,7 +3377,7 @@ var readinessPrompt = (evidence) => `Run a shell command that creates ${evidence
 STRIKETHROO_READINESS=${JSON.stringify(evidence)}
 `;
 var initializeProbeWorkspace = () => {
-  const workspace = fs4.mkdtempSync(path5.join(os.tmpdir(), "strikethroo-harness-probe-"));
+  const workspace = fs4.mkdtempSync(path6.join(os.tmpdir(), "strikethroo-harness-probe-"));
   const initialized = (0, import_child_process3.spawnSync)("git", ["init", "--quiet"], {
     cwd: workspace,
     shell: false,
@@ -3314,7 +3389,7 @@ var initializeProbeWorkspace = () => {
   return void 0;
 };
 var hasReadinessEvidence = (workspace, evidence) => {
-  const target = path5.join(workspace, evidence.file);
+  const target = path6.join(workspace, evidence.file);
   try {
     return fs4.lstatSync(target).isFile() && fs4.readFileSync(target, "utf8") === evidence.content;
   } catch {
@@ -3360,7 +3435,7 @@ var checkHarnessAvailability = async (request, overrides = {}) => {
       `Harness executable '${definition.executable}' was not found on PATH.`
     );
   const key = cacheKey(harness, executableIdentity, invocation);
-  const cachePath = path5.join(request.strikethrooRoot, AVAILABILITY_CACHE_RELATIVE_PATH);
+  const cachePath = path6.join(request.strikethrooRoot, AVAILABILITY_CACHE_RELATIVE_PATH);
   const cached = readCache(cachePath).entries.find(
     (entry) => entry.key === key && entry.expiresAt > now
   );
@@ -3410,57 +3485,6 @@ var checkHarnessAvailability = async (request, overrides = {}) => {
   } finally {
     fs4.rmSync(probeWorkspace, { recursive: true, force: true });
   }
-};
-
-// src/skill-scripts/shared/task-frontmatter.ts
-var MAX_FRONTMATTER_BYTES = 64 * 1024;
-var OPENING_FENCE = /^---([^\r\n]*)\r?\n/;
-var CLOSING_FENCE = /^(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/m;
-var isPlainObject4 = (value) => {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-};
-var hasYamlContent = (block) => block.split(/\r?\n/).some((line) => {
-  const trimmed = line.trim();
-  return trimmed !== "" && !trimmed.startsWith("#");
-});
-var readYamlFrontmatter = (markdown) => {
-  const source = markdown.startsWith("\uFEFF") ? markdown.slice(1) : markdown;
-  const opening = OPENING_FENCE.exec(source);
-  if (!opening) return { kind: "none" };
-  if ((opening[1] ?? "").trim() !== "") {
-    return {
-      kind: "invalid",
-      reason: "Executable or non-YAML frontmatter is not supported."
-    };
-  }
-  const rest = source.slice(opening[0].length);
-  const closing = CLOSING_FENCE.exec(rest);
-  if (!closing) {
-    return { kind: "invalid", reason: "Frontmatter has no closing fence." };
-  }
-  const block = rest.slice(0, closing.index);
-  if (Buffer.byteLength(block, "utf8") > MAX_FRONTMATTER_BYTES) {
-    return {
-      kind: "invalid",
-      reason: `Frontmatter exceeds the ${MAX_FRONTMATTER_BYTES}-byte limit.`
-    };
-  }
-  if (!hasYamlContent(block)) return { kind: "data", data: {} };
-  let parsed;
-  try {
-    parsed = load(block);
-  } catch (error) {
-    return {
-      kind: "invalid",
-      reason: `Frontmatter is not valid YAML: ${error instanceof Error ? error.message.split("\n")[0] : String(error)}`
-    };
-  }
-  if (!isPlainObject4(parsed)) {
-    return { kind: "invalid", reason: "Frontmatter must be a YAML mapping." };
-  }
-  return { kind: "data", data: parsed };
 };
 
 // src/skill-scripts/dispatch-task-execution.ts
@@ -3600,21 +3624,21 @@ var main = async () => {
   const validWorkspace = workspace;
   const validPlanId = planId;
   const validTaskId = taskId;
-  const taskPath = path6.resolve(validTaskFile);
+  const taskPath = path7.resolve(validTaskFile);
   const taskMarkdown = fs5.readFileSync(taskPath, "utf8");
   if (mode === "resolve") {
     const route = await resolveDispatchRoute({
       taskMarkdown,
       currentHarness: validCurrentHarness,
-      workspace: path6.resolve(validWorkspace),
-      strikethrooRoot: path6.join(path6.resolve(validWorkspace), ".ai", "strikethroo"),
+      workspace: path7.resolve(validWorkspace),
+      strikethrooRoot: path7.join(path7.resolve(validWorkspace), ".ai", "strikethroo"),
       taskId: Number(validTaskId)
     });
     emit(route, route.kind === "infrastructure-failure" ? 2 : 0);
   }
   const handoff = decodeHandoff(handoffArg);
   const executionConfiguration = loadHarnessConfiguration(
-    path6.join(path6.resolve(validWorkspace), ".ai", "strikethroo")
+    path7.join(path7.resolve(validWorkspace), ".ai", "strikethroo")
   );
   if (executionConfiguration.kind === "invalid") {
     return emit(
@@ -3632,7 +3656,7 @@ var main = async () => {
     cliArgs: executionConfiguration.config[handoff.harness].cliArgs,
     model: handoff.model,
     ...handoff.reasoningEffort === void 0 ? {} : { reasoningEffort: handoff.reasoningEffort },
-    workspace: path6.resolve(validWorkspace),
+    workspace: path7.resolve(validWorkspace),
     planId: validPlanId,
     taskId: validTaskId,
     taskFile: taskPath,

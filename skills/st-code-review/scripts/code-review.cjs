@@ -83,7 +83,9 @@ var execGitDiffAllowingChanges = (args, opts = {}) => {
     return run(args, opts);
   } catch (error) {
     const failure = error;
-    if (failure.status === 1 && typeof failure.stdout === "string") return failure.stdout;
+    if (failure.status === 1 && typeof failure.stdout === "string" && failure.stdout.length > 0) {
+      return failure.stdout;
+    }
     return null;
   }
 };
@@ -116,10 +118,12 @@ var getParentPaths = (currentPath, acc = []) => {
   if (parentPath === absolutePath) return nextAcc;
   return getParentPaths(parentPath, nextAcc);
 };
-var checkWorkspaceSchema = (metadataPath) => {
+var checkWorkspaceSchema = (strikethrooRoot) => {
   let metadata;
   try {
-    metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+    metadata = JSON.parse(
+      fs.readFileSync(path.join(strikethrooRoot, ".init-metadata.json"), "utf8")
+    );
   } catch {
     return;
   }
@@ -143,7 +147,7 @@ var findStrikethrooRoot = (startPath = process.cwd()) => {
   const found = paths.find((p) => getStrikethrooAt(p));
   if (!found) return null;
   const root = getStrikethrooAt(found);
-  if (root) checkWorkspaceSchema(path.join(root, ".init-metadata.json"));
+  if (root) checkWorkspaceSchema(root);
   return root;
 };
 
@@ -225,6 +229,13 @@ var getAllPlans = (taskManagerRoot) => {
 };
 
 // src/skill-scripts/shared/plan-resolve.ts
+var _classifyPlanInput = (input, isAbsolute2 = path3.isAbsolute) => {
+  if (input === null || input === void 0 || input === "") return { kind: "invalid" };
+  const candidate = String(input);
+  if (isAbsolute2(candidate)) return { kind: "path", planFile: candidate };
+  const planId = parseInt(candidate, 10);
+  return Number.isNaN(planId) ? { kind: "invalid" } : { kind: "id", planId };
+};
 var isValidRootDir = (strikethrooPath) => {
   try {
     if (!fs3.existsSync(strikethrooPath)) return false;
@@ -232,7 +243,7 @@ var isValidRootDir = (strikethrooPath) => {
     const metadataPath = path3.join(strikethrooPath, ".init-metadata.json");
     if (!fs3.existsSync(metadataPath)) return false;
     const metadata = JSON.parse(fs3.readFileSync(metadataPath, "utf8"));
-    return metadata && typeof metadata === "object" && "version" in metadata;
+    return typeof metadata === "object" && metadata !== null;
   } catch (_err) {
     return false;
   }
@@ -248,6 +259,12 @@ var checkStandardRootShortcut = (filePath) => {
   if (path3.basename(dotAiDir) !== ".ai") return null;
   return isValidRootDir(possibleRoot) ? possibleRoot : null;
 };
+var locateRootForPlanFile = (planFile) => {
+  const shortcut = checkStandardRootShortcut(planFile);
+  if (!shortcut) return findStrikethrooRoot(path3.dirname(planFile));
+  checkWorkspaceSchema(shortcut);
+  return shortcut;
+};
 var resolveByPath = (absolutePath) => {
   let content;
   try {
@@ -257,7 +274,7 @@ var resolveByPath = (absolutePath) => {
   }
   const planId = extractPlanId(content, absolutePath);
   if (planId === null) return null;
-  const tmRoot = checkStandardRootShortcut(absolutePath) || findStrikethrooRoot(path3.dirname(absolutePath));
+  const tmRoot = locateRootForPlanFile(absolutePath);
   if (!tmRoot) return null;
   return {
     planFile: absolutePath,
@@ -266,35 +283,28 @@ var resolveByPath = (absolutePath) => {
     planId
   };
 };
-var resolveByIdInAncestry = (planId, startPath, searched = /* @__PURE__ */ new Set()) => {
+var resolveById = (planId, startPath) => {
   const tmRoot = findStrikethrooRoot(startPath);
   if (!tmRoot) return null;
-  const normalized = path3.normalize(tmRoot);
-  if (searched.has(normalized)) return null;
-  searched.add(normalized);
-  const plans = getAllPlans(tmRoot);
-  const match = plans.find((p) => p.id === planId);
-  if (match) {
-    return {
-      planFile: match.file,
-      planDir: match.dir,
-      strikethrooRoot: tmRoot,
-      planId
-    };
-  }
-  const parentOfRoot = path3.dirname(path3.dirname(tmRoot));
-  if (parentOfRoot === tmRoot) return null;
-  return resolveByIdInAncestry(planId, parentOfRoot, searched);
+  const match = getAllPlans(tmRoot).find((p) => p.id === planId);
+  if (!match) return null;
+  return {
+    planFile: match.file,
+    planDir: match.dir,
+    strikethrooRoot: tmRoot,
+    planId
+  };
 };
 var resolvePlan = (input, startPath = process.cwd()) => {
-  if (input === null || input === void 0 || input === "") return null;
-  const inputStr = String(input);
-  if (inputStr.startsWith("/")) {
-    return resolveByPath(inputStr);
+  const classified = _classifyPlanInput(input);
+  switch (classified.kind) {
+    case "path":
+      return resolveByPath(classified.planFile);
+    case "id":
+      return resolveById(classified.planId, startPath);
+    case "invalid":
+      return null;
   }
-  const planId = parseInt(inputStr, 10);
-  if (Number.isNaN(planId)) return null;
-  return resolveByIdInAncestry(planId, startPath);
 };
 
 // src/skill-scripts/shared/harness-availability.ts
@@ -2770,6 +2780,15 @@ var CHOMPING_KEEP = CHOMPING_MODE.KEEP;
 
 // src/skill-scripts/shared/execution-routing.ts
 var path4 = __toESM(require("path"));
+
+// src/skill-scripts/shared/task-frontmatter.ts
+var MAX_FRONTMATTER_BYTES = 64 * 1024;
+var hasYamlContent = (block) => block.split(/\r?\n/).some((line) => {
+  const trimmed = line.trim();
+  return trimmed !== "" && !trimmed.startsWith("#");
+});
+
+// src/skill-scripts/shared/execution-routing.ts
 var WORKSPACE_CONFIG_RELPATH = path4.join("config", "config.yaml");
 
 // src/skill-scripts/shared/harness-configuration.ts
@@ -2841,6 +2860,7 @@ var loadHarnessConfiguration = (strikethrooRoot) => {
       ]
     };
   }
+  if (!hasYamlContent(contents)) return { kind: "config", config: emptyConfiguration() };
   let document;
   try {
     document = load(contents);
@@ -2888,9 +2908,33 @@ var loadHarnessConfiguration = (strikethrooRoot) => {
   return { kind: "config", config: Object.freeze(entries) };
 };
 
-// src/skill-scripts/shared/external-dispatch.ts
+// src/skill-scripts/shared/executable-resolution.ts
 var fs5 = __toESM(require("fs"));
 var path6 = __toESM(require("path"));
+var DEFAULT_PATHEXT = ".EXE;.CMD;.BAT;.COM";
+var hasPathSeparator = (executable) => /[\\/]/.test(executable);
+var resolveExecutablePath = (executable, environment = {}) => {
+  const env = environment.env ?? process.env;
+  const platform = environment.platform ?? process.platform;
+  const win32 = platform === "win32";
+  const suffixes = win32 ? ["", ...(env.PATHEXT ?? DEFAULT_PATHEXT).split(";").filter(Boolean)] : [""];
+  const directories = hasPathSeparator(executable) ? [""] : (env.PATH ?? "").split(path6.delimiter).filter(Boolean);
+  const mode = win32 ? fs5.constants.F_OK : fs5.constants.X_OK;
+  for (const directory of directories) {
+    for (const suffix of suffixes) {
+      const candidate = path6.resolve(directory, `${executable}${suffix}`);
+      try {
+        fs5.accessSync(candidate, mode);
+        if (fs5.statSync(candidate).isFile()) return fs5.realpathSync(candidate);
+      } catch {
+      }
+    }
+  }
+  return null;
+};
+var executableResolves = (executable, environment) => resolveExecutablePath(executable, environment) !== null;
+
+// src/skill-scripts/shared/external-dispatch.ts
 var import_child_process2 = require("child_process");
 var command = (executable, argv, request) => ({
   executable,
@@ -2976,30 +3020,15 @@ var reviewCommandRequest = (request) => ({
   workspace: request.workspace,
   prompt: request.prompt
 });
-var executableOnPath = (executable) => (/[\\/]/.test(executable) ? [""] : (process.env.PATH ?? "").split(path6.delimiter)).some(
-  (directory) => {
-    if (!directory && !/[\\/]/.test(executable)) return false;
-    const candidate = directory === "" ? executable : path6.join(directory, executable);
-    try {
-      return fs5.statSync(candidate).isFile();
-    } catch {
-      return false;
-    }
-  }
-);
 var CAPTURED_STDOUT_LIMIT = 262144;
+var AUTHENTICATION_TIMEOUT_MS = 3e4;
 var STDIO_SLOTS = {
   ignore: { stdout: "ignore" },
   inherit: { stdout: "inherit" },
   capture: { stdout: "pipe" }
 };
-var runProcess = (executable, argv, cwd, stdin, outputMode = "ignore") => new Promise((resolve4, reject) => {
+var runProcess = (executable, argv, cwd, stdin, outputMode = "ignore", timeoutMs) => new Promise((resolve4, reject) => {
   let settled = false;
-  const fail = (error) => {
-    if (settled) return;
-    settled = true;
-    reject(error);
-  };
   const child = (0, import_child_process2.spawn)(executable, argv, {
     cwd,
     shell: false,
@@ -3009,6 +3038,24 @@ var runProcess = (executable, argv, cwd, stdin, outputMode = "ignore") => new Pr
       outputMode === "ignore" ? "ignore" : "inherit"
     ]
   });
+  const timer = timeoutMs === void 0 ? void 0 : setTimeout(() => {
+    if (settled) return;
+    settled = true;
+    child.kill("SIGKILL");
+    resolve4({ exitCode: 1, timedOut: true });
+  }, timeoutMs);
+  const settle = (outcome2) => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timer);
+    resolve4(outcome2);
+  };
+  const fail = (error) => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timer);
+    reject(error);
+  };
   let captured = "";
   if (outputMode === "capture") {
     child.stdout.setEncoding("utf8");
@@ -3023,9 +3070,7 @@ var runProcess = (executable, argv, cwd, stdin, outputMode = "ignore") => new Pr
   }
   child.once("error", fail);
   child.once("close", (code) => {
-    if (settled) return;
-    settled = true;
-    resolve4({
+    settle({
       exitCode: code ?? 1,
       ...outputMode === "capture" ? { stdout: captured } : {}
     });
@@ -3039,23 +3084,38 @@ var runProcess = (executable, argv, cwd, stdin, outputMode = "ignore") => new Pr
     }
   }
 });
-var dependencies = {
-  executableExists: executableOnPath,
-  authenticate: async (commandSpec, adapter) => {
-    try {
-      const result = await runProcess(
-        commandSpec.executable,
-        adapter.authenticationArgv(),
-        commandSpec.cwd
-      );
-      return result.exitCode === 0 ? { ok: true } : { ok: false, detail: `${commandSpec.executable} authentication check failed.` };
-    } catch (error) {
+var authenticateHarness = async (commandSpec, adapter, timeoutMs = AUTHENTICATION_TIMEOUT_MS) => {
+  const executable = commandSpec.executable;
+  try {
+    const result = await runProcess(
+      executable,
+      adapter.authenticationArgv(),
+      commandSpec.cwd,
+      void 0,
+      "ignore",
+      timeoutMs
+    );
+    if (result.timedOut === true) {
       return {
         ok: false,
-        detail: `${commandSpec.executable} authentication check failed: ${errorMessage(error)}`
+        detail: `${executable} authentication check timed out after ${timeoutMs} ms and was terminated.`
       };
     }
-  },
+    return result.exitCode === 0 ? { ok: true } : {
+      ok: false,
+      detail: `${executable} authentication check failed: exited ${result.exitCode}.`
+    };
+  } catch (error) {
+    const code = error.code;
+    return {
+      ok: false,
+      detail: `${executable} authentication check could not launch${code === void 0 ? "" : ` (${code})`}: ${errorMessage(error)}`
+    };
+  }
+};
+var dependencies = {
+  executableExists: executableResolves,
+  authenticate: authenticateHarness,
   launch: (commandSpec, options) => runProcess(
     commandSpec.executable,
     commandSpec.argv,
@@ -3133,24 +3193,6 @@ var HARNESS_AVAILABILITY_REGISTRY = Object.freeze(
     SUPPORTED_HARNESSES.map((harness) => [harness, availabilityDefinition(harness)])
   )
 );
-var resolveExecutable = (executable) => {
-  const extensions = process.platform === "win32" ? ["", ...(process.env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";")] : [""];
-  const directories = /[\\/]/.test(executable) ? [""] : (process.env.PATH ?? "").split(path7.delimiter).filter(Boolean);
-  for (const directory of directories) {
-    for (const extension of extensions) {
-      const candidate = path7.resolve(directory, `${executable}${extension}`);
-      try {
-        fs6.accessSync(
-          candidate,
-          process.platform === "win32" ? fs6.constants.F_OK : fs6.constants.X_OK
-        );
-        if (fs6.statSync(candidate).isFile()) return fs6.realpathSync(candidate);
-      } catch {
-      }
-    }
-  }
-  return void 0;
-};
 var runProbe = (command2, timeoutMs) => new Promise((resolve4) => {
   let stdout = "";
   let stderr = "";
@@ -3202,7 +3244,7 @@ var probeFailureReason = (probe) => {
 };
 var defaultDependencies = {
   now: Date.now,
-  resolveExecutable,
+  resolveExecutable: resolveExecutablePath,
   runProbe
 };
 var isHarness = (value) => typeof value === "string" && SUPPORTED_HARNESSES.includes(value);
@@ -3823,6 +3865,7 @@ var _readBaseCommit = (filePath) => {
   return null;
 };
 var GENERATED_ATTRIBUTES = ["linguist-generated", "linguist-vendored"];
+var ATTRIBUTE_UNMARKED = /* @__PURE__ */ new Set(["unspecified", "unset", "false"]);
 var attributeExcluded = (workspace, files) => {
   const excluded = /* @__PURE__ */ new Set();
   if (files.length === 0) return excluded;
@@ -3833,7 +3876,7 @@ var attributeExcluded = (workspace, files) => {
   if (report === null) return null;
   const fields = report.split("\0");
   for (let i = 0; i + 2 < fields.length; i += 3) {
-    if (fields[i + 2] === "true") excluded.add(fields[i]);
+    if (!ATTRIBUTE_UNMARKED.has(fields[i + 2])) excluded.add(fields[i]);
   }
   return excluded;
 };
@@ -3904,7 +3947,7 @@ var defaultDependencies2 = {
   discover: discoverHarnesses,
   dispatch: dispatchReview,
   readDiff: _readCumulativeDiff,
-  validatorAvailable: () => executableOnPath("xmllint")
+  validatorAvailable: () => executableResolves("xmllint")
 };
 var readReviewerSkill = () => {
   const skillFile = path8.resolve(__dirname, "..", "SKILL.md");
@@ -3985,7 +4028,7 @@ ${input.diff}
   ""
 ].join("\n");
 var skip = (reason, detail) => decide({ kind: "skipped", reason, detail });
-var resolveReviewContext = (startPath, validatorAvailable = () => executableOnPath("xmllint")) => {
+var resolveReviewContext = (startPath, validatorAvailable = () => executableResolves("xmllint")) => {
   const strikethrooRoot = findStrikethrooRoot(startPath);
   if (!strikethrooRoot) {
     return {

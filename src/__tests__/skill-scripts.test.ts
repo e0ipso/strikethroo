@@ -17,11 +17,27 @@ import { execFileSync, spawnSync } from 'child_process';
 import { findStrikethrooRoot } from '../skill-scripts/shared/root';
 import { getAllPlans, computeNextPlanId } from '../skill-scripts/shared/plan-scan';
 import { hasExecutionBlueprint } from '../skill-scripts/shared/blueprint-detection';
+import { parseBlueprintPhases, type BlueprintPhase } from '../skill-scripts/shared/blueprint-parse';
 import { parseComplexityScore } from '../skill-scripts/shared/complexity-score';
 import { countTaskFiles } from '../skill-scripts/shared/task-count';
 import { validateTaskComplexityScores } from '../skill-scripts/shared/task-complexity';
+import {
+  collectTaskReadinessIssues,
+  readTaskMetadata,
+  rewriteTaskStatus,
+} from '../skill-scripts/shared/task-file';
 import { _sanitizeBranchName, _extractPlanName } from '../skill-scripts/create-feature-branch';
+import {
+  _classifyPlanInput,
+  resolvePlan,
+  type PlanInput,
+} from '../skill-scripts/shared/plan-resolve';
+import { validateWorkspace } from '../validation/workspace';
 import { builtSkillDir } from './built-skills';
+import {
+  BLUEPRINT_SECTION,
+  TRAILING_EXECUTION_SUMMARY,
+} from './fixtures/blueprint-trailing-summary';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const SKILL_DIR = builtSkillDir('st-create-plan');
@@ -208,6 +224,71 @@ describe('skill-scripts validation helpers', () => {
       '05--quoted.md: non-integer complexity_score ""7""',
       '06--above.md: complexity_score 11 out of range 1-10',
     ]);
+  });
+
+  test('parseBlueprintPhases reads heading variants and bulleted task references within its section', () => {
+    const phases = [
+      '### Phase 1: Named',
+      '- Task 1: one',
+      '* Task 01: still one',
+      '- Task 002: two',
+      'Task 9 in prose is not a reference',
+      '1. Task 8 in a numbered list is not a reference',
+      '',
+      '### ✅ Phase 2: Checked',
+      '- Task 003: three',
+      '',
+      '### Phase 3 No colon',
+      '- Task 4',
+      '',
+      '### Phase 4',
+      '- Task 5',
+      '',
+      '### Phase 5:',
+      '- Task 6',
+    ].join('\n');
+    const expected: BlueprintPhase[] = [
+      { index: 1, name: 'Named', taskIds: [1, 2] },
+      { index: 2, name: 'Checked', taskIds: [3] },
+      { index: 3, name: 'No colon', taskIds: [4] },
+      { index: 4, name: undefined, taskIds: [5] },
+      { index: 5, name: undefined, taskIds: [6] },
+    ];
+    const cases: Array<{ name: string; doc: string; expected: BlueprintPhase[] | undefined }> = [
+      {
+        name: 'blueprint at the end of the document',
+        doc: `# Plan\n\n## Execution Blueprint\n\n${phases}\n`,
+        expected,
+      },
+      {
+        name: 'blueprint followed by an execution summary that names tasks',
+        doc: `# Plan\n\n## Execution Blueprint\n\n${phases}\n\n## Execution Summary\n\n- Task 7: shipped\n- Task 6: retried\n`,
+        expected,
+      },
+      {
+        name: 'blueprint followed by notes that name tasks',
+        doc: `# Plan\n\n## Execution Blueprint\n\n${phases}\n\n## Notes\n\n- Task 7 is mentioned here\n`,
+        expected,
+      },
+      {
+        name: 'blueprint preceded by sections that name tasks',
+        doc: `# Plan\n\n## Context\n\n- Task 7 is mentioned here\n\n## Execution Blueprint\n\n${phases}\n`,
+        expected,
+      },
+      {
+        name: 'no blueprint section',
+        doc: '# Plan\n\n## Notes\n\n- Task 1\n',
+        expected: undefined,
+      },
+      {
+        name: 'blueprint with no phase headings',
+        doc: '# Plan\n\n## Execution Blueprint\n\n- Task 1\n',
+        expected: undefined,
+      },
+    ];
+    for (const c of cases) {
+      expect(parseBlueprintPhases(c.doc), c.name).toEqual(c.expected);
+    }
   });
 });
 
@@ -733,6 +814,270 @@ const buildPhaseBlueprintFixture = (
   fs.appendFileSync(planFile, `\n## Execution Blueprint\n\n${phaseSections}\n`);
 };
 
+describe('task metadata reader', () => {
+  const doc = (frontmatter: string, eol = '\n'): string =>
+    ['---', ...frontmatter.split('\n'), '---', '# Body', ''].join(eol);
+
+  test('reads supported status and dependency shapes', () => {
+    const cases: Array<{ name: string; markdown: string; status: string; dependencies: number[] }> =
+      [
+        {
+          name: 'quoted status with trailing comment, flow list',
+          markdown: doc('id: 3\nstatus: "completed"  # done\ndependencies: [1, 2]'),
+          status: 'completed',
+          dependencies: [1, 2],
+        },
+        {
+          name: 'CRLF with block list',
+          markdown: doc('id: 3\nstatus: pending\ndependencies:\n  - 1\n  - 2', '\r\n'),
+          status: 'pending',
+          dependencies: [1, 2],
+        },
+        {
+          name: 'quoted items and trailing comment in a flow list',
+          markdown: doc('status: "in-progress"\ndependencies: ["1", \'2\'] # both'),
+          status: 'in-progress',
+          dependencies: [1, 2],
+        },
+        {
+          name: 'block list with quoted items and comments',
+          markdown: doc('status: in-progress\ndependencies:\n  - "1" # first\n  - \'2\'  # second'),
+          status: 'in-progress',
+          dependencies: [1, 2],
+        },
+        {
+          name: 'needs-clarification with trailing comment',
+          markdown: doc('status: "needs-clarification" # ask first\ndependencies: []'),
+          status: 'needs-clarification',
+          dependencies: [],
+        },
+        {
+          name: 'failed, written by st-execute-task',
+          markdown: doc('status: "failed"\ndependencies: []'),
+          status: 'failed',
+          dependencies: [],
+        },
+        {
+          name: 'absent dependencies key means no dependencies',
+          markdown: doc('status: pending\nskills:\n  - typescript'),
+          status: 'pending',
+          dependencies: [],
+        },
+        {
+          name: 'dependencies key with no value means no dependencies',
+          markdown: doc('status: pending\ndependencies:'),
+          status: 'pending',
+          dependencies: [],
+        },
+        {
+          name: 'BOM and CRLF before the fence',
+          markdown: '\ufeff' + doc('status: completed\ndependencies: [1]', '\r\n'),
+          status: 'completed',
+          dependencies: [1],
+        },
+      ];
+    for (const c of cases) {
+      const result = readTaskMetadata(c.markdown);
+      expect(result, c.name).toEqual({
+        kind: 'metadata',
+        metadata: { status: c.status, dependencies: c.dependencies },
+      });
+    }
+  });
+
+  test('rejects missing, malformed, or unrecognized metadata with the offending value', () => {
+    const cases: Array<{ name: string; markdown: string; reason: string }> = [
+      { name: 'no frontmatter', markdown: '# Just a body\n', reason: 'frontmatter not found' },
+      {
+        name: 'language-tagged fence',
+        markdown: '---js\nstatus: pending\n---\n',
+        reason: 'Executable or non-YAML frontmatter is not supported.',
+      },
+      {
+        name: 'non-mapping frontmatter',
+        markdown: '---\n- status\n- pending\n---\n',
+        reason: 'Frontmatter must be a YAML mapping.',
+      },
+      {
+        name: 'duplicate status keys',
+        markdown: doc('status: pending\nstatus: completed'),
+        reason: 'duplicated mapping key',
+      },
+      {
+        name: 'missing status',
+        markdown: doc('id: 1\ndependencies: []'),
+        reason: 'status is missing',
+      },
+      {
+        name: 'status outside the enum',
+        markdown: doc('status: complete\ndependencies: []'),
+        reason: 'status "complete" is not one of',
+      },
+      {
+        name: 'status that is not a string',
+        markdown: doc('status: 5\ndependencies: []'),
+        reason: 'status 5 is not one of',
+      },
+      {
+        name: 'dependencies as a bare string',
+        markdown: doc('status: pending\ndependencies: "one, two"'),
+        reason: 'dependencies must be a list of integer task ids; got "one, two"',
+      },
+      {
+        name: 'dependencies as a mapping',
+        markdown: doc('status: pending\ndependencies:\n  first: 1'),
+        reason: 'dependencies must be a list of integer task ids; got {"first":1}',
+      },
+      {
+        name: 'dependencies with a non-integer item',
+        markdown: doc('status: pending\ndependencies: [1, two]'),
+        reason: 'dependencies must be a list of integer task ids; got [1,"two"]',
+      },
+      {
+        name: 'dependencies with a fractional item',
+        markdown: doc('status: pending\ndependencies: [1.5]'),
+        reason: 'dependencies must be a list of integer task ids; got [1.5]',
+      },
+      // A self-referencing alias parses as a cyclic value. The preview must
+      // describe it, not throw out of a reader that promises never to.
+      {
+        name: 'dependencies as a self-referencing alias',
+        markdown: doc('status: pending\ndependencies: &d [*d]'),
+        reason: 'dependencies must be a list of integer task ids; got ["[Circular]"]',
+      },
+      {
+        name: 'status as a self-referencing alias',
+        markdown: doc('status: &s [*s]\ndependencies: []'),
+        reason: 'status ["[Circular]"] is not one of',
+      },
+      // A shared alias is the same reference twice, not a cycle; the preview
+      // must print both copies.
+      {
+        name: 'dependencies sharing one non-cyclic alias',
+        markdown: doc('status: pending\ndependencies: [&a {x: 1}, *a]'),
+        reason: 'dependencies must be a list of integer task ids; got [{"x":1},{"x":1}]',
+      },
+    ];
+    for (const c of cases) {
+      const result = readTaskMetadata(c.markdown);
+      expect(result.kind, c.name).toBe('rejected');
+      if (result.kind === 'rejected') expect(result.reason, c.name).toContain(c.reason);
+    }
+  });
+
+  test('collectTaskReadinessIssues blocks on rejected metadata and unmet dependencies', () => {
+    const planDir = fs.mkdtempSync(path.join(os.tmpdir(), 'task-readiness-'));
+    try {
+      const tasksDir = path.join(planDir, 'tasks');
+      fs.mkdirSync(tasksDir);
+      const write = (name: string, body: string) =>
+        fs.writeFileSync(path.join(tasksDir, name), body);
+      write('01--done.md', doc('status: "completed"  # done\ndependencies: []'));
+      write('02--crlf.md', doc('status: pending\ndependencies:\n  - 1', '\r\n'));
+      write('03--pending.md', doc('status: pending\ndependencies: []'));
+      write('04--bad-deps.md', doc('status: pending\ndependencies: "one, two"'));
+      write('05--waits-on-pending.md', doc('status: pending\ndependencies: [3]'));
+      write('06--waits-on-bad.md', doc('status: pending\ndependencies: [4, 99]'));
+      write('07--typo-status.md', doc('status: complete\ndependencies: []'));
+      write('08--no-status.md', doc('id: 8\ndependencies: []'));
+      write('09--ask.md', doc('status: "needs-clarification" # ask first\ndependencies: [1]'));
+      write('10--tagged.md', '---js\nstatus: pending\n---\n');
+      write('12--cyclic-deps.md', doc('status: pending\ndependencies: &d [*d]'));
+      write('13--waits-on-cyclic.md', doc('status: pending\ndependencies: [12]'));
+
+      expect(collectTaskReadinessIssues(planDir, 2)).toEqual([]);
+      expect(collectTaskReadinessIssues(planDir, '03')).toEqual([]);
+
+      expect(collectTaskReadinessIssues(planDir, 4)).toEqual([
+        {
+          taskId: '4',
+          kind: 'invalid-metadata',
+          detail: 'dependencies must be a list of integer task ids; got "one, two"',
+        },
+      ]);
+      expect(collectTaskReadinessIssues(planDir, 5)).toEqual([
+        { taskId: '5', kind: 'unresolved-dependency', detail: 'dependency 3 status is pending' },
+      ]);
+      expect(collectTaskReadinessIssues(planDir, 6)).toEqual([
+        {
+          taskId: '6',
+          kind: 'unresolved-dependency',
+          detail:
+            'dependency 4 has invalid metadata: dependencies must be a list of integer task ids; got "one, two"',
+        },
+        { taskId: '6', kind: 'unresolved-dependency', detail: 'dependency 99 not found' },
+      ]);
+      expect(collectTaskReadinessIssues(planDir, 7)).toEqual([
+        {
+          taskId: '7',
+          kind: 'invalid-metadata',
+          detail:
+            'status "complete" is not one of pending, in-progress, completed, needs-clarification, failed',
+        },
+      ]);
+      expect(collectTaskReadinessIssues(planDir, 8)).toEqual([
+        {
+          taskId: '8',
+          kind: 'invalid-metadata',
+          detail:
+            'status is missing; expected one of pending, in-progress, completed, needs-clarification, failed',
+        },
+      ]);
+      expect(collectTaskReadinessIssues(planDir, 9)).toEqual([
+        { taskId: '9', kind: 'needs-clarification', detail: 'status is needs-clarification' },
+      ]);
+      expect(collectTaskReadinessIssues(planDir, 10)).toEqual([
+        {
+          taskId: '10',
+          kind: 'invalid-metadata',
+          detail: 'Executable or non-YAML frontmatter is not supported.',
+        },
+      ]);
+      expect(collectTaskReadinessIssues(planDir, 11)).toEqual([
+        { taskId: '11', kind: 'missing', detail: 'task file not found' },
+      ]);
+      expect(collectTaskReadinessIssues(planDir, 12)).toEqual([
+        {
+          taskId: '12',
+          kind: 'invalid-metadata',
+          detail: 'dependencies must be a list of integer task ids; got ["[Circular]"]',
+        },
+      ]);
+      expect(collectTaskReadinessIssues(planDir, 13)).toEqual([
+        {
+          taskId: '13',
+          kind: 'unresolved-dependency',
+          detail:
+            'dependency 12 has invalid metadata: dependencies must be a list of integer task ids; got ["[Circular]"]',
+        },
+      ]);
+    } finally {
+      fs.rmSync(planDir, { recursive: true, force: true });
+    }
+  });
+
+  test('rewriteTaskStatus changes only the root status line and keeps every other byte', () => {
+    const cases: Array<{ name: string; input: string; expected: string }> = [
+      {
+        name: 'CRLF with quoted value and trailing comment',
+        input:
+          '---\r\nid: 1\r\nstatus: "pending"  # keep me\r\ndependencies: []\r\n---\r\n# Body\r\n',
+        expected:
+          '---\r\nid: 1\r\nstatus: "completed"  # keep me\r\ndependencies: []\r\n---\r\n# Body\r\n',
+      },
+      {
+        name: 'unquoted value with comment, nested status, and a status line in the body',
+        input: '---\nstatus: pending # c\nmeta:\n  status: other\n---\n# Body\nstatus: body-line\n',
+        expected:
+          '---\nstatus: "completed" # c\nmeta:\n  status: other\n---\n# Body\nstatus: body-line\n',
+      },
+    ];
+    for (const c of cases) {
+      expect(rewriteTaskStatus(c.input, 'completed'), c.name).toBe(c.expected);
+    }
+  });
+});
+
 describe('check-phase-readiness scenarios', () => {
   let tempDir: string;
 
@@ -835,6 +1180,94 @@ describe('check-phase-readiness scenarios', () => {
     }
     expect(exitCode).toBe(1);
     expect(output).toContain('needs-clarification');
+  });
+
+  test('bounds phase membership to the blueprint section when an execution summary follows', () => {
+    buildTaskFixture(tempDir, 7, 'phase-summary', [
+      { id: 1, status: 'completed', dependencies: [] },
+      { id: 2, status: 'completed', dependencies: [] },
+      { id: 3, status: 'pending', dependencies: [1, 2] },
+    ]);
+    const planFile = path.join(
+      tempDir,
+      '.ai',
+      'strikethroo',
+      'plans',
+      '07--phase-summary',
+      'plan-07--phase-summary.md'
+    );
+    fs.appendFileSync(planFile, BLUEPRINT_SECTION + TRAILING_EXECUTION_SUMMARY);
+    const script = path.join(
+      builtSkillDir('st-execute-blueprint'),
+      'scripts',
+      'check-phase-readiness.cjs'
+    );
+    // The trailing summary names tasks 01, 03, and 04 in bullets. Read into
+    // phase 2 they would list a missing task 04 and fail readiness.
+    const result = execFileSync('node', [script, '7', '2'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+      env: { ...process.env, NO_COLOR: '1' },
+    });
+    expect(result).toContain('Tasks in phase: 3\n');
+    expect(result).toContain('Phase 2 is ready to execute');
+  });
+
+  test('reads CRLF and block lists, and blocks on malformed metadata', () => {
+    buildPhaseBlueprintFixture(
+      tempDir,
+      8,
+      'phase-yaml',
+      [
+        { id: 1, status: 'completed', dependencies: [] },
+        { id: 2, status: 'pending', dependencies: [] },
+        { id: 3, status: 'pending', dependencies: [] },
+        { id: 4, status: 'pending', dependencies: [] },
+      ],
+      [[2], [3, 4]]
+    );
+    const tasksDir = path.join(tempDir, '.ai', 'strikethroo', 'plans', '08--phase-yaml', 'tasks');
+    fs.writeFileSync(
+      path.join(tasksDir, '01--task-1.md'),
+      '---\nid: 1\nstatus: "completed"  # done\ndependencies: []\n---\n# Task 1\n'
+    );
+    fs.writeFileSync(
+      path.join(tasksDir, '02--task-2.md'),
+      '---\r\nid: 2\r\nstatus: pending\r\ndependencies:\r\n  - 1\r\n---\r\n# Task 2\r\n'
+    );
+    fs.writeFileSync(
+      path.join(tasksDir, '03--task-3.md'),
+      '---\nid: 3\nstatus: pending\ndependencies: "one, two"\n---\n# Task 3\n'
+    );
+    fs.writeFileSync(
+      path.join(tasksDir, '04--task-4.md'),
+      '---\nid: 4\nstatus: "needs-clarification" # ask first\ndependencies: [1]\n---\n# Task 4\n'
+    );
+    const script = path.join(
+      builtSkillDir('st-execute-blueprint'),
+      'scripts',
+      'check-phase-readiness.cjs'
+    );
+    const run = (phase: string): { exitCode: number; output: string } => {
+      const result = spawnSync('node', [script, '8', phase], {
+        cwd: tempDir,
+        encoding: 'utf8',
+        env: { ...process.env, NO_COLOR: '1' },
+      });
+      return { exitCode: result.status ?? -1, output: result.stdout + result.stderr };
+    };
+
+    const ready = run('1');
+    expect(ready.output).toContain('Phase 1 is ready to execute');
+    expect(ready.output).not.toContain('dependency 1');
+    expect(ready.exitCode).toBe(0);
+
+    const blocked = run('2');
+    expect(blocked.exitCode).toBe(1);
+    expect(blocked.output).toContain(
+      'Task 3: dependencies must be a list of integer task ids; got "one, two"'
+    );
+    expect(blocked.output).toContain('Task 4: status is needs-clarification');
   });
 });
 
@@ -1058,6 +1491,69 @@ describe('check-task-dependencies scenarios', () => {
     expect(exitCode).toBe(1);
   });
 
+  /** Writes one plan whose blueprint lists every task, so `validate` has nothing else to say. */
+  const writeRawTasks = (planName: string, tasks: Array<{ id: number; frontmatter: string }>) => {
+    const tm = path.join(tempDir, '.ai', 'strikethroo');
+    fs.mkdirSync(tm, { recursive: true });
+    fs.writeFileSync(
+      path.join(tm, '.init-metadata.json'),
+      JSON.stringify({ version: 'test', workspaceSchemaVersion: 4, files: {} })
+    );
+    const planDir = path.join(tm, 'plans', `01--${planName}`);
+    fs.mkdirSync(path.join(planDir, 'tasks'), { recursive: true });
+    const members = tasks.map(t => `- Task ${String(t.id).padStart(2, '0')}`).join('\n');
+    fs.writeFileSync(
+      path.join(planDir, `plan-01--${planName}.md`),
+      `---\nid: 1\nsummary: "${planName}"\ncreated: 2026-01-01\n---\n\n## Execution Blueprint\n\n### Phase 1\n${members}\n`
+    );
+    for (const t of tasks) {
+      fs.writeFileSync(
+        path.join(planDir, 'tasks', `${String(t.id).padStart(2, '0')}--task-${t.id}.md`),
+        `---\nid: ${t.id}\ngroup: g\n${t.frontmatter}\nskills: [typescript]\ncreated: 2026-01-01\n---\n# Task ${t.id}\n`
+      );
+    }
+    return tm;
+  };
+
+  const runDependencyCheck = (taskId: string) =>
+    spawnSync(
+      'node',
+      [
+        path.join(builtSkillDir('st-execute-task'), 'scripts', 'check-task-dependencies.cjs'),
+        '1',
+        taskId,
+      ],
+      { cwd: tempDir, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' }, timeout: 2000 }
+    );
+
+  test('a bare dependencies key that validate accepts is an empty list at execution', () => {
+    const tm = writeRawTasks('bare-deps', [
+      { id: 1, frontmatter: 'status: pending\ndependencies:' },
+      { id: 2, frontmatter: 'status: pending\ndependencies:  # none yet' },
+    ]);
+    expect(validateWorkspace(tm).findings).toEqual([]);
+    for (const id of ['1', '2']) {
+      const result = runDependencyCheck(id);
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toContain('no dependencies');
+    }
+  });
+
+  test('rejects a doubling alias graph promptly with a bounded preview', () => {
+    const anchors = ['a0: &a0 [x, x]'];
+    for (let i = 1; i < 32; i++) anchors.push(`a${i}: &a${i} [*a${i - 1}, *a${i - 1}]`);
+    writeRawTasks('alias-bomb', [
+      { id: 1, frontmatter: `${anchors.join('\n')}\nstatus: *a31\ndependencies: []` },
+    ]);
+    const result = runDependencyCheck('1');
+    expect(result.signal).toBeNull();
+    expect(result.status).toBe(1);
+    const line = result.stderr.split('\n').find(l => l.startsWith('ERROR: status '));
+    expect(line).toBeDefined();
+    expect(line).toMatch(/^ERROR: status \[\[\[\[.*… is not one of pending/);
+    expect(line!.length).toBeLessThan(200);
+  });
+
   test('plan not found', () => {
     const script = path.join(
       builtSkillDir('st-execute-task'),
@@ -1075,5 +1571,172 @@ describe('check-task-dependencies scenarios', () => {
       exitCode = e.status ?? null;
     }
     expect(exitCode).toBe(1);
+  });
+});
+
+/**
+ * One documented policy for `resolvePlan`: an absolute path addresses one plan
+ * file anywhere, a bare integer addresses a plan in the nearest workspace only,
+ * and either route passes through the same workspace-schema gate.
+ */
+describe('plan resolution policy', () => {
+  /** Stands in for a real `process.exit` so the gate can be observed. */
+  class ProcessExited extends Error {
+    constructor(readonly code: number | undefined) {
+      super(`process.exit(${String(code)})`);
+    }
+  }
+
+  interface GateOutcome {
+    readonly exitCode: number | undefined;
+    readonly stderr: string;
+  }
+
+  const captureGate = (call: () => unknown): GateOutcome => {
+    const written: string[] = [];
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(((
+      chunk: unknown
+    ): boolean => {
+      written.push(String(chunk));
+      return true;
+    }) as never);
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number): never => {
+      throw new ProcessExited(code);
+    }) as never);
+    try {
+      call();
+      return { exitCode: undefined, stderr: written.join('') };
+    } catch (err) {
+      if (err instanceof ProcessExited) return { exitCode: err.code, stderr: written.join('') };
+      throw err;
+    } finally {
+      exitSpy.mockRestore();
+      stderrSpy.mockRestore();
+    }
+  };
+
+  /** A workspace holding one plan, at an arbitrary recorded schema version. */
+  const buildWorkspace = (
+    project: string,
+    planId: number,
+    schemaVersion: number | undefined = 4
+  ): { root: string; planFile: string } => {
+    const root = path.join(project, '.ai', 'strikethroo');
+    fs.mkdirSync(root, { recursive: true });
+    fs.writeFileSync(
+      path.join(root, '.init-metadata.json'),
+      JSON.stringify({ version: 'test', workspaceSchemaVersion: schemaVersion })
+    );
+    const padded = String(planId).padStart(2, '0');
+    const planFile = path.join(root, 'plans', `${padded}--fixture`, `plan-${padded}--fixture.md`);
+    writeFile(planFile, `---\nid: ${planId}\nsummary: "fx"\ncreated: 2026-01-01\n---\nbody\n`);
+    return { root, planFile };
+  };
+
+  const POSIX_PLAN_PATH = '/srv/project/.ai/strikethroo/plans/02--x/plan-02--x.md';
+  const WINDOWS_PLAN_PATH = 'C:\\work\\project\\.ai\\strikethroo\\plans\\02--x\\plan-02--x.md';
+
+  const classificationCases: ReadonlyArray<{
+    label: string;
+    input: string | number;
+    isAbsolute: (candidate: string) => boolean;
+    expected: PlanInput;
+  }> = [
+    {
+      label: 'a POSIX absolute path on a POSIX host',
+      input: POSIX_PLAN_PATH,
+      isAbsolute: path.posix.isAbsolute,
+      expected: { kind: 'path', planFile: POSIX_PLAN_PATH },
+    },
+    {
+      label: 'a Windows absolute path on a Windows host',
+      input: WINDOWS_PLAN_PATH,
+      isAbsolute: path.win32.isAbsolute,
+      expected: { kind: 'path', planFile: WINDOWS_PLAN_PATH },
+    },
+    {
+      label: 'a Windows absolute path on a POSIX host',
+      input: WINDOWS_PLAN_PATH,
+      isAbsolute: path.posix.isAbsolute,
+      expected: { kind: 'invalid' },
+    },
+    {
+      label: 'a numeric-looking relative input',
+      input: '2',
+      isAbsolute: path.posix.isAbsolute,
+      expected: { kind: 'id', planId: 2 },
+    },
+    {
+      label: 'a number',
+      input: 7,
+      isAbsolute: path.posix.isAbsolute,
+      expected: { kind: 'id', planId: 7 },
+    },
+    {
+      label: 'a relative path',
+      input: 'plans/02--x/plan-02--x.md',
+      isAbsolute: path.posix.isAbsolute,
+      expected: { kind: 'invalid' },
+    },
+    {
+      label: 'an empty input',
+      input: '',
+      isAbsolute: path.posix.isAbsolute,
+      expected: { kind: 'invalid' },
+    },
+  ];
+
+  // `path.win32`/`path.posix` stand in for the host platform: a Windows path is
+  // never read as a plan id, and on a Windows host it is read as a path.
+  test.each(classificationCases)('$label', ({ input, isAbsolute, expected }) => {
+    expect(_classifyPlanInput(input, isAbsolute)).toEqual(expected);
+  });
+
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'plan-resolve-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  test.each([
+    ['older than the skill', 1, 'npx strikethroo init'],
+    ['newer than the skill', 99, 'npx skills add'],
+  ])(
+    'a workspace schema %s fails identically by path and by id',
+    (_label, schemaVersion, remedy) => {
+      const project = path.join(tempDir, 'project');
+      const { planFile } = buildWorkspace(project, 7, schemaVersion as number);
+
+      const byPath = captureGate(() => resolvePlan(planFile));
+      const byId = captureGate(() => resolvePlan(7, project));
+
+      expect(byPath.exitCode).toBe(1);
+      expect(byPath.stderr).toContain(`v${schemaVersion}`);
+      expect(byPath.stderr).toContain(remedy as string);
+      expect(byId).toEqual(byPath);
+    }
+  );
+
+  test('a numeric id searches only the nearest workspace', () => {
+    const outer = path.join(tempDir, 'outer');
+    const inner = path.join(outer, 'apps', 'inner');
+    const outerWorkspace = buildWorkspace(outer, 7);
+    const innerWorkspace = buildWorkspace(inner, 3);
+
+    // Plan 7 exists in the outer workspace only; the inner lookup must not reach it.
+    expect(resolvePlan(7, inner)).toBeNull();
+    expect(path.resolve(resolvePlan(3, inner)!.strikethrooRoot)).toBe(
+      path.resolve(innerWorkspace.root)
+    );
+
+    // An explicit path stays the deliberate route into another workspace.
+    const reached = resolvePlan(outerWorkspace.planFile, inner);
+    expect(reached).not.toBeNull();
+    expect(reached!.planId).toBe(7);
+    expect(path.resolve(reached!.strikethrooRoot)).toBe(path.resolve(outerWorkspace.root));
   });
 });

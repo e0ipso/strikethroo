@@ -84,6 +84,8 @@ The blueprint's phases -- groups of tasks that run in parallel -- render as swim
 
 > /st-execute-blueprint 1
 
+The number is the plan id. It resolves in the nearest workspace and never in one further up the directory tree. Pass the absolute path of the plan file instead of the id to address a plan in another workspace. Either way, Strikethroo checks the workspace's schema version and stops with the command that fixes a mismatch.
+
 The `st-execute-blueprint` skill runs tasks grouped into phases. Before phases begin, it runs `create-feature-branch.cjs` to create a plan feature branch when appropriate (skipped when not on `main`/`master` — that is expected, not a failure). Before each phase, the skill runs `check-phase-readiness.cjs`, then the [`PRE_PHASE`](customization.html#pre_phase) hook. Independent tasks run in parallel within the phase. For routed tasks, dispatch selects a target from the persisted profile immediately before delegation; only native/current-harness targets are eligible by default and skip availability probes. With `allow_external_harness_execution: true`, external harnesses are also eligible, checked for readiness, and avoided on retry when unavailable. For every task, [`PRE_TASK_ASSIGNMENT`](customization.html#pre_task_assignment) runs before dispatch and [`PRE_TASK_EXECUTION`](customization.html#pre_task_execution) runs on the task agent before implementation. [`POST_ERROR_DETECTION`](customization.html#post_error_detection) runs if a task fails, and [`POST_PHASE`](customization.html#post_phase) runs after each phase completes.
 
 Before any of that, if the plan has no tasks yet, the skill generates them: it breaks the plan into atomic tasks (1-2 skills each), maps dependencies, assigns every task a `complexity_score`, and assembles the phase-grouped blueprint. That is the normal path -- you do not run a separate task-generation command.
@@ -131,7 +133,7 @@ The review never creates task files and never mutates the execution blueprint. F
 
 The reviewed scope runs from a base commit recorded before phase execution against the working tree, so committed phase work, uncommitted fixes, and untracked new files are all in scope — nothing needs to be staged or committed for the reviewer to see it. Ignored, generated, and vendored paths are excluded; see [Customization](customization.html#code_review) for the complete list of limitations.
 
-**To disable:** Edit or delete `.ai/strikethroo/config/hooks/CODE_REVIEW.md`. The gate skips cleanly with a note in the execution summary.
+**To disable:** Empty `.ai/strikethroo/config/hooks/CODE_REVIEW.md`. The gate skips cleanly with a note in the execution summary. Deleting the file does not last, because `init` and `update` restore it.
 
 **Important:** A passing review is not a correctness guarantee. The gate reduces exposure to the same class of error a human PR approval reduces, and leaves the same exposure behind. See [Customization](customization.html#code_review) for limitations.
 

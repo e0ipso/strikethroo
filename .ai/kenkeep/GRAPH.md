@@ -1,11 +1,11 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:3eb6e6d721af1ea8d1da621b729967f46c682f90dca3951f62eb2861559686aa'
-node_count: 86
+nodes_hash: 'sha256:6fec805bc1397350b5bd0fba8f632f3a258285c0d2915262114295bfa670a688'
+node_count: 87
 ---
 # kenkeep Graph
 
-Total nodes: 86
+Total nodes: 87
 
 ## map-archive-ui-control-confirmation-gated-archive-button-on-done-plans
 
@@ -127,15 +127,15 @@ Total nodes: 86
 ## map-parseblueprintphases-slices-blueprint-section-to-end-of-document
 
 - **kind:** map
-- **title:** parseBlueprintPhases slices blueprint section to end-of-document
+- **title:** The blueprint parser is bounded to its own section
 - **path:** serve/map-parseblueprintphases-slices-blueprint-section-to-end-of-document.md
-- **tags:** serve, blueprint, parser, derivation, gotcha
+- **tags:** serve, blueprint, parser, derivation, parser-contract
 - **relates_to:** practice-plan-detail-blueprint-markdown-vs-tasks-frontmatter
 
 ## map-phase-derivation-is-implemented-twice-viewer-path-and-execution-path
 
 - **kind:** map
-- **title:** Phase derivation is implemented twice — viewer path and execution path
+- **title:** One blueprint parser serves the viewer, the validator, and execution
 - **path:** serve/map-phase-derivation-is-implemented-twice-viewer-path-and-execution-path.md
 - **tags:** blueprint, phase, serve, derivation, skill-scripts
 - **relates_to:** map-parseblueprintphases-slices-blueprint-section-to-end-of-document, practice-plan-detail-blueprint-markdown-vs-tasks-frontmatter
@@ -408,6 +408,14 @@ Total nodes: 86
 - **tags:** release, npm, skills, git
 - **depends_on:** practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime
 
+## practice-markdown-policy-needs-its-own-dompurify-instance
+
+- **kind:** practice
+- **title:** markdown.ts needs a private DOMPurify instance or mermaid loses every SVG attribute
+- **path:** web/rendering/practice-markdown-policy-needs-its-own-dompurify-instance.md
+- **tags:** web, rendering, mermaid, dompurify, sanitization, gotcha
+- **relates_to:** practice-review-gate-reports-it-does-not-fix
+
 ## practice-never-hand-commit-generated-skill-artifacts
 
 - **kind:** practice
@@ -419,7 +427,7 @@ Total nodes: 86
 ## practice-npm-run-lint-only-covers-ts-files-tsx-web-files-need-separate-type-check
 
 - **kind:** practice
-- **title:** npm run lint only covers .ts files; .tsx web files need separate type-check
+- **title:** The required gate lints tsx and type-checks the web production code
 - **path:** tooling/practice-npm-run-lint-only-covers-ts-files-tsx-web-files-need-separate-type-check.md
 - **tags:** web, lint, tsx, build
 - **relates_to:** practice-lint-staged-scopes-lint-format-but-pre-commit-still-runs-the-full-test-suite

@@ -5,6 +5,7 @@ import * as yaml from 'js-yaml';
 
 import { SUPPORTED_HARNESSES, type Harness } from '../../types';
 import { WORKSPACE_CONFIG_RELPATH } from './execution-routing';
+import { hasYamlContent } from './task-frontmatter';
 
 export const HARNESS_CONFIGURATION_SECTION = 'harnesses';
 export const HARNESS_CONFIGURATION_NORMALIZATION_VERSION = 1;
@@ -115,6 +116,12 @@ export const loadHarnessConfiguration = (strikethrooRoot: string): HarnessConfig
       ],
     };
   }
+
+  // js-yaml v5 throws on an empty document, so a config.yaml that is blank or
+  // reduced to comments has to be answered before the parse. It means
+  // "nothing configured" here, exactly as it does to loadRoutingConfig and to
+  // the Customize form's parser.
+  if (!hasYamlContent(contents)) return { kind: 'config', config: emptyConfiguration() };
 
   let document: unknown;
   try {

@@ -175,4 +175,16 @@ describe('writeConfigFile filesystem containment', () => {
     },
     5000
   );
+
+  it('refuses a directory at a hook path and leaves it and its contents in place', async () => {
+    const dir = path.join(root, 'config', 'hooks', 'DIR.md');
+    fs.mkdirSync(dir);
+    fs.writeFileSync(path.join(dir, 'inner.md'), 'inner\n', 'utf8');
+    const result = await writeConfigFile(root, 'hooks', 'DIR', 'x');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('not-found');
+    expect(fs.lstatSync(dir).isDirectory()).toBe(true);
+    expect(fs.readFileSync(path.join(dir, 'inner.md'), 'utf8')).toBe('inner\n');
+    expect(tmpFilesIn(path.join(root, 'config', 'hooks'))).toEqual([]);
+  });
 });

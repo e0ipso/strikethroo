@@ -42,14 +42,26 @@
  *    link `rel="noopener noreferrer"` and `target="_blank"`, so an external
  *    page never gets an opener handle on the viewer.
  *
- * DOMPurify hooks are global, so they are registered once at module load. The
- * mermaid renderer is deliberately NOT imported here. It lives behind a lazy
+ * The hooks below run on a private DOMPurify instance, not on the shared default
+ * one. Hooks are per-instance, and mermaid sanitizes its rendered SVG through the
+ * default instance under `securityLevel: 'strict'`; a prose-only attribute policy
+ * registered there would strip every `viewBox`, `d`, and `x` from a diagram and
+ * leave a blank canvas. The instance is created once at module load, which is
+ * safe because this module is browser-only (its one importer is `ReaderProse`).
+ *
+ * The mermaid renderer is deliberately NOT imported here. It lives behind a lazy
  * `import()` in `./mermaid.ts` so it stays off the dependency graph of every
  * markdown consumer (the Reader route does not ship mermaid).
  */
 
 import { marked } from 'marked';
-import DOMPurify from 'dompurify';
+import createDOMPurify from 'dompurify';
+
+/**
+ * This module's own DOMPurify instance. Hooks are per-instance, so registering
+ * the prose policy here cannot reach mermaid's sanitize pass on the default one.
+ */
+const purify = createDOMPurify(window);
 
 /**
  * GFM task lists (`- [ ]` / `- [x]`) are authored throughout the plan and task
@@ -171,7 +183,7 @@ const droppedImageSrc = new WeakMap<Element, string>();
  * with THIS value. Setting `keepAttr = false` removes it. DOMPurify's own URI
  * check still runs afterwards, so this only ever tightens.
  */
-DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
+purify.addHook('uponSanitizeAttribute', (node, data) => {
   const tag = node.localName;
   const value = data.attrValue;
   let keep = false;
@@ -216,7 +228,7 @@ DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
  * opener access, and an image whose remote `src` was dropped is replaced by its
  * alt text (or a plain link to the URL) instead of lingering as a broken image.
  */
-DOMPurify.addHook('afterSanitizeAttributes', node => {
+purify.addHook('afterSanitizeAttributes', node => {
   const doc = node.ownerDocument;
   if (node.localName === 'a' && isWebUrl(node.getAttribute('href') ?? '')) {
     node.setAttribute('rel', 'noopener noreferrer');
@@ -255,7 +267,7 @@ export function renderMarkdown(source: string): string {
   // string (not a Promise).
   const rawHtml = marked.parse(source ?? '', { async: false }) as string;
 
-  return DOMPurify.sanitize(rawHtml, {
+  return purify.sanitize(rawHtml, {
     ALLOWED_TAGS,
     ALLOWED_ATTR,
     ALLOW_DATA_ATTR: false,

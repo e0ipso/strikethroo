@@ -348,6 +348,38 @@ describe('serializeWorkspaceConfig round-trip', () => {
     expect(reparsed.routing).toEqual(routing);
   });
 
+  it('round-trips a profile named __proto__ as an own mapping key', () => {
+    // Profile names are user-supplied and unrestricted, so one can collide with
+    // `Object.prototype`'s accessor. Keyed mappings must be own-key safe.
+    const routing: RoutingForm = {
+      enabled: true,
+      allowExternalHarnessExecution: false,
+      profiles: [
+        {
+          name: '__proto__',
+          description: 'A profile whose name collides with the prototype accessor.',
+          targets: [{ model: 'haiku-x', harness: 'codex', reasoningEffort: 'high' }],
+        },
+      ],
+      resolverScript: '',
+    };
+
+    const output = serializeWorkspaceConfig({ other_feature: 1 }, EMPTY_HARNESSES, routing);
+    expect(output).toContain('__proto__:');
+
+    const reloaded = load(output) as {
+      other_feature: unknown;
+      execution_routing: { profiles: object };
+    };
+    expect(reloaded.other_feature).toBe(1);
+    expect(Object.getOwnPropertyNames(reloaded.execution_routing.profiles)).toEqual(['__proto__']);
+
+    const reparsed = parseWorkspaceConfig(output);
+    expect(reparsed.kind).toBe('parsed');
+    if (reparsed.kind !== 'parsed') return;
+    expect(reparsed.routing).toEqual(routing);
+  });
+
   it('never trims a cli_args value', () => {
     const output = serializeWorkspaceConfig({}, harnessForm({ gemini: [' spaced ', '--x '] }), {
       enabled: true,

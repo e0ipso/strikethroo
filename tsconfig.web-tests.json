@@ -1,0 +1,20 @@
+{
+  // Type check for the SPA's Vitest suites, mirroring tsconfig.test.json for
+  // the CLI domain: extend the production config so the two cannot drift, add
+  // the test-runner globals it leaves out. `include` and `exclude` replace the
+  // base's rather than merge, and the base excludes exactly these files, so
+  // `exclude` is reset here. vite-env.d.ts is listed because the suites import
+  // production modules (customize/descriptions.ts) that import a `*.yaml`
+  // module it declares; a tests-only include would not reach it.
+  "extends": "./tsconfig.web.json",
+  "compilerOptions": {
+    "types": ["vitest/globals"]
+  },
+  "include": [
+    "src/web/**/__tests__/**/*",
+    "src/web/**/*.test.ts",
+    "src/web/**/*.test.tsx",
+    "src/web/vite-env.d.ts"
+  ],
+  "exclude": []
+}

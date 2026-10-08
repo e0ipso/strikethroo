@@ -93,7 +93,8 @@ function describeRefusal(metadataPath: string, refusal: SafeFsError): string {
  * Load metadata from .init-metadata.json file
  * @param metadataPath - Absolute path to metadata file
  * @returns InitMetadata object, or null when the file is absent or its JSON is
- *   not usable metadata (first-time init)
+ *   not usable metadata. The caller decides what null means: a first install
+ *   when the workspace holds nothing, an untrusted baseline when it does
  * @throws FileSystemError when the file or a workspace parent is a symbolic
  *   link or otherwise not a regular entry; this is never treated as first-time
  *   init, so a link cannot bypass conflict protection
@@ -122,7 +123,7 @@ export async function loadMetadata(metadataPath: string): Promise<InitMetadata |
 
     return metadata;
   } catch {
-    // Corrupted or invalid JSON is treated as first-time init
+    // Corrupted or invalid JSON is unusable metadata; the caller decides what that means
     return null;
   }
 }

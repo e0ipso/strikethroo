@@ -15,13 +15,31 @@
  * Safety: when a managed section exists but has a shape the form cannot
  * represent, the tab shows why and refuses a form save instead of silently
  * rewriting content it would destroy.
+ *
+ * Editing state follows `draftState.ts` with the serialized YAML as the
+ * comparison key: the parsed form is the draft, the last submitted
+ * serialization is the baseline, and the latest parsed disk document is the
+ * disk, so a reparse that dumps identically is not a conflict.
  */
 
-import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Chip } from '../components/primitives';
 import { saveConfigFile, type ConfigFile } from '../data/api';
 import { cn } from '../vendor/utils/cn';
 import { SUPPORTED_HARNESSES, type Harness } from '../../types';
+import { DiskConflictBanner, RefreshErrorBanner } from './DiskConflictBanner';
+import {
+  acknowledgeDisk,
+  beginSave,
+  commitSave,
+  draftFlags,
+  failSave,
+  loadDisk,
+  observeDisk,
+  seedDraft,
+  type DiskContent,
+  type DraftState,
+} from './draftState';
 import {
   parseWorkspaceConfig,
   serializeWorkspaceConfig,
@@ -53,6 +71,32 @@ interface ConfigFormModel {
   harnesses: HarnessArgsForm;
   routing: RoutingForm;
 }
+
+/** The form's draft: the managed sections plus the document they are written into. */
+interface ConfigDraft {
+  model: ConfigFormModel;
+  /** The parsed file whose foreign top-level sections a save preserves. */
+  document: Record<string, unknown>;
+}
+
+/** Serialized YAML is the comparison key for drafts, baseline, and disk. */
+const keyOf = (draft: ConfigDraft): string =>
+  serializeWorkspaceConfig(draft.document, draft.model.harnesses, draft.model.routing);
+
+type DiskView =
+  | { kind: 'parsed'; disk: DiskContent<ConfigDraft, string> }
+  | { kind: 'unsupported'; message: string };
+
+/** Parses one observed file content into disk content, or the reason it cannot be. */
+const viewDisk = (content: string): DiskView => {
+  const parsed = parseWorkspaceConfig(content);
+  if (parsed.kind === 'unsupported') return parsed;
+  const draft: ConfigDraft = {
+    model: { harnesses: parsed.harnesses, routing: parsed.routing },
+    document: parsed.document,
+  };
+  return { kind: 'parsed', disk: { key: keyOf(draft), adopt: () => draft } };
+};
 
 const EMPTY_PROFILE: RoutingProfileForm = {
   name: '',
@@ -311,249 +355,316 @@ function ProfileCard({
   );
 }
 
-/** The loaded form over a parsed config.yaml. Re-mount (via key) re-seeds it. */
-function ConfigForm({
-  file,
-  document,
-  initial,
-  save,
-  setSave,
-}: {
-  file: ConfigFile;
-  document: Record<string, unknown>;
-  initial: ConfigFormModel;
-  save: SaveState;
-  setSave: Dispatch<SetStateAction<SaveState>>;
-}) {
-  const [model, setModel] = useState<ConfigFormModel>(initial);
-  const [baseline, setBaseline] = useState(initial);
-  const { harnesses, routing } = model;
-
-  const dirty = JSON.stringify(model) !== JSON.stringify(baseline);
-  const errors = useMemo(
-    () => [...validateHarnessForm(model.harnesses), ...validateRoutingForm(model.routing)],
-    [model]
-  );
-  const saving = save.phase === 'saving';
-
-  const update = useCallback(
-    (next: ConfigFormModel) => {
-      setModel(next);
-      setSave(prev =>
-        prev.phase === 'idle' || prev.phase === 'saving' ? prev : { phase: 'idle' }
-      );
-    },
-    [setSave]
-  );
-
-  const onSave = useCallback(async () => {
-    if (errors.length > 0 || saving || !dirty) return;
-    setSave({ phase: 'saving' });
-    try {
-      await saveConfigFile(
-        'workspace',
-        file.id,
-        serializeWorkspaceConfig(document, model.harnesses, model.routing)
-      );
-      setBaseline(model);
-      setSave({ phase: 'saved' });
-    } catch (err) {
-      setSave({ phase: 'error', message: err instanceof Error ? err.message : String(err) });
-    }
-  }, [errors.length, saving, dirty, file.id, document, model, setSave]);
-
+/** The current file cannot be represented by the form; it is edited on disk instead. */
+function UnsupportedNotice({ relPath, message }: { relPath: string; message: string }) {
   return (
-    <div data-testid="workspace-config-form" className="flex flex-col gap-5 p-7">
-      <div className="max-w-3xl font-sans text-sm leading-relaxed text-ink-2">
-        <p>
-          <Chip>{file.relPath}</Chip> is the workspace&apos;s single structured configuration file:
-          every configurable feature claims one top-level section in it. This form edits the
-          sections it understands and preserves the rest; saving rewrites the file, so hand-written
-          comments are not kept.
-        </p>
-      </div>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="font-display text-lg font-semibold text-ink">
-          Harness invocation arguments
-        </h2>
-        <p className="max-w-3xl font-sans text-sm leading-relaxed text-ink-2">
-          Every row is one exact argument passed verbatim to that CLI whenever Strikethroo spawns
-          it, in the order shown. Values are never split on whitespace or shell-expanded, so a flag
-          and its value are two separate rows. These arguments can grant broad authority — never put
-          a credential or token here.
-        </p>
-        <div className="grid gap-3 md:grid-cols-2">
-          {SUPPORTED_HARNESSES.map(harness => (
-            <HarnessArgsCard
-              key={harness}
-              harness={harness}
-              entry={harnesses[harness]}
-              onChange={next => update({ ...model, harnesses: { ...harnesses, [harness]: next } })}
-            />
-          ))}
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="font-display text-lg font-semibold text-ink">Execution routing</h2>
-        <label className="flex items-center gap-2 font-sans text-sm text-ink">
-          <input
-            data-testid="routing-enabled"
-            type="checkbox"
-            className="size-4 accent-ink"
-            checked={routing.enabled}
-            onChange={e => update({ ...model, routing: { ...routing, enabled: e.target.checked } })}
-          />
-          <span className="font-medium">Enable execution routing</span>
-        </label>
-        <p className="max-w-3xl font-sans text-sm leading-relaxed text-ink-2">
-          During task generation every task is classified into one of these profiles by its
-          description. The profile is saved with the task; immediately before each delegation, one
-          complete target is selected from that profile. Rejected targets join the task&apos;s avoid
-          set before another selection attempt. Turning the switch off keeps the profiles below but
-          stops them being used; an empty profile list also turns routing off.
-        </p>
-
-        {/* A disabled fieldset makes every descendant control inert natively. */}
-        <fieldset
-          data-testid="routing-editor"
-          disabled={!routing.enabled}
-          className={cn('flex min-w-0 flex-col gap-3', !routing.enabled && 'opacity-50')}
-        >
-          <label className="flex items-center gap-2 font-sans text-sm text-ink">
-            <input
-              data-testid="allow-external-harness-execution"
-              type="checkbox"
-              className="size-4 accent-ink"
-              aria-describedby="external-harness-execution-help"
-              checked={routing.allowExternalHarnessExecution}
-              onChange={e =>
-                update({
-                  ...model,
-                  routing: { ...routing, allowExternalHarnessExecution: e.target.checked },
-                })
-              }
-            />
-            <span className="font-medium">Allow external harness execution</span>
-          </label>
-          <p
-            id="external-harness-execution-help"
-            className="max-w-3xl font-sans text-sm leading-relaxed text-ink-2"
-          >
-            Off by default, including when this setting is absent from config.yaml. Only targets
-            using the orchestrator&apos;s harness are eligible, including targets with no harness
-            specified. If none remain in the selected profile, tasks use the current harness&apos;s
-            default model and reasoning. Turn this on to also allow targets on other harnesses. This
-            applies to custom selectors too. The code review gate still uses a second harness.
-          </p>
-          {routing.profiles.map((profile, index) => (
-            <ProfileCard
-              key={index}
-              profile={profile}
-              onChange={next =>
-                update({
-                  ...model,
-                  routing: {
-                    ...routing,
-                    profiles: routing.profiles.map((p, i) => (i === index ? next : p)),
-                  },
-                })
-              }
-              onRemove={() =>
-                update({
-                  ...model,
-                  routing: { ...routing, profiles: routing.profiles.filter((_, i) => i !== index) },
-                })
-              }
-            />
-          ))}
-          <div>
-            <Button
-              icon="plus"
-              onClick={() =>
-                update({
-                  ...model,
-                  routing: {
-                    ...routing,
-                    profiles: [
-                      ...routing.profiles,
-                      { ...EMPTY_PROFILE, targets: [{ ...EMPTY_TARGET }] },
-                    ],
-                  },
-                })
-              }
-            >
-              Add profile
-            </Button>
-          </div>
-
-          <label className="mt-2 flex max-w-3xl flex-col gap-1.5 font-sans text-sm text-ink-2">
-            <span className="font-medium text-ink">Custom dispatch selector script (optional)</span>
-            <input
-              data-testid="routing-resolver"
-              className={cn(FIELD, 'w-full font-mono')}
-              type="text"
-              placeholder="./scripts/select-execution-target.cjs"
-              value={routing.resolverScript}
-              onChange={e =>
-                update({ ...model, routing: { ...routing, resolverScript: e.target.value } })
-              }
-            />
-            <span className="text-xs text-ink-3">
-              One repository-relative script for the whole configuration. At each selection attempt
-              it receives one task, all eligible targets for its profile, and the accumulated avoid
-              set, then returns one non-avoided target identifier. It never reclassifies tasks.
-              Leave empty to use the first eligible, non-avoided target in configured order.
-            </span>
-          </label>
-        </fieldset>
-      </section>
-
-      {dirty && errors.length > 0 && (
-        <ul
-          data-testid="workspace-config-errors"
-          role="alert"
-          className="max-w-3xl list-disc rounded-card bg-cream-mid p-4 pl-8 font-sans text-sm text-ink-2 ring-1 ring-border-soft"
-        >
-          {errors.map((error, i) => (
-            <li key={i}>{error}</li>
-          ))}
-        </ul>
-      )}
-
-      <div className="flex items-center gap-3">
-        <Button kind="primary" onClick={onSave}>
-          Save configuration
-        </Button>
-        <span
-          data-testid="workspace-config-status"
-          className={cn(
-            'font-sans text-sm text-ink-3',
-            dirty && save.phase === 'idle' && 'font-semibold text-ink-2'
-          )}
-          role={save.phase === 'error' ? 'alert' : undefined}
-        >
-          {save.phase === 'saving' && 'Saving…'}
-          {save.phase === 'saved' && !dirty && 'Saved.'}
-          {save.phase === 'error' && `Save failed: ${save.message}`}
-          {save.phase === 'idle' &&
-            dirty &&
-            (errors.length > 0 ? 'Fix the issues above to save.' : 'Unsaved changes.')}
-        </span>
-      </div>
+    <div className="flex max-w-3xl flex-col gap-2 p-7 font-sans text-sm text-ink-2" role="alert">
+      <p>
+        This form cannot safely edit the current <Chip>{relPath}</Chip>: {message}
+      </p>
+      <p className="text-ink-3">
+        Edit the file directly on the filesystem; the form refuses to rewrite content it cannot
+        represent.
+      </p>
     </div>
   );
 }
 
-/** The Config tab body: resolves the file into the form or a designed state. */
-export function WorkspaceConfigTab({ workspace }: { workspace: ConfigFile | null }) {
-  // Save feedback lives here, above the content-keyed form: a successful save
-  // rewrites the file, the live revalidation changes `workspace.content`, and
-  // the form below re-mounts — re-seeding fields must not erase the "Saved."
-  // confirmation the user is looking at.
+/**
+ * The form over config.yaml. It stays mounted across revalidations and owns
+ * the draft/baseline/disk state; `state` is null until the file has been
+ * representable at least once.
+ */
+function ConfigForm({ file, readError }: { file: ConfigFile; readError?: Error }) {
+  const view = useMemo(() => viewDisk(file.content), [file.content]);
+  const [state, setState] = useState<DraftState<ConfigDraft, string> | null>(() =>
+    view.kind === 'parsed' ? seedDraft(view.disk) : null
+  );
   const [save, setSave] = useState<SaveState>({ phase: 'idle' });
 
+  useEffect(() => {
+    setState(prev => {
+      if (prev === null) return view.kind === 'parsed' ? seedDraft(view.disk) : null;
+      return observeDisk(prev, view.kind === 'parsed' ? view.disk : null, keyOf);
+    });
+  }, [view]);
+
+  const flags = useMemo(() => (state ? draftFlags(state, keyOf) : null), [state]);
+  const model = state?.draft.model;
+  const errors = useMemo(
+    () =>
+      model ? [...validateHarnessForm(model.harnesses), ...validateRoutingForm(model.routing)] : [],
+    [model]
+  );
+  const saving = save.phase === 'saving';
+
+  const update = useCallback((next: ConfigFormModel) => {
+    setState(prev => prev && { ...prev, draft: { ...prev.draft, model: next } });
+    setSave(prev => (prev.phase === 'idle' || prev.phase === 'saving' ? prev : { phase: 'idle' }));
+  }, []);
+
+  const onSave = useCallback(async () => {
+    if (!state || !flags?.dirty || errors.length > 0 || saving) return;
+    const submittedDraft = state.draft;
+    const submitted = keyOf(submittedDraft);
+    setState(prev => prev && beginSave(prev, submitted));
+    setSave({ phase: 'saving' });
+    try {
+      await saveConfigFile('workspace', file.id, submitted);
+      setState(prev => prev && commitSave(prev, { key: submitted, adopt: () => submittedDraft }));
+      setSave({ phase: 'saved' });
+    } catch (err) {
+      setState(prev => prev && failSave(prev));
+      setSave({ phase: 'error', message: err instanceof Error ? err.message : String(err) });
+    }
+  }, [state, flags?.dirty, errors.length, saving, file.id]);
+
+  const onLoadDisk = useCallback(() => {
+    setState(prev => prev && loadDisk(prev));
+    setSave({ phase: 'idle' });
+  }, []);
+  const onKeepEditing = useCallback(() => setState(prev => prev && acknowledgeDisk(prev)), []);
+
+  if (!state || !flags || !model) {
+    return <UnsupportedNotice relPath={file.relPath} message={unsupportedMessage(view)} />;
+  }
+  // A clean form has nothing to keep when the disk stops being representable.
+  if (!flags.dirty && state.disk === null) {
+    return <UnsupportedNotice relPath={file.relPath} message={unsupportedMessage(view)} />;
+  }
+
+  const { dirty, conflictVisible } = flags;
+  const { harnesses, routing } = model;
+
+  // Ordered by what the user must know first. A `saved` phase with a dirty
+  // draft means edits were made while the save was in flight.
+  const status = saving
+    ? 'Saving…'
+    : save.phase === 'error'
+      ? `Save failed: ${save.message}`
+      : dirty
+        ? errors.length > 0
+          ? 'Fix the issues above to save.'
+          : 'Unsaved changes.'
+        : save.phase === 'saved'
+          ? 'Saved.'
+          : '';
+
+  return (
+    <>
+      {readError && <RefreshErrorBanner error={readError} />}
+      {/* `conflictVisible` is already false while a save is pending (see
+          draftState.ts): the disk may hold that save's own write. */}
+      {conflictVisible && (
+        <DiskConflictBanner
+          fileLabel={file.relPath}
+          canLoad={state.disk !== null}
+          onLoad={onLoadDisk}
+          onKeep={onKeepEditing}
+        />
+      )}
+      <div data-testid="workspace-config-form" className="flex flex-col gap-5 p-7">
+        <div className="max-w-3xl font-sans text-sm leading-relaxed text-ink-2">
+          <p>
+            <Chip>{file.relPath}</Chip> is the workspace&apos;s single structured configuration
+            file: every configurable feature claims one top-level section in it. This form edits the
+            sections it understands and preserves the rest; saving rewrites the file, so
+            hand-written comments are not kept.
+          </p>
+        </div>
+
+        <section className="flex flex-col gap-3">
+          <h2 className="font-display text-lg font-semibold text-ink">
+            Harness invocation arguments
+          </h2>
+          <p className="max-w-3xl font-sans text-sm leading-relaxed text-ink-2">
+            Every row is one exact argument passed verbatim to that CLI whenever Strikethroo spawns
+            it, in the order shown. Values are never split on whitespace or shell-expanded, so a
+            flag and its value are two separate rows. These arguments can grant broad authority —
+            never put a credential or token here.
+          </p>
+          <div className="grid gap-3 md:grid-cols-2">
+            {SUPPORTED_HARNESSES.map(harness => (
+              <HarnessArgsCard
+                key={harness}
+                harness={harness}
+                entry={harnesses[harness]}
+                onChange={next =>
+                  update({ ...model, harnesses: { ...harnesses, [harness]: next } })
+                }
+              />
+            ))}
+          </div>
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <h2 className="font-display text-lg font-semibold text-ink">Execution routing</h2>
+          <label className="flex items-center gap-2 font-sans text-sm text-ink">
+            <input
+              data-testid="routing-enabled"
+              type="checkbox"
+              className="size-4 accent-ink"
+              checked={routing.enabled}
+              onChange={e =>
+                update({ ...model, routing: { ...routing, enabled: e.target.checked } })
+              }
+            />
+            <span className="font-medium">Enable execution routing</span>
+          </label>
+          <p className="max-w-3xl font-sans text-sm leading-relaxed text-ink-2">
+            During task generation every task is classified into one of these profiles by its
+            description. The profile is saved with the task; immediately before each delegation, one
+            complete target is selected from that profile. Rejected targets join the task&apos;s
+            avoid set before another selection attempt. Turning the switch off keeps the profiles
+            below but stops them being used; an empty profile list also turns routing off.
+          </p>
+
+          {/* A disabled fieldset makes every descendant control inert natively. */}
+          <fieldset
+            data-testid="routing-editor"
+            disabled={!routing.enabled}
+            className={cn('flex min-w-0 flex-col gap-3', !routing.enabled && 'opacity-50')}
+          >
+            <label className="flex items-center gap-2 font-sans text-sm text-ink">
+              <input
+                data-testid="allow-external-harness-execution"
+                type="checkbox"
+                className="size-4 accent-ink"
+                aria-describedby="external-harness-execution-help"
+                checked={routing.allowExternalHarnessExecution}
+                onChange={e =>
+                  update({
+                    ...model,
+                    routing: { ...routing, allowExternalHarnessExecution: e.target.checked },
+                  })
+                }
+              />
+              <span className="font-medium">Allow external harness execution</span>
+            </label>
+            <p
+              id="external-harness-execution-help"
+              className="max-w-3xl font-sans text-sm leading-relaxed text-ink-2"
+            >
+              Off by default, including when this setting is absent from config.yaml. Only targets
+              using the orchestrator&apos;s harness are eligible, including targets with no harness
+              specified. If none remain in the selected profile, tasks use the current
+              harness&apos;s default model and reasoning. Turn this on to also allow targets on
+              other harnesses. This applies to custom selectors too. The code review gate still uses
+              a second harness.
+            </p>
+            {routing.profiles.map((profile, index) => (
+              <ProfileCard
+                key={index}
+                profile={profile}
+                onChange={next =>
+                  update({
+                    ...model,
+                    routing: {
+                      ...routing,
+                      profiles: routing.profiles.map((p, i) => (i === index ? next : p)),
+                    },
+                  })
+                }
+                onRemove={() =>
+                  update({
+                    ...model,
+                    routing: {
+                      ...routing,
+                      profiles: routing.profiles.filter((_, i) => i !== index),
+                    },
+                  })
+                }
+              />
+            ))}
+            <div>
+              <Button
+                icon="plus"
+                onClick={() =>
+                  update({
+                    ...model,
+                    routing: {
+                      ...routing,
+                      profiles: [
+                        ...routing.profiles,
+                        { ...EMPTY_PROFILE, targets: [{ ...EMPTY_TARGET }] },
+                      ],
+                    },
+                  })
+                }
+              >
+                Add profile
+              </Button>
+            </div>
+
+            <label className="mt-2 flex max-w-3xl flex-col gap-1.5 font-sans text-sm text-ink-2">
+              <span className="font-medium text-ink">
+                Custom dispatch selector script (optional)
+              </span>
+              <input
+                data-testid="routing-resolver"
+                className={cn(FIELD, 'w-full font-mono')}
+                type="text"
+                placeholder="./scripts/select-execution-target.cjs"
+                value={routing.resolverScript}
+                onChange={e =>
+                  update({ ...model, routing: { ...routing, resolverScript: e.target.value } })
+                }
+              />
+              <span className="text-xs text-ink-3">
+                One repository-relative script for the whole configuration. At each selection
+                attempt it receives one task, all eligible targets for its profile, and the
+                accumulated avoid set, then returns one non-avoided target identifier. It never
+                reclassifies tasks. Leave empty to use the first eligible, non-avoided target in
+                configured order.
+              </span>
+            </label>
+          </fieldset>
+        </section>
+
+        {dirty && errors.length > 0 && (
+          <ul
+            data-testid="workspace-config-errors"
+            role="alert"
+            className="max-w-3xl list-disc rounded-card bg-cream-mid p-4 pl-8 font-sans text-sm text-ink-2 ring-1 ring-border-soft"
+          >
+            {errors.map((error, i) => (
+              <li key={i}>{error}</li>
+            ))}
+          </ul>
+        )}
+
+        <div className="flex items-center gap-3">
+          <Button kind="primary" onClick={onSave}>
+            Save configuration
+          </Button>
+          <span
+            data-testid="workspace-config-status"
+            className={cn(
+              'font-sans text-sm text-ink-3',
+              dirty && !saving && save.phase !== 'error' && 'font-semibold text-ink-2'
+            )}
+            role={save.phase === 'error' ? 'alert' : undefined}
+          >
+            {status}
+          </span>
+        </div>
+      </div>
+    </>
+  );
+}
+
+const unsupportedMessage = (view: DiskView): string =>
+  view.kind === 'unsupported' ? view.message : 'the file on disk is no longer representable.';
+
+/** The Config tab body: resolves the file into the form or a designed state. */
+export function WorkspaceConfigTab({
+  workspace,
+  readError,
+}: {
+  workspace: ConfigFile | null;
+  /** A failed background re-read of the config resource, surfaced in the form. */
+  readError?: Error;
+}) {
   if (!workspace) {
     return (
       <div className="p-7 font-sans text-sm text-ink-3" role="alert">
@@ -563,31 +674,5 @@ export function WorkspaceConfigTab({ workspace }: { workspace: ConfigFile | null
     );
   }
 
-  const parsed = parseWorkspaceConfig(workspace.content);
-  if (parsed.kind === 'unsupported') {
-    return (
-      <div className="flex max-w-3xl flex-col gap-2 p-7 font-sans text-sm text-ink-2" role="alert">
-        <p>
-          This form cannot safely edit the current <Chip>{workspace.relPath}</Chip>:{' '}
-          {parsed.message}
-        </p>
-        <p className="text-ink-3">
-          Edit the file directly on the filesystem; the form refuses to rewrite content it cannot
-          represent.
-        </p>
-      </div>
-    );
-  }
-
-  // Keyed on content so a live revalidation (or external edit) re-seeds the form.
-  return (
-    <ConfigForm
-      key={workspace.content}
-      file={workspace}
-      document={parsed.document}
-      initial={{ harnesses: parsed.harnesses, routing: parsed.routing }}
-      save={save}
-      setSave={setSave}
-    />
-  );
+  return <ConfigForm file={workspace} readError={readError} />;
 }

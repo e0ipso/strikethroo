@@ -17,10 +17,14 @@ import { exportProfile } from './export-profile';
 import { validateWorkspace } from './validation/workspace';
 import { Finding } from './validation/types';
 import { update } from './update';
+import { getPackageVersion } from './metadata';
 
 const program = new Command();
 
-program.name('strikethroo').version('0.1.0').description('AI-powered task management CLI tool');
+program
+  .name('strikethroo')
+  .version(getPackageVersion())
+  .description('AI-powered task management CLI tool');
 
 program
   .command('init')

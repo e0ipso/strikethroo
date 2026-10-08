@@ -22,14 +22,49 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
-import { getWorkspaceModel, getPlanDetail, getConfig } from '../serve/workspace-model';
+import { vi } from 'vitest';
+import {
+  getPlanSummaries,
+  getPlanDetail,
+  getConfig,
+  type PlanDetail,
+  type PlanSummary,
+} from '../serve/workspace-model';
+import { getAllPlans } from '../skill-scripts/shared/plan-scan';
+import * as markdown from '../serve/markdown';
+import * as safeFs from '../skill-scripts/shared/safe-fs';
+import {
+  BLUEPRINT_SECTION,
+  TRAILING_EXECUTION_SUMMARY,
+  EXPECTED_PHASE_TASK_IDS,
+} from './fixtures/blueprint-trailing-summary';
+
+// Pass-through spies on the detail-only work (`sectionBody`, mermaid
+// extraction) and on the contained reads that only `getConfig` performs, so
+// the summary path can be shown not to reach them. Behaviour is unchanged.
+vi.mock('../serve/markdown', async importOriginal => {
+  const actual = await importOriginal<typeof import('../serve/markdown')>();
+  return {
+    ...actual,
+    sectionBody: vi.fn(actual.sectionBody),
+    extractMermaidBlocks: vi.fn(actual.extractMermaidBlocks),
+  };
+});
+vi.mock('../skill-scripts/shared/safe-fs', async importOriginal => {
+  const actual = await importOriginal<typeof import('../skill-scripts/shared/safe-fs')>();
+  return {
+    ...actual,
+    resolveContained: vi.fn(actual.resolveContained),
+    readContainedFile: vi.fn(actual.readContainedFile),
+  };
+});
 
 const FIXTURE_ROOT = path.resolve(process.cwd(), 'src', '__tests__', 'fixtures', 'serve-workspace');
 
 describe('workspace-model against the committed fixture workspace', () => {
   it('derives plan 38 state and counts from its real on-disk shape', () => {
-    const model = getWorkspaceModel(FIXTURE_ROOT);
-    const plan38 = model.plans.find(p => p.id === 38);
+    const plans = getPlanSummaries(FIXTURE_ROOT);
+    const plan38 = plans.find(p => p.id === 38);
     expect(plan38).toBeDefined();
     // Real plan 38 (38--fix-jekyll-link-baseurl): two completed tasks, archived,
     // two-phase blueprint.
@@ -50,8 +85,7 @@ describe('workspace-model against the committed fixture workspace', () => {
   });
 
   it('parses archived plans and flags them archived: true', () => {
-    const model = getWorkspaceModel(FIXTURE_ROOT);
-    const archived = model.plans.filter(p => p.archived);
+    const archived = getPlanSummaries(FIXTURE_ROOT).filter(p => p.archived);
     expect(archived.length).toBeGreaterThan(0);
   });
 
@@ -95,9 +129,10 @@ describe('workspace-model against synthetic fixtures', () => {
     root: string,
     slug: string,
     planBody: string,
-    tasks: Array<{ name: string; body: string }> = []
+    tasks: Array<{ name: string; body: string }> = [],
+    base: 'plans' | 'archive' = 'plans'
   ): void => {
-    const dir = path.join(root, 'plans', slug);
+    const dir = path.join(root, base, slug);
     fs.mkdirSync(dir, { recursive: true });
     const id = slug.split('--')[0];
     fs.writeFileSync(
@@ -130,8 +165,8 @@ describe('workspace-model against synthetic fixtures', () => {
       '---\nid: 10\nsummary: "A drafted plan"\ncreated: 2026-05-29\n---\n# No Tasks Plan\n\nBody.\n'
     );
 
-    expect(() => getWorkspaceModel(root)).not.toThrow();
-    const plan = getWorkspaceModel(root).plans.find(p => p.id === 10);
+    expect(() => getPlanSummaries(root)).not.toThrow();
+    const plan = getPlanSummaries(root).find(p => p.id === 10);
     expect(plan).toBeDefined();
     expect(plan!.state).toBe('drafted');
     expect(plan!.total).toBe(0);
@@ -151,8 +186,8 @@ describe('workspace-model against synthetic fixtures', () => {
       ]
     );
 
-    expect(() => getWorkspaceModel(root)).not.toThrow();
-    const plan = getWorkspaceModel(root).plans.find(p => p.id === 11);
+    expect(() => getPlanSummaries(root)).not.toThrow();
+    const plan = getPlanSummaries(root).find(p => p.id === 11);
     expect(plan).toBeDefined();
     // One task, started but not completed -> doing, 0 of 1 done.
     expect(plan!.state).toBe('doing');
@@ -280,6 +315,15 @@ describe('workspace-model against synthetic fixtures', () => {
     5000
   );
 
+  it('omits a directory at a hook path', () => {
+    const root = path.join(tmpRoot, 'strikethroo');
+    fs.mkdirSync(path.join(root, 'config', 'hooks', 'DIR.md'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'config', 'hooks', 'DIR.md', 'inner.md'), '# inner\n', 'utf8');
+    fs.writeFileSync(path.join(root, 'config', 'hooks', 'REAL.md'), '# real\n', 'utf8');
+    const config = getConfig(root);
+    expect(config.hooks.map(h => h.id)).toEqual(['REAL']);
+  });
+
   it('returns undefined complexity_score for legacy fixture tasks without the field', () => {
     const detail = getPlanDetail(FIXTURE_ROOT, '83--workspace-data-layer');
     expect(detail).toBeDefined();
@@ -287,5 +331,139 @@ describe('workspace-model against synthetic fixtures', () => {
     for (const task of detail!.tasks) {
       expect(task.complexity_score).toBeUndefined();
     }
+  });
+
+  it('reads phases from the blueprint section only, and infers them when no blueprint exists', () => {
+    const root = path.join(tmpRoot, 'strikethroo');
+    const planHead = (id: number): string =>
+      `---\nid: ${id}\nsummary: "Plan ${id}"\ncreated: 2026-10-07\n---\n# Plan ${id}\n\nBody.\n`;
+    const taskFile = (id: number, deps: number[]): { name: string; body: string } => ({
+      name: `0${id}--task.md`,
+      body: `---\nid: ${id}\ngroup: "g"\ndependencies: [${deps.join(', ')}]\nstatus: "completed"\nskills: [typescript]\n---\n# Task ${id}\n`,
+    });
+    const tasks = [taskFile(1, []), taskFile(2, []), taskFile(3, [1, 2])];
+
+    makePlan(root, '20--blueprint-only', planHead(20) + BLUEPRINT_SECTION, tasks);
+    makePlan(
+      root,
+      '21--with-summary',
+      planHead(21) + BLUEPRINT_SECTION + TRAILING_EXECUTION_SUMMARY,
+      tasks
+    );
+    makePlan(root, '22--no-blueprint', planHead(22), tasks);
+
+    const bare = getPlanDetail(root, '20--blueprint-only')!;
+    const appended = getPlanDetail(root, '21--with-summary')!;
+    expect(bare.phases.map(p => p.taskIds)).toEqual(EXPECTED_PHASE_TASK_IDS);
+    expect(bare.phases.map(p => p.parallel)).toEqual([true, false]);
+    // The appended `## Execution Summary` names tasks 01, 03, and 04 in bullets;
+    // none of them may join the last phase.
+    expect(appended.phases).toEqual(bare.phases);
+    const summaries = getPlanSummaries(root);
+    expect(summaries.find(p => p.id === 21)!.phaseCount).toBe(2);
+
+    // No authored blueprint: phases come from dependencies, with `parallel` set.
+    expect(getPlanDetail(root, '22--no-blueprint')!.phases).toEqual([
+      { index: 1, taskIds: [1, 2], parallel: true },
+      { index: 2, taskIds: [3], parallel: false },
+    ]);
+  });
+
+  it('serves summaries byte-identical to the detail projection without building detail or reading config', () => {
+    const root = path.join(tmpRoot, 'strikethroo');
+    const head = (id: number, extra = ''): string =>
+      `---\nid: ${id}\nsummary: "Edge case ${id}"\ncreated: 2026-10-07\n---\n# Plan ${id}\n\nBody.\n${extra}`;
+    const task = (id: number, status: string, deps: number[] = []): string =>
+      `---\nid: ${id}\ngroup: "g"\ndependencies: [${deps.join(', ')}]\nstatus: "${status}"\nskills: [typescript]\n---\n# Task ${id}\n\n## Objective\n\nDo it.\n`;
+    const crlf = (s: string): string => s.replace(/\n/g, '\r\n');
+
+    // Plans with missing, malformed, cyclic, CRLF, and blueprint-with-trailing-
+    // summary tasks, in both trees. Two plans are unparsable and must be dropped
+    // by both paths.
+    makePlan(root, '301--no-tasks-dir', head(301));
+    makePlan(root, '302--tasks-is-a-file', head(302));
+    fs.writeFileSync(path.join(root, 'plans', '302--tasks-is-a-file', 'tasks'), 'not a dir\n');
+    makePlan(root, '303--malformed-tasks', head(303), [
+      { name: '01--ok.md', body: task(1, 'pending') },
+      { name: '02--no-frontmatter.md', body: '# Just a heading\n\nNo frontmatter.\n' },
+      { name: '03--unclosed.md', body: '---\nid: 3\nstatus: "completed"\n' },
+      {
+        name: '04--garbage-deps.md',
+        body: '---\nid: 4\ndependencies: [abc, 1, 9]\nstatus: weird\nskills:\n  - a\n---\n# Four\n',
+      },
+      { name: '05--no-id.md', body: '---\nstatus: "completed"\ndependencies: []\n---\n# Five\n' },
+      { name: 'notes.txt', body: 'not a task\n' },
+    ]);
+    makePlan(root, '304--blueprint', head(304, BLUEPRINT_SECTION + TRAILING_EXECUTION_SUMMARY), [
+      { name: '01--a.md', body: task(1, 'completed') },
+      { name: '02--b.md', body: task(2, 'completed') },
+      { name: '03--c.md', body: task(3, 'completed', [1, 2]) },
+    ]);
+    makePlan(root, '305--cycle-deps', head(305), [
+      { name: '01--a.md', body: task(1, 'in-progress', [2]) },
+      { name: '02--b.md', body: task(2, 'pending', [1]) },
+    ]);
+    makePlan(root, '306--crlf', crlf(head(306)), [
+      { name: '01--a.md', body: crlf(task(1, 'completed')) },
+      { name: '02--b.md', body: crlf(task(2, 'pending', [1])) },
+    ]);
+    makePlan(root, 'bad--frontmatter', '---\nid: abc\n---\n# Bad\n', [
+      { name: '01--a.md', body: task(1, 'pending') },
+    ]);
+    makePlan(root, '307--empty-plan-file', '');
+    makePlan(root, '401--archived-no-tasks', head(401), [], 'archive');
+    makePlan(
+      root,
+      '402--archived-malformed',
+      head(402),
+      [
+        { name: '01--unclosed.md', body: '---\nid: 1\n' },
+        { name: '02--ok.md', body: task(2, 'completed') },
+      ],
+      'archive'
+    );
+
+    // The detail path is the reference derivation; the summary must be its
+    // projection, field for field and in key order, for every enumerated plan.
+    const project = (d: PlanDetail): PlanSummary => ({
+      id: d.id,
+      name: d.name,
+      summary: d.summary,
+      created: d.created,
+      state: d.state,
+      done: d.done,
+      total: d.total,
+      phaseCount: d.phaseCount,
+      archived: d.archived,
+    });
+    for (const fixture of [FIXTURE_ROOT, root]) {
+      const viaDetail = getAllPlans(fixture).map(e => project(getPlanDetail(fixture, e.name)!));
+      expect(JSON.stringify(getPlanSummaries(fixture))).toBe(JSON.stringify(viaDetail));
+    }
+    const names = getPlanSummaries(root).map(p => p.name);
+    expect(names).toContain('303--malformed-tasks');
+    expect(names).toContain('402--archived-malformed');
+    expect(names).not.toContain('bad--frontmatter');
+    expect(names).not.toContain('307--empty-plan-file');
+
+    // The list path builds no sections or mermaid blocks and touches nothing
+    // under config/. The detail and config paths do, which keeps the spies honest.
+    const spies = [
+      markdown.sectionBody,
+      markdown.extractMermaidBlocks,
+      safeFs.resolveContained,
+      safeFs.readContainedFile,
+    ].map(spy => vi.mocked(spy));
+    spies.forEach(spy => spy.mockClear());
+    getPlanSummaries(root);
+    spies.forEach(spy => expect(spy).not.toHaveBeenCalled());
+
+    getPlanDetail(root, '304--blueprint');
+    expect(markdown.sectionBody).toHaveBeenCalled();
+    expect(markdown.extractMermaidBlocks).toHaveBeenCalled();
+    expect(safeFs.readContainedFile).not.toHaveBeenCalled();
+    getConfig(FIXTURE_ROOT);
+    expect(safeFs.resolveContained).toHaveBeenCalled();
+    expect(safeFs.readContainedFile).toHaveBeenCalled();
   });
 });

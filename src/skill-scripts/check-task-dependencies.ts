@@ -1,13 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolvePlan } from './shared/plan-resolve';
-import {
-  collectTaskReadinessIssues,
-  extractDependencies,
-  extractFrontmatter,
-  extractStatus,
-  findTaskFile,
-} from './shared/task-file';
+import { collectTaskReadinessIssues, findTaskFile, readTaskMetadata } from './shared/task-file';
 
 const _printError = (message: string) => {
   console.error(`ERROR: ${message}`);
@@ -72,14 +66,13 @@ const _main = (startPath: string = process.cwd()) => {
     process.exit(1);
   }
 
-  const taskContent = fs.readFileSync(taskFile, 'utf8');
-  const frontmatter = extractFrontmatter(taskContent);
-  if (!frontmatter) {
-    _printError('Could not extract frontmatter from task file');
+  const metadata = readTaskMetadata(fs.readFileSync(taskFile, 'utf8'));
+  if (metadata.kind === 'rejected') {
+    _printError(metadata.reason);
     process.exit(1);
   }
 
-  const dependencies = extractDependencies(frontmatter);
+  const dependencies = metadata.metadata.dependencies;
 
   if (dependencies.length === 0) {
     _printSuccess('Task has no dependencies - ready to execute!');
@@ -98,8 +91,8 @@ const _main = (startPath: string = process.cwd()) => {
   let resolvedCount = 0;
   for (const depId of dependencies) {
     const depFile = findTaskFile(planDir, depId);
-    const depFrontmatter = depFile ? extractFrontmatter(fs.readFileSync(depFile, 'utf8')) : null;
-    const depStatus = depFrontmatter ? extractStatus(depFrontmatter) : null;
+    const depMetadata = depFile ? readTaskMetadata(fs.readFileSync(depFile, 'utf8')) : null;
+    const depStatus = depMetadata?.kind === 'metadata' ? depMetadata.metadata.status : null;
 
     if (depStatus === 'completed') {
       _printSuccess(`Task ${depId} - Status: completed ✓`);

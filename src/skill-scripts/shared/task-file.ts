@@ -1,6 +1,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { readYamlFrontmatter } from './task-frontmatter';
 
+/**
+ * Raw text of the leading frontmatter block, for consumers that match one
+ * field with a regex (see task-complexity.ts). Status and dependencies go
+ * through `readTaskMetadata` instead.
+ */
 export const extractFrontmatter = (content: string): string | null => {
   const match = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/);
   return match && match[1] ? match[1] : null;
@@ -28,53 +34,147 @@ export const findTaskFile = (planDir: string, taskId: string | number): string |
   }
 };
 
-export const extractDependencies = (frontmatter: string): string[] => {
-  const lines = frontmatter.split('\n');
-  const dependencies: string[] = [];
-  let inDependenciesSection = false;
+/**
+ * Statuses the readiness reader accepts. The first four are the task
+ * template's; `failed` is written by `st-execute-task` after an unsuccessful
+ * run, and its step 4 re-executes such a task. `src/validation/strict-pass.ts`
+ * keeps its own list on purpose.
+ */
+export const TASK_STATUSES = [
+  'pending',
+  'in-progress',
+  'completed',
+  'needs-clarification',
+  'failed',
+] as const;
+export type TaskStatus = (typeof TASK_STATUSES)[number];
 
-  for (const line of lines) {
-    if (line.match(/^dependencies:/)) {
-      inDependenciesSection = true;
-      const arrayMatch = line.match(/\[(.*)\]/);
-      if (arrayMatch && arrayMatch[1]) {
-        const deps = arrayMatch[1]
-          .split(',')
-          .map(dep => dep.trim().replace(/['"]/g, ''))
-          .filter(dep => dep.length > 0);
-        dependencies.push(...deps);
-        inDependenciesSection = false;
+export interface TaskMetadata {
+  readonly status: TaskStatus;
+  readonly dependencies: readonly number[];
+}
+
+export type TaskMetadataResult =
+  | { kind: 'metadata'; metadata: TaskMetadata }
+  | { kind: 'rejected'; reason: string };
+
+const MAX_VALUE_PREVIEW = 80;
+
+/**
+ * JSON preview of an offending value, bounded so a reason stays one line.
+ * Never throws.
+ *
+ * Writing stops once the preview is full, so shared YAML aliases cannot make
+ * the work exponential: `&a1 [*a0, *a0]` doubled 32 times is a few hundred
+ * bytes of YAML and billions of nodes. A value already on its own ancestor
+ * path (`&d [*d]`) prints as `"[Circular]"`; a shared alias that is not a
+ * cycle (`[&a {x: 1}, *a]`) prints both copies.
+ */
+const describeValue = (value: unknown): string => {
+  let text = '';
+  const ancestors: object[] = [];
+  const full = () => text.length > MAX_VALUE_PREVIEW;
+  const write = (node: unknown): void => {
+    if (full()) return;
+    if (typeof node !== 'object' || node === null || node instanceof Date) {
+      text += JSON.stringify(node) ?? String(node);
+      return;
+    }
+    if (ancestors.includes(node)) {
+      text += '"[Circular]"';
+      return;
+    }
+    ancestors.push(node);
+    if (Array.isArray(node)) {
+      text += '[';
+      for (let i = 0; i < node.length && !full(); i++) {
+        if (i > 0) text += ',';
+        write(node[i] ?? null);
       }
-      continue;
+      text += ']';
+    } else {
+      text += '{';
+      let first = true;
+      for (const [key, item] of Object.entries(node)) {
+        if (full()) break;
+        text += `${first ? '' : ','}${JSON.stringify(key)}:`;
+        first = false;
+        write(item);
+      }
+      text += '}';
     }
-
-    if (inDependenciesSection && line.match(/^[^ ]/) && !line.match(/^[ \t]*-/)) {
-      inDependenciesSection = false;
-    }
-
-    if (inDependenciesSection && line.match(/^[ \t]*-/)) {
-      const dep = line
-        .replace(/^[ \t]*-[ \t]*/, '')
-        .replace(/[ \t]*$/, '')
-        .replace(/['"]/g, '');
-      if (dep.length > 0) dependencies.push(dep);
-    }
+    ancestors.pop();
+  };
+  try {
+    write(value);
+  } catch {
+    text = String(value);
   }
-
-  return dependencies;
+  return text.length > MAX_VALUE_PREVIEW ? `${text.slice(0, MAX_VALUE_PREVIEW)}…` : text;
 };
 
-export const extractStatus = (frontmatter: string): string | null => {
-  for (const line of frontmatter.split('\n')) {
-    if (line.match(/^status:/)) {
-      return line
-        .replace(/^status:[ \t]*/, '')
-        .replace(/^["']/, '')
-        .replace(/["']$/, '')
-        .trim();
-    }
+const isTaskStatus = (value: unknown): value is TaskStatus =>
+  typeof value === 'string' && (TASK_STATUSES as readonly string[]).includes(value);
+
+/** A task id is a non-negative integer, written bare or as a string of digits. */
+const toTaskId = (value: unknown): number | null => {
+  if (typeof value === 'number') return Number.isSafeInteger(value) && value >= 0 ? value : null;
+  if (typeof value === 'string' && /^[0-9]+$/.test(value)) {
+    const id = Number(value);
+    return Number.isSafeInteger(id) ? id : null;
   }
   return null;
+};
+
+/**
+ * Absent, or a bare `dependencies:` key (YAML null), means no dependencies, as
+ * `validate` accepts it; anything but a list of task ids is `null`.
+ */
+const readDependencies = (value: unknown): readonly number[] | null => {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) return null;
+  const ids: number[] = [];
+  for (const item of value) {
+    const id = toTaskId(item);
+    if (id === null) return null;
+    ids.push(id);
+  }
+  return ids;
+};
+
+/**
+ * Reads the status and dependencies a readiness check needs from a task
+ * document. The frontmatter is parsed as YAML data only through
+ * `readYamlFrontmatter`, then both fields are checked for shape, so a document
+ * this reader did not understand is a rejection, never a task with no
+ * dependencies or a non-blocking status. Never throws.
+ */
+export const readTaskMetadata = (markdown: string): TaskMetadataResult => {
+  const frontmatter = readYamlFrontmatter(markdown);
+  if (frontmatter.kind === 'none') {
+    return { kind: 'rejected', reason: 'task frontmatter not found' };
+  }
+  if (frontmatter.kind === 'invalid') return { kind: 'rejected', reason: frontmatter.reason };
+
+  const { status, dependencies } = frontmatter.data;
+  const expected = TASK_STATUSES.join(', ');
+  if (status === undefined) {
+    return { kind: 'rejected', reason: `status is missing; expected one of ${expected}` };
+  }
+  if (!isTaskStatus(status)) {
+    return {
+      kind: 'rejected',
+      reason: `status ${describeValue(status)} is not one of ${expected}`,
+    };
+  }
+  const ids = readDependencies(dependencies);
+  if (ids === null) {
+    return {
+      kind: 'rejected',
+      reason: `dependencies must be a list of integer task ids; got ${describeValue(dependencies)}`,
+    };
+  }
+  return { kind: 'metadata', metadata: { status, dependencies: ids } };
 };
 
 /**
@@ -108,68 +208,64 @@ export const rewriteTaskStatus = (taskMarkdown: string, status: string): string 
 
 export interface TaskReadinessIssue {
   taskId: string;
-  kind: 'missing' | 'needs-clarification' | 'unresolved-dependency';
+  kind: 'missing' | 'invalid-metadata' | 'needs-clarification' | 'unresolved-dependency';
   detail: string;
 }
+
+const readDocument = (file: string): string | null => {
+  try {
+    return fs.readFileSync(file, 'utf8');
+  } catch (_err) {
+    return null;
+  }
+};
 
 export const collectTaskReadinessIssues = (
   planDir: string,
   taskId: string | number
 ): TaskReadinessIssue[] => {
-  const issues: TaskReadinessIssue[] = [];
-  const taskFile = findTaskFile(planDir, taskId);
   const idLabel = String(taskId);
+  const issue = (kind: TaskReadinessIssue['kind'], detail: string): TaskReadinessIssue => ({
+    taskId: idLabel,
+    kind,
+    detail,
+  });
 
-  if (!taskFile || !fs.existsSync(taskFile)) {
-    issues.push({ taskId: idLabel, kind: 'missing', detail: 'task file not found' });
-    return issues;
+  const taskFile = findTaskFile(planDir, taskId);
+  if (!taskFile) return [issue('missing', 'task file not found')];
+  const taskContent = readDocument(taskFile);
+  if (taskContent === null) return [issue('invalid-metadata', 'task file could not be read')];
+
+  const task = readTaskMetadata(taskContent);
+  if (task.kind === 'rejected') return [issue('invalid-metadata', task.reason)];
+
+  const issues: TaskReadinessIssue[] = [];
+  if (task.metadata.status === 'needs-clarification') {
+    issues.push(issue('needs-clarification', 'status is needs-clarification'));
   }
 
-  const taskContent = fs.readFileSync(taskFile, 'utf8');
-  const frontmatter = extractFrontmatter(taskContent);
-  if (!frontmatter) {
-    issues.push({ taskId: idLabel, kind: 'missing', detail: 'task frontmatter not found' });
-    return issues;
-  }
-
-  const status = extractStatus(frontmatter);
-  if (status === 'needs-clarification') {
-    issues.push({
-      taskId: idLabel,
-      kind: 'needs-clarification',
-      detail: 'status is needs-clarification',
-    });
-  }
-
-  for (const depId of extractDependencies(frontmatter)) {
+  for (const depId of task.metadata.dependencies) {
     const depFile = findTaskFile(planDir, depId);
-    if (!depFile || !fs.existsSync(depFile)) {
-      issues.push({
-        taskId: idLabel,
-        kind: 'unresolved-dependency',
-        detail: `dependency ${depId} not found`,
-      });
+    if (!depFile) {
+      issues.push(issue('unresolved-dependency', `dependency ${depId} not found`));
       continue;
     }
-
-    const depContent = fs.readFileSync(depFile, 'utf8');
-    const depFrontmatter = extractFrontmatter(depContent);
-    if (!depFrontmatter) {
-      issues.push({
-        taskId: idLabel,
-        kind: 'unresolved-dependency',
-        detail: `dependency ${depId} has no frontmatter`,
-      });
+    const depContent = readDocument(depFile);
+    if (depContent === null) {
+      issues.push(issue('unresolved-dependency', `dependency ${depId} could not be read`));
       continue;
     }
-
-    const depStatus = extractStatus(depFrontmatter);
-    if (depStatus !== 'completed') {
-      issues.push({
-        taskId: idLabel,
-        kind: 'unresolved-dependency',
-        detail: `dependency ${depId} status is ${depStatus ?? 'unknown'}`,
-      });
+    const dep = readTaskMetadata(depContent);
+    if (dep.kind === 'rejected') {
+      issues.push(
+        issue('unresolved-dependency', `dependency ${depId} has invalid metadata: ${dep.reason}`)
+      );
+      continue;
+    }
+    if (dep.metadata.status !== 'completed') {
+      issues.push(
+        issue('unresolved-dependency', `dependency ${depId} status is ${dep.metadata.status}`)
+      );
     }
   }
 

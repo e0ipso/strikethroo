@@ -1,9 +1,9 @@
 ---
 type: practice
-title: npm run lint only covers .ts files; .tsx web files need separate type-check
+title: The required gate lints tsx and type-checks the web production code
 description: >-
-  The lint script globs src/**/*.ts only, leaving src/web/**/*.tsx outside the
-  automated gate.
+  npm run lint globs ts and tsx, and the web type check runs inside npm run build
+  as typecheck:web, with the SPA suites checked by typecheck:web-tests.
 tags:
   - web
   - lint
@@ -19,7 +19,11 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-`npm run lint` is configured to glob `src/**/*.ts`, which excludes `src/web/**/*.tsx` files. Web component files are not automatically linted by the standard gate. When touching `.tsx` files, run `npm run format` and `tsc --noEmit -p tsconfig.web.json` manually to catch issues that would otherwise pass CI.
+`npm run lint` globs `src/**/*.{ts,tsx}`, so web component files are linted by the standard gate, and the ESLint flat config carries a `src/web/**/*.tsx` block.
+
+The SPA's types are gated too. `npm run build` is `tsc && npm run typecheck:web && npm run build:web && …`, where `typecheck:web` is `tsc --noEmit -p tsconfig.web.json`; `vite build` only transpiles, so without that step a production type error ships. `tsconfig.web.json` is production-only and `tsconfig.web-tests.json` extends it with the Vitest globals, run by `test:unit` before `vitest run`.
+
+So there is nothing to run by hand for `.tsx` work: `npm run build` and `npm run lint` cover it. `tsconfig.test.json` is separate and dead — no script runs it and it reports errors.
 
 <!-- kk:related:start -->
 # Related

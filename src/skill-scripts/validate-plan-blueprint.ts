@@ -1,6 +1,6 @@
 import { findStrikethrooRoot } from './shared/root';
 import { getAllPlans } from './shared/plan-scan';
-import { resolvePlan } from './shared/plan-resolve';
+import { _classifyPlanInput, resolvePlan } from './shared/plan-resolve';
 import { hasExecutionBlueprint } from './shared/blueprint-detection';
 import { countTaskFiles } from './shared/task-count';
 import { validateTaskComplexityScores } from './shared/task-complexity';
@@ -65,11 +65,10 @@ const main = (): void => {
     process.exit(1);
   }
 
-  const numericInput = parseInt(inputId, 10);
-  const isNumeric = !Number.isNaN(numericInput);
-  const isAbsolutePath = inputId.startsWith('/');
-
-  if (!isNumeric && !isAbsolutePath) {
+  // Classification belongs to `resolvePlan`, which applies the host platform's
+  // absolute-path rule. Pre-classifying here with a POSIX-only test rejected a
+  // Windows path before resolution could recognize it.
+  if (_classifyPlanInput(inputId).kind === 'invalid') {
     process.stderr.write(`[ERROR] Invalid plan ID: "${inputId}" is not a valid number\n`);
     process.exit(1);
   }

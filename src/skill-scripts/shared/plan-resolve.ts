@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { findStrikethrooRoot } from './root';
+import { checkWorkspaceSchema, findStrikethrooRoot } from './root';
 import { getAllPlans } from './plan-scan';
 import { extractPlanId } from './frontmatter';
 
@@ -11,19 +11,48 @@ export interface ResolvedPlan {
   planId: number;
 }
 
+/** How `resolvePlan` reads its first argument. */
+export type PlanInput =
+  | { readonly kind: 'path'; readonly planFile: string }
+  | { readonly kind: 'id'; readonly planId: number }
+  | { readonly kind: 'invalid' };
+
+/**
+ * An absolute path addresses one plan file; anything else that parses as an
+ * integer is a plan id. A relative path is neither, and stays invalid.
+ *
+ * `isAbsolute` is a parameter only so each platform's rule can be exercised
+ * from the other platform's host.
+ */
+export const _classifyPlanInput = (
+  input: string | number | null | undefined,
+  isAbsolute: (candidate: string) => boolean = path.isAbsolute
+): PlanInput => {
+  if (input === null || input === undefined || input === '') return { kind: 'invalid' };
+  const candidate = String(input);
+  if (isAbsolute(candidate)) return { kind: 'path', planFile: candidate };
+  const planId = parseInt(candidate, 10);
+  return Number.isNaN(planId) ? { kind: 'invalid' } : { kind: 'id', planId };
+};
+
+/**
+ * Structural checks only — the schema verdict belongs to `checkWorkspaceSchema`.
+ * `lstat` rather than `stat`: a symlinked workspace root is refused.
+ */
 const isValidRootDir = (strikethrooPath: string): boolean => {
   try {
     if (!fs.existsSync(strikethrooPath)) return false;
     if (!fs.lstatSync(strikethrooPath).isDirectory()) return false;
     const metadataPath = path.join(strikethrooPath, '.init-metadata.json');
     if (!fs.existsSync(metadataPath)) return false;
-    const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
-    return metadata && typeof metadata === 'object' && 'version' in metadata;
+    const metadata: unknown = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+    return typeof metadata === 'object' && metadata !== null;
   } catch (_err) {
     return false;
   }
 };
 
+/** Locator for the standard `<project>/.ai/strikethroo/{plans,archive}/<plan>/` layout. */
 const checkStandardRootShortcut = (filePath: string): string | null => {
   const planDir = path.dirname(filePath);
   const parentDir = path.dirname(planDir);
@@ -38,6 +67,17 @@ const checkStandardRootShortcut = (filePath: string): string | null => {
   return isValidRootDir(possibleRoot) ? possibleRoot : null;
 };
 
+/**
+ * The layout shortcut only locates a root, so it is routed through the same
+ * schema gate `findStrikethrooRoot` applies. One gate, both routes.
+ */
+const locateRootForPlanFile = (planFile: string): string | null => {
+  const shortcut = checkStandardRootShortcut(planFile);
+  if (!shortcut) return findStrikethrooRoot(path.dirname(planFile));
+  checkWorkspaceSchema(shortcut);
+  return shortcut;
+};
+
 const resolveByPath = (absolutePath: string): ResolvedPlan | null => {
   let content: string;
   try {
@@ -48,8 +88,7 @@ const resolveByPath = (absolutePath: string): ResolvedPlan | null => {
   const planId = extractPlanId(content, absolutePath);
   if (planId === null) return null;
 
-  const tmRoot =
-    checkStandardRootShortcut(absolutePath) || findStrikethrooRoot(path.dirname(absolutePath));
+  const tmRoot = locateRootForPlanFile(absolutePath);
   if (!tmRoot) return null;
 
   return {
@@ -60,47 +99,36 @@ const resolveByPath = (absolutePath: string): ResolvedPlan | null => {
   };
 };
 
-const resolveByIdInAncestry = (
-  planId: number,
-  startPath: string,
-  searched: Set<string> = new Set()
-): ResolvedPlan | null => {
+/**
+ * Plan ids address the nearest discovered workspace and nothing beyond it; an
+ * explicit absolute path is the deliberate route to another workspace.
+ */
+const resolveById = (planId: number, startPath: string): ResolvedPlan | null => {
   const tmRoot = findStrikethrooRoot(startPath);
   if (!tmRoot) return null;
 
-  const normalized = path.normalize(tmRoot);
-  if (searched.has(normalized)) return null;
-  searched.add(normalized);
+  const match = getAllPlans(tmRoot).find(p => p.id === planId);
+  if (!match) return null;
 
-  const plans = getAllPlans(tmRoot);
-  const match = plans.find(p => p.id === planId);
-  if (match) {
-    return {
-      planFile: match.file,
-      planDir: match.dir,
-      strikethrooRoot: tmRoot,
-      planId,
-    };
-  }
-
-  const parentOfRoot = path.dirname(path.dirname(tmRoot));
-  if (parentOfRoot === tmRoot) return null;
-  return resolveByIdInAncestry(planId, parentOfRoot, searched);
+  return {
+    planFile: match.file,
+    planDir: match.dir,
+    strikethrooRoot: tmRoot,
+    planId,
+  };
 };
 
 export const resolvePlan = (
   input: string | number,
   startPath: string = process.cwd()
 ): ResolvedPlan | null => {
-  if (input === null || input === undefined || input === '') return null;
-  const inputStr = String(input);
-
-  if (inputStr.startsWith('/')) {
-    return resolveByPath(inputStr);
+  const classified = _classifyPlanInput(input);
+  switch (classified.kind) {
+    case 'path':
+      return resolveByPath(classified.planFile);
+    case 'id':
+      return resolveById(classified.planId, startPath);
+    case 'invalid':
+      return null;
   }
-
-  const planId = parseInt(inputStr, 10);
-  if (Number.isNaN(planId)) return null;
-
-  return resolveByIdInAncestry(planId, startPath);
 };

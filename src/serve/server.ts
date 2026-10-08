@@ -43,7 +43,7 @@ import * as crypto from 'crypto';
 import * as os from 'os';
 import { spawn } from 'child_process';
 import { URL } from 'url';
-import { getWorkspaceModel, getPlanDetail, getConfig } from './workspace-model';
+import { getPlanSummaries, getPlanDetail, getConfig } from './workspace-model';
 import { EventsHub } from './events';
 import {
   isSelfReviewAvailable,
@@ -613,7 +613,7 @@ const API_ROUTES: readonly Route[] = [
   {
     pattern: /^\/api\/plans\/?$/,
     methods: READ_METHODS,
-    handle: readRoute(ctx => getWorkspaceModel(ctx.root).plans),
+    handle: readRoute(ctx => getPlanSummaries(ctx.root)),
   },
   {
     pattern: /^\/api\/config\/?$/,

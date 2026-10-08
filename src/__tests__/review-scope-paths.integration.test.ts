@@ -189,27 +189,40 @@ describe('review scope: a failing Git step is an infrastructure failure, not a s
 
     const realGit = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
     fakeBin = fs.mkdtempSync(path.join(os.tmpdir(), 'st-fake-git-'));
+    // A Node script whose shebang is this process's own executable, reaching the
+    // real git by absolute path: PATH is then replaced, not prepended, so nothing
+    // else is reachable through it while the wrapper is installed.
     fs.writeFileSync(
       path.join(fakeBin, 'git'),
       [
-        '#!/bin/sh',
-        'for arg in "$@"; do',
-        '  if [ "$arg" = "$ST_FAIL_ON_ARG" ]; then',
-        '    echo "simulated git failure" >&2',
-        '    exit 2',
-        '  fi',
-        'done',
-        `exec "${realGit}" "$@"`,
+        `#!${process.execPath}`,
+        "const { spawnSync } = require('child_process');",
+        'const args = process.argv.slice(2);',
+        'const hard = process.env.ST_FAIL_ON_ARG;',
+        'const soft = process.env.ST_SOFT_FAIL_ON_ARG;',
+        'if (hard && args.includes(hard)) {',
+        "  process.stderr.write('simulated git failure\\n');",
+        '  process.exit(2);',
+        '}',
+        'if (soft && args.includes(soft)) {',
+        '  // What `git diff --no-index` does for a path it cannot open: exit 1, nothing on stdout.',
+        '  process.stderr.write("error: Could not access \'simulated\'\\n");',
+        '  process.exit(1);',
+        '}',
+        `const run = spawnSync(${JSON.stringify(realGit)}, args, { stdio: 'inherit' });`,
+        'process.exit(run.status ?? 1);',
         '',
       ].join('\n')
     );
     fs.chmodSync(path.join(fakeBin, 'git'), 0o755);
-    process.env.PATH = `${fakeBin}${path.delimiter}${originalPath ?? ''}`;
+    process.env.PATH = fakeBin;
   });
 
   afterEach(() => {
-    process.env.PATH = originalPath;
+    if (originalPath === undefined) delete process.env.PATH;
+    else process.env.PATH = originalPath;
     delete process.env.ST_FAIL_ON_ARG;
+    delete process.env.ST_SOFT_FAIL_ON_ARG;
     fs.rmSync(repo, { recursive: true, force: true });
     fs.rmSync(fakeBin, { recursive: true, force: true });
   });
@@ -227,6 +240,18 @@ describe('review scope: a failing Git step is an infrastructure failure, not a s
     ['untracked add-diff', '--no-index'],
   ])('returns null when the %s fails', (_step, failingArg) => {
     process.env.ST_FAIL_ON_ARG = failingArg;
+    const base = git(repo, ['rev-parse', 'HEAD']);
+
+    expect(_readCumulativeDiff(repo, base)).toBeNull();
+  });
+
+  /**
+   * `git diff --no-index` exits 1 both for "the paths differ" and for "could not
+   * access", the latter with nothing on stdout. Reading that empty stdout as a
+   * diff would drop the path from the scope with no failure.
+   */
+  it('returns null when an untracked add-diff exits 1 with no output, instead of dropping the path', () => {
+    process.env.ST_SOFT_FAIL_ON_ARG = '--no-index';
     const base = git(repo, ['rev-parse', 'HEAD']);
 
     expect(_readCumulativeDiff(repo, base)).toBeNull();

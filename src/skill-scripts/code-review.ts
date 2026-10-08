@@ -7,7 +7,8 @@ import { execGit, execGitDiffAllowingChanges, splitNulDelimited } from './shared
 import { findStrikethrooRoot } from './shared/root';
 import { resolvePlan } from './shared/plan-resolve';
 import { discoverHarnesses } from './shared/harness-discovery';
-import { dispatchReview, executableOnPath } from './shared/external-dispatch';
+import { executableResolves } from './shared/executable-resolution';
+import { dispatchReview } from './shared/external-dispatch';
 import {
   countCommentsWithXmllint,
   countFindings,
@@ -344,6 +345,14 @@ export const _readBaseCommit = (filePath: string): string | null => {
 const GENERATED_ATTRIBUTES = ['linguist-generated', 'linguist-vendored'] as const;
 
 /**
+ * `check-attr` reports `unspecified`, `unset` (`-linguist-generated`), `set`
+ * (the bare `out/* linguist-generated`), or the written value. Every other
+ * value marks the path, as it does for GitHub's linguist, so the bare form
+ * excludes exactly as `=true` does.
+ */
+const ATTRIBUTE_UNMARKED: ReadonlySet<string> = new Set(['unspecified', 'unset', 'false']);
+
+/**
  * The subset of `files` that `.gitattributes` marks generated or vendored.
  * Paths go to git over stdin, NUL-delimited, so a name is never an argument
  * and the set has no length limit. `null` when the check itself failed; the
@@ -361,7 +370,7 @@ const attributeExcluded = (workspace: string, files: readonly string[]): Set<str
   // a path appears once per attribute asked about.
   const fields = report.split('\0');
   for (let i = 0; i + 2 < fields.length; i += 3) {
-    if (fields[i + 2] === 'true') excluded.add(fields[i]!);
+    if (!ATTRIBUTE_UNMARKED.has(fields[i + 2]!)) excluded.add(fields[i]!);
   }
   return excluded;
 };
@@ -462,7 +471,7 @@ const defaultDependencies: ReviewDependencies = {
   discover: discoverHarnesses,
   dispatch: dispatchReview,
   readDiff: _readCumulativeDiff,
-  validatorAvailable: () => executableOnPath('xmllint'),
+  validatorAvailable: () => executableResolves('xmllint'),
 };
 
 /** The reviewer skill's SKILL.md, inlined; falls back to naming the skill. */
@@ -598,7 +607,7 @@ interface ReviewContext {
 /** The workspace shape the gate needs, or the skip or failure that ends the run. */
 const resolveReviewContext = (
   startPath: string,
-  validatorAvailable: () => boolean = () => executableOnPath('xmllint')
+  validatorAvailable: () => boolean = () => executableResolves('xmllint')
 ): { kind: 'resolved'; context: ReviewContext } | { kind: 'ended'; result: ReviewResult } => {
   // findStrikethrooRoot owns the workspace schema check; never bypass it.
   const strikethrooRoot = findStrikethrooRoot(startPath);

@@ -17,7 +17,7 @@ import {
   getPackageVersion,
   CURRENT_WORKSPACE_SCHEMA_VERSION,
 } from './metadata';
-import { detectConflicts } from './conflict-detector';
+import { detectConflicts, getConfigFiles } from './conflict-detector';
 import { promptForConflicts } from './prompts';
 import { HarnessRegistry } from './harnesses';
 import { prepareProfileImport, PreparedProfileImport, ProfileManifest } from './profiles';
@@ -314,7 +314,33 @@ async function recordHarnessSelection(metadataPath: string, harnesses: Harness[]
 }
 
 /**
+ * What a refresh did with one incoming `config/` path, and the hash the
+ * metadata records for it afterwards.
+ *
+ * Every kind except `kept` leaves the incoming bytes on disk, so it records the
+ * incoming hash. `kept` records the previously recorded baseline, or nothing
+ * when there was none: hashing the kept destination instead would make the
+ * user's edit the baseline, and the next refresh would find no divergence and
+ * overwrite it without a prompt. A kept untracked path therefore stays
+ * untracked and is asked about again.
+ */
+interface RefreshOutcome {
+  relativePath: string;
+  kind: 'installed' | 'refreshed' | 'kept' | 'overwritten' | 'unchanged';
+  hash: string | undefined;
+}
+
+/**
  * Copy common template files to .ai/strikethroo directory with conflict detection
+ *
+ * Each incoming `config/` path gets its own outcome, so one conflict never stops
+ * another path from being installed, refreshed, or restored. Missing or
+ * unusable metadata is not a first install: every existing destination is then
+ * untracked, and each one that differs from its incoming file needs a decision
+ * before anything is written. An empty or byte-identical tree needs none, and
+ * `force` is the only route that skips the question. The tracked tree is
+ * written first and the metadata last; a failed copy throws before
+ * `saveMetadata` runs, leaving the previous metadata in place.
  *
  * @param sourceDir - Source template tree; defaults to the shipped
  *   `templates/strikethroo/` path, overridden by a profile staging tree
@@ -327,63 +353,134 @@ async function copyCommonTemplates(
   const destDir = resolvePath(baseDir, '.ai/strikethroo');
   const metadataPath = resolvePath(destDir, '.init-metadata.json');
 
-  // Check if source template directory exists
   if (!(await exists(sourceDir))) {
     throw new Error(`Template directory not found: ${sourceDir}`);
   }
 
-  // Load existing metadata if present
   const existingMetadata = await loadMetadata(metadataPath);
+  const baseline = existingMetadata?.files ?? {};
 
-  // The ignore file is copied separately, under its final name
-  const copyOptions = {
-    overwrite: true,
-    filter: (src: string) => path.relative(sourceDir, src) !== WORKSPACE_IGNORE_TEMPLATE,
-  };
-
-  // Scenario 1: First-time init (no metadata) - copy all files
-  if (!existingMetadata) {
-    await fs.copy(sourceDir, destDir, copyOptions);
-    await copyWorkspaceIgnoreFile(sourceDir, destDir);
-    // Create initial metadata
-    await createMetadata(sourceDir, destDir, metadataPath);
-    return;
+  let resolutions = new Map<string, ConflictResolution>();
+  if (!force) {
+    const conflicts = await detectConflicts(destDir, sourceDir, baseline);
+    if (conflicts.length > 0) {
+      if (!existingMetadata) {
+        console.log(
+          chalk.yellow(
+            '\n⚠  .init-metadata.json is missing or unusable, so nothing under config/ has a trusted baseline.'
+          )
+        );
+      }
+      console.log(
+        chalk.yellow(
+          `\n⚠  ${conflicts.length} file(s) differ from the incoming version and need a decision.\n`
+        )
+      );
+      resolutions = await promptForConflicts(conflicts);
+    }
   }
 
-  // Scenario 2: Force flag - overwrite all files
-  if (force) {
-    await fs.copy(sourceDir, destDir, copyOptions);
-    await copyWorkspaceIgnoreFile(sourceDir, destDir);
-    // Update metadata
-    await createMetadata(sourceDir, destDir, metadataPath);
-    return;
-  }
-
-  // Scenario 3: Conflict detection - check for user modifications
-  const conflicts = await detectConflicts(destDir, sourceDir, existingMetadata);
-
-  if (conflicts.length === 0) {
-    await fs.copy(sourceDir, destDir, copyOptions);
-    await copyWorkspaceIgnoreFile(sourceDir, destDir);
-    // Update metadata
-    await createMetadata(sourceDir, destDir, metadataPath);
-    return;
-  }
-
-  // Conflicts detected - prompt user for resolution
-  console.log(
-    chalk.yellow(
-      `\n⚠  Detected ${conflicts.length} modified file(s). Prompting for resolution...\n`
-    )
-  );
-  const resolutions = await promptForConflicts(conflicts);
-
-  // Apply resolutions
-  await applyResolutions(sourceDir, destDir, resolutions);
+  const outcomes = await refreshConfigTree(sourceDir, destDir, baseline, resolutions, force);
+  await copyUntrackedTemplateFiles(sourceDir, destDir);
   await copyWorkspaceIgnoreFile(sourceDir, destDir);
+  await createMetadata(metadataPath, existingMetadata, recordBaselines(baseline, outcomes));
+}
 
-  // Update metadata for all files (including resolved conflicts)
-  await createMetadata(sourceDir, destDir, metadataPath);
+/**
+ * Decide and apply one outcome per incoming `config/` path.
+ */
+async function refreshConfigTree(
+  sourceDir: string,
+  destDir: string,
+  baseline: Record<string, string>,
+  resolutions: Map<string, ConflictResolution>,
+  force: boolean
+): Promise<RefreshOutcome[]> {
+  const outcomes: RefreshOutcome[] = [];
+  for (const relativePath of await getConfigFiles(sourceDir)) {
+    const sourcePath = path.join(sourceDir, relativePath);
+    const destPath = path.join(destDir, relativePath);
+    const outcome = await decideRefreshOutcome(
+      destPath,
+      await calculateFileHash(sourcePath),
+      baseline[relativePath],
+      resolutions.get(relativePath),
+      force
+    );
+    if (outcome.kind !== 'kept' && outcome.kind !== 'unchanged') {
+      await fs.copy(sourcePath, destPath, { overwrite: true });
+    }
+    outcomes.push({ relativePath, ...outcome });
+  }
+  return outcomes;
+}
+
+/**
+ * Classify one destination against its incoming file and recorded baseline.
+ *
+ * A destination that diverged from its baseline, or that has no baseline, is
+ * replaced only by `force` or an explicit `overwrite` answer; with no answer it
+ * is kept, because only the prompt may authorize destroying a file this refresh
+ * did not write. A kept destination with no baseline records none.
+ */
+async function decideRefreshOutcome(
+  destPath: string,
+  incomingHash: string,
+  recordedHash: string | undefined,
+  resolution: ConflictResolution | undefined,
+  force: boolean
+): Promise<Pick<RefreshOutcome, 'kind' | 'hash'>> {
+  if (!(await exists(destPath))) {
+    return { kind: 'installed', hash: incomingHash };
+  }
+  const currentHash = await calculateFileHash(destPath);
+  if (currentHash === incomingHash) {
+    return { kind: 'unchanged', hash: incomingHash };
+  }
+  if (recordedHash !== undefined && currentHash === recordedHash) {
+    return { kind: 'refreshed', hash: incomingHash };
+  }
+  if (force || resolution === 'overwrite' || resolution === 'overwrite-all') {
+    return { kind: 'overwritten', hash: incomingHash };
+  }
+  return { kind: 'kept', hash: recordedHash };
+}
+
+/**
+ * Build the `files` map from the refresh outcomes.
+ *
+ * A recorded path the incoming tree no longer ships keeps its recorded hash:
+ * the refresh learned nothing new about it, and dropping one that is also gone
+ * from disk would erase the deletion `validate` reports. An outcome with no
+ * hash records nothing.
+ */
+function recordBaselines(
+  baseline: Record<string, string>,
+  outcomes: RefreshOutcome[]
+): Record<string, string> {
+  const files: Record<string, string> = { ...baseline };
+  for (const { relativePath, hash } of outcomes) {
+    if (hash !== undefined) {
+      files[relativePath] = hash;
+    }
+  }
+  return files;
+}
+
+/**
+ * Copy the template entries outside `config/`, such as `README.md`, verbatim.
+ *
+ * Only `config/` is hash-tracked, so these refresh on every run. The ignore
+ * template is excluded here because it lands under a different name.
+ */
+async function copyUntrackedTemplateFiles(sourceDir: string, destDir: string): Promise<void> {
+  await fs.copy(sourceDir, destDir, {
+    overwrite: true,
+    filter: src => {
+      const [first] = path.relative(sourceDir, src).split(path.sep);
+      return first !== 'config' && first !== WORKSPACE_IGNORE_TEMPLATE;
+    },
+  });
 }
 
 /**
@@ -407,52 +504,14 @@ async function copyWorkspaceIgnoreFile(sourceDir: string, destDir: string): Prom
 }
 
 /**
- * Create or update metadata file with current file hashes
+ * Write the metadata for a completed refresh, carrying provenance and the
+ * harness selection forward from the previous metadata.
  */
 async function createMetadata(
-  sourceDir: string,
-  destDir: string,
-  metadataPath: string
+  metadataPath: string,
+  existingMetadata: InitMetadata | null,
+  files: Record<string, string>
 ): Promise<void> {
-  const existingMetadata = await loadMetadata(metadataPath);
-  const files: Record<string, string> = {};
-
-  async function walkDir(dir: string, relativeTo: string): Promise<void> {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
-
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
-      const relativePath = path.relative(relativeTo, fullPath);
-
-      // Skip README.md (always overwrite on init/re-init)
-      if (relativePath === 'README.md') {
-        continue;
-      }
-
-      // Skip metadata file itself
-      if (relativePath === '.init-metadata.json') {
-        continue;
-      }
-
-      if (entry.isDirectory()) {
-        await walkDir(fullPath, relativeTo);
-      } else if (entry.isFile()) {
-        // Calculate hash of the destination file (what we just copied)
-        const destFilePath = path.join(destDir, relativePath);
-        if (await exists(destFilePath)) {
-          const hash = await calculateFileHash(destFilePath);
-          files[relativePath] = hash;
-        }
-      }
-    }
-  }
-
-  const configDir = path.join(destDir, 'config');
-  if (await exists(configDir)) {
-    await walkDir(configDir, destDir);
-  }
-
-  // Create metadata object
   const metadata: InitMetadata = {
     version: getPackageVersion(),
     workspaceSchemaVersion: CURRENT_WORKSPACE_SCHEMA_VERSION,
@@ -467,27 +526,7 @@ async function createMetadata(
     metadata.harnesses = existingMetadata.harnesses;
   }
 
-  // Save metadata
   await saveMetadata(metadataPath, metadata);
-}
-
-/**
- * Apply user resolutions to file conflicts
- */
-async function applyResolutions(
-  sourceDir: string,
-  destDir: string,
-  resolutions: Map<string, ConflictResolution>
-): Promise<void> {
-  for (const [relativePath, resolution] of resolutions) {
-    const sourcePath = path.join(sourceDir, relativePath);
-    const destPath = path.join(destDir, relativePath);
-
-    if (resolution === 'overwrite') {
-      await fs.copy(sourcePath, destPath, { overwrite: true });
-    }
-    // If 'keep', do nothing - keep user's file
-  }
 }
 
 /**

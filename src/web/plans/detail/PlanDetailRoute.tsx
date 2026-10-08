@@ -22,7 +22,7 @@ import { Chrome, type ChromeTab } from '../../components/Chrome';
 import { StatusPill, Button, type StatusKind } from '../../components/primitives';
 import { ErrorSurface, LoadingSurface } from '../../components/StateSurface';
 import { usePlanDetail, useCapabilities, launchSelfReview, type PlanDetail } from '../../data/api';
-import { humanizeSlug, planMdPath, stripIdPrefix } from '../derive';
+import { humanizeSlug, stripIdPrefix } from '../derive';
 import { copyToClipboard } from '../../vendor/utils/clipboard';
 import { useModal, PlanModals } from '../modals';
 import { PlanDetailReader } from './PlanDetailReader';
@@ -46,8 +46,12 @@ function LoadedRoute({ detail }: { detail: PlanDetail }) {
   const slug = stripIdPrefix(detail.name);
   const title = humanizeSlug(slug);
 
-  // The plan markdown path self-review opens.
-  const planPath = planMdPath({ name: detail.name });
+  // The plan markdown path self-review opens, as the server resolved it.
+  // Rebuilding it as `plans/<name>/plan-<name>.md` 404s for an archived plan
+  // and for any plan whose markdown filename differs. `resolveReviewPath`
+  // accepts this absolute path and still enforces containment, so the modal
+  // shows an absolute, runnable command.
+  const planPath = detail.file;
 
   // The header Review action launches self-review directly when the binary is
   // installed. When it isn't (or a launch fails), fall back to the modal — the

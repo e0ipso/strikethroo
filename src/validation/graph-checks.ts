@@ -18,20 +18,12 @@
  * `collectTaskReadinessIssues` — which is why naming the participating task ids
  * in the message is the point of the check, not a nicety.
  *
- * No blueprint parser is defined here. The repository already carries
- * `parseBlueprintPhases` twice (`src/serve/derivation.ts` and
- * `src/skill-scripts/shared/blueprint-parse.ts`), quietly diverging; a third
- * copy is the specific failure mode this file must not add. The serve copy is
- * reused because it is inside the CLI's `tsc` domain and already returns the
- * `Phase` shape. Deduplicating the existing two is out of scope.
- *
- * Known limitation, deliberately not fixed here: that parser's `TASK_REF_RE`
- * matches the first `Task NN` in *any* bulleted line, so ordinary prose in a
- * blueprint bullet is indistinguishable from a phase assignment and can yield a
- * phantom reference. Hardening it belongs to whoever deduplicates the two
- * parsers. The `blueprint/reference-unresolved` message therefore spells the
- * false-positive case out, so a human meets it as a known limitation instead of
- * a mystery.
+ * The blueprint parser is `parseBlueprintPhases` in
+ * `src/skill-scripts/shared/blueprint-parse.ts`, the one implementation the
+ * viewer and the readiness check also use. Its `TASK_REF_RE` matches the first
+ * `Task NN` in any bulleted line, so prose in a blueprint bullet can yield a
+ * phantom reference; the `blueprint/reference-unresolved` message spells that
+ * case out.
  *
  * `findStrikethrooRoot` is never imported: it terminates the process on a
  * schema-version mismatch. The root arrives already resolved.
@@ -40,7 +32,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { extractBody } from '../serve/markdown';
-import { scanTasks, parseBlueprintPhases, type Task, type Phase } from '../serve/derivation';
+import { scanTasks, type Task } from '../serve/derivation';
+import { parseBlueprintPhases, type BlueprintPhase } from '../skill-scripts/shared/blueprint-parse';
 import { getAllPlans } from '../skill-scripts/shared/plan-scan';
 import { Finding } from './types';
 
@@ -260,7 +253,7 @@ const dependencyFindings = (plan: PlanContext): Finding[] => {
 
 /** Blueprint <-> task consistency, in both directions, for one plan. */
 const blueprintFindings = (plan: PlanContext): Finding[] => {
-  const phases: Phase[] | undefined = parseBlueprintPhases(plan.body);
+  const phases: BlueprintPhase[] | undefined = parseBlueprintPhases(plan.body);
   // No blueprint section (or one with no phase headings) is a legitimate state
   // for a drafted plan, not a defect. Nothing to reconcile against.
   if (!phases || phases.length === 0) return [];

@@ -9,6 +9,11 @@
  *
  * Unknown paths resolve to the Plans section (SPA fallback), matching the
  * server's `index.html` fallback contract so deep links and refreshes work.
+ *
+ * Callers of `navigate` percent-encode every segment they interpolate, and
+ * {@link parsePath} decodes each captured segment once. Without both halves a
+ * click and a reload resolve to different ids, because `pushState` stores the
+ * string verbatim while the browser reports `location.pathname` encoded.
  */
 
 import {
@@ -37,6 +42,22 @@ export interface Route {
 }
 
 /**
+ * Decodes one captured segment, the app's only decode.
+ *
+ * A malformed sequence yields the raw segment, which matches no plan, task, or
+ * config id, so the route renders its not-found surface. The `URIError` must
+ * never escape. `parsePath` runs inside `useState`'s initializer and on
+ * `popstate`, where a throw blanks the app.
+ */
+const decodeSegment = (segment: string): string => {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+};
+
+/**
  * Pure path parser. Maps a `pathname` to a {@link Route}. Anything that does
  * not match a known pattern falls back to the Plans section (no throw), which
  * is the SPA fallback contract.
@@ -44,11 +65,14 @@ export interface Route {
 export function parsePath(pathname: string): Route {
   const taskDetail = /^\/plans\/([^/]+)\/tasks\/([^/]+)\/?$/.exec(pathname);
   if (taskDetail && taskDetail[1] && taskDetail[2]) {
-    return { section: 'taskDetail', params: { id: taskDetail[1], taskId: taskDetail[2] } };
+    return {
+      section: 'taskDetail',
+      params: { id: decodeSegment(taskDetail[1]), taskId: decodeSegment(taskDetail[2]) },
+    };
   }
   const planDetail = /^\/plans\/([^/]+)\/?$/.exec(pathname);
   if (planDetail && planDetail[1]) {
-    return { section: 'planDetail', params: { id: planDetail[1] } };
+    return { section: 'planDetail', params: { id: decodeSegment(planDetail[1]) } };
   }
   if (pathname === '/archive' || pathname === '/archive/') {
     return { section: 'archive', params: {} };
@@ -57,7 +81,7 @@ export function parsePath(pathname: string): Route {
   if (customizeDetail && customizeDetail[1] && customizeDetail[2]) {
     return {
       section: 'customizeDetail',
-      params: { kind: customizeDetail[1], id: customizeDetail[2] },
+      params: { kind: decodeSegment(customizeDetail[1]), id: decodeSegment(customizeDetail[2]) },
     };
   }
   if (pathname === '/customize' || pathname === '/customize/') {

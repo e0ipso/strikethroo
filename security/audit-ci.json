@@ -3,7 +3,9 @@
   "package-manager": "npm",
   "high": true,
   "skip-dev": false,
-  "extra-args": ["--include=dev"],
+  "extra-args": [
+    "--include=dev"
+  ],
   "pass-enoaudit": false,
   "report-type": "summary",
   "allowlist": [
@@ -23,6 +25,78 @@
       "GHSA-rfgv-xxqx-mfg5|undici": {
         "active": true,
         "notes": "Unrequested WebSocket subprotocol DoS in undici@6.28.0, bundled inside npm@11.21.0 under @semantic-release/npm@13.2.0. Release tooling only; npm uses registry HTTP and never opens WebSockets. Overrides cannot replace npm's bundled copy. Recheck when npm 11.x ships undici >=6.28.1 or @semantic-release/npm accepts npm 12."
+      }
+    },
+    {
+      "GHSA-vfj7-8cjw-p6xm|@semantic-release/changelog>semantic-release>@semantic-release/commit-analyzer>micromatch>braces": {
+        "active": true,
+        "notes": "ReDoS in braces@3.0.3 (GHSA-vfj7-8cjw-p6xm). The advisory names no patched version and 3.0.3 is the latest published release, so no upgrade exists; micromatch@4.0.8 and @semantic-release/commit-analyzer@13.0.1 are both current and pin it. Reached only from release tooling and from typescript-eslint's fast-glob, matching our own releaseRules and lint globs, never user input. Recheck when braces publishes above 3.0.3 or micromatch drops it."
+      }
+    },
+    {
+      "GHSA-vfj7-8cjw-p6xm|@semantic-release/exec>semantic-release>@semantic-release/commit-analyzer>micromatch>braces": {
+        "active": true,
+        "notes": "ReDoS in braces@3.0.3 (GHSA-vfj7-8cjw-p6xm). The advisory names no patched version and 3.0.3 is the latest published release, so no upgrade exists; micromatch@4.0.8 and @semantic-release/commit-analyzer@13.0.1 are both current and pin it. Reached only from release tooling and from typescript-eslint's fast-glob, matching our own releaseRules and lint globs, never user input. Recheck when braces publishes above 3.0.3 or micromatch drops it."
+      }
+    },
+    {
+      "GHSA-vfj7-8cjw-p6xm|@semantic-release/git>semantic-release>@semantic-release/commit-analyzer>micromatch>braces": {
+        "active": true,
+        "notes": "ReDoS in braces@3.0.3 (GHSA-vfj7-8cjw-p6xm). The advisory names no patched version and 3.0.3 is the latest published release, so no upgrade exists; micromatch@4.0.8 and @semantic-release/commit-analyzer@13.0.1 are both current and pin it. Reached only from release tooling and from typescript-eslint's fast-glob, matching our own releaseRules and lint globs, never user input. Recheck when braces publishes above 3.0.3 or micromatch drops it."
+      }
+    },
+    {
+      "GHSA-vfj7-8cjw-p6xm|@semantic-release/github>semantic-release>@semantic-release/commit-analyzer>micromatch>braces>": {
+        "active": true,
+        "notes": "ReDoS in braces@3.0.3 (GHSA-vfj7-8cjw-p6xm). The advisory names no patched version and 3.0.3 is the latest published release, so no upgrade exists; micromatch@4.0.8 and @semantic-release/commit-analyzer@13.0.1 are both current and pin it. Reached only from release tooling and from typescript-eslint's fast-glob, matching our own releaseRules and lint globs, never user input. Recheck when braces publishes above 3.0.3 or micromatch drops it."
+      }
+    },
+    {
+      "GHSA-vfj7-8cjw-p6xm|@semantic-release/npm>semantic-release>@semantic-release/commit-analyzer>micromatch>braces>": {
+        "active": true,
+        "notes": "ReDoS in braces@3.0.3 (GHSA-vfj7-8cjw-p6xm). The advisory names no patched version and 3.0.3 is the latest published release, so no upgrade exists; micromatch@4.0.8 and @semantic-release/commit-analyzer@13.0.1 are both current and pin it. Reached only from release tooling and from typescript-eslint's fast-glob, matching our own releaseRules and lint globs, never user input. Recheck when braces publishes above 3.0.3 or micromatch drops it."
+      }
+    },
+    {
+      "GHSA-vfj7-8cjw-p6xm|@semantic-release/release-notes-generator>semantic-release>@semantic-release/commit-analyzer>micromatch>braces>": {
+        "active": true,
+        "notes": "ReDoS in braces@3.0.3 (GHSA-vfj7-8cjw-p6xm). The advisory names no patched version and 3.0.3 is the latest published release, so no upgrade exists; micromatch@4.0.8 and @semantic-release/commit-analyzer@13.0.1 are both current and pin it. Reached only from release tooling and from typescript-eslint's fast-glob, matching our own releaseRules and lint globs, never user input. Recheck when braces publishes above 3.0.3 or micromatch drops it."
+      }
+    },
+    {
+      "GHSA-vfj7-8cjw-p6xm|@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/typescript-estree>fast-glob>micromatch>braces": {
+        "active": true,
+        "notes": "ReDoS in braces@3.0.3 (GHSA-vfj7-8cjw-p6xm). The advisory names no patched version and 3.0.3 is the latest published release, so no upgrade exists; micromatch@4.0.8 and @semantic-release/commit-analyzer@13.0.1 are both current and pin it. Reached only from release tooling and from typescript-eslint's fast-glob, matching our own releaseRules and lint globs, never user input. Recheck when braces publishes above 3.0.3 or micromatch drops it."
+      }
+    },
+    {
+      "GHSA-vfj7-8cjw-p6xm|@typescript-eslint/parser>@typescript-eslint/typescript-estree>fast-glob>micromatch>braces": {
+        "active": true,
+        "notes": "ReDoS in braces@3.0.3 (GHSA-vfj7-8cjw-p6xm). The advisory names no patched version and 3.0.3 is the latest published release, so no upgrade exists; micromatch@4.0.8 and @semantic-release/commit-analyzer@13.0.1 are both current and pin it. Reached only from release tooling and from typescript-eslint's fast-glob, matching our own releaseRules and lint globs, never user input. Recheck when braces publishes above 3.0.3 or micromatch drops it."
+      }
+    },
+    {
+      "GHSA-vfj7-8cjw-p6xm|@typescript-eslint/utils>@typescript-eslint/typescript-estree>fast-glob>micromatch>braces>": {
+        "active": true,
+        "notes": "ReDoS in braces@3.0.3 (GHSA-vfj7-8cjw-p6xm). The advisory names no patched version and 3.0.3 is the latest published release, so no upgrade exists; micromatch@4.0.8 and @semantic-release/commit-analyzer@13.0.1 are both current and pin it. Reached only from release tooling and from typescript-eslint's fast-glob, matching our own releaseRules and lint globs, never user input. Recheck when braces publishes above 3.0.3 or micromatch drops it."
+      }
+    },
+    {
+      "GHSA-vfj7-8cjw-p6xm|micromatch>braces>": {
+        "active": true,
+        "notes": "ReDoS in braces@3.0.3 (GHSA-vfj7-8cjw-p6xm). The advisory names no patched version and 3.0.3 is the latest published release, so no upgrade exists; micromatch@4.0.8 and @semantic-release/commit-analyzer@13.0.1 are both current and pin it. Reached only from release tooling and from typescript-eslint's fast-glob, matching our own releaseRules and lint globs, never user input. Recheck when braces publishes above 3.0.3 or micromatch drops it."
+      }
+    },
+    {
+      "GHSA-vfj7-8cjw-p6xm|semantic-release>@semantic-release/commit-analyzer>micromatch>braces>": {
+        "active": true,
+        "notes": "ReDoS in braces@3.0.3 (GHSA-vfj7-8cjw-p6xm). The advisory names no patched version and 3.0.3 is the latest published release, so no upgrade exists; micromatch@4.0.8 and @semantic-release/commit-analyzer@13.0.1 are both current and pin it. Reached only from release tooling and from typescript-eslint's fast-glob, matching our own releaseRules and lint globs, never user input. Recheck when braces publishes above 3.0.3 or micromatch drops it."
+      }
+    },
+    {
+      "GHSA-ch52-4w7c-c8xp|http-cache-semantics": {
+        "active": true,
+        "notes": "ReDoS in http-cache-semantics@4.2.0 (GHSA-ch52-4w7c-c8xp), bundled inside npm@11.21.0 under @semantic-release/npm, so overrides cannot reach it. Release tooling only, parsing cache headers from the npm registry on an ephemeral single-user runner. 4.3.0 is published and sits outside the vulnerable range. Recheck when npm 11.x bundles http-cache-semantics >=4.3.0."
       }
     }
   ]

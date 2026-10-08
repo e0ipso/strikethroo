@@ -2,6 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 
+import { hasYamlContent } from './task-frontmatter';
+
 /**
  * Execution routing configuration and generation-time profile persistence.
  * Generation validates the complete task-to-profile classification and stores
@@ -154,11 +156,7 @@ export const loadRoutingConfig = (
 
   // js-yaml v5 throws on an empty document, and a config.yaml reduced to
   // comments/blank lines is legitimately "nothing configured".
-  const hasContent = contents.split(/\r?\n/).some(line => {
-    const trimmed = line.trim();
-    return trimmed !== '' && !trimmed.startsWith('#');
-  });
-  if (!hasContent) return { kind: 'disabled' };
+  if (!hasYamlContent(contents)) return { kind: 'disabled' };
 
   let document: unknown;
   try {

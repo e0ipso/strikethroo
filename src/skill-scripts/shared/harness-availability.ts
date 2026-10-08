@@ -10,6 +10,7 @@ import {
   loadHarnessConfiguration,
   type NormalizedHarnessInvocation,
 } from './harness-configuration';
+import { resolveExecutablePath } from './executable-resolution';
 import { EXTERNAL_HARNESS_ADAPTERS, type StructuredCommand } from './external-dispatch';
 
 export const AVAILABILITY_REGISTRY_VERSION = 4;
@@ -68,34 +69,9 @@ export interface ProbeResult {
 
 export interface HarnessAvailabilityDependencies {
   now: () => number;
-  resolveExecutable: (executable: string) => string | undefined;
+  resolveExecutable: (executable: string) => string | null;
   runProbe: (command: StructuredCommand, timeoutMs: number) => Promise<ProbeResult>;
 }
-
-const resolveExecutable = (executable: string): string | undefined => {
-  const extensions =
-    process.platform === 'win32'
-      ? ['', ...(process.env.PATHEXT ?? '.EXE;.CMD;.BAT;.COM').split(';')]
-      : [''];
-  const directories = /[\\/]/.test(executable)
-    ? ['']
-    : (process.env.PATH ?? '').split(path.delimiter).filter(Boolean);
-  for (const directory of directories) {
-    for (const extension of extensions) {
-      const candidate = path.resolve(directory, `${executable}${extension}`);
-      try {
-        fs.accessSync(
-          candidate,
-          process.platform === 'win32' ? fs.constants.F_OK : fs.constants.X_OK
-        );
-        if (fs.statSync(candidate).isFile()) return fs.realpathSync(candidate);
-      } catch {
-        // Try the next PATH entry or executable suffix.
-      }
-    }
-  }
-  return undefined;
-};
 
 const runProbe = (command: StructuredCommand, timeoutMs: number): Promise<ProbeResult> =>
   new Promise(resolve => {
@@ -157,7 +133,7 @@ const probeFailureReason = (probe: ProbeResult): string => {
 
 const defaultDependencies: HarnessAvailabilityDependencies = {
   now: Date.now,
-  resolveExecutable,
+  resolveExecutable: resolveExecutablePath,
   runProbe,
 };
 

@@ -97,7 +97,7 @@ No. A green review gate reduces the same class of error a human PR approval redu
 
 Five reasons it may skip cleanly:
 
-- **Hook file missing** — code review is optional. `init` copies the default hook; older workspaces don't have it until they update.
+- **Hook file missing** — code review is optional. `init` copies the default hook; older workspaces don't have it until they update, and `init` or `update` restores a hook you deleted.
 - **Hook file empty** — if you delete the contents, the gate skips.
 - **XSD schema absent** — the vendored XSD is copied by `init`; older workspaces don't have it.
 - **No base commit** — the workspace is not a git repository, or has no commits yet.
@@ -111,7 +111,7 @@ An uncertified review is not a skip: the gate ran and could not certify the resu
 
 **How do I disable code review?**
 
-Edit or delete `.ai/strikethroo/config/hooks/CODE_REVIEW.md`. The gate skips cleanly on next run. No error.
+Empty `.ai/strikethroo/config/hooks/CODE_REVIEW.md`. The gate skips cleanly on next run. No error. Deleting the file also skips the gate, but `init` and `update` restore a deleted file, so an empty file is the one that lasts.
 
 **Can I configure how findings are graded?**
 

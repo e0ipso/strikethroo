@@ -377,6 +377,41 @@ describe('cumulative diff scope: generated and vendored files', () => {
     expect(diff).not.toContain('GENERATED_BUNDLE_CONTENT');
   });
 
+  /**
+   * `check-attr -z` reports a marked path as `set` (bare `out/* linguist-generated`),
+   * `true` (`=true`), or whatever value was written; GitHub's linguist treats every
+   * one except `false` as marked. The bare form is the one that read as unmarked.
+   */
+  it('drops the bare `set` form as well as `=true`, and keeps unset and `=false` paths', () => {
+    fs.writeFileSync(
+      path.join(repo, '.gitattributes'),
+      'out/* linguist-generated\nvendor/* linguist-vendored=true\nsrc/* -linguist-generated\nkept/* linguist-generated=false\n'
+    );
+    for (const dir of ['out', 'vendor', 'src', 'kept']) fs.mkdirSync(path.join(repo, dir));
+    fs.writeFileSync(path.join(repo, 'out/gen.cjs'), 'original\n');
+    fs.writeFileSync(path.join(repo, 'vendor/lib.xsd'), 'original\n');
+    fs.writeFileSync(path.join(repo, 'src/real.ts'), 'original\n');
+    fs.writeFileSync(path.join(repo, 'kept/k.ts'), 'original\n');
+    git('add -A');
+    git('commit -q -m attrs');
+    const base = baseSha();
+
+    fs.writeFileSync(path.join(repo, 'out/gen.cjs'), 'BARE_SET_GENERATED\n');
+    fs.writeFileSync(path.join(repo, 'out/new.cjs'), 'BARE_SET_UNTRACKED\n');
+    fs.writeFileSync(path.join(repo, 'vendor/lib.xsd'), 'EXPLICIT_TRUE_VENDORED\n');
+    fs.writeFileSync(path.join(repo, 'src/real.ts'), 'UNSET_SOURCE\n');
+    fs.writeFileSync(path.join(repo, 'kept/k.ts'), 'EXPLICIT_FALSE_KEPT\n');
+
+    const diff = _readCumulativeDiff(repo, base);
+
+    expect(diff).not.toBeNull();
+    expect(diff).not.toContain('BARE_SET_GENERATED');
+    expect(diff).not.toContain('BARE_SET_UNTRACKED');
+    expect(diff).not.toContain('EXPLICIT_TRUE_VENDORED');
+    expect(diff).toContain('UNSET_SOURCE');
+    expect(diff).toContain('EXPLICIT_FALSE_KEPT');
+  });
+
   it('summarizes an untracked binary instead of inlining it', () => {
     const base = baseSha();
     fs.writeFileSync(path.join(repo, 'blob.bin'), Buffer.from([0, 1, 2, 0, 3]));
@@ -506,6 +541,36 @@ describe('code review gate — xmllint is a soft dependency', () => {
     );
     expect(result).not.toMatchObject({ reason: 'validator-absent' });
     expect(dispatch).toHaveBeenCalled();
+  });
+
+  /**
+   * The default probe is the shared resolver, so a file named `xmllint` that
+   * cannot execute is an absent validator. `PATH` is replaced, never prepended,
+   * so nothing can fall through to a real binary.
+   */
+  it('probes xmllint through the shared resolver, so execute permission decides', async () => {
+    const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'strikethroo-xmllint-probe-'));
+    const xmllint = path.join(bin, 'xmllint');
+    fs.writeFileSync(xmllint, `#!${process.execPath}\nprocess.exit(0);\n`, { mode: 0o644 });
+    const dispatch = vi.fn(async () => ({ kind: 'launched-success', exitCode: 0 }) as const);
+    const { validatorAvailable: _stubbed, ...realProbe } = stubDeps({ dispatch });
+    const run = () =>
+      runReview({ plan: '1', currentHarness: 'claude', startPath: ws.root }, realProbe);
+    const originalPath = process.env.PATH;
+    try {
+      process.env.PATH = bin;
+      expect(await run()).toMatchObject({ kind: 'skipped', reason: 'validator-absent' });
+      expect(dispatch).not.toHaveBeenCalled();
+      fs.chmodSync(xmllint, 0o755);
+      expect(await run()).not.toMatchObject({ reason: 'validator-absent' });
+      expect(dispatch).toHaveBeenCalled();
+    } finally {
+      if (originalPath === undefined) delete process.env.PATH;
+      else process.env.PATH = originalPath;
+      fs.rmSync(bin, { recursive: true, force: true });
+      ws.cleanup();
+    }
   });
 });
 

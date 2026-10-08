@@ -29,7 +29,7 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> => {
   return prototype === Object.prototype || prototype === null;
 };
 
-const hasYamlContent = (block: string): boolean =>
+export const hasYamlContent = (block: string): boolean =>
   block.split(/\r?\n/).some(line => {
     const trimmed = line.trim();
     return trimmed !== '' && !trimmed.startsWith('#');

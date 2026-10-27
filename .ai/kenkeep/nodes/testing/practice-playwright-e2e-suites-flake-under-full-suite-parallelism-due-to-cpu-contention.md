@@ -2,8 +2,8 @@
 type: practice
 title: Playwright e2e suites flake under full-suite parallelism due to CPU contention
 description: >-
-  Under default workers, parallel Playwright/Chromium processes starve each
-  other; random tests timeout. Run --workers=2 to prove genuine green.
+  Browser suites use at most two workers and half the available CPUs to avoid
+  shared-host contention. Diagnose timeouts in isolation before retrying a suite.
 tags:
   - web
   - testing
@@ -21,11 +21,11 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-When running the full test suite with the default `workers` setting (~50% of cores), the 8+ parallel Playwright/Chromium suites compete for CPU and a random e2e test trips its 30s timeout each run. The timeout victim rotates — a different test fails each run. This is environmental flakiness, not a code regression.
+High browser concurrency can starve suites of CPU and produce timeouts in otherwise fast tests. `playwright.config.ts` caps workers at two and half the CPUs available to the process, with a minimum of one. The standard `npm test` and pre-commit hook use that cap.
 
 Diagnosis: run the suspected failing test in isolation (`npx playwright test <test-file>`). If it passes in 2–3s alone but times out under the full suite, the failure is load-induced contention.
 
-Verification protocol before `--no-verify`: confirm genuine green via `npx playwright test --workers=2`. Never use `--no-verify` solely on repeated contention failures without first confirming green with constrained workers. The standard pre-commit hook (`npm test`) does not cap parallelism, so it is inherently flaky under concurrent agent workloads on shared hardware.
+After reproducing and resolving a failure in isolation, run the full suite with the normal worker cap. Keep the commit hooks enabled.
 
 <!-- kk:related:start -->
 # Related

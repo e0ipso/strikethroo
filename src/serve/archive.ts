@@ -19,7 +19,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getPlanDetail, PlanDetail } from './workspace-model';
-import { resolveContained } from '../skill-scripts/shared/safe-fs';
+import { ensureContainedDirectory, resolveContained } from '../skill-scripts/shared/safe-fs';
 
 /** `lstat`-based existence: a dangling link at the destination still counts. */
 const pathExists = (target: string): boolean => {
@@ -119,7 +119,8 @@ export const archivePlan = async (root: string, name: string): Promise<ArchiveRe
   try {
     // The destination's parent (`archive/`) must exist for the rename to land.
     // Creating it is benign and never touches plan contents.
-    if (!archiveDir.exists) await fs.promises.mkdir(archiveDir.path);
+    const ensuredArchive = ensureContainedDirectory(root, 'archive');
+    if ('error' in ensuredArchive) throw new Error(ensuredArchive.message);
     await fs.promises.rename(src.path, dest);
   } catch {
     return {

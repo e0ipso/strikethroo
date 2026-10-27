@@ -29,6 +29,8 @@ import * as path from 'path';
 import * as os from 'os';
 import * as http from 'http';
 import * as crypto from 'crypto';
+import { setImmediate } from 'timers';
+import { vi } from 'vitest';
 import { startServer, ServeHandle, CAPABILITY_HEADER } from '../serve/server';
 import { archivePlan } from '../serve/archive';
 
@@ -161,6 +163,32 @@ describe('archivePlan operation against fixtures', () => {
     expect(fs.existsSync(path.join(root, 'archive', '12--example', 'tasks', '01--first.md'))).toBe(
       true
     );
+  });
+
+  it('archives two completed plans concurrently when archive does not exist', async () => {
+    makePlan(root, '14--other', 14, 'Other Done Plan', [
+      { name: '01--first.md', id: 1, status: 'completed' },
+    ]);
+    const mkdir = fs.promises.mkdir.bind(fs.promises);
+    const delayed = vi.spyOn(fs.promises, 'mkdir').mockImplementation(async (target, options) => {
+      if (target === path.join(root, 'archive')) {
+        await new Promise<void>(resolve => setImmediate(resolve));
+      }
+      return mkdir(target, options);
+    });
+    try {
+      const results = await Promise.all([
+        archivePlan(root, '12--example'),
+        archivePlan(root, '14--other'),
+      ]);
+      expect(results.map(result => result.ok)).toEqual([true, true]);
+      for (const name of ['12--example', '14--other']) {
+        expect(fs.existsSync(path.join(root, 'archive', name))).toBe(true);
+        expect(fs.existsSync(path.join(root, 'plans', name))).toBe(false);
+      }
+    } finally {
+      delayed.mockRestore();
+    }
   });
 
   it('rejects a non-done plan with reason not-done and no filesystem change', async () => {

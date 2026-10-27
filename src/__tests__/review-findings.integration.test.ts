@@ -15,6 +15,7 @@
  */
 
 import { spawnSync } from 'child_process';
+import { performance } from 'perf_hooks';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -57,6 +58,17 @@ describe('validateAgainstSchema — real xmllint against the vendored XSD', () =
       ])
     );
     await expect(validateAgainstSchema(REAL_XSD_PATH, file)).resolves.toEqual({ kind: 'valid' });
+  });
+
+  it('certifies a near-limit PI-heavy document without quadratic preflight work', async () => {
+    const xml = buildReviewXml([]).replace('?>', '?>' + '<?p?>'.repeat(50_000));
+    const file = writeXml(xml);
+    const started = performance.now();
+    expect(hasForbiddenDeclarations(xml)).toBe(false);
+    expect(performance.now() - started).toBeLessThan(2000);
+    await expect(validateAgainstSchema(REAL_XSD_PATH, file)).resolves.toEqual({ kind: 'valid' });
+    expect(parseReviewFindings(xml)).toEqual([]);
+    expect(await countCommentsWithXmllint(file)).toBe(0);
   });
 
   it('reports invalid, with diagnostic detail, for a document that violates the schema', async () => {

@@ -1,3 +1,9 @@
+## [4.3.0](https://github.com/e0ipso/strikethroo/compare/v4.2.3...v4.3.0) (2026-10-27)
+
+### Features
+
+* **serve:** add a read-only mode ([2b44262](https://github.com/e0ipso/strikethroo/commit/2b442629cec54b5dcc32f6952a4175c43c332195))
+
 ## [4.2.3](https://github.com/e0ipso/strikethroo/compare/v4.2.2...v4.2.3) (2026-10-27)
 
 ### Bug Fixes

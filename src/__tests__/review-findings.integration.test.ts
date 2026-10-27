@@ -218,6 +218,8 @@ describe('hasForbiddenDeclarations — DTD syntax is refused before the schema s
       '<!NOTATION n SYSTEM "x">',
       // A comment before the declaration must not hide it.
       '<!-- harmless --><!DOCTYPE review>',
+      // Nor a comment opener inside a processing instruction, which ends at `?>`.
+      '<?p <!-- ?><!DOCTYPE review [<!ENTITY x "y">]><!-- c -->',
     ];
     for (const declaration of declarations) {
       expect(hasForbiddenDeclarations(`<?xml version="1.0"?>\n${declaration}\n${REVIEW}`)).toBe(

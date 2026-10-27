@@ -17,6 +17,7 @@ import * as path from 'path';
 import { execFileSync } from 'child_process';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  ensureContainedDirectory,
   resolveContained,
   readContainedFile,
   writeFileAtomic,
@@ -233,5 +234,35 @@ describe('writeFileAtomicSync', () => {
     expect(fs.readFileSync(sentinel, 'utf8')).toBe('untouched\n');
     expect(tmpFilesIn(outside)).toEqual([]);
     expect(tmpFilesIn(path.join(root, 'config', 'hooks'))).toEqual([]);
+  });
+});
+
+describe('ensureContainedDirectory', () => {
+  it('creates a missing directory and its missing parents as plain directories', () => {
+    const result = ensureContainedDirectory(root, path.join('plans', '1--x', 'review'));
+    expect(errorCode(result)).toBeUndefined();
+    const created = path.join(root, 'plans', '1--x', 'review');
+    expect(fs.lstatSync(created).isDirectory()).toBe(true);
+    expect(fs.lstatSync(path.join(root, 'plans')).isDirectory()).toBe(true);
+    // Idempotent on an existing directory.
+    expect(errorCode(ensureContainedDirectory(root, created))).toBeUndefined();
+  });
+
+  posixOnly('refuses a linked leaf or parent and creates nothing through it', () => {
+    fs.symlinkSync(outside, path.join(root, 'runtime'), 'dir');
+    expect(errorCode(ensureContainedDirectory(root, 'runtime'))).toBe('symlink');
+    expect(errorCode(ensureContainedDirectory(root, path.join('runtime', 'nested')))).toBe(
+      'symlink'
+    );
+    expect(fs.readdirSync(outside)).toEqual(['sentinel.md']);
+  });
+
+  it('refuses a path outside the root and a file in the way', () => {
+    expect(errorCode(ensureContainedDirectory(root, path.join('..', 'escape')))).toBe(
+      'outside-root'
+    );
+    expect(errorCode(ensureContainedDirectory(root, path.join('config', 'hooks', 'A.md')))).toBe(
+      'not-a-directory'
+    );
   });
 });

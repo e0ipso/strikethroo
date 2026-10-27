@@ -33,7 +33,7 @@
 code_review:
   enabled: false
 
-# Reviews use the strongest model and effort configured for each harness.
+# Reviews use the strongest model for each harness at `xhigh` effort.
 # Task routing appends its model and effort after these defaults.
 harnesses:
   claude:
@@ -42,7 +42,7 @@ harnesses:
       - --model
       - claude-opus-5-5
       - --effort
-      - max
+      - xhigh
   codex:
     cli_args:
       - --sandbox
@@ -50,7 +50,7 @@ harnesses:
       - --config
       - 'model="gpt-6.1-sol"'
       - --config
-      - 'model_reasoning_effort="max"'
+      - 'model_reasoning_effort="xhigh"'
   cursor:
     cli_args:
       - --force
@@ -120,9 +120,9 @@ execution_routing:
       models:
         - model: claude-opus-5-5
           harness: claude
-          reasoning_effort: max
+          reasoning_effort: xhigh
         - model: gpt-6.1-sol
           harness: codex
-          reasoning_effort: max
+          reasoning_effort: xhigh
         - model: grok-4.7-xhigh
           harness: cursor

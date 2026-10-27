@@ -330,7 +330,7 @@ describe('CLI Integration', () => {
             '--model',
             'claude-opus-5-5',
             '--effort',
-            'max',
+            'xhigh',
           ],
         },
         codex: {
@@ -340,7 +340,7 @@ describe('CLI Integration', () => {
             '--config',
             'model="gpt-6.1-sol"',
             '--config',
-            'model_reasoning_effort="max"',
+            'model_reasoning_effort="xhigh"',
           ],
         },
         cursor: { cli_args: ['--force', '--model', 'grok-4.7-xhigh'] },

@@ -866,11 +866,11 @@ export type PublicUrlsResult = { ok: true; origins: string[] } | { ok: false; er
  */
 export const parsePublicUrls = (values: readonly string[]): PublicUrlsResult => {
   const origins = new Set<string>();
-  for (const raw of values) {
+  for (const [index, raw] of values.entries()) {
     const value = raw.trim();
     const refuse = (reason: string): PublicUrlsResult => ({
       ok: false,
-      error: `Invalid --public-url "${raw}": ${reason}`,
+      error: `Invalid --public-url value ${index + 1}: ${reason}`,
     });
     // The prefix check stops the URL parser's lenient `https:host` reading.
     if (!/^https?:\/\//i.test(value)) return refuse('use an absolute http:// or https:// URL.');

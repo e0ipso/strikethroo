@@ -622,7 +622,7 @@ describe('serve server: public URLs behind a reverse proxy', () => {
     ]) {
       const result = parsePublicUrls([PUBLIC, bad]);
       expect(result.ok, bad).toBe(false);
-      if (!result.ok) expect(result.error, bad).toContain(`Invalid --public-url "${bad}"`);
+      if (!result.ok) expect(result.error, bad).toContain('Invalid --public-url value 2:');
     }
   });
 
@@ -636,6 +636,20 @@ describe('serve server: public URLs behind a reverse proxy', () => {
         publicUrls: ['https://viewer.example.com/app'],
       })
     ).rejects.toThrow('Invalid --public-url');
+  });
+
+  it('rejects startup public URLs without exposing secrets', async () => {
+    for (const secretUrl of [
+      'https://review-user:dummy-password@viewer.example.com',
+      'https://viewer.example.com?access_token=dummy-token',
+      'https://review-user:malformed-password@[',
+    ]) {
+      await expect(
+        startServer({ root: FIXTURE_ROOT, port: 0, open: false, publicUrls: [PUBLIC, secretUrl] })
+      ).rejects.toThrow(
+        /^Invalid --public-url value 2: (?!.*(?:review-user|password|dummy-token))/
+      );
+    }
   });
 
   describe('with --public-url set', () => {

@@ -7,7 +7,7 @@
  * `npx skills add e0ipso/strikethroo`.
  */
 
-import { execSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
 import * as fs from 'fs-extra';
 import * as os from 'os';
 import * as path from 'path';
@@ -442,6 +442,30 @@ describe('CLI Integration', () => {
   });
 
   describe('serve', () => {
+    it('rejects invalid public URLs without exposing secrets', () => {
+      for (const [url, secrets] of [
+        [
+          'https://review-user:dummy-password@viewer.example.com',
+          ['review-user', 'dummy-password'],
+        ],
+        ['https://viewer.example.com?access_token=dummy-token', ['dummy-token']],
+        ['https://viewer.example.com#dummy-fragment', ['dummy-fragment']],
+        ['https://review-user:malformed-password@[', ['review-user', 'malformed-password']],
+      ] as const) {
+        for (const preceding of [[], ['--public-url', 'https://valid.example.com']]) {
+          const result = spawnSync(
+            process.execPath,
+            [cliPath, 'serve', '--no-open', ...preceding, '--public-url', url],
+            { cwd: testDir, encoding: 'utf8', timeout: 5000 }
+          );
+          expect(result.status).toBe(1);
+          const output = result.stdout + result.stderr;
+          expect(output).toContain('Invalid --public-url');
+          for (const secret of secrets) expect(output).not.toContain(secret);
+        }
+      }
+    });
+
     it('refuses a --host that is not an IP address before binding anything', () => {
       const result = executeCommand(`node "${cliPath}" serve --no-open --host myvm.local`);
 

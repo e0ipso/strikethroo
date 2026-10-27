@@ -1,3 +1,9 @@
+## [4.2.2](https://github.com/e0ipso/strikethroo/compare/v4.2.1...v4.2.2) (2026-10-27)
+
+### Bug Fixes
+
+* update default routing and reviewer models ([fce8493](https://github.com/e0ipso/strikethroo/commit/fce8493fa1c502890475c8b8116632b295207582))
+
 ## [4.2.1](https://github.com/e0ipso/strikethroo/compare/v4.2.0...v4.2.1) (2026-10-27)
 
 ### Bug Fixes

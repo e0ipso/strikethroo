@@ -1,3 +1,9 @@
+## [4.4.2](https://github.com/e0ipso/strikethroo/compare/v4.4.1...v4.4.2) (2026-10-27)
+
+### Bug Fixes
+
+* **config:** use xhigh instead of max effort in the template ([#146](https://github.com/e0ipso/strikethroo/issues/146)) ([0651d75](https://github.com/e0ipso/strikethroo/commit/0651d7538153212378c14fd2bc909f79a7176dd2)), closes [#145](https://github.com/e0ipso/strikethroo/issues/145)
+
 ## [4.4.1](https://github.com/e0ipso/strikethroo/compare/v4.4.0...v4.4.1) (2026-10-27)
 
 ### Bug Fixes

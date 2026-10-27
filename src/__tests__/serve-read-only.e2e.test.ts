@@ -121,4 +121,36 @@ test.describe('Read-only viewer (Playwright, fixture)', () => {
       page.getByRole('checkbox', { name: 'Enable code review', exact: true })
     ).toBeDisabled();
   });
+
+  test('failed capability discovery keeps editing disabled through recovery', async ({ page }) => {
+    let unavailable = true;
+    await page.route('**/api/capabilities', route =>
+      unavailable
+        ? route.fulfill({ status: 503, contentType: 'application/json', body: '{}' })
+        : route.continue()
+    );
+    const failed = page.waitForResponse(
+      response => response.url().endsWith('/api/capabilities') && response.status() === 503
+    );
+    await page.goto(`${handle.url}/customize/hooks/PRE_PLAN`, { waitUntil: 'domcontentloaded' });
+    await failed;
+    const editor = page.locator('.cm-editor .cm-content');
+    await editor.waitFor();
+    await expect(page.getByRole('button', { name: 'Save', exact: true })).toHaveCount(0);
+    await editor.click();
+    await page.keyboard.type('blocked-edit-marker');
+    await expect(editor).not.toContainText('blocked-edit-marker');
+
+    unavailable = false;
+    const recovered = page.waitForResponse(
+      response => response.url().endsWith('/api/capabilities') && response.status() === 200
+    );
+    fs.appendFileSync(path.join(root, 'config', 'hooks', 'PRE_PLAN.md'), '\nExternal update.\n');
+    await recovered;
+    await expect(editor).toContainText('External update.');
+    await expect(page.getByRole('button', { name: 'Save', exact: true })).toHaveCount(0);
+    await editor.click();
+    await page.keyboard.type('still-blocked-marker');
+    await expect(editor).not.toContainText('still-blocked-marker');
+  });
 });

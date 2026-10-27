@@ -382,9 +382,9 @@ export function useCapabilities(): Resource<Capabilities> {
   return useResource<Capabilities>('/api/capabilities');
 }
 
-/** True once the server reports read-only mode; mutation controls hide on it. */
+/** Keep mutations disabled until capabilities have loaded successfully. */
 export const isReadOnly = (caps: Resource<Capabilities>): boolean =>
-  caps.status === 'data' && caps.data.readOnly === true;
+  caps.status !== 'data' || caps.error !== undefined || caps.data.readOnly === true;
 
 /** {@link isReadOnly} for components that do not already read capabilities. */
 export function useReadOnly(): boolean {

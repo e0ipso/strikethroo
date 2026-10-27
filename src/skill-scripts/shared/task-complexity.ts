@@ -27,15 +27,16 @@ export const validateTaskComplexityScores = (planDir: string): string[] => {
       continue;
     }
     const frontmatter = extractFrontmatter(content);
+    // Linear: the value runs to end of line and the comment is cut in code.
     const match = frontmatter
-      ? frontmatter.match(/^\s*complexity_score\s*:\s*(.*?)\s*(?:#.*)?$/im)
+      ? frontmatter.match(/^[ \t]*complexity_score[ \t]*:([^\r\n]*)$/im)
       : null;
     if (!match || match[1] === undefined) {
       invalid.push(`${file}: missing complexity_score`);
       continue;
     }
 
-    const raw = match[1].trim();
+    const raw = match[1].split('#', 1)[0]!.trim();
     const result = validateComplexityScore(raw);
     if (result.valid) continue;
     if (result.reason === 'non-integer') {

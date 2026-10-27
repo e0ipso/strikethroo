@@ -324,12 +324,28 @@ describe('CLI Integration', () => {
       };
 
       expect(config.harnesses).toEqual({
-        claude: { cli_args: ['--dangerously-skip-permissions'] },
-        codex: { cli_args: ['--sandbox', 'workspace-write'] },
-        cursor: { cli_args: ['--force'] },
+        claude: {
+          cli_args: [
+            '--dangerously-skip-permissions',
+            '--model',
+            'claude-opus-5-5',
+            '--effort',
+            'max',
+          ],
+        },
+        codex: {
+          cli_args: [
+            '--sandbox',
+            'workspace-write',
+            '--config',
+            'model="gpt-6.1-sol"',
+            '--config',
+            'model_reasoning_effort="max"',
+          ],
+        },
+        cursor: { cli_args: ['--force', '--model', 'grok-4.7-xhigh'] },
         gemini: { cli_args: ['--approval-mode', 'yolo'] },
         copilot: { cli_args: ['--allow-all'] },
-        opencode: { cli_args: ['--auto'] },
       });
     });
 

@@ -752,6 +752,18 @@ export const CONTENT_SECURITY_POLICY =
   "img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; " +
   "base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 
+/**
+ * Sent on every response, API and static alike. `nosniff` and a same-origin
+ * resource policy stop another origin from loading a JSON or SSE response as a
+ * script, image, or style; `no-referrer` keeps plan URLs out of the `Referer`
+ * sent when a user follows an external link in rendered Markdown.
+ */
+export const SECURITY_HEADERS: Readonly<Record<string, string>> = {
+  'X-Content-Type-Options': 'nosniff',
+  'Cross-Origin-Resource-Policy': 'same-origin',
+  'Referrer-Policy': 'no-referrer',
+};
+
 /** Streams a static file with an appropriate content type and the CSP. */
 const sendFile = (res: http.ServerResponse, filePath: string): void => {
   res.writeHead(200, {
@@ -933,6 +945,7 @@ export const startServer = async (opts: ServeOptions): Promise<ServeHandle> => {
   // bounded error response, never a dead process. Async handlers own their own
   // `.catch`, each of which ends in `sendError`.
   const server = http.createServer((req, res) => {
+    for (const [name, value] of Object.entries(SECURITY_HEADERS)) res.setHeader(name, value);
     try {
       handleRequest(req, res);
     } catch (err) {

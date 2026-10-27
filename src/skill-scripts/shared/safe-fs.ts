@@ -167,6 +167,43 @@ export const resolveContained = (
 };
 
 /**
+ * Returns a contained directory, creating it and any missing parents below the
+ * root, one component at a time. An existing component must be a plain
+ * directory, and a link at any level (planted before or during the call) is
+ * refused.
+ */
+export const ensureContainedDirectory = (
+  root: string,
+  input: string
+): { path: string } | SafeFsError => {
+  const resolved = resolveContained(root, input, { expect: 'directory', allowMissingLeaf: true });
+  if ('error' in resolved) {
+    if (resolved.error !== 'not-found') return resolved;
+    // A parent is missing: create it first, then retry this level.
+    const parent = path.dirname(input);
+    if (parent === input || path.resolve(root, parent) === path.resolve(root)) return resolved;
+    const ensuredParent = ensureContainedDirectory(root, parent);
+    return 'error' in ensuredParent ? ensuredParent : ensureContainedDirectory(root, input);
+  }
+  if (resolved.exists) return { path: resolved.path };
+  try {
+    fs.mkdirSync(resolved.path);
+  } catch (err) {
+    if (errno(err) !== 'EEXIST') return fail('fs-error', 'Could not create directory.');
+  }
+  try {
+    const created = fs.lstatSync(resolved.path);
+    if (created.isSymbolicLink()) {
+      return fail('symlink', 'Symbolic links inside the workspace are not allowed.');
+    }
+    if (!created.isDirectory()) return fail('not-a-directory', 'Path is not a directory.');
+  } catch {
+    return fail('fs-error', 'Could not inspect path.');
+  }
+  return { path: resolved.path };
+};
+
+/**
  * Reads a contained regular file as UTF-8 with a size bound. Opens with
  * `O_NOFOLLOW` where available and `O_NONBLOCK` so a FIFO cannot block the
  * process, then requires the descriptor to be a regular file.

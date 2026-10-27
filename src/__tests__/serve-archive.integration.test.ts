@@ -205,6 +205,26 @@ describe('archivePlan operation against fixtures', () => {
     expect(checksumTree(root)).toEqual(before);
   });
 
+  it.skipIf(process.platform === 'win32')(
+    'refuses to archive through a linked archive/ directory',
+    async () => {
+      const elsewhere = fs.mkdtempSync(path.join(os.tmpdir(), 'archive-elsewhere-'));
+      try {
+        fs.symlinkSync(elsewhere, path.join(root, 'archive'), 'dir');
+        const result = await archivePlan(root, '12--example');
+        expect(result.ok).toBe(false);
+        if (result.ok) return;
+        expect(result.reason).toBe('fs-error');
+        expect(fs.readdirSync(elsewhere)).toEqual([]);
+        expect(fs.existsSync(path.join(root, 'plans', '12--example', 'plan-12--example.md'))).toBe(
+          true
+        );
+      } finally {
+        fs.rmSync(elsewhere, { recursive: true, force: true });
+      }
+    }
+  );
+
   it('preserves file contents byte-for-byte across the move (no-write invariant)', async () => {
     const planFiles = checksumTree(path.join(root, 'plans', '12--example'));
     const result = await archivePlan(root, '12--example');

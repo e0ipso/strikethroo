@@ -18,6 +18,7 @@ import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { init } from '../index';
 import { exportProfile } from '../export-profile';
+import { redactSourceCredentials } from '../profiles';
 import { loadMetadata, calculateFileHash } from '../metadata';
 import { promptForConflicts } from '../prompts';
 import { ProfileError } from '../types';
@@ -283,6 +284,24 @@ describe('Profiles Integration', () => {
       await expectAbortedInit(profileDir, path.join(sandbox, 'project'));
     });
 
+    it('aborts quickly on a manifest whose mistyped field is a YAML alias bomb', async () => {
+      const profileDir = path.join(sandbox, 'profile');
+      await makeFixtureProfile(profileDir);
+      // Each anchor doubles the previous one; serializing a0 would never end.
+      const anchors = ['a31: &a31 {p: 1, q: 1}'];
+      for (let depth = 30; depth >= 0; depth -= 1) {
+        anchors.push(`a${depth}: &a${depth} {p: *a${depth + 1}, q: *a${depth + 1}}`);
+      }
+      await fs.writeFile(
+        path.join(profileDir, 'profile.yaml'),
+        `schema_version: 1\n${anchors.join('\n')}\nname: *a0\ndescription: d\n`,
+        'utf-8'
+      );
+      const started = Date.now();
+      await expectAbortedInit(profileDir, path.join(sandbox, 'project'));
+      expect(Date.now() - started).toBeLessThan(5_000);
+    });
+
     it('aborts on a package carrying config/schemas and leaves the destination untouched', async () => {
       const profileDir = path.join(sandbox, 'profile');
       await makeFixtureProfile(profileDir);
@@ -488,6 +507,36 @@ describe('Profiles Integration', () => {
         expect(await fs.pathExists(exportDir)).toBe(false);
       }
     );
+  });
+
+  describe('source credentials', () => {
+    it('keeps URL credentials out of the recorded and displayed source', () => {
+      expect(redactSourceCredentials('https://user:ghp_secret@example.com/team/p.git')).toBe(
+        'https://example.com/team/p.git'
+      );
+      expect(redactSourceCredentials('https://ghp_secret@example.com/p.git')).toBe(
+        'https://example.com/p.git'
+      );
+      // An ssh user name is an account, not a secret.
+      expect(redactSourceCredentials('ssh://git@example.com/p.git')).toBe(
+        'ssh://git@example.com/p.git'
+      );
+      expect(redactSourceCredentials('git@github.com:team/p.git')).toBe(
+        'git@github.com:team/p.git'
+      );
+      expect(redactSourceCredentials('/abs/local/profile')).toBe('/abs/local/profile');
+    });
+
+    it('scrubs a token from the clone failure message', async () => {
+      const result = await init({
+        harnesses: 'claude',
+        destinationDirectory: path.join(sandbox, 'project'),
+        // A closed local port: the clone fails at once, with no network access.
+        profile: 'https://user:ghp_secret_token@127.0.0.1:9/team/profile.git',
+      });
+      expect(result.success).toBe(false);
+      expect(result.message).not.toContain('ghp_secret_token');
+    });
   });
 
   describe('plain init backwards compatibility', () => {

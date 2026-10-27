@@ -3702,26 +3702,37 @@ var countCommentsWithXmllint = async (xmlFile, timeoutMs = XMLLINT_TIMEOUT_MS) =
   const answer = run2.stdout.trim();
   return /^\d+(\.0+)?$/.test(answer) ? Number(answer) : null;
 };
-var stripCommentsAndCdata = (xml) => {
+var SKIPPED_SECTIONS = [
+  ["<!--", "-->"],
+  ["<![CDATA[", "]]>"],
+  ["<?", "?>"]
+];
+var stripCommentsCdataAndPis = (xml) => {
   let kept = "";
   let index = 0;
   while (index < xml.length) {
-    const comment = xml.indexOf("<!--", index);
-    const cdata = xml.indexOf("<![CDATA[", index);
-    const next = Math.min(comment === -1 ? Infinity : comment, cdata === -1 ? Infinity : cdata);
-    if (next === Infinity) {
+    let next = Infinity;
+    let section;
+    for (const candidate of SKIPPED_SECTIONS) {
+      const at = xml.indexOf(candidate[0], index);
+      if (at !== -1 && at < next) {
+        next = at;
+        section = candidate;
+      }
+    }
+    if (section === void 0) {
       kept += xml.slice(index);
       break;
     }
     kept += xml.slice(index, next);
-    const [opener, closer] = next === comment ? ["<!--", "-->"] : ["<![CDATA[", "]]>"];
+    const [opener, closer] = section;
     const end = xml.indexOf(closer, next + opener.length);
     index = end === -1 ? xml.length : end + closer.length;
   }
   return kept;
 };
 var FORBIDDEN_DECLARATION_RE = /<!(DOCTYPE|ENTITY|ELEMENT|ATTLIST|NOTATION)\b/i;
-var hasForbiddenDeclarations = (xml) => FORBIDDEN_DECLARATION_RE.test(stripCommentsAndCdata(xml));
+var hasForbiddenDeclarations = (xml) => FORBIDDEN_DECLARATION_RE.test(stripCommentsCdataAndPis(xml));
 var SUMMARY_LIMIT = 400;
 var decodeEntities = (text) => text.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#(\d+);/g, (_match, digits) => String.fromCodePoint(Number(digits))).replace(
   /&#x([0-9a-fA-F]+);/g,

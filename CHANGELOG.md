@@ -1,3 +1,9 @@
+## [4.2.3](https://github.com/e0ipso/strikethroo/compare/v4.2.2...v4.2.3) (2026-10-27)
+
+### Bug Fixes
+
+* tighten viewer, init and profile handling ([#128](https://github.com/e0ipso/strikethroo/issues/128)) ([29974ef](https://github.com/e0ipso/strikethroo/commit/29974ef790136cba258508106a98edf670a66e7f)), closes [#125](https://github.com/e0ipso/strikethroo/issues/125)
+
 ## [4.2.2](https://github.com/e0ipso/strikethroo/compare/v4.2.1...v4.2.2) (2026-10-27)
 
 ### Bug Fixes

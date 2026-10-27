@@ -2,7 +2,7 @@
 type: map
 title: GET /api/capabilities returns project name and path via deriveProject()
 description: >-
-  The capabilities endpoint exposes { selfReview, project: { name, path } }.
+  The capabilities endpoint exposes { selfReview, readOnly, project: { name, path } }.
   deriveProject(root) resolves the project directory two levels up from the
   .ai/strikethroo root.
 tags:
@@ -19,7 +19,7 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-`GET /api/capabilities` in `src/serve/server.ts` returns `{ selfReview: boolean, project: { name: string, path: string } }`. The `project` field comes from `deriveProject(root)`, which resolves the project directory two levels above a standard `.ai/strikethroo` workspace root.
+`GET /api/capabilities` in `src/serve/server.ts` returns `{ selfReview: boolean, readOnly: boolean, project: { name: string, path: string } }`. `readOnly` is true under `serve --read-only`; the SPA reads it through `useReadOnly()` and hides the Archive, Review in self-review, and Customize save controls. The `project` field comes from `deriveProject(root)`, which resolves the project directory two levels above a standard `.ai/strikethroo` workspace root.
 
 `deriveProject` returns the directory's `name` (basename) and absolute `path`. For non-standard layouts (e.g. shallow test fixtures), it falls back to the root itself. The `name` is displayed in the Sidebar footer; the `path` is the hover tooltip.
 

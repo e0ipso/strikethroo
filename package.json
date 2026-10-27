@@ -1,6 +1,6 @@
 {
   "name": "strikethroo",
-  "version": "4.2.0",
+  "version": "4.3.0",
   "description": "Task management for AI coding assistants",
   "main": "dist/index.js",
   "bin": {
@@ -63,6 +63,7 @@
   },
   "files": [
     "dist/",
+    "!dist/__tests__/",
     "dist-web/",
     "templates/",
     "LICENSE"
@@ -117,7 +118,7 @@
     "audit-ci": "7.1.0",
     "clsx": "^2.1.1",
     "conventional-changelog-conventionalcommits": "^9.3.1",
-    "dompurify": "^3.4.16",
+    "dompurify": "^3.4.17",
     "esbuild": "^0.28.2",
     "eslint": "^9.34.0",
     "eslint-config-prettier": "^10.1.8",
@@ -136,7 +137,7 @@
     "tailwindcss": "^4.3.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2",
-    "vite": "^8.3.2",
+    "vite": "^8.3.5",
     "vitest": "^5.0.3"
   },
   "overrides": {

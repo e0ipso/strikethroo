@@ -368,6 +368,30 @@ describe('Conflict Detection Integration Tests', () => {
       expect(result.message).toContain('strikethroo');
       expect(await fs.readdir(linkedTarget)).toEqual([]);
     });
+
+    it('refuses linked config/ subdirectories and agent files without writing through them', async () => {
+      // A linked config/hooks redirects every hook write.
+      const linkedHooks = path.join(outside, 'hooks');
+      await fs.ensureDir(linkedHooks);
+      await fs.ensureDir(path.join(project, '.ai/strikethroo/config'));
+      await fs.symlink(linkedHooks, path.join(project, '.ai/strikethroo/config/hooks'), 'dir');
+      const hooks = await init({ harnesses: 'claude', destinationDirectory: project, force: true });
+      expect(hooks.success).toBe(false);
+      expect(hooks.message).toMatch(/symbolic link/);
+      expect(await fs.readdir(linkedHooks)).toEqual([]);
+      await fs.remove(path.join(project, '.ai'));
+
+      // A planted agent file pointing at a user file is not overwritten.
+      await fs.ensureDir(path.join(project, '.claude/agents'));
+      await fs.symlink(sentinel, path.join(project, '.claude/agents/plan-creator.md'));
+      const agents = await init({
+        harnesses: 'claude',
+        destinationDirectory: project,
+        force: true,
+      });
+      expect(agents.success).toBe(false);
+      expect(await fs.readFile(sentinel, 'utf-8')).toBe('untouched');
+    });
   });
 });
 
@@ -627,8 +651,8 @@ describe('Workspace refresh outcomes', () => {
     const restoredPath = path.join(workspace, 'config/hooks/POST_PLAN.md');
     await fs.remove(restoredPath);
 
-    // A regular file where config/shared/ should be makes restoring its tracked
-    // files fail with ENOTDIR, after the hooks above were already processed.
+    // A regular file where config/shared/ should be is refused by the
+    // destination preflight, before any file is written.
     const sharedDir = path.join(workspace, 'config/shared');
     await fs.remove(sharedDir);
     await fs.writeFile(sharedDir, 'not a directory\n', 'utf-8');
@@ -642,8 +666,8 @@ describe('Workspace refresh outcomes', () => {
     expect(result.message).toMatch(/ENOTDIR|not a directory/);
     expect(await fs.readFile(metadataPath, 'utf-8')).toBe(metadataBefore);
     expect(await fs.readFile(hookPath, 'utf-8')).toBe('# Mine\n');
-    // Work done before the failure stays on disk; only the success stamp is withheld.
-    expect(await fs.pathExists(restoredPath)).toBe(true);
+    // The preflight runs before the first write, so nothing was restored either.
+    expect(await fs.pathExists(restoredPath)).toBe(false);
   });
 });
 

@@ -1390,12 +1390,12 @@ var validateTaskComplexityScores = (planDir) => {
       continue;
     }
     const frontmatter = extractFrontmatter(content);
-    const match = frontmatter ? frontmatter.match(/^\s*complexity_score\s*:\s*(.*?)\s*(?:#.*)?$/im) : null;
+    const match = frontmatter ? frontmatter.match(/^[ \t]*complexity_score[ \t]*:([^\r\n]*)$/im) : null;
     if (!match || match[1] === void 0) {
       invalid.push(`${file}: missing complexity_score`);
       continue;
     }
-    const raw = match[1].trim();
+    const raw = match[1].split("#", 1)[0].trim();
     const result = validateComplexityScore(raw);
     if (result.valid) continue;
     if (result.reason === "non-integer") {

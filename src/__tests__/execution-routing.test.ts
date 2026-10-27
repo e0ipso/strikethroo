@@ -100,9 +100,9 @@ describe('loadRoutingConfig', () => {
       'standard-implementation',
       'complex-architecture',
     ]);
-    expect(result.config.profiles.map(profile => profile.targets.length)).toEqual([4, 4, 4]);
+    expect(result.config.profiles.map(profile => profile.targets.length)).toEqual([3, 3, 3]);
     expect(result.config.profiles[0]?.targets[0]).toEqual({
-      model: 'sonnet',
+      model: 'claude-sonnet-5-5',
       harness: 'claude',
       reasoning_effort: 'medium',
     });

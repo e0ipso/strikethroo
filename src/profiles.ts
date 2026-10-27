@@ -17,6 +17,7 @@ import { execFile } from 'child_process';
 import * as fs from 'fs-extra';
 import * as os from 'os';
 import * as path from 'path';
+import { URL } from 'url';
 import { promisify } from 'util';
 import * as yaml from 'js-yaml';
 import { ProfileError } from './types';
@@ -163,7 +164,8 @@ export interface PreparedProfileImport {
    */
   manifest: ProfileManifest;
   /**
-   * Resolved provenance: the clone URL or the absolute local package path
+   * Resolved provenance: the clone URL or the absolute local package path,
+   * with any URL credentials removed (see {@link redactSourceCredentials})
    */
   source: string;
   /**
@@ -229,6 +231,51 @@ export async function resolveProfileSource(value: string): Promise<ResolvedProfi
 }
 
 /**
+ * The secret parts of a source URL: the password, and for every scheme but
+ * ssh the user name too, which is where `https://<token>@host/...` puts a token.
+ */
+const sourceCredentials = (location: string): { url: URL; secrets: string[] } | null => {
+  let url: URL;
+  try {
+    url = new URL(location);
+  } catch {
+    return null;
+  }
+  const secrets = [url.password, url.protocol === 'ssh:' ? '' : url.username].filter(Boolean);
+  return secrets.length === 0 ? null : { url, secrets };
+};
+
+/**
+ * A profile source safe to print, record in `.init-metadata.json`, or put in an
+ * error message: URL credentials are removed. Only git ever sees the raw value.
+ */
+export function redactSourceCredentials(location: string): string {
+  const credentials = sourceCredentials(location);
+  if (!credentials) return location;
+  const { url } = credentials;
+  url.password = '';
+  if (url.protocol !== 'ssh:') url.username = '';
+  return url.toString();
+}
+
+/** `text` with every occurrence of the source's credentials removed. */
+const scrubSourceCredentials = (text: string, location: string): string => {
+  const credentials = sourceCredentials(location);
+  if (!credentials) return text;
+  let scrubbed = text.split(location).join(redactSourceCredentials(location));
+  for (const secret of credentials.secrets) {
+    scrubbed = scrubbed.split(secret).join('***');
+    // URL components are percent-encoded; git may echo either spelling.
+    try {
+      scrubbed = scrubbed.split(decodeURIComponent(secret)).join('***');
+    } catch {
+      // Not a valid escape sequence, so the encoded spelling is the only one.
+    }
+  }
+  return scrubbed;
+};
+
+/**
  * Resolve, materialize, validate, and stage a profile for import.
  *
  * Steps, in order: resolve the source; shallow-clone remote profiles into a
@@ -266,7 +313,12 @@ export async function prepareProfileImport(
     const manifest = await validateProfilePackage(profileDir);
     const stagingDir = await stageEffectiveTemplates(shippedTemplateDir, profileDir, tempDirs);
 
-    return { stagingDir, manifest, source: source.location, cleanup };
+    return {
+      stagingDir,
+      manifest,
+      source: redactSourceCredentials(source.location),
+      cleanup,
+    };
   } catch (error) {
     await cleanup();
     throw error;
@@ -293,16 +345,17 @@ async function cloneRemoteProfile(url: string, tempDirs: string[]): Promise<stri
     // ends option parsing so the source can never be read as a git option.
     await execFileAsync('git', ['clone', '--depth', '1', '--', url, cloneDir]);
   } catch (error) {
+    const shown = redactSourceCredentials(url);
     if (isEnoentError(error)) {
       throw new ProfileError(
-        `Cannot clone profile from ${url}: 'git' was not found on PATH. ` +
+        `Cannot clone profile from ${shown}: 'git' was not found on PATH. ` +
           `Install git to import remote profiles, or import the profile from a ` +
           `local folder — local-folder imports need no git.`,
         error
       );
     }
     throw new ProfileError(
-      `Failed to clone profile from ${url}: ${formatCause(error)}. ` +
+      `Failed to clone profile from ${shown}: ${scrubSourceCredentials(formatCause(error), url)}. ` +
         `Check that the URL is correct and reachable; local-folder imports need no git.`,
       error
     );
@@ -811,7 +864,13 @@ function describeType(value: unknown): string {
   if (Array.isArray(value)) {
     return 'a list';
   }
-  return `${typeof value} (${JSON.stringify(value)})`;
+  // Never serialize a mapping: YAML aliases make a tiny document expand into
+  // an enormous object graph. Scalars are shown, bounded.
+  if (typeof value === 'object') {
+    return 'a mapping';
+  }
+  const shown = JSON.stringify(value) ?? String(value);
+  return `${typeof value} (${shown.length > 80 ? `${shown.slice(0, 77)}...` : shown})`;
 }
 
 /**

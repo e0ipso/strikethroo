@@ -112,6 +112,7 @@ interface ServeCliOptions {
   open: boolean;
   workspace?: string;
   publicUrl?: string[];
+  readOnly?: boolean;
 }
 
 /** Commander collector: a repeatable option whose values may be comma lists. */
@@ -132,6 +133,7 @@ program
     'origin a reverse proxy serves the viewer on (repeatable or comma-separated)',
     collectList
   )
+  .option('--read-only', 'disable archive, config edits, and self-review launch')
   .action(async (opts: ServeCliOptions) => {
     try {
       if (isIP(opts.host) === 0) {
@@ -158,15 +160,18 @@ program
         open: opts.open,
         assetsDir: defaultAssetsDir(),
         publicUrls: publicUrls.origins,
+        readOnly: opts.readOnly === true,
       });
-      console.log(`Serving ${handle.url}`);
+      console.log(`Serving ${handle.url}${handle.readOnly ? ' (read-only)' : ''}`);
       // A public URL means a proxy already exposes the viewer, whatever the bind.
       if (handle.exposed || publicUrls.origins.length > 0) {
         console.error(
           chalk.yellow.bold('\nWarning: the viewer is reachable from the network.\n') +
             chalk.yellow(
-              'Anyone who can reach this address and port can read the workspace and edit its\n' +
-                'hooks, templates, and config.yaml, which agents run with their permissions.\n' +
+              (handle.readOnly
+                ? 'Anyone who can reach this address and port can read the workspace.\n'
+                : 'Anyone who can reach this address and port can read the workspace and edit its\n' +
+                  'hooks, templates, and config.yaml, which agents run with their permissions.\n') +
                 'Use it only on a trusted network, such as a VM host-only bridge.\n' +
                 `Reachable at: ${[
                   ...(handle.exposed ? handle.reachableUrls : []),

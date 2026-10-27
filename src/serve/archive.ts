@@ -19,6 +19,17 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getPlanDetail, PlanDetail } from './workspace-model';
+import { resolveContained } from '../skill-scripts/shared/safe-fs';
+
+/** `lstat`-based existence: a dangling link at the destination still counts. */
+const pathExists = (target: string): boolean => {
+  try {
+    fs.lstatSync(target);
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 /**
  * Outcome of an {@link archivePlan} call. A discriminated union mirroring the
@@ -74,10 +85,30 @@ export const archivePlan = async (root: string, name: string): Promise<ArchiveRe
     };
   }
 
-  const src = detail.dir;
-  const dest = path.join(root, 'archive', detail.name);
+  // Both ends of the rename are re-derived through the containment helper, so a
+  // linked `plans/` or `archive/` cannot carry the move out of the workspace.
+  const src = resolveContained(root, path.join('plans', detail.name), { expect: 'directory' });
+  if ('error' in src) {
+    return {
+      ok: false,
+      reason: 'fs-error',
+      message: `Plan ${name} could not be archived: its directory is not a plain workspace directory.`,
+    };
+  }
+  const archiveDir = resolveContained(root, 'archive', {
+    expect: 'directory',
+    allowMissingLeaf: true,
+  });
+  if ('error' in archiveDir) {
+    return {
+      ok: false,
+      reason: 'fs-error',
+      message: `Plan ${name} could not be archived: archive/ is not a plain workspace directory.`,
+    };
+  }
+  const dest = path.join(archiveDir.path, detail.name);
 
-  if (fs.existsSync(dest)) {
+  if (pathExists(dest)) {
     return {
       ok: false,
       reason: 'destination-exists',
@@ -88,8 +119,8 @@ export const archivePlan = async (root: string, name: string): Promise<ArchiveRe
   try {
     // The destination's parent (`archive/`) must exist for the rename to land.
     // Creating it is benign and never touches plan contents.
-    await fs.promises.mkdir(path.join(root, 'archive'), { recursive: true });
-    await fs.promises.rename(src, dest);
+    if (!archiveDir.exists) await fs.promises.mkdir(archiveDir.path);
+    await fs.promises.rename(src.path, dest);
   } catch {
     return {
       ok: false,

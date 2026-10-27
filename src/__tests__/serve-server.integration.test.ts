@@ -26,6 +26,7 @@ import {
   startServer,
   ServeHandle,
   CAPABILITY_HEADER,
+  SECURITY_HEADERS,
   hostAddressesFor,
   parsePublicUrls,
 } from '../serve/server';
@@ -149,6 +150,32 @@ describe('serve server: read-only JSON API', () => {
 
   afterAll(async () => {
     await new Promise<void>(resolve => handle.server.close(() => resolve()));
+  });
+
+  it('sends the security headers on API, static, and rejected responses', async () => {
+    const api = await request(handle, { method: 'GET', path: '/api/plans' });
+    const page = await request(handle, { method: 'GET', path: '/' });
+    const refused = await request(handle, {
+      method: 'GET',
+      path: '/api/plans',
+      headers: { Host: 'evil.example:80' },
+    });
+    for (const res of [api, page, refused]) {
+      for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+        expect(res.headers[name.toLowerCase()]).toBe(value);
+      }
+    }
+    expect(refused.status).toBe(421);
+  });
+
+  it('refuses the event stream to a browser subresource such as an <img>', async () => {
+    const res = await request(handle, {
+      method: 'GET',
+      path: '/api/events',
+      headers: { 'Sec-Fetch-Dest': 'image', 'Sec-Fetch-Site': 'same-origin' },
+    });
+    expect(res.status).toBe(406);
+    expect(handle.events.clientCount).toBe(0);
   });
 
   it('GET /api/plans returns JSON including plan 38 as done', async () => {
@@ -652,6 +679,42 @@ describe('serve server: public URLs behind a reverse proxy', () => {
     }
   });
 
+  it('keeps read-only refusals on an allowed public origin', async () => {
+    const handle = await startServer({
+      root: FIXTURE_ROOT,
+      port: 0,
+      open: false,
+      publicUrls: [PUBLIC],
+      readOnly: true,
+    });
+    const headers = {
+      Host: 'viewer.example.com',
+      Origin: PUBLIC,
+      'Sec-Fetch-Site': 'same-origin',
+      'Content-Type': 'application/json',
+      [CAPABILITY_HEADER]: handle.capability,
+    };
+    try {
+      const caps = await request(handle, { method: 'GET', path: '/api/capabilities', headers });
+      expect(caps.status).toBe(200);
+      expect(JSON.parse(caps.body).readOnly).toBe(true);
+      for (const [method, route] of [
+        ['GET', '/api/session'],
+        ['POST', '/api/plans/38--fix-jekyll-link-baseurl/archive'],
+        ['PUT', '/api/config/hooks/PRE_PLAN'],
+        ['POST', '/api/self-review'],
+      ]) {
+        const response = await request(handle, { method, path: route, headers });
+        expect(response.status).toBe(403);
+        expect(JSON.parse(response.body).reason).toBe('read-only');
+      }
+    } finally {
+      const closed = new Promise<void>(resolve => handle.server.close(() => resolve()));
+      handle.server.closeAllConnections();
+      await closed;
+    }
+  });
+
   describe('with --public-url set', () => {
     let handle: ServeHandle;
 
@@ -1005,6 +1068,153 @@ describe('serve server: mutation capability and origin policy', () => {
   });
 });
 
+// `--read-only`: every mutation and the session bootstrap are refused with a
+// typed error, even for a request that would otherwise be authorized, while
+// the read API answers exactly as a writable server on the same workspace.
+describe('serve server: read-only mode', () => {
+  let root: string;
+  let handle: ServeHandle;
+  let writable: ServeHandle;
+  let launches: string[][];
+
+  const start = (readOnly: boolean): Promise<ServeHandle> =>
+    startServer({
+      root,
+      port: 0,
+      open: false,
+      assetsDir: os.tmpdir(),
+      debounceMs: 50,
+      readOnly,
+      selfReviewDeps: {
+        available: () => true,
+        spawn: (_cmd, args) => {
+          launches.push(args);
+          const child = new EventEmitter() as EventEmitter & { unref: () => void };
+          child.unref = () => {};
+          process.nextTick(() => child.emit('spawn'));
+          return child;
+        },
+      },
+    });
+
+  beforeEach(async () => {
+    launches = [];
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'serve-read-only-test-'));
+    root = path.join(tmpRoot, '.ai', 'strikethroo');
+    fs.cpSync(FIXTURE_ROOT, root, { recursive: true });
+    fs.mkdirSync(path.join(root, 'plans', '12--example', 'tasks'), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, 'plans', '12--example', 'plan-12--example.md'),
+      '---\nid: 12\nsummary: "Plan 12"\ncreated: 2026-05-28\n---\n# Plan 12\n'
+    );
+    fs.writeFileSync(
+      path.join(root, 'plans', '12--example', 'tasks', '01--first.md'),
+      '---\nid: 1\ngroup: "g"\ndependencies: []\nstatus: "completed"\nskills: [typescript]\n---\n# Task 1\n'
+    );
+    handle = await start(true);
+    writable = await start(false);
+  });
+
+  afterEach(async () => {
+    for (const h of [handle, writable]) {
+      const closed = new Promise<void>(resolve => h.server.close(() => resolve()));
+      h.server.closeAllConnections();
+      await closed;
+    }
+    fs.rmSync(path.resolve(root, '..', '..'), { recursive: true, force: true });
+  });
+
+  const expectReadOnly = (res: FullResponse): void => {
+    expect(res.status).toBe(403);
+    expect(JSON.parse(res.body)).toEqual({
+      error: 'This viewer is read-only.',
+      reason: 'read-only',
+    });
+    expect(res.body).not.toContain(handle.capability);
+  };
+
+  it('reports read-only in /api/capabilities and issues no session token', async () => {
+    expect(handle.readOnly).toBe(true);
+    const caps = JSON.parse(
+      (await request(handle, { method: 'GET', path: '/api/capabilities' })).body
+    );
+    expect(caps.readOnly).toBe(true);
+    const writableCaps = JSON.parse(
+      (await request(writable, { method: 'GET', path: '/api/capabilities' })).body
+    );
+    expect(writableCaps.readOnly).toBe(false);
+
+    expectReadOnly(await request(handle, { method: 'GET', path: '/api/session' }));
+  });
+
+  it('refuses every mutation route even with a valid token, touching nothing', async () => {
+    const hookFile = path.join(root, 'config', 'hooks', 'PRE_PLAN.md');
+    const configFile = path.join(root, 'config', 'config.yaml');
+    const hookBefore = fs.readFileSync(hookFile, 'utf8');
+    const configBefore = fs.readFileSync(configFile, 'utf8');
+    const authorized = {
+      'Content-Type': 'application/json',
+      [CAPABILITY_HEADER]: handle.capability!,
+      Origin: `http://127.0.0.1:${boundAddress(handle).port}`,
+      'Sec-Fetch-Site': 'same-origin',
+    };
+    const mutations = [
+      { method: 'POST', path: '/api/plans/12--example/archive', body: '{}' },
+      {
+        method: 'PUT',
+        path: '/api/config/hooks/PRE_PLAN',
+        body: JSON.stringify({ content: 'overwritten' }),
+      },
+      {
+        method: 'PUT',
+        path: '/api/config/workspace/config',
+        body: JSON.stringify({ content: 'overwritten: true\n' }),
+      },
+      {
+        method: 'POST',
+        path: '/api/self-review',
+        body: JSON.stringify({ path: 'plans/12--example/plan-12--example.md' }),
+      },
+    ];
+    for (const m of mutations) {
+      expectReadOnly(await request(handle, { ...m, headers: authorized }));
+    }
+
+    expect(fs.readFileSync(hookFile, 'utf8')).toBe(hookBefore);
+    expect(fs.readFileSync(configFile, 'utf8')).toBe(configBefore);
+    expect(fs.existsSync(path.join(root, 'plans', '12--example'))).toBe(true);
+    expect(fs.existsSync(path.join(root, 'archive', '12--example'))).toBe(false);
+    expect(launches).toEqual([]);
+  });
+
+  it('answers every read route exactly as a writable server does', async () => {
+    for (const route of [
+      '/api/plans',
+      '/api/plans/12--example',
+      '/api/plans/38--fix-jekyll-link-baseurl',
+      '/api/config',
+    ]) {
+      const ro = await request(handle, { method: 'GET', path: route });
+      const rw = await request(writable, { method: 'GET', path: route });
+      expect(ro.status, route).toBe(200);
+      expect(ro.body, route).toBe(rw.body);
+    }
+  });
+
+  it('streams change events on /api/events', async () => {
+    let received = '';
+    const req = http.get(`${handle.url}/api/events`, res => {
+      expect(res.statusCode).toBe(200);
+      res.on('data', chunk => (received += chunk.toString()));
+    });
+    await delay(120);
+    fs.writeFileSync(path.join(root, 'plans', '12--example', 'scratch.md'), 'change\n');
+    await delay(400);
+    req.destroy();
+    expect(received).toContain('event: changed');
+  });
+});
+
 describe('serve server: SSE change stream coalescing', () => {
   let handle: ServeHandle;
   const scratchFile = path.join(FIXTURE_ROOT, 'plans', '.sse-integration-tmp.md');
@@ -1136,8 +1346,10 @@ describe('serve server: SSE admission, backpressure, and cleanup', () => {
     }
   }
 
+  // An EventSource request: real ones always carry headers, and these have
+  // the fetch metadata a browser sends.
   const fakePair = (): { req: EventEmitter; res: FakeResponse } => ({
-    req: new EventEmitter(),
+    req: Object.assign(new EventEmitter(), { headers: { 'sec-fetch-dest': 'empty' } }),
     res: new FakeResponse(),
   });
 

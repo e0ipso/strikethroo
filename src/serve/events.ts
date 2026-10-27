@@ -141,8 +141,25 @@ export class EventsHub {
     state.slowTimer.unref?.();
   }
 
-  /** Attaches an SSE response, or refuses it with `503` when at capacity. */
+  /**
+   * Attaches an SSE response, or refuses it: `406` for a browser request that
+   * is not an `EventSource` or `fetch`, `503` when at capacity.
+   */
   handleConnection(req: http.IncomingMessage, res: http.ServerResponse): void {
+    // An `<img src="/api/events">` in rendered Markdown or a mermaid image node
+    // would otherwise hold a never-ending stream per tag and exhaust the
+    // browser's per-host connections. `EventSource` sends `Sec-Fetch-Dest:
+    // empty`; non-browser clients send no fetch metadata at all.
+    const dest = req.headers['sec-fetch-dest'];
+    if (dest !== undefined && dest !== 'empty') {
+      const body = JSON.stringify({ error: 'The event stream is for EventSource clients only.' });
+      res.writeHead(406, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Length': Buffer.byteLength(body),
+      });
+      res.end(body);
+      return;
+    }
     if (this.clients.size >= this.limits.maxClients) {
       const body = JSON.stringify({ error: 'Too many event-stream clients.' });
       res.writeHead(503, {

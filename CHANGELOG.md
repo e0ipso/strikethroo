@@ -1,3 +1,27 @@
+## [4.3.0](https://github.com/e0ipso/strikethroo/compare/v4.2.3...v4.3.0) (2026-10-27)
+
+### Features
+
+* **serve:** add a read-only mode ([2b44262](https://github.com/e0ipso/strikethroo/commit/2b442629cec54b5dcc32f6952a4175c43c332195))
+
+## [4.2.3](https://github.com/e0ipso/strikethroo/compare/v4.2.2...v4.2.3) (2026-10-27)
+
+### Bug Fixes
+
+* tighten viewer, init and profile handling ([#128](https://github.com/e0ipso/strikethroo/issues/128)) ([29974ef](https://github.com/e0ipso/strikethroo/commit/29974ef790136cba258508106a98edf670a66e7f)), closes [#125](https://github.com/e0ipso/strikethroo/issues/125)
+
+## [4.2.2](https://github.com/e0ipso/strikethroo/compare/v4.2.1...v4.2.2) (2026-10-27)
+
+### Bug Fixes
+
+* update default routing and reviewer models ([fce8493](https://github.com/e0ipso/strikethroo/commit/fce8493fa1c502890475c8b8116632b295207582))
+
+## [4.2.1](https://github.com/e0ipso/strikethroo/compare/v4.2.0...v4.2.1) (2026-10-27)
+
+### Bug Fixes
+
+* **deps:** update vite, dompurify, and undici ([d7e689e](https://github.com/e0ipso/strikethroo/commit/d7e689e7f81f5e7bad7f9eeabd690809b9548f70))
+
 ## [4.2.0](https://github.com/e0ipso/strikethroo/compare/v4.1.1...v4.2.0) (2026-10-14)
 
 ### Features

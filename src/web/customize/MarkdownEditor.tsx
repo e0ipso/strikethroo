@@ -30,6 +30,8 @@ interface LazyEditorProps {
   value: string;
   onChange: (next: string) => void;
   theme: EditorTheme;
+  /** When set, the source is shown but cannot be edited. */
+  readOnly?: boolean;
 }
 
 /**
@@ -54,11 +56,12 @@ const LazyEditor = lazy(async () => {
     import('@codemirror/theme-one-dark'),
   ]);
 
-  function Editor({ value, onChange, theme }: LazyEditorProps) {
+  function Editor({ value, onChange, theme, readOnly }: LazyEditorProps) {
     return (
       <CodeMirror
         value={value}
         onChange={onChange}
+        readOnly={readOnly}
         extensions={[markdown({ codeLanguages: languages })]}
         theme={theme === 'dark' ? oneDark : 'light'}
         basicSetup={{

@@ -30,6 +30,10 @@
  * (and so the token). No cookies, no accounts, no CORS — the token lives in
  * the page's memory and is never persisted, logged, or placed in a URL.
  *
+ * With `readOnly`, every mutation route and the session bootstrap answer
+ * {@link READ_ONLY} before any other check, so no token is issued and a
+ * presented one is never consulted.
+ *
  * The SSE change stream (`GET /api/events`) is added by a separate module that
  * hooks into the `apiHandlers` extension point below, so this module stays free
  * of file-watching concerns. Node built-ins only — no runtime dependency, no
@@ -81,6 +85,8 @@ export interface ServeOptions {
    * every peer that can reach it; see {@link ServeHandle.exposed}.
    */
   host?: string;
+  /** When `true`, refuse every mutation route and issue no capability. */
+  readOnly?: boolean;
   /**
    * Origins a reverse proxy serves the viewer on (see {@link parsePublicUrls}).
    * Each adds its authority to the allowed `Host` set and itself to the allowed
@@ -116,6 +122,8 @@ export interface ServeHandle {
   reachableUrls: string[];
   /** The SSE change-stream hub backing `GET /api/events`. */
   events: EventsHub;
+  /** True when mutation routes are disabled. */
+  readOnly: boolean;
   /**
    * This instance's mutation capability. Test-only: production callers (the
    * CLI) must never print, log, or persist it; the SPA obtains it from
@@ -214,6 +222,8 @@ export interface GuardContext {
   allowedOrigins: ReadonlySet<string>;
   /** The per-start mutation capability (see the module comment). */
   capability: string;
+  /** When set, mutations and the session bootstrap answer {@link READ_ONLY}. */
+  readOnly: boolean;
 }
 
 /**
@@ -233,6 +243,13 @@ const reject = (status: number, error: string): GuardResult => ({
 const BAD_REQUEST = reject(400, 'Bad request.');
 const MISDIRECTED = reject(421, 'Misdirected request.');
 const FORBIDDEN = reject(403, 'Forbidden.');
+
+/** The refusal for a mutation or session request on a read-only server. */
+export const READ_ONLY = {
+  ok: false,
+  status: 403,
+  body: { error: 'This viewer is read-only.', reason: 'read-only' },
+} as const satisfies GuardResult;
 
 /**
  * Runs before routing, for every request. Refuses any `Host` that is not one of
@@ -438,6 +455,8 @@ interface Route {
    * check and before any body is read.
    */
   mutation?: true;
+  /** The session bootstrap: refused on a read-only server, like a mutation. */
+  issuesCapability?: true;
   /** When set, the request must carry `Content-Type: application/json` (`415` otherwise). */
   requiresJson?: true;
   handle: RouteHandler;
@@ -630,6 +649,7 @@ const API_ROUTES: readonly Route[] = [
     methods: READ_METHODS,
     handle: readRoute(ctx => ({
       selfReview: isSelfReviewAvailable(),
+      readOnly: ctx.guard.readOnly,
       project: deriveProject(ctx.root),
     })),
   },
@@ -647,6 +667,7 @@ const API_ROUTES: readonly Route[] = [
     pattern: /^\/api\/session\/?$/,
     methods: ['GET'],
     sameOrigin: true,
+    issuesCapability: true,
     handle: (_req, res, ctx) => {
       sendJson(res, 200, { token: ctx.guard.capability }, { 'Cache-Control': 'no-store' });
     },
@@ -677,9 +698,9 @@ const API_ROUTES: readonly Route[] = [
 
 /**
  * Routes a guarded `/api/*` request through {@link API_ROUTES}. Check order,
- * after the Host guard that already ran: path, method, Origin and fetch
- * metadata, capability, media type, then the handler — which is the first thing
- * to read the body, touch a file, or launch a process.
+ * after the Host guard that already ran: path, method, read-only mode, Origin
+ * and fetch metadata, capability, media type, then the handler — which is the
+ * first thing to read the body, touch a file, or launch a process.
  */
 const routeApi = (req: http.IncomingMessage, res: http.ServerResponse, ctx: RouteContext): void => {
   const route = API_ROUTES.find(candidate => candidate.pattern.test(ctx.pathname));
@@ -689,6 +710,10 @@ const routeApi = (req: http.IncomingMessage, res: http.ServerResponse, ctx: Rout
   }
   if (!route.methods.includes(req.method ?? '')) {
     sendJson(res, 405, { error: 'Method not allowed.' }, { Allow: route.methods.join(', ') });
+    return;
+  }
+  if (ctx.guard.readOnly && (route.mutation || route.issuesCapability)) {
+    sendJson(res, READ_ONLY.status, READ_ONLY.body);
     return;
   }
   const rejection =
@@ -731,6 +756,18 @@ export const CONTENT_SECURITY_POLICY =
   "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
   "img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; " +
   "base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+
+/**
+ * Sent on every response, API and static alike. `nosniff` and a same-origin
+ * resource policy stop another origin from loading a JSON or SSE response as a
+ * script, image, or style; `no-referrer` keeps plan URLs out of the `Referer`
+ * sent when a user follows an external link in rendered Markdown.
+ */
+export const SECURITY_HEADERS: Readonly<Record<string, string>> = {
+  'X-Content-Type-Options': 'nosniff',
+  'Cross-Origin-Resource-Policy': 'same-origin',
+  'Referrer-Policy': 'no-referrer',
+};
 
 /** Streams a static file with an appropriate content type and the CSP. */
 const sendFile = (res: http.ServerResponse, filePath: string): void => {
@@ -910,6 +947,7 @@ export const startServer = async (opts: ServeOptions): Promise<ServeHandle> => {
     allowedHosts: new Set(),
     allowedOrigins: new Set(),
     capability,
+    readOnly: opts.readOnly === true,
   };
 
   // One launch registry per instance, so self-review admission is bounded for
@@ -949,6 +987,7 @@ export const startServer = async (opts: ServeOptions): Promise<ServeHandle> => {
   // bounded error response, never a dead process. Async handlers own their own
   // `.catch`, each of which ends in `sendError`.
   const server = http.createServer((req, res) => {
+    for (const [name, value] of Object.entries(SECURITY_HEADERS)) res.setHeader(name, value);
     try {
       handleRequest(req, res);
     } catch (err) {
@@ -1025,6 +1064,7 @@ export const startServer = async (opts: ServeOptions): Promise<ServeHandle> => {
     exposed: !isLoopbackAddress(address.address),
     reachableUrls: authorities.map(a => `http://${a}`),
     events,
+    readOnly: guardContext.readOnly,
     capability,
   };
 };

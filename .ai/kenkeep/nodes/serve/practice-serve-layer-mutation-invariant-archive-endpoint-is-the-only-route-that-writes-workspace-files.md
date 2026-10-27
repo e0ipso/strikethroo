@@ -26,3 +26,5 @@ The `serve` SPA is a read-mostly workspace viewer. Plans are not created from th
 - `PUT /api/config/:kind/:id` overwrites one existing allowlisted config file. `hooks` and `templates` map to a flat Markdown child; `workspace/config` maps to `config/config.yaml`. It never creates, deletes, or renames a config file.
 
 `POST /api/self-review` is another non-GET route, but it only spawns an external process. It does not write workspace files. Tests that audit the mutation boundary should distinguish HTTP methods from filesystem effects.
+
+`serve --read-only` refuses all three routes, so that server neither writes workspace files nor spawns processes.

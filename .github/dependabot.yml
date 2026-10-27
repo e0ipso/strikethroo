@@ -5,15 +5,11 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-    reviewers:
-      - "repository-maintainers"
-    assignees:
-      - "repository-maintainers"
     commit-message:
       prefix: "deps"
       include: "scope"
     open-pull-requests-limit: 10
-    target-branch: "master"
+    target-branch: "main"
     allow:
       - dependency-type: "direct"
       - dependency-type: "indirect"
@@ -21,3 +17,12 @@ updates:
       # Ignore major version updates for stable dependencies
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+  # The workflows pin every action by commit SHA; this keeps those pins current.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "ci"
+    target-branch: "main"

@@ -26,7 +26,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Chrome } from '../components/Chrome';
 import { Button, StatusPill } from '../components/primitives';
 import { ErrorSurface, LoadingSurface } from '../components/StateSurface';
-import { useConfig, saveConfigFile, type ConfigFile } from '../data/api';
+import { useConfig, useReadOnly, saveConfigFile, type ConfigFile } from '../data/api';
 import { cn } from '../vendor/utils/cn';
 import { MarkdownEditor } from './MarkdownEditor';
 import { DiskConflictBanner, RefreshErrorBanner } from './DiskConflictBanner';
@@ -102,6 +102,7 @@ function LoadedEditor({
   readError?: Error;
 }) {
   const { resolved } = useTheme();
+  const readOnly = useReadOnly();
   const [editor, setEditor] = useState(() => seedDraft(diskText(file.content)));
   const [save, setSave] = useState<SaveState>({ phase: 'idle' });
 
@@ -162,26 +163,28 @@ function LoadedEditor({
         title={`${file.id} ${kindLabel}`}
         crumbs={['workspace', 'config', { label: kind, href: '/customize' }, file.id]}
         right={
-          <>
-            <span
-              className={cn(
-                'font-sans text-sm',
-                // Bold the message when there are unsaved changes so it stands out.
-                save.phase !== 'error' && !saving && dirty ? 'font-bold' : 'font-normal',
-                save.phase === 'error' ? 'text-dalia-deep' : 'text-ink-3'
-              )}
-            >
-              {status}
-            </span>
-            <Button
-              kind="primary"
-              size="sm"
-              icon="check"
-              onClick={dirty && !saving ? onSave : undefined}
-            >
-              {saving ? 'Saving…' : 'Save'}
-            </Button>
-          </>
+          readOnly ? undefined : (
+            <>
+              <span
+                className={cn(
+                  'font-sans text-sm',
+                  // Bold the message when there are unsaved changes so it stands out.
+                  save.phase !== 'error' && !saving && dirty ? 'font-bold' : 'font-normal',
+                  save.phase === 'error' ? 'text-dalia-deep' : 'text-ink-3'
+                )}
+              >
+                {status}
+              </span>
+              <Button
+                kind="primary"
+                size="sm"
+                icon="check"
+                onClick={dirty && !saving ? onSave : undefined}
+              >
+                {saving ? 'Saving…' : 'Save'}
+              </Button>
+            </>
+          )
         }
       />
       {readError && <RefreshErrorBanner error={readError} />}
@@ -202,6 +205,7 @@ function LoadedEditor({
         <MarkdownEditor
           value={editor.draft}
           onChange={onChange}
+          readOnly={readOnly}
           theme={resolved}
           fallback={<LoadingSurface label="Loading editor…" />}
         />

@@ -19,10 +19,10 @@ import { progressDots, planMdPath, type PlanView } from './derive';
 
 export interface PlansCardViewProps {
   plans: PlanView[];
-  /** Opens the Review command-hint modal for the given plan path. */
-  openReview: (path: string) => void;
-  /** Opens the archive-confirmation modal for a done plan. */
-  openArchive: (name: string, id: number, title: string) => void;
+  /** Opens the Review command-hint modal; omitted on a read-only server. */
+  openReview?: (path: string) => void;
+  /** Opens the archive-confirmation modal; omitted on a read-only server. */
+  openArchive?: (name: string, id: number, title: string) => void;
 }
 
 /** The Cards (grid) view of the active plans. */
@@ -107,7 +107,7 @@ export function PlansCardView({ plans, openReview, openArchive }: PlansCardViewP
               </span>
             </div>
 
-            {card.state === 'drafted' && (
+            {card.state === 'drafted' && openReview && (
               <div className="mt-2.5 flex justify-end">
                 <span
                   onClick={e => {
@@ -122,7 +122,7 @@ export function PlansCardView({ plans, openReview, openArchive }: PlansCardViewP
               </div>
             )}
 
-            {card.state === 'done' && (
+            {card.state === 'done' && openArchive && (
               <div className="mt-2.5 flex justify-end">
                 <span
                   onClick={e => {

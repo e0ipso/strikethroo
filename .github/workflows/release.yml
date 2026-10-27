@@ -66,11 +66,7 @@ jobs:
   #   contents: write        release commit, tag, and GitHub release
   #   issues/pull-requests   @semantic-release/github success/fail comments,
   #                          which .releaserc.json keeps enabled
-  # No id-token: .releaserc.json configures @semantic-release/npm with
-  # npmPublish only and package.json publishConfig has only access, so neither
-  # npm provenance nor trusted publishing is in use; publication authenticates
-  # with NPM_TOKEN. Add id-token: write together with that configuration if
-  # it is ever adopted.
+  #   id-token: write        npm trusted publishing (no NPM_TOKEN secret)
   release:
     name: Release
     needs: verify
@@ -119,7 +115,10 @@ jobs:
       - name: Build
         run: npm run build
 
-      # The only step that holds credentials. semantic-release bumps the
+      # The only step given GITHUB_TOKEN. The OIDC token is job-wide, though:
+      # any step here, including the build and the `prepublishOnly` build that
+      # `npm publish` runs, can request it and exchange it for an npm publish
+      # credential. semantic-release bumps the
       # version, rebuilds skills/ through @semantic-release/exec, commits
       # CHANGELOG.md, package.json, package-lock.json and skills/** with
       # [skip ci] through @semantic-release/git, publishes to npm, and creates

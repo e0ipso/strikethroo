@@ -28,6 +28,12 @@
       }
     },
     {
+      "GHSA-xjj6-f33q-929c|undici": {
+        "active": true,
+        "notes": "DoS via excessive content-encodings in undici@6.28.0, bundled inside npm@11.21.0 (under node-gyp) under @semantic-release/npm@13.2.0. Release tooling only; it talks to the npm registry and Node.js download servers, never user-supplied URLs. The non-bundled copies are updated to 6.29.1 and 7.30.1. Overrides cannot replace npm's bundled copy. Recheck when npm 11.x ships undici >=6.29.1 or @semantic-release/npm accepts npm 12."
+      }
+    },
+    {
       "GHSA-vfj7-8cjw-p6xm|@semantic-release/changelog>semantic-release>@semantic-release/commit-analyzer>micromatch>braces": {
         "active": true,
         "notes": "ReDoS in braces@3.0.3 (GHSA-vfj7-8cjw-p6xm). The advisory names no patched version and 3.0.3 is the latest published release, so no upgrade exists; micromatch@4.0.8 and @semantic-release/commit-analyzer@13.0.1 are both current and pin it. Reached only from release tooling and from typescript-eslint's fast-glob, matching our own releaseRules and lint globs, never user input. Recheck when braces publishes above 3.0.3 or micromatch drops it."

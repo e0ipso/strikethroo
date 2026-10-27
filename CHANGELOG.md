@@ -1,3 +1,9 @@
+## [4.4.1](https://github.com/e0ipso/strikethroo/compare/v4.4.0...v4.4.1) (2026-10-27)
+
+### Bug Fixes
+
+* close viewer and profile review gaps ([#144](https://github.com/e0ipso/strikethroo/issues/144)) ([387813c](https://github.com/e0ipso/strikethroo/commit/387813cc9bede3b8659a377e9929dcfcaf50854c))
+
 ## [4.4.0](https://github.com/e0ipso/strikethroo/compare/v4.3.0...v4.4.0) (2026-10-27)
 
 ### Features

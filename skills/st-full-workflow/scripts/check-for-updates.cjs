@@ -2256,7 +2256,7 @@ var writeFileAtomicSync = (root, input, content, options = {}) => {
 };
 
 // src/skill-scripts/shared/update-check.ts
-var DEFAULT_SKILL_VERSION = true ? "4.3.0" : (() => {
+var DEFAULT_SKILL_VERSION = true ? "4.4.0" : (() => {
   try {
     return null.version;
   } catch {

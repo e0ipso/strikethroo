@@ -1,3 +1,9 @@
+## [4.4.0](https://github.com/e0ipso/strikethroo/compare/v4.3.0...v4.4.0) (2026-10-27)
+
+### Features
+
+* **serve:** support public proxy URLs ([ab6355c](https://github.com/e0ipso/strikethroo/commit/ab6355c82315308bf32e200df5d7d2d71ade1a16))
+
 ## [4.3.0](https://github.com/e0ipso/strikethroo/compare/v4.2.3...v4.3.0) (2026-10-27)
 
 ### Features

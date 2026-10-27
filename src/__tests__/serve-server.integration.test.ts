@@ -28,6 +28,7 @@ import {
   CAPABILITY_HEADER,
   SECURITY_HEADERS,
   hostAddressesFor,
+  parsePublicUrls,
 } from '../serve/server';
 import { resolveWorkspaceRoot, isResolveError } from '../serve/root';
 import { EventsHub, MAX_SSE_CLIENTS } from '../serve/events';
@@ -605,6 +606,214 @@ describe('serve server: mutation media type and body rules', () => {
     expect(ok.status).toBe(200);
     expect(fs.existsSync(planDir)).toBe(false);
     expect(fs.existsSync(path.join(root, 'archive', '12--example'))).toBe(true);
+  });
+});
+
+// `--public-url`: the reverse-proxy opt-in widens the Host and Origin sets by
+// exactly the configured origins and nothing else.
+describe('serve server: public URLs behind a reverse proxy', () => {
+  const PUBLIC = 'https://viewer.example.com';
+
+  it('normalises valid values to origins and rejects anything with more than an origin', () => {
+    expect(
+      parsePublicUrls([
+        'https://Viewer.Example.com/',
+        'https://viewer.example.com:443',
+        ' http://viewer.example.com:8080 ',
+        'http://[::1]:9000',
+        'https://bücher.example',
+      ])
+    ).toEqual({
+      ok: true,
+      origins: [
+        'https://viewer.example.com',
+        'http://viewer.example.com:8080',
+        'http://[::1]:9000',
+        'https://xn--bcher-kva.example',
+      ],
+    });
+    expect(parsePublicUrls([])).toEqual({ ok: true, origins: [] });
+
+    for (const bad of [
+      '',
+      'viewer.example.com',
+      '//viewer.example.com',
+      'https:viewer.example.com',
+      'ftp://viewer.example.com',
+      'https://',
+      'https://viewer.example.com/app',
+      'https://viewer.example.com/?',
+      'https://viewer.example.com?x=1',
+      'https://viewer.example.com#top',
+      'https://user:pass@viewer.example.com',
+    ]) {
+      const result = parsePublicUrls([PUBLIC, bad]);
+      expect(result.ok, bad).toBe(false);
+      if (!result.ok) expect(result.error, bad).toContain('Invalid --public-url value 2:');
+    }
+  });
+
+  it('refuses to start on an invalid public URL', async () => {
+    await expect(
+      startServer({
+        root: FIXTURE_ROOT,
+        port: 0,
+        open: false,
+        assetsDir: ASSETS_DIR,
+        publicUrls: ['https://viewer.example.com/app'],
+      })
+    ).rejects.toThrow('Invalid --public-url');
+  });
+
+  it('rejects startup public URLs without exposing secrets', async () => {
+    for (const secretUrl of [
+      'https://review-user:dummy-password@viewer.example.com',
+      'https://viewer.example.com?access_token=dummy-token',
+      'https://review-user:malformed-password@[',
+    ]) {
+      await expect(
+        startServer({ root: FIXTURE_ROOT, port: 0, open: false, publicUrls: [PUBLIC, secretUrl] })
+      ).rejects.toThrow(
+        /^Invalid --public-url value 2: (?!.*(?:review-user|password|dummy-token))/
+      );
+    }
+  });
+
+  it('keeps read-only refusals on an allowed public origin', async () => {
+    const handle = await startServer({
+      root: FIXTURE_ROOT,
+      port: 0,
+      open: false,
+      publicUrls: [PUBLIC],
+      readOnly: true,
+    });
+    const headers = {
+      Host: 'viewer.example.com',
+      Origin: PUBLIC,
+      'Sec-Fetch-Site': 'same-origin',
+      'Content-Type': 'application/json',
+      [CAPABILITY_HEADER]: handle.capability,
+    };
+    try {
+      const caps = await request(handle, { method: 'GET', path: '/api/capabilities', headers });
+      expect(caps.status).toBe(200);
+      expect(JSON.parse(caps.body).readOnly).toBe(true);
+      for (const [method, route] of [
+        ['GET', '/api/session'],
+        ['POST', '/api/plans/38--fix-jekyll-link-baseurl/archive'],
+        ['PUT', '/api/config/hooks/PRE_PLAN'],
+        ['POST', '/api/self-review'],
+      ]) {
+        const response = await request(handle, { method, path: route, headers });
+        expect(response.status).toBe(403);
+        expect(JSON.parse(response.body).reason).toBe('read-only');
+      }
+    } finally {
+      const closed = new Promise<void>(resolve => handle.server.close(() => resolve()));
+      handle.server.closeAllConnections();
+      await closed;
+    }
+  });
+
+  describe('with --public-url set', () => {
+    let handle: ServeHandle;
+
+    beforeAll(async () => {
+      handle = await startServer({
+        root: FIXTURE_ROOT,
+        port: 0,
+        open: false,
+        assetsDir: ASSETS_DIR,
+        publicUrls: [PUBLIC],
+      });
+    });
+
+    afterAll(async () => {
+      const done = new Promise<void>(resolve => handle.server.close(() => resolve()));
+      handle.server.closeAllConnections();
+      await done;
+    });
+
+    const session = (headers: Record<string, string>): Promise<FullResponse> =>
+      request(handle, { method: 'GET', path: '/api/session', headers });
+
+    it('serves the public Host and still refuses other hostnames', async () => {
+      const get = async (host: string, target = '/api/plans'): Promise<number> =>
+        (await request(handle, { method: 'GET', path: target, headers: { Host: host } })).status;
+
+      expect(await get('viewer.example.com')).toBe(200);
+      expect(await get('VIEWER.example.com', '/')).toBe(200);
+      expect(await get(`127.0.0.1:${handle.port}`)).toBe(200);
+      expect(await get('other.example.com')).toBe(421);
+      expect(await get('viewer.example.com:8443')).toBe(421);
+      expect(await get(`viewer.example.com.evil.example`)).toBe(421);
+      expect(handle.exposed).toBe(false);
+    });
+
+    it('accepts exactly the public origin on the session bootstrap', async () => {
+      const ok = await session({
+        Host: 'viewer.example.com',
+        Origin: PUBLIC,
+        'Sec-Fetch-Site': 'same-origin',
+      });
+      expect(ok.status).toBe(200);
+      expect(JSON.parse(ok.body)).toEqual({ token: handle.capability });
+
+      for (const origin of [
+        'http://viewer.example.com',
+        'https://viewer.example.com:8443',
+        'https://other.example.com',
+        `https://127.0.0.1:${handle.port}`,
+      ]) {
+        const res = await session({ Host: 'viewer.example.com', Origin: origin });
+        expect(res.status, origin).toBe(403);
+        expect(res.body, origin).not.toContain(handle.capability);
+      }
+    });
+
+    it('opens the event stream on the public Host', async () => {
+      const status = await new Promise<{ code: number; type?: string }>((resolve, reject) => {
+        const addr = boundAddress(handle);
+        const req = http.request(
+          {
+            host: addr.address,
+            port: addr.port,
+            path: '/api/events',
+            headers: { Host: 'viewer.example.com', Accept: 'text/event-stream' },
+          },
+          res => {
+            resolve({ code: res.statusCode ?? 0, type: res.headers['content-type'] });
+            res.destroy();
+          }
+        );
+        req.on('error', reject);
+        req.end();
+      });
+      expect(status.code).toBe(200);
+      expect(status.type).toContain('text/event-stream');
+    });
+  });
+
+  it('accepts the http origin only when it is listed too', async () => {
+    const handle = await startServer({
+      root: FIXTURE_ROOT,
+      port: 0,
+      open: false,
+      assetsDir: ASSETS_DIR,
+      publicUrls: [PUBLIC, 'http://viewer.example.com'],
+    });
+    try {
+      for (const origin of [PUBLIC, 'http://viewer.example.com']) {
+        const res = await request(handle, {
+          method: 'GET',
+          path: '/api/session',
+          headers: { Host: 'viewer.example.com', Origin: origin },
+        });
+        expect(res.status, origin).toBe(200);
+      }
+    } finally {
+      await new Promise<void>(resolve => handle.server.close(() => resolve()));
+    }
   });
 });
 

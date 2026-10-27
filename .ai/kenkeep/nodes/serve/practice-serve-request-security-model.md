@@ -16,7 +16,7 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-Every request passes `guardRequest` in `src/serve/server.ts`. `Host` must name an allowed authority, which is the DNS-rebinding defense. `--host` takes IP literals only, and no CORS headers are ever sent.
+Every request passes `guardRequest` in `src/serve/server.ts`. `Host` must name an allowed authority, which is the DNS-rebinding defense. `--host` takes IP literals only, and no CORS headers are ever sent. Hostnames are trusted only through `--public-url`: each value adds its authority to `allowedHosts` and its exact origin to `allowedOrigins`, which the same-origin guard matches against; own authorities are trusted only as `http://`.
 
 Mutations need the per-start token from `GET /api/session` in the capability header. Scripts must fetch it the way the SPA does. The token stops pages on other origins, not other local processes or peers on a network bind.
 

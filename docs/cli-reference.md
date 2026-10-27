@@ -107,7 +107,7 @@ npx strikethroo serve [options]
 Boots a local web app over an initialized `.ai/strikethroo/` workspace: a dependency-light Node server hosts the prebuilt single-page viewer as static assets, exposes a read-only JSON API over the workspace model, and streams a coalesced change event over Server-Sent Events whenever the workspace mutates on disk. Run it from inside an initialized workspace; if none is found it prints guidance to run `init` and exits without binding.
 
 {% capture serve_local %}
-The server is **local-only by default**. It listens on loopback (`127.0.0.1`, or `::1` where IPv4 loopback is unavailable) and answers any request whose `Host` header is not one of its own addresses with `421`. `--host` binds another IP address, such as `0.0.0.0` inside a headless VM; see [Reaching the viewer from another machine](#reaching-the-viewer-from-another-machine).
+The server is **local-only by default**. It listens on loopback (`127.0.0.1`, or `::1` where IPv4 loopback is unavailable) and answers any request whose `Host` header is not one of its own addresses with `421`. `--host` binds another IP address, such as `0.0.0.0` inside a headless VM, and `--public-url` trusts the hostname of a reverse proxy; see [Reaching the viewer from another machine](#reaching-the-viewer-from-another-machine).
 
 **Mutations need a session capability.** Each server start generates a random token. The viewer fetches it from `GET /api/session` and sends it in the `X-Strikethroo-Capability` header on the archive, config-write, and self-review requests; it is held in page memory only. A mutation without the right token, from another origin, or with a cross-site `Sec-Fetch-Site` gets `403`, and a body that is not `application/json` gets `415`. The token protects against other websites in your browser and DNS rebinding. It is not a barrier against another process running as you on the same machine, which can request a token the same way. A script that calls these routes does the same: `GET /api/session`, then send the returned `token` in the header with `Content-Type: application/json`.
 
@@ -138,6 +138,7 @@ Start with `--read-only` to turn off all three. See [Read-only mode](#read-only-
 | `--port <n>` | Port to bind. Defaults to `4317`. |
 | `--no-open` | Do not open the browser on start. |
 | `--workspace <path>` | Override workspace root discovery. |
+| `--public-url <url>` | Origin a reverse proxy serves the viewer on, such as `https://viewer.example.com`. Repeat the flag or separate values with commas. Each value must be an absolute `http` or `https` URL with no path, query, fragment, or credentials. See [Behind a reverse proxy](#behind-a-reverse-proxy). |
 | `--read-only` | Refuse the archive, config-write, and self-review routes, and hide their controls in the viewer. See [Read-only mode](#read-only-mode). |
 
 ### Reaching the viewer from another machine
@@ -153,6 +154,26 @@ On startup, `serve` lists every URL it answers on, for example `http://192.168.1
 - **Browse by IP address.** The server accepts `Host` values naming one of its own IP addresses (or `localhost`) on the bound port, and answers anything else with `421`. That includes hostnames such as `myvm.local` and port-forwarded addresses on a different port. Accepting only IP literals keeps DNS rebinding blocked. A wildcard bind reads the machine's addresses once at startup, so restart `serve` if the VM's address changes.
 - **Anyone who can reach the port has full access.** The session token stops other websites in your browser. It does not stop another machine that can connect to the port, because that machine can request a token the same way the viewer does. Such a machine can read every plan and edit hooks, templates, and `config.yaml`, which agents run with their own permissions. `serve` prints a warning whenever it binds a non-loopback address. Use this only on a network you trust, such as a VM's host-only or NAT network, or a firewalled LAN. To share read access only, add `--read-only`.
 - **Prefer an SSH tunnel when you have one.** `ssh -L 4317:127.0.0.1:4317 <vm>` keeps the default loopback bind. Browse to `http://localhost:4317` on the same port number; a different local port makes `Host` disagree with the server's port.
+
+#### Behind a reverse proxy
+
+A TLS-terminating proxy, such as a per-merge-request preview platform, serves the viewer on a hostname the server would otherwise refuse. Name that public URL:
+
+```bash
+npx strikethroo serve --no-open --public-url https://viewer.example.com
+```
+
+The bind address and port do not change, so the proxy forwards to `127.0.0.1:4317` (or the `--host` and `--port` you set). Each `--public-url` value adds:
+
+- its host and port to the accepted `Host` values. `viewer.example.com` is served; any other hostname still gets `421`.
+- its exact scheme, host, and port to the accepted `Origin` values. `https://viewer.example.com` passes the same-origin check; `http://viewer.example.com` gets `403` unless it is listed too.
+
+Include a non-default port in the URL when the public address has one, for example `https://viewer.example.com:8443`. The viewer requests same-origin, relative paths, so pages, the session token, and the `/api/events` live-update stream work through the proxy without other settings.
+
+Security notes:
+
+- **It widens trust, it does not add authentication.** DNS rebinding stays blocked because only the hostnames you name are accepted. But everyone who can open the public URL gets the access described above: they can read every plan, request the session token, and edit hooks, templates, and `config.yaml`. `serve` prints the network warning whenever `--public-url` is set. Add `--read-only` for shared previews to disable archive, config edits, and self-review launch. Put access control in the proxy when reads also need to be private.
+- **Responses reveal local details.** `GET /api/capabilities` returns the workspace's absolute path on the serving machine, along with plan and configuration content.
 
 ### Read-only mode
 

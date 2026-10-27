@@ -22,7 +22,13 @@ import * as http from 'http';
 import * as net from 'net';
 import { AddressInfo } from 'net';
 import { EventEmitter } from 'events';
-import { startServer, ServeHandle, CAPABILITY_HEADER, hostAddressesFor } from '../serve/server';
+import {
+  startServer,
+  ServeHandle,
+  CAPABILITY_HEADER,
+  SECURITY_HEADERS,
+  hostAddressesFor,
+} from '../serve/server';
 import { resolveWorkspaceRoot, isResolveError } from '../serve/root';
 import { EventsHub, MAX_SSE_CLIENTS } from '../serve/events';
 
@@ -143,6 +149,32 @@ describe('serve server: read-only JSON API', () => {
 
   afterAll(async () => {
     await new Promise<void>(resolve => handle.server.close(() => resolve()));
+  });
+
+  it('sends the security headers on API, static, and rejected responses', async () => {
+    const api = await request(handle, { method: 'GET', path: '/api/plans' });
+    const page = await request(handle, { method: 'GET', path: '/' });
+    const refused = await request(handle, {
+      method: 'GET',
+      path: '/api/plans',
+      headers: { Host: 'evil.example:80' },
+    });
+    for (const res of [api, page, refused]) {
+      for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+        expect(res.headers[name.toLowerCase()]).toBe(value);
+      }
+    }
+    expect(refused.status).toBe(421);
+  });
+
+  it('refuses the event stream to a browser subresource such as an <img>', async () => {
+    const res = await request(handle, {
+      method: 'GET',
+      path: '/api/events',
+      headers: { 'Sec-Fetch-Dest': 'image', 'Sec-Fetch-Site': 'same-origin' },
+    });
+    expect(res.status).toBe(406);
+    expect(handle.events.clientCount).toBe(0);
   });
 
   it('GET /api/plans returns JSON including plan 38 as done', async () => {
@@ -958,8 +990,10 @@ describe('serve server: SSE admission, backpressure, and cleanup', () => {
     }
   }
 
+  // An EventSource request: real ones always carry headers, and these have
+  // the fetch metadata a browser sends.
   const fakePair = (): { req: EventEmitter; res: FakeResponse } => ({
-    req: new EventEmitter(),
+    req: Object.assign(new EventEmitter(), { headers: { 'sec-fetch-dest': 'empty' } }),
     res: new FakeResponse(),
   });
 

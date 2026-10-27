@@ -21,6 +21,7 @@ import { parseBlueprintPhases, type BlueprintPhase } from '../skill-scripts/shar
 import { parseComplexityScore } from '../skill-scripts/shared/complexity-score';
 import { countTaskFiles } from '../skill-scripts/shared/task-count';
 import { validateTaskComplexityScores } from '../skill-scripts/shared/task-complexity';
+import { toTerminalText } from '../skill-scripts/shared/terminal-text';
 import {
   collectTaskReadinessIssues,
   readTaskMetadata,
@@ -224,6 +225,32 @@ describe('skill-scripts validation helpers', () => {
       '05--quoted.md: non-integer complexity_score ""7""',
       '06--above.md: complexity_score 11 out of range 1-10',
     ]);
+  });
+
+  test('heading and score parsing stay linear on a long run of trailing blanks', () => {
+    const blanks = ' '.repeat(80_000);
+    const started = Date.now();
+    const phases = parseBlueprintPhases(
+      `## Execution Blueprint\n\n### Phase 1: Setup${blanks}x\n- Task 1\n`
+    );
+    expect(phases?.[0]?.name).toBe(`Setup${blanks}x`);
+
+    const planDir = path.join(tempDir, 'plans', '04--slow');
+    fs.mkdirSync(path.join(planDir, 'tasks'), { recursive: true });
+    fs.writeFileSync(
+      path.join(planDir, 'tasks', '01--slow.md'),
+      `---\nid: 1\ncomplexity_score: 3${blanks}z\n---\n# Task\n`
+    );
+    expect(validateTaskComplexityScores(planDir)).toEqual([
+      `01--slow.md: non-integer complexity_score "3${blanks}z"`,
+    ]);
+    // The quadratic patterns took tens of seconds on this input.
+    expect(Date.now() - started).toBeLessThan(2_000);
+  });
+
+  test('toTerminalText drops escape sequences and controls but keeps tabs and newlines', () => {
+    const hostile = 'Setup\u001b]52;c;ZXZpbA==\u0007\u001b[2K\u009b31m\tdone\n';
+    expect(toTerminalText(hostile)).toBe('Setup]52;c;ZXZpbA==[2K31m\tdone\n');
   });
 
   test('parseBlueprintPhases reads heading variants and bulleted task references within its section', () => {

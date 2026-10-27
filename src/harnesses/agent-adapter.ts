@@ -16,6 +16,7 @@ import * as path from 'path';
 import { Harness, SUPPORTED_HARNESSES } from '../types';
 import { getAgentFormat, convertAgentMdToToml } from '../utils';
 import { HarnessAdapter, registerHarnessAdapter } from './registry';
+import { ensureContainedDirectory, writeFileAtomic } from '../skill-scripts/shared/safe-fs';
 
 /**
  * Absolute path to the shared agent templates directory.
@@ -35,7 +36,9 @@ function agentDirFor(harness: Harness, projectRoot: string): string {
 /**
  * Write the agent files for a harness under `projectRoot`, overwriting any
  * existing files. Returns the absolute paths written. Shared by `install` and
- * `update` — the operation is idempotent.
+ * `update` — the operation is idempotent. Writes are contained below the
+ * project: a symbolic link at the harness directory, the agent directory, or
+ * an agent file is refused, never written through.
  */
 async function writeAgentFiles(harness: Harness, projectRoot: string): Promise<string[]> {
   const sourceAgentsDir = getAgentsTemplateDir();
@@ -45,8 +48,12 @@ async function writeAgentFiles(harness: Harness, projectRoot: string): Promise<s
 
   const agentFiles = (await fs.readdir(sourceAgentsDir)).filter(f => f.endsWith('.md'));
   const formatInfo = getAgentFormat(harness);
+  const root = path.resolve(projectRoot || '.');
   const targetDir = agentDirFor(harness, projectRoot);
-  await fs.ensureDir(targetDir);
+  const ensured = ensureContainedDirectory(root, targetDir);
+  if ('error' in ensured) {
+    throw new Error(`Cannot install ${harness} agents into ${targetDir}: ${ensured.message}`);
+  }
 
   const writtenFiles: string[] = [];
   for (const agentFile of agentFiles) {
@@ -55,10 +62,10 @@ async function writeAgentFiles(harness: Harness, projectRoot: string): Promise<s
     const baseName = path.basename(agentFile, '.md');
     const targetPath = path.join(targetDir, baseName + formatInfo.extension);
 
-    if (formatInfo.format === 'toml') {
-      await fs.writeFile(targetPath, convertAgentMdToToml(content), 'utf-8');
-    } else {
-      await fs.writeFile(targetPath, content, 'utf-8');
+    const output = formatInfo.format === 'toml' ? convertAgentMdToToml(content) : content;
+    const written = await writeFileAtomic(root, targetPath, output, { mode: 0o644 });
+    if ('error' in written) {
+      throw new Error(`Cannot write ${targetPath}: ${written.message}`);
     }
 
     writtenFiles.push(targetPath);

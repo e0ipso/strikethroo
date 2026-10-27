@@ -8,7 +8,15 @@
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import chalk from 'chalk';
-import { InitOptions, CommandResult, ConflictResolution, InitMetadata, Harness } from './types';
+import {
+  InitOptions,
+  CommandResult,
+  ConflictResolution,
+  InitMetadata,
+  Harness,
+  FileSystemError,
+} from './types';
+import { ensureContainedDirectory } from './skill-scripts/shared/safe-fs';
 import { resolveInitHarnesses } from './resolve-init-harnesses';
 import {
   calculateFileHash,
@@ -21,6 +29,7 @@ import { detectConflicts, getConfigFiles } from './conflict-detector';
 import { promptForConflicts } from './prompts';
 import { HarnessRegistry } from './harnesses';
 import { prepareProfileImport, PreparedProfileImport, ProfileManifest } from './profiles';
+import { toTerminalText } from './skill-scripts/shared/terminal-text';
 
 // Visual formatting constants
 const TERM_WIDTH = 80;
@@ -64,6 +73,25 @@ function resolvePath(baseDir: string | undefined, ...segments: string[]): string
     segment => segment !== null && segment !== undefined && segment !== ''
   );
   return path.resolve(base, ...validSegments);
+}
+
+/**
+ * Create `dir` below `projectRoot` without following a link at any level, so a
+ * planted `.ai/strikethroo/config` or `config/hooks` link cannot carry a
+ * template write out of the project.
+ */
+function ensureProjectDirectory(projectRoot: string, dir: string): void {
+  const ensured = ensureContainedDirectory(projectRoot, dir);
+  if ('error' in ensured) {
+    const reason =
+      ensured.error === 'symlink'
+        ? 'it or a parent directory is a symbolic link, which cannot be trusted.'
+        : ensured.message;
+    throw new FileSystemError(
+      `Cannot write into ${dir}: ${reason} Replace it with a regular directory and re-run the ` +
+        'command.'
+    );
+  }
 }
 
 /**
@@ -154,9 +182,12 @@ export async function init(options: InitOptions): Promise<CommandResult> {
 
     // Create .ai/strikethroo structure
     console.log(`  ${chalk.green('✓')} Creating .ai/strikethroo directory structure`);
-    await fs.ensureDir(resolvePath(baseDir, '.ai/strikethroo/plans'));
-    await fs.ensureDir(resolvePath(baseDir, '.ai/strikethroo/archive'));
-    await fs.ensureDir(resolvePath(baseDir, '.ai/strikethroo/config/hooks'));
+    // The destination itself is the containment root, so it is created plainly;
+    // everything below it is created through the contained helper.
+    await fs.ensureDir(resolvePath(baseDir));
+    for (const dir of ['plans', 'archive', 'config/hooks']) {
+      ensureProjectDirectory(resolvePath(baseDir), resolvePath(baseDir, '.ai/strikethroo', dir));
+    }
 
     // Copy common templates to .ai/strikethroo with conflict detection
     console.log(`  ${chalk.green('✓')} Copying common template files`);
@@ -253,17 +284,19 @@ export async function init(options: InitOptions): Promise<CommandResult> {
  * (emphasized — never probed or installed), and soft pairings
  */
 function displayProfileSection(manifest: ProfileManifest, source: string): void {
+  // Every manifest string comes from the profile, possibly a remote one.
+  const t = toTerminalText;
   console.log(formatSectionHeader('Strikethroo Profile'));
-  console.log(`  ${chalk.cyan('●')} Name: ${manifest.name}`);
-  console.log(`  ${chalk.cyan('●')} Description: ${manifest.description}`);
-  console.log(`  ${chalk.cyan('●')} Source: ${source}`);
+  console.log(`  ${chalk.cyan('●')} Name: ${t(manifest.name)}`);
+  console.log(`  ${chalk.cyan('●')} Description: ${t(manifest.description)}`);
+  console.log(`  ${chalk.cyan('●')} Source: ${t(source)}`);
 
   if (manifest.requires && manifest.requires.length > 0) {
     console.log(chalk.yellow.bold('\n  This strikethroo profile assumes you have:'));
     for (const requirement of manifest.requires) {
-      const hint = requirement.install ? chalk.gray(` — install: ${requirement.install}`) : '';
+      const hint = requirement.install ? chalk.gray(` — install: ${t(requirement.install)}`) : '';
       console.log(
-        `    ${chalk.yellow('▲')} ${chalk.bold(`${requirement.name} (${requirement.kind})`)}${hint}`
+        `    ${chalk.yellow('▲')} ${chalk.bold(`${t(requirement.name)} (${requirement.kind})`)}${hint}`
       );
     }
   }
@@ -271,8 +304,8 @@ function displayProfileSection(manifest: ProfileManifest, source: string): void 
   if (manifest.recommends && manifest.recommends.length > 0) {
     console.log(chalk.gray('\n  This strikethroo profile pairs well with:'));
     for (const recommendation of manifest.recommends) {
-      const hint = recommendation.install ? ` — install: ${recommendation.install}` : '';
-      console.log(chalk.gray(`    ● ${recommendation.name} (${recommendation.kind})${hint}`));
+      const hint = recommendation.install ? ` — install: ${t(recommendation.install)}` : '';
+      console.log(chalk.gray(`    ● ${t(recommendation.name)} (${recommendation.kind})${hint}`));
     }
   }
 }
@@ -355,6 +388,16 @@ async function copyCommonTemplates(
 
   if (!(await exists(sourceDir))) {
     throw new Error(`Template directory not found: ${sourceDir}`);
+  }
+
+  // Every directory a template lands in is created or checked first, so no
+  // later hash, prompt, or copy goes through a linked directory.
+  const projectRoot = path.dirname(path.dirname(destDir));
+  for (const file of await collectFiles(sourceDir)) {
+    ensureProjectDirectory(
+      projectRoot,
+      path.dirname(path.join(destDir, path.relative(sourceDir, file)))
+    );
   }
 
   const existingMetadata = await loadMetadata(metadataPath);

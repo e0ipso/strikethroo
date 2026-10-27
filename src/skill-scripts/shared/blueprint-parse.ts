@@ -1,7 +1,9 @@
 const BLUEPRINT_SECTION_RE = /^##[ \t]+Execution Blueprint[ \t]*$/m;
 /** The next peer-level `##` heading. `###` and deeper stay inside the section. */
 const PEER_HEADING_RE = /^##[ \t]/m;
-const PHASE_HEADING_RE = /^###[ \t]+(?:✅[ \t]*)?Phase[ \t]+(\d+)[ \t]*:?[ \t]*(.*?)[ \t]*$/gm;
+// The name is captured greedily and trimmed in code: a lazy `(.*?)[ \t]*$` tail
+// backtracks quadratically on a long run of trailing blanks.
+const PHASE_HEADING_RE = /^###[ \t]+(?:✅[ \t]*)?Phase[ \t]+(\d+)[ \t]*:?[ \t]*(.*)$/gm;
 const TASK_REF_RE = /Task[ \t]+0*(\d+)/i;
 
 /** One phase of an `## Execution Blueprint` section. */

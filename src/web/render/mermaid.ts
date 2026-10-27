@@ -139,5 +139,31 @@ export async function renderMermaid(
   });
   const renderId = id ?? `mmd-${Math.random().toString(36).slice(2, 9)}`;
   const { svg } = await mermaid.render(renderId, source);
-  return svg;
+  return hardenDiagramLinks(svg);
 }
+
+const XLINK_NS = 'http://www.w3.org/1999/xlink';
+
+/**
+ * Applies the Markdown reader's link policy to a rendered diagram. `strict`
+ * mode keeps authored anchors (HTML-label `<a>` and `click … "url"` links)
+ * with their own `target`, so a label could navigate the viewer tab itself.
+ * `http(s)` links open a new, unrelated tab; every other link is made inert.
+ * Parsed in an inert `<template>`, so nothing loads or runs here.
+ */
+const hardenDiagramLinks = (svg: string): string => {
+  const template = document.createElement('template');
+  template.innerHTML = svg;
+  for (const link of template.content.querySelectorAll('a')) {
+    const href = (link.getAttribute('href') ?? link.getAttributeNS(XLINK_NS, 'href') ?? '').trim();
+    if (/^https?:/i.test(href)) {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener noreferrer');
+    } else {
+      link.removeAttribute('href');
+      link.removeAttributeNS(XLINK_NS, 'href');
+      link.removeAttribute('target');
+    }
+  }
+  return template.innerHTML;
+};

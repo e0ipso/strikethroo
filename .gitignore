@@ -10,12 +10,13 @@ dist-web/
 build/
 *.tsbuildinfo
 
-# Environment variables
+# Environment variables and credentials
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
+.npmrc
+*.pem
+*.key
 
 # IDE and editor files
 .vscode/

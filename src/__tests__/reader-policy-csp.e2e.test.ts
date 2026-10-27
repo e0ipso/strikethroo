@@ -293,3 +293,102 @@ test.describe('Reader policy, mermaid lock-down, and CSP (Playwright)', () => {
     expect(fs.existsSync(path.join(ASSETS_DIR, 'theme-guard.js'))).toBe(true);
   });
 });
+
+/** A one-plan workspace whose Markdown and diagram target the viewer itself. */
+const buildSelfTargetingFixture = (): string => {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'st-self-targeting-'));
+  const root = path.join(tmpRoot, '.ai', 'strikethroo');
+  const planDir = path.join(root, 'plans', '906--self-targeting');
+  fs.mkdirSync(path.join(planDir, 'tasks'), { recursive: true });
+  fs.mkdirSync(path.join(root, 'archive'), { recursive: true });
+  fs.cpSync(SHARED_CONFIG, path.join(root, 'config'), { recursive: true });
+  const images = Array.from({ length: 10 }, (_, n) => `<img src="/api/events?n=${n}">`).join('\n');
+  fs.writeFileSync(
+    path.join(planDir, 'plan-906--self-targeting.md'),
+    [
+      '---',
+      'id: 906',
+      'summary: "Self-targeting content"',
+      'created: 2026-10-25',
+      '---',
+      '# Self-targeting',
+      '',
+      '## Context',
+      '',
+      images,
+      '',
+      '## Architectural Approach',
+      '',
+      '```mermaid',
+      'flowchart LR',
+      `  A["<a href='https://example.invalid/phish' target='_top'>Sign in again</a>"] --> B`,
+      '  B --> C',
+      '  click B "https://example.invalid/click"',
+      '```',
+      '',
+    ].join('\n'),
+    'utf8'
+  );
+  fs.writeFileSync(
+    path.join(root, '.init-metadata.json'),
+    JSON.stringify({ version: '0.0.0', workspaceSchemaVersion: 4 }),
+    'utf8'
+  );
+  return root;
+};
+
+test.describe('Content that targets the viewer itself (Playwright)', () => {
+  test.skip(!assetsBuilt, 'dist-web not built');
+
+  let handle: ServeHandle;
+  let root: string;
+
+  test.beforeAll(async () => {
+    root = buildSelfTargetingFixture();
+    handle = await startServer({ root, port: 0, open: false, assetsDir: ASSETS_DIR });
+  });
+
+  test.afterAll(async () => {
+    const done = new Promise<void>(r => handle.server.close(() => r()));
+    handle.server.closeAllConnections();
+    await done;
+    fs.rmSync(path.resolve(root, '..', '..'), { recursive: true, force: true });
+  });
+
+  test('event-stream images cannot pin connections, and diagram links cannot take over the tab', async ({
+    page,
+  }) => {
+    page.setDefaultTimeout(20_000);
+    try {
+      await page.goto(`${handle.url}/plans/906--self-targeting`, { waitUntil: 'domcontentloaded' });
+      await page.getByTestId('reader').waitFor();
+
+      // Ten <img src="/api/events"> tags would hold every per-host connection.
+      // Only the SPA's own EventSource may be connected, and the API answers.
+      await expect.poll(() => handle.events.clientCount).toBeLessThanOrEqual(1);
+      const status = await page.evaluate(async () => (await fetch('/api/plans')).status);
+      expect(status).toBe(200);
+
+      // Diagram links: http(s) opens a new unrelated tab, never `_top`.
+      await page.getByRole('tab', { name: 'Graph' }).click();
+      const host = page.locator('[data-testid="graph-canvas"] .mermaid-host');
+      await host.locator('svg').waitFor();
+      const links = await host.locator('a').evaluateAll(anchors =>
+        anchors.map(a => ({
+          href: a.getAttribute('href') ?? a.getAttribute('xlink:href'),
+          target: a.getAttribute('target'),
+          rel: a.getAttribute('rel'),
+        }))
+      );
+      expect(links.filter(link => link.href !== null).length).toBeGreaterThan(0);
+      for (const link of links) {
+        if (link.href === null) continue;
+        expect(link.href).toMatch(/^https?:/);
+        expect(link.target).toBe('_blank');
+        expect(link.rel).toBe('noopener noreferrer');
+      }
+    } finally {
+      await page.close();
+    }
+  });
+});

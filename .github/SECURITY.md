@@ -115,9 +115,10 @@ npm view <package-name> security
 
 For security issues in our codebase:
 
-1. **GitHub Issues**: Use the "Security" label for public issues
-2. **Private Reports**: Email maintainers for sensitive issues
-3. **Pull Requests**: Include security impact in PR descriptions
+1. **Private Reports**: Report vulnerabilities privately through GitHub's
+   [Report a vulnerability](https://github.com/e0ipso/strikethroo/security/advisories/new)
+   form. Do not open a public issue or pull request for an unfixed vulnerability.
+2. **Pull Requests**: Include security impact in PR descriptions
 
 ### External Vulnerabilities
 

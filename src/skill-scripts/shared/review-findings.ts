@@ -140,20 +140,36 @@ export const countCommentsWithXmllint = async (
   return /^\d+(\.0+)?$/.test(answer) ? Number(answer) : null;
 };
 
-/** Comments and CDATA removed; an unterminated section runs to the end, as in the scanner. */
-const stripCommentsAndCdata = (xml: string): string => {
+/**
+ * Comments, CDATA, and processing instructions removed, tokenized in document
+ * order so an opener inside one construct (`<?p <!-- ?>`) cannot hide what
+ * follows it. An unterminated section runs to the end, as in the scanner.
+ */
+const SKIPPED_SECTIONS: ReadonlyArray<readonly [string, string]> = [
+  ['<!--', '-->'],
+  ['<![CDATA[', ']]>'],
+  ['<?', '?>'],
+];
+
+const stripCommentsCdataAndPis = (xml: string): string => {
   let kept = '';
   let index = 0;
   while (index < xml.length) {
-    const comment = xml.indexOf('<!--', index);
-    const cdata = xml.indexOf('<![CDATA[', index);
-    const next = Math.min(comment === -1 ? Infinity : comment, cdata === -1 ? Infinity : cdata);
-    if (next === Infinity) {
+    let next = Infinity;
+    let section: readonly [string, string] | undefined;
+    for (const candidate of SKIPPED_SECTIONS) {
+      const at = xml.indexOf(candidate[0], index);
+      if (at !== -1 && at < next) {
+        next = at;
+        section = candidate;
+      }
+    }
+    if (section === undefined) {
       kept += xml.slice(index);
       break;
     }
     kept += xml.slice(index, next);
-    const [opener, closer] = next === comment ? ['<!--', '-->'] : ['<![CDATA[', ']]>'];
+    const [opener, closer] = section;
     const end = xml.indexOf(closer, next + opener.length);
     index = end === -1 ? xml.length : end + closer.length;
   }
@@ -169,7 +185,7 @@ const FORBIDDEN_DECLARATION_RE = /<!(DOCTYPE|ENTITY|ELEMENT|ATTLIST|NOTATION)\b/
  * safely, so such a document is refused before validation.
  */
 export const hasForbiddenDeclarations = (xml: string): boolean =>
-  FORBIDDEN_DECLARATION_RE.test(stripCommentsAndCdata(xml));
+  FORBIDDEN_DECLARATION_RE.test(stripCommentsCdataAndPis(xml));
 
 export interface ReviewFinding {
   /** `path` of the enclosing `<file>`. */

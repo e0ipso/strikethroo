@@ -1,3 +1,9 @@
+## [4.2.1](https://github.com/e0ipso/strikethroo/compare/v4.2.0...v4.2.1) (2026-10-27)
+
+### Bug Fixes
+
+* **deps:** update vite, dompurify, and undici ([d7e689e](https://github.com/e0ipso/strikethroo/commit/d7e689e7f81f5e7bad7f9eeabd690809b9548f70))
+
 ## [4.2.0](https://github.com/e0ipso/strikethroo/compare/v4.1.1...v4.2.0) (2026-10-14)
 
 ### Features

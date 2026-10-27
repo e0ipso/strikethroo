@@ -178,6 +178,25 @@ describe('serve server: read-only JSON API', () => {
     expect(handle.events.clientCount).toBe(0);
   });
 
+  it('refuses event-stream images even without Fetch Metadata headers', async () => {
+    const status = await new Promise<number>((resolve, reject) => {
+      const req = http.get(
+        `${handle.url}/api/events`,
+        {
+          headers: { Accept: 'image/avif,image/webp,image/*,*/*;q=0.8' },
+        },
+        res => {
+          resolve(res.statusCode ?? 0);
+          res.destroy();
+          req.destroy();
+        }
+      );
+      req.on('error', reject);
+    });
+    expect(status).toBe(406);
+    expect(handle.events.clientCount).toBe(0);
+  });
+
   it('GET /api/plans returns JSON including plan 38 as done', async () => {
     const res = await httpGet(`${handle.url}/api/plans`);
     expect(res.status).toBe(200);
@@ -1203,10 +1222,14 @@ describe('serve server: read-only mode', () => {
 
   it('streams change events on /api/events', async () => {
     let received = '';
-    const req = http.get(`${handle.url}/api/events`, res => {
-      expect(res.statusCode).toBe(200);
-      res.on('data', chunk => (received += chunk.toString()));
-    });
+    const req = http.get(
+      `${handle.url}/api/events`,
+      { headers: { Accept: 'text/event-stream' } },
+      res => {
+        expect(res.statusCode).toBe(200);
+        res.on('data', chunk => (received += chunk.toString()));
+      }
+    );
     await delay(120);
     fs.writeFileSync(path.join(root, 'plans', '12--example', 'scratch.md'), 'change\n');
     await delay(400);
@@ -1236,9 +1259,13 @@ describe('serve server: SSE change stream coalescing', () => {
 
   it('coalesces a burst of rapid writes into exactly one changed event', async () => {
     let received = '';
-    const req = http.get(`${handle.url}/api/events`, res => {
-      res.on('data', chunk => (received += chunk.toString()));
-    });
+    const req = http.get(
+      `${handle.url}/api/events`,
+      { headers: { Accept: 'text/event-stream' } },
+      res => {
+        res.on('data', chunk => (received += chunk.toString()));
+      }
+    );
 
     // Let the SSE connection register before mutating the workspace.
     await delay(120);
@@ -1311,10 +1338,13 @@ describe('serve server: SSE admission, backpressure, and cleanup', () => {
   const connectSse = (port: number): Promise<SseClient> =>
     new Promise((resolve, reject) => {
       let data = '';
-      const req = http.get({ host: '127.0.0.1', port, path: '/api/events' }, res => {
-        res.on('data', chunk => (data += chunk.toString()));
-        resolve({ req, res, data: () => data });
-      });
+      const req = http.get(
+        { host: '127.0.0.1', port, path: '/api/events', headers: { Accept: 'text/event-stream' } },
+        res => {
+          res.on('data', chunk => (data += chunk.toString()));
+          resolve({ req, res, data: () => data });
+        }
+      );
       req.on('error', reject);
     });
 
@@ -1349,7 +1379,9 @@ describe('serve server: SSE admission, backpressure, and cleanup', () => {
   // An EventSource request: real ones always carry headers, and these have
   // the fetch metadata a browser sends.
   const fakePair = (): { req: EventEmitter; res: FakeResponse } => ({
-    req: Object.assign(new EventEmitter(), { headers: { 'sec-fetch-dest': 'empty' } }),
+    req: Object.assign(new EventEmitter(), {
+      headers: { 'sec-fetch-dest': 'empty', accept: 'text/event-stream' },
+    }),
     res: new FakeResponse(),
   });
 
@@ -1429,7 +1461,9 @@ describe('serve server: SSE admission, backpressure, and cleanup', () => {
       let received = 0;
       let closed = false;
       const socket = net.connect(host.port, '127.0.0.1', () => {
-        socket.write(`GET /api/events HTTP/1.1\r\nHost: 127.0.0.1:${host.port}\r\n\r\n`);
+        socket.write(
+          `GET /api/events HTTP/1.1\r\nHost: 127.0.0.1:${host.port}\r\nAccept: text/event-stream\r\n\r\n`
+        );
         socket.pause();
       });
       socket.on('data', chunk => (received += chunk.length));

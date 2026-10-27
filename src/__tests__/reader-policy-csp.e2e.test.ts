@@ -24,7 +24,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page, type Response } from '@playwright/test';
 import { startServer, ServeHandle, CONTENT_SECURITY_POLICY } from '../serve/server';
 
 const ASSETS_DIR = path.resolve(process.cwd(), 'dist-web');
@@ -353,6 +353,57 @@ test.describe('Content that targets the viewer itself (Playwright)', () => {
     handle.server.closeAllConnections();
     await done;
     fs.rmSync(path.resolve(root, '..', '..'), { recursive: true, force: true });
+  });
+
+  test('HTTP LAN images cannot exhaust connections while EventSource stays live', async ({
+    page,
+  }) => {
+    const address = Object.values(os.networkInterfaces())
+      .flat()
+      .find(info => info?.family === 'IPv4' && !info.internal)?.address;
+    expect(address, 'a non-loopback IPv4 address for the HTTP LAN origin').toBeDefined();
+    const lan = await startServer({
+      root,
+      host: '0.0.0.0',
+      port: 0,
+      open: false,
+      assetsDir: ASSETS_DIR,
+    });
+    try {
+      const images: Response[] = [];
+      page.on('response', response => {
+        if (response.url().includes('/api/events?n=')) images.push(response);
+      });
+      await page.goto(`http://${address}:${lan.port}/plans/906--self-targeting`, {
+        waitUntil: 'domcontentloaded',
+      });
+      expect(await page.evaluate(() => window.isSecureContext)).toBe(false);
+      await expect.poll(() => images.length).toBe(10);
+      for (const image of images) {
+        expect(image.status()).toBe(406);
+        expect(await image.request().allHeaders()).not.toHaveProperty('sec-fetch-dest');
+      }
+      await expect.poll(() => lan.events.clientCount).toBe(1);
+      const status = await page.evaluate(
+        async () => (await fetch('/api/plans', { signal: AbortSignal.timeout(3000) })).status
+      );
+      expect(status).toBe(200);
+      const count = () =>
+        page.evaluate(
+          () => (window as unknown as { __stRevalidationCount?: number }).__stRevalidationCount ?? 0
+        );
+      const before = await count();
+      fs.appendFileSync(
+        path.join(root, 'plans', '906--self-targeting', 'plan-906--self-targeting.md'),
+        '\nLAN update.\n'
+      );
+      await expect.poll(count).toBeGreaterThan(before);
+    } finally {
+      await page.close();
+      const closed = new Promise<void>(resolve => lan.server.close(() => resolve()));
+      lan.server.closeAllConnections();
+      await closed;
+    }
   });
 
   test('event-stream images cannot pin connections, and diagram links cannot take over the tab', async ({

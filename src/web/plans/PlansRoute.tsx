@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { Chrome } from '../components/Chrome';
 import { Button } from '../components/primitives';
 import { ErrorSurface, LoadingSurface } from '../components/StateSurface';
+import { useReadOnly } from '../data/api';
 import { usePlansData } from './usePlansData';
 import { PlansCardView } from './PlansCardView';
 import { PlansKanbanView } from './PlansKanbanView';
@@ -71,6 +72,7 @@ export function PlansRoute() {
   const [view, setView] = useState<ViewName>('Board');
   const resource = usePlansData();
   const modal = useModal();
+  const readOnly = useReadOnly();
 
   const counts = resource.status === 'data' ? resource.data.counts : null;
 
@@ -85,16 +87,16 @@ export function PlansRoute() {
       body = (
         <PlansCardView
           plans={plans}
-          openReview={modal.openReview}
-          openArchive={modal.openArchive}
+          openReview={readOnly ? undefined : modal.openReview}
+          openArchive={readOnly ? undefined : modal.openArchive}
         />
       );
     else
       body = (
         <PlansKanbanView
           plans={plans}
-          openReview={modal.openReview}
-          openArchive={modal.openArchive}
+          openReview={readOnly ? undefined : modal.openReview}
+          openArchive={readOnly ? undefined : modal.openArchive}
         />
       );
   }

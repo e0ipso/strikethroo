@@ -125,6 +125,8 @@ The viewer is **read-only except for two sanctioned mutations: the archive actio
 **Config editor.** The **Customize** section edits your workspace configuration in place, issuing `PUT /api/config/:kind/:id` to overwrite a single existing file. It is overwrite-only and never creates, deletes, or renames: `kind` is restricted to `hooks` and `templates`, each resolving to one flat `config/<kind>/<id>.md` file, plus the special `workspace` kind behind the Customize Config form, which maps to `config/config.yaml`. Anything outside that allowlist &mdash; path separators, `..`, an unknown kind, a file that does not already exist &mdash; is rejected. Saving `config.yaml` through the form preserves unrecognized top-level sections but **does not preserve comments**.
 
 Separately, the **Self Review** action (`POST /api/self-review`) writes nothing itself, but does launch an external reviewer process on your machine.
+
+Start with `--read-only` to turn off all three. See [Read-only mode](#read-only-mode).
 {% endcapture %}
 {% include callout.html variant="note" title="READ-ONLY, WITH TWO EXCEPTIONS" content=serve_readonly %}
 
@@ -136,6 +138,7 @@ Separately, the **Self Review** action (`POST /api/self-review`) writes nothing 
 | `--port <n>` | Port to bind. Defaults to `4317`. |
 | `--no-open` | Do not open the browser on start. |
 | `--workspace <path>` | Override workspace root discovery. |
+| `--read-only` | Refuse the archive, config-write, and self-review routes, and hide their controls in the viewer. See [Read-only mode](#read-only-mode). |
 
 ### Reaching the viewer from another machine
 
@@ -148,8 +151,18 @@ npx strikethroo serve --host 0.0.0.0 --port 4317 --no-open
 On startup, `serve` lists every URL it answers on, for example `http://192.168.122.10:4317`.
 
 - **Browse by IP address.** The server accepts `Host` values naming one of its own IP addresses (or `localhost`) on the bound port, and answers anything else with `421`. That includes hostnames such as `myvm.local` and port-forwarded addresses on a different port. Accepting only IP literals keeps DNS rebinding blocked. A wildcard bind reads the machine's addresses once at startup, so restart `serve` if the VM's address changes.
-- **Anyone who can reach the port has full access.** The session token stops other websites in your browser. It does not stop another machine that can connect to the port, because that machine can request a token the same way the viewer does. Such a machine can read every plan and edit hooks, templates, and `config.yaml`, which agents run with their own permissions. `serve` prints a warning whenever it binds a non-loopback address. Use this only on a network you trust, such as a VM's host-only or NAT network, or a firewalled LAN.
+- **Anyone who can reach the port has full access.** The session token stops other websites in your browser. It does not stop another machine that can connect to the port, because that machine can request a token the same way the viewer does. Such a machine can read every plan and edit hooks, templates, and `config.yaml`, which agents run with their own permissions. `serve` prints a warning whenever it binds a non-loopback address. Use this only on a network you trust, such as a VM's host-only or NAT network, or a firewalled LAN. To share read access only, add `--read-only`.
 - **Prefer an SSH tunnel when you have one.** `ssh -L 4317:127.0.0.1:4317 <vm>` keeps the default loopback bind. Browse to `http://localhost:4317` on the same port number; a different local port makes `Host` disagree with the server's port.
+
+### Read-only mode
+
+```bash
+npx strikethroo serve --read-only
+```
+
+`--read-only` starts a viewer that never changes the workspace or launches a process. Archive (`POST /api/plans/:id/archive`), config writes (`PUT /api/config/:kind/:id`), and self-review launch (`POST /api/self-review`) answer `403` with `{"error": "This viewer is read-only.", "reason": "read-only"}`, even when the request carries a valid capability token. `GET /api/session` answers the same way, so no token is issued.
+
+`GET /api/capabilities` reports `"readOnly": true`, and the viewer hides the **Archive** and **Review in self-review** controls and the Customize save buttons; the Customize editors show the files without accepting edits. Every read route, including the `/api/events` live-update stream, behaves as it does without the flag. Combined with `--host`, anyone who can reach the port can read the workspace, but cannot change it.
 
 ## Skill Installation
 

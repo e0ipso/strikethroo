@@ -106,6 +106,14 @@ exportCommand
     }
   });
 
+interface ServeCliOptions {
+  host: string;
+  port: string;
+  open: boolean;
+  workspace?: string;
+  readOnly?: boolean;
+}
+
 program
   .command('serve')
   .description('Serve the workspace as a local web app (static SPA, JSON API, SSE change stream)')
@@ -113,7 +121,8 @@ program
   .option('--port <n>', 'port to bind', '4317')
   .option('--no-open', 'do not open the browser on start')
   .option('--workspace <path>', 'override workspace root discovery')
-  .action(async (opts: { host: string; port: string; open: boolean; workspace?: string }) => {
+  .option('--read-only', 'disable archive, config edits, and self-review launch')
+  .action(async (opts: ServeCliOptions) => {
     try {
       if (isIP(opts.host) === 0) {
         console.error(
@@ -133,14 +142,17 @@ program
         port: Number(opts.port),
         open: opts.open,
         assetsDir: defaultAssetsDir(),
+        readOnly: opts.readOnly === true,
       });
-      console.log(`Serving ${handle.url}`);
+      console.log(`Serving ${handle.url}${handle.readOnly ? ' (read-only)' : ''}`);
       if (handle.exposed) {
         console.error(
           chalk.yellow.bold('\nWarning: the viewer is reachable from the network.\n') +
             chalk.yellow(
-              'Anyone who can reach this address and port can read the workspace and edit its\n' +
-                'hooks, templates, and config.yaml, which agents run with their permissions.\n' +
+              (handle.readOnly
+                ? 'Anyone who can reach this address and port can read the workspace.\n'
+                : 'Anyone who can reach this address and port can read the workspace and edit its\n' +
+                  'hooks, templates, and config.yaml, which agents run with their permissions.\n') +
                 'Use it only on a trusted network, such as a VM host-only bridge.\n' +
                 `Reachable at: ${handle.reachableUrls.join(', ')}\n`
             )

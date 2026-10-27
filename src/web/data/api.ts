@@ -146,6 +146,8 @@ export interface ProjectInfo {
 export interface Capabilities {
   /** True when the `self-review` binary is installed on the server's PATH. */
   selfReview: boolean;
+  /** True when the server refuses every mutation (`serve --read-only`). */
+  readOnly?: boolean;
   /** The hosting project's identity, used for the sidebar footer label. */
   project?: ProjectInfo;
 }
@@ -378,6 +380,15 @@ export async function saveConfigFile(
 /** Fetches the server-side capability flags (e.g. self-review availability). */
 export function useCapabilities(): Resource<Capabilities> {
   return useResource<Capabilities>('/api/capabilities');
+}
+
+/** Keep mutations disabled until capabilities have loaded successfully. */
+export const isReadOnly = (caps: Resource<Capabilities>): boolean =>
+  caps.status !== 'data' || caps.error !== undefined || caps.data.readOnly === true;
+
+/** {@link isReadOnly} for components that do not already read capabilities. */
+export function useReadOnly(): boolean {
+  return isReadOnly(useCapabilities());
 }
 
 /** Result of a {@link launchSelfReview} request. */

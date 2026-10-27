@@ -41,10 +41,10 @@ const barColor = (state: PlanView['state']): string =>
 
 export interface PlansKanbanViewProps {
   plans: PlanView[];
-  /** Opens the Review command-hint modal for the given plan path. */
-  openReview: (path: string) => void;
-  /** Opens the archive-confirmation modal for a done plan. */
-  openArchive: (name: string, id: number, title: string) => void;
+  /** Opens the Review command-hint modal; omitted on a read-only server. */
+  openReview?: (path: string) => void;
+  /** Opens the archive-confirmation modal; omitted on a read-only server. */
+  openArchive?: (name: string, id: number, title: string) => void;
 }
 
 /** The Board (Kanban) view of the active plans. */
@@ -131,7 +131,7 @@ export function PlansKanbanView({ plans, openReview, openArchive }: PlansKanbanV
                         </span>
                       </div>
                     )}
-                    {p.state === 'drafted' && (
+                    {p.state === 'drafted' && openReview && (
                       <div className="mt-2.5">
                         <span
                           onClick={e => {
@@ -145,7 +145,7 @@ export function PlansKanbanView({ plans, openReview, openArchive }: PlansKanbanV
                         </span>
                       </div>
                     )}
-                    {p.state === 'done' && (
+                    {p.state === 'done' && openArchive && (
                       <div className="mt-2.5">
                         <span
                           onClick={e => {

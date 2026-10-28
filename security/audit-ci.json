@@ -10,27 +10,21 @@
   "report-type": "summary",
   "allowlist": [
     {
-      "GHSA-qhr7-859c-m2p7|brace-expansion": {
-        "active": true,
-        "notes": "Stack exhaustion on nested brace groups in brace-expansion@5.0.9, bundled inside npm@11.21.0 under @semantic-release/npm@13.2.0. Release tooling only; inputs are semantic-release's own glob patterns. Overrides cannot replace npm's bundled copy. Recheck when npm 11.x ships brace-expansion >=5.0.11 or @semantic-release/npm accepts npm 12."
-      }
-    },
-    {
-      "GHSA-6j4f-fj2g-mc7p|brace-expansion": {
-        "active": true,
-        "notes": "Stack exhaustion in parseCommaParts in brace-expansion@5.0.9, bundled inside npm@11.21.0 under @semantic-release/npm@13.2.0. Release tooling only; inputs are semantic-release's own glob patterns. Overrides cannot replace npm's bundled copy. Recheck when npm 11.x ships brace-expansion >=5.0.10 or @semantic-release/npm accepts npm 12."
-      }
-    },
-    {
-      "GHSA-rfgv-xxqx-mfg5|undici": {
-        "active": true,
-        "notes": "Unrequested WebSocket subprotocol DoS in undici@6.28.0, bundled inside npm@11.21.0 under @semantic-release/npm@13.2.0. Release tooling only; npm uses registry HTTP and never opens WebSockets. Overrides cannot replace npm's bundled copy. Recheck when npm 11.x ships undici >=6.28.1 or @semantic-release/npm accepts npm 12."
-      }
-    },
-    {
       "GHSA-xjj6-f33q-929c|undici": {
         "active": true,
-        "notes": "DoS via excessive content-encodings in undici@6.28.0, bundled inside npm@11.21.0 (under node-gyp) under @semantic-release/npm@13.2.0. Release tooling only; it talks to the npm registry and Node.js download servers, never user-supplied URLs. The non-bundled copies are updated to 6.29.1 and 7.30.1. Overrides cannot replace npm's bundled copy. Recheck when npm 11.x ships undici >=6.29.1 or @semantic-release/npm accepts npm 12."
+        "notes": "DoS via excessive content-encodings in undici@6.29.0, bundled inside npm@11.21.1 (under node-gyp) under @semantic-release/npm@13.2.0. Release tooling only; it talks to the npm registry and Node.js download servers, never user-supplied URLs. The non-bundled copies are updated to 6.29.1 and 7.30.1. Overrides cannot replace npm's bundled copy. Recheck when npm 11.x ships undici >=6.29.1 or @semantic-release/npm accepts npm 12."
+      }
+    },
+    {
+      "GHSA-2m5v-pch6-74hx|undici": {
+        "active": true,
+        "notes": "Agent drops function-valued tls options such as checkServerIdentity in undici@6.29.0, bundled inside npm@11.21.1 (under node-gyp) under @semantic-release/npm@13.2.0. node-gyp passes only CA strings through connect, requestTls and proxyTls and never sets a tls callback, so the bypass is unreachable. The non-bundled copies are updated to 6.29.1 and 7.30.1. Overrides cannot replace npm's bundled copy. Recheck when npm 11.x ships undici >=6.29.1 or @semantic-release/npm accepts npm 12."
+      }
+    },
+    {
+      "GHSA-qrxm-fqhp-jwvm|undici": {
+        "active": true,
+        "notes": "Process crash on TLS 1.2 renegotiation to a mismatched certificate in undici@6.29.0, bundled inside npm@11.21.1 (under node-gyp) under @semantic-release/npm@13.2.0. Release tooling only; node-gyp downloads Node.js headers from nodejs.org, which semantic-release's publish never triggers, and the worst case is a crashed run on an ephemeral runner. The non-bundled copies are updated to 6.29.1 and 7.30.1. Overrides cannot replace npm's bundled copy. Recheck when npm 11.x ships undici >=6.29.1 or @semantic-release/npm accepts npm 12."
       }
     },
     {
@@ -97,12 +91,6 @@
       "GHSA-vfj7-8cjw-p6xm|semantic-release>@semantic-release/commit-analyzer>micromatch>braces>": {
         "active": true,
         "notes": "ReDoS in braces@3.0.3 (GHSA-vfj7-8cjw-p6xm). The advisory names no patched version and 3.0.3 is the latest published release, so no upgrade exists; micromatch@4.0.8 and @semantic-release/commit-analyzer@13.0.1 are both current and pin it. Reached only from release tooling and from typescript-eslint's fast-glob, matching our own releaseRules and lint globs, never user input. Recheck when braces publishes above 3.0.3 or micromatch drops it."
-      }
-    },
-    {
-      "GHSA-ch52-4w7c-c8xp|http-cache-semantics": {
-        "active": true,
-        "notes": "ReDoS in http-cache-semantics@4.2.0 (GHSA-ch52-4w7c-c8xp), bundled inside npm@11.21.0 under @semantic-release/npm, so overrides cannot reach it. Release tooling only, parsing cache headers from the npm registry on an ephemeral single-user runner. 4.3.0 is published and sits outside the vulnerable range. Recheck when npm 11.x bundles http-cache-semantics >=4.3.0."
       }
     }
   ]

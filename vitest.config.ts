@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    setupFiles: ['./vitest.setup.ts'],
     include: [
       'src/__tests__/utils.test.ts',
       'src/__tests__/capture-base-commit.integration.test.ts',

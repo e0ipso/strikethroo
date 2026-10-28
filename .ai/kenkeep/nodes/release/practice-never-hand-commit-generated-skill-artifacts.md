@@ -40,6 +40,6 @@ A local rebuild dirties nothing tracked: `dist-test/` is ignored and the build n
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime](release/practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime.md)
-- Related: [map-src-skill-prompts-is-the-authored-source-of-truth-for-skill-md-content](skills/prompts/map-src-skill-prompts-is-the-authored-source-of-truth-for-skill-md-content.md)
+- Related: [practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime](practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime.md)
+- Related: [map-src-skill-prompts-is-the-authored-source-of-truth-for-skill-md-content](../skills/prompts/map-src-skill-prompts-is-the-authored-source-of-truth-for-skill-md-content.md)
 <!-- kk:related:end -->

@@ -22,8 +22,8 @@ _None yet._
 ### #frontmatter
 - Open [**validate reports deleted files, never hash drift**](practice-validate-reports-deletions-not-hash-drift.md) — validateWorkspace avoids findStrikethrooRoot, treats edits as customization, and keeps its own strict reader.
 ### #init
-- Open [**Workspace tracking is project-owned except local configuration and runtime output**](../practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md) — Projects choose whether to track plans and authored workspace files, while init ignores machine-local config.yaml, review artifacts, and runtime output.
-- Open [**Review gate artifacts are git-ignored by a workspace-root .gitignore**](../practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore.md) — init ships .ai/strikethroo/.gitignore covering plans/*/review/ and archive/*/review/, keeping reviewer output out of git and its own diff.
+- Open [**Workspace tracking is project-owned except local configuration and runtime output**](../git/practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md) — Projects choose whether to track plans and authored workspace files, while init ignores machine-local config.yaml, review artifacts, and runtime output.
+- Open [**Review gate artifacts are git-ignored by a workspace-root .gitignore**](../git/practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore.md) — init ships .ai/strikethroo/.gitignore covering plans/*/review/ and archive/*/review/, keeping reviewer output out of git and its own diff.
 - Open [**Init refresh: a kept file keeps its old baseline**](practice-init-refresh-kept-file-keeps-its-old-baseline.md) — copyCommonTemplates records the previous hash for a kept config file, so the next refresh asks again.
 ### #metadata
 - Open [**Bump the workspace schema version only for incompatible shape changes**](practice-bump-workspace-schema-version-only-for-incompatible-shape.md) — CURRENT_WORKSPACE_SCHEMA_VERSION is baked into skills and duplicated as a fallback in root.ts.

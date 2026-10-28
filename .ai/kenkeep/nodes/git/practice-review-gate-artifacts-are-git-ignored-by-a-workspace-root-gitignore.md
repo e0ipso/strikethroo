@@ -33,6 +33,6 @@ Plans, tasks, hooks, templates, and schemas stay trackable for projects that com
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-never-hand-commit-generated-skill-artifacts](practice-never-hand-commit-generated-skill-artifacts.md)
-- Related: [practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore](git/practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore.md)
+- Related: [practice-never-hand-commit-generated-skill-artifacts](../release/practice-never-hand-commit-generated-skill-artifacts.md)
+- Related: [practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore](practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore.md)
 <!-- kk:related:end -->

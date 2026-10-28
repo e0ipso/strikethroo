@@ -1,6 +1,6 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:f52ba01ed5e76035c9fc21768352ceb594aae60193d0e7eef68ddedc6a1b981a'
+nodes_hash: 'sha256:67d4440f10ce3cab6ed52db5005d9a38ff54120547b473ebd0882d6bb52be8d2'
 node_count: 104
 ---
 # kenkeep Graph
@@ -335,7 +335,7 @@ Total nodes: 104
 
 - **kind:** practice
 - **title:** Design thesis: configuration is Markdown, guarantees are compiled
-- **path:** practice-design-thesis-markdown-is-negotiable-guarantees-are-compiled.md
+- **path:** code-review/practice-design-thesis-markdown-is-negotiable-guarantees-are-compiled.md
 - **tags:** design-thesis, enforcement
 - **relates_to:** practice-uncertified-review-is-never-reported-clean, practice-review-gate-reports-it-does-not-fix
 
@@ -428,7 +428,7 @@ Total nodes: 104
 
 - **kind:** practice
 - **title:** Keep comment prose terse and single-sourced
-- **path:** practice-keep-comment-prose-terse-and-single-sourced.md
+- **path:** conventions/practice-keep-comment-prose-terse-and-single-sourced.md
 - **tags:** comments, code-style, documentation, xsd, prose
 - **relates_to:** practice-documentation-captures-current-state-only
 
@@ -494,7 +494,7 @@ Total nodes: 104
 
 - **kind:** practice
 - **title:** Never hand-commit generated skill artifacts in either tree
-- **path:** practice-never-hand-commit-generated-skill-artifacts.md
+- **path:** release/practice-never-hand-commit-generated-skill-artifacts.md
 - **tags:** build, skills, git, gitattributes, review-gate, generated-artifacts
 - **relates_to:** practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime, map-src-skill-prompts-is-the-authored-source-of-truth-for-skill-md-content
 
@@ -580,7 +580,7 @@ Total nodes: 104
 
 - **kind:** practice
 - **title:** Review gate artifacts are git-ignored by a workspace-root .gitignore
-- **path:** practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore.md
+- **path:** git/practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore.md
 - **tags:** code-review, gitignore, workspace, init, generated-artifacts
 - **relates_to:** practice-never-hand-commit-generated-skill-artifacts, practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore
 
@@ -690,7 +690,7 @@ Total nodes: 104
 
 - **kind:** practice
 - **title:** Strikethroo profile packages tolerate inert package-root extras
-- **path:** practice-strikethroo-profile-packages-tolerate-inert-package-root-extras.md
+- **path:** serve/practice-strikethroo-profile-packages-tolerate-inert-package-root-extras.md
 - **tags:** profiles, init, validation, security
 - **relates_to:** practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace
 - **derived_from:** 67ec33eb-6c26-4c0a-8c3f-e117dc130acf:practice:0
@@ -699,7 +699,7 @@ Total nodes: 104
 
 - **kind:** practice
 - **title:** Workspace tracking is project-owned except local configuration and runtime output
-- **path:** practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md
+- **path:** git/practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md
 - **tags:** gitignore, workspace, documentation, code-review, init
 - **relates_to:** practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore, practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore
 

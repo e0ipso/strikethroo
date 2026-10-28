@@ -1,4 +1,5 @@
 /_sessions/
+/_sessions/*.lock/
 /_logs/
 /hooks/
 .state/*

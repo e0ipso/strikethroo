@@ -27,5 +27,5 @@ When reviewing or writing code here: cut a comment that repeats a neighbouring c
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-documentation-captures-current-state-only](conventions/practice-documentation-captures-current-state-only.md)
+- Related: [practice-documentation-captures-current-state-only](practice-documentation-captures-current-state-only.md)
 <!-- kk:related:end -->

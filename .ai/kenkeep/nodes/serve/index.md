@@ -14,6 +14,7 @@ _None._
 - Open [**Serve SPA has two sanctioned workspace mutations; self-review writes nothing**](practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files.md) to learn about: Archive moves done plans into archive/. Config writes overwrite one existing allowlisted file. Self-review spawns a process but writes no files. #serve #web #spa #architecture #testing #mutation
 - Open [**Serve guards every request; mutations need a session token**](practice-serve-request-security-model.md) to learn about: guardRequest checks Host and origin. Mutations need the per-start token from GET /api/session. #serve #security
 - Open [**Serve layer uses discriminated-union result types for guarded operations**](practice-serve-layer-uses-discriminated-union-result-types-not-custom-error-classes.md) to learn about: Archive, config-write, and self-review operations return typed result unions; route handlers map their variants to HTTP responses. #serve #architecture #error-handling
+- Open [**Strikethroo profile packages tolerate inert package-root extras**](practice-strikethroo-profile-packages-tolerate-inert-package-root-extras.md) to learn about: validateProfilePackage scopes to profile.yaml plus config/; entries at the package root are accepted and are never copied, hash-tracked, or executed. #profiles #init #validation #security
 - Open [**Web routes and API resolve plans by composite {id}--{slug} directory name, not numeric id alone**](practice-web-routes-and-api-resolve-plans-by-composite-id-slug-directory-name-not-numeric.md) to learn about: The serve API and SPA router use the composite {id}--{slug} directory name as the routing key. Numeric-only URLs 404. The numeric id is display/sort only. #routing #serve #security #plan-id #spa
 
 ## Components (what exists)
@@ -38,6 +39,10 @@ _None._
 - Open [**src/serve/archive.ts — archivePlan() operation**](map-src-serve-archive-ts-archiveplan-operation.md) — Guarded discriminated-result function: validates plan exists, is under plans/, is in derived done state, then does atomic fs.rename into archive/.
 - Open [**src/serve/self-review.ts — POST /api/self-review endpoint**](map-src-serve-self-review-ts-post-api-self-review-endpoint.md) — Spawns an external reviewer binary; writes nothing to the workspace. Returns LaunchResult discriminated union. GET /api/capabilities reports availability and project identity.
 - Open [**GET /api/capabilities returns project name and path via deriveProject()**](map-get-api-capabilities-returns-project-name-and-path-via-deriveproject.md) — The capabilities endpoint exposes { selfReview, project: { name, path } }. deriveProject(root) resolves the project directory two levels up from the .ai/strikethroo root.
+### #security
+- Open [**Serve guards every request; mutations need a session token**](practice-serve-request-security-model.md) — guardRequest checks Host and origin. Mutations need the per-start token from GET /api/session.
+- Open [**Route workspace file access through safe-fs**](../skills/practice-route-workspace-file-access-through-safe-fs.md) — serve, the CLI, and skill bundles share safe-fs.ts for link-refusing reads and atomic writes.
+- Open [**Web routes and API resolve plans by composite {id}--{slug} directory name, not numeric id alone**](practice-web-routes-and-api-resolve-plans-by-composite-id-slug-directory-name-not-numeric.md) — The serve API and SPA router use the composite {id}--{slug} directory name as the routing key. Numeric-only URLs 404. The numeric id is display/sort only.
 ### #web
 - Open [**Serve SPA has two sanctioned workspace mutations; self-review writes nothing**](practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files.md) — Archive moves done plans into archive/. Config writes overwrite one existing allowlisted file. Self-review spawns a process but writes no files.
 - Open [**Plan Detail: blueprint markdown section is distinct from the tasks-frontmatter Tasks tab**](practice-plan-detail-blueprint-markdown-vs-tasks-frontmatter.md) — Four data sources feed the Plan Detail tabs; the blueprint prose and tasks-frontmatter rendering must not be conflated
@@ -52,10 +57,6 @@ _None._
 ### #derivation
 - Open [**The blueprint parser is bounded to its own section**](map-parseblueprintphases-slices-blueprint-section-to-end-of-document.md) — parseBlueprintPhases reads from ## Execution Blueprint only as far as the next peer ## heading, so an appended ## Execution Summary cannot contribute task references to the last phase.
 - Open [**One blueprint parser serves the viewer, the validator, and execution**](map-phase-derivation-is-implemented-twice-viewer-path-and-execution-path.md) — parseBlueprintPhases lives once in src/skill-scripts/shared/blueprint-parse.ts and serves the viewer, the validator, and execution. Only inferPhases, the no-blueprint fallback, is viewer-only.
-### #security
-- Open [**Serve guards every request; mutations need a session token**](practice-serve-request-security-model.md) — guardRequest checks Host and origin. Mutations need the per-start token from GET /api/session.
-- Open [**Route workspace file access through safe-fs**](../skills/practice-route-workspace-file-access-through-safe-fs.md) — serve, the CLI, and skill bundles share safe-fs.ts for link-refusing reads and atomic writes.
-- Open [**Web routes and API resolve plans by composite {id}--{slug} directory name, not numeric id alone**](practice-web-routes-and-api-resolve-plans-by-composite-id-slug-directory-name-not-numeric.md) — The serve API and SPA router use the composite {id}--{slug} directory name as the routing key. Numeric-only URLs 404. The numeric id is display/sort only.
 ### #archive
 - Open [**src/serve/archive.ts — archivePlan() operation**](map-src-serve-archive-ts-archiveplan-operation.md) — Guarded discriminated-result function: validates plan exists, is under plans/, is in derived done state, then does atomic fs.rename into archive/.
 - Open [**Archive UI control — confirmation-gated Archive button on done plans**](../web/ui/map-archive-ui-control-confirmation-gated-archive-button-on-done-plans.md) — Done plans get an Archive button wired to ArchivePlanModal; POST /api/plans/:id/archive triggers SSE-driven UI refresh.
@@ -71,6 +72,10 @@ _None._
 ### #execution-blueprint
 - Open [**Plan Detail: blueprint markdown section is distinct from the tasks-frontmatter Tasks tab**](practice-plan-detail-blueprint-markdown-vs-tasks-frontmatter.md) — Four data sources feed the Plan Detail tabs; the blueprint prose and tasks-frontmatter rendering must not be conflated
 - Open [**Phase is reserved for execution blueprint task groups**](../conventions/practice-phase-reserved-for-blueprint-task-groups.md) — "Phase" means parallel task batches in the blueprint. The three workflow stages are "steps", never "phases".
+### #init
+- Open [**Workspace tracking is project-owned except local configuration and runtime output**](../git/practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md) — Projects choose whether to track plans and authored workspace files, while init ignores machine-local config.yaml, review artifacts, and runtime output.
+- Open [**Review gate artifacts are git-ignored by a workspace-root .gitignore**](../git/practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore.md) — init ships .ai/strikethroo/.gitignore covering plans/*/review/ and archive/*/review/, keeping reviewer output out of git and its own diff.
+- Open [**Init refresh: a kept file keeps its old baseline**](../cli/practice-init-refresh-kept-file-keeps-its-old-baseline.md) — copyCommonTemplates records the previous hash for a kept config file, so the next refresh asks again.
 ### #mutation
 - Open [**Serve SPA has two sanctioned workspace mutations; self-review writes nothing**](practice-serve-layer-mutation-invariant-archive-endpoint-is-the-only-route-that-writes-workspace-files.md) — Archive moves done plans into archive/. Config writes overwrite one existing allowlisted file. Self-review spawns a process but writes no files.
 ### #parser
@@ -84,6 +89,8 @@ _None._
 - Open [**Plan Detail: blueprint markdown section is distinct from the tasks-frontmatter Tasks tab**](practice-plan-detail-blueprint-markdown-vs-tasks-frontmatter.md) — Four data sources feed the Plan Detail tabs; the blueprint prose and tasks-frontmatter rendering must not be conflated
 ### #plan-id
 - Open [**Web routes and API resolve plans by composite {id}--{slug} directory name, not numeric id alone**](practice-web-routes-and-api-resolve-plans-by-composite-id-slug-directory-name-not-numeric.md) — The serve API and SPA router use the composite {id}--{slug} directory name as the routing key. Numeric-only URLs 404. The numeric id is display/sort only.
+### #profiles
+- Open [**Strikethroo profile packages tolerate inert package-root extras**](practice-strikethroo-profile-packages-tolerate-inert-package-root-extras.md) — validateProfilePackage scopes to profile.yaml plus config/; entries at the package root are accepted and are never copied, hash-tracked, or executed.
 ### #project
 - Open [**GET /api/capabilities returns project name and path via deriveProject()**](map-get-api-capabilities-returns-project-name-and-path-via-deriveproject.md) — The capabilities endpoint exposes { selfReview, project: { name, path } }. deriveProject(root) resolves the project directory two levels up from the .ai/strikethroo root.
 ### #routing
@@ -103,3 +110,5 @@ _None._
 - Open [**Playwright e2e suites flake under full-suite parallelism due to CPU contention**](../testing/practice-playwright-e2e-suites-flake-under-full-suite-parallelism-due-to-cpu-contention.md) — Under default workers, parallel Playwright/Chromium processes starve each other; random tests timeout. Run --workers=2 to prove genuine green.
 - Open [**window.__stRevalidationCount — Playwright observability hook for SSE-driven revalidation**](../testing/map-window-strevalidationcount-playwright-observability-hook-for-sse-driven-revalidation.md) — Deliberately-shipped window counter that Playwright e2e tests read to verify live-data revalidation fired after an SSE change event.
 - Open [**E2e tests must use stable semantic selectors, not Tailwind utility class names**](../testing/practice-e2e-tests-must-use-stable-semantic-selectors-not-tailwind-utility-class-names.md) — Playwright e2e assertions must target role, text, aria-*, or data-testid — never Tailwind utility class names, which change during styling iterations.
+### #validation
+- Open [**Strikethroo profile packages tolerate inert package-root extras**](practice-strikethroo-profile-packages-tolerate-inert-package-root-extras.md) — validateProfilePackage scopes to profile.yaml plus config/; entries at the package root are accepted and are never copied, hash-tracked, or executed.

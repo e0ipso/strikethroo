@@ -12,7 +12,7 @@ import { isIP } from 'net';
 import { init } from './index';
 import { InitOptions, UpdateOptions } from './types';
 import { resolveWorkspaceRoot, isResolveError } from './serve/root';
-import { startServer, defaultAssetsDir } from './serve/server';
+import { startServer, defaultAssetsDir, parsePublicUrls } from './serve/server';
 import { exportProfile } from './export-profile';
 import { validateWorkspace } from './validation/workspace';
 import { Finding } from './validation/types';
@@ -106,6 +106,21 @@ exportCommand
     }
   });
 
+interface ServeCliOptions {
+  host: string;
+  port: string;
+  open: boolean;
+  workspace?: string;
+  publicUrl?: string[];
+  readOnly?: boolean;
+}
+
+/** Commander collector: a repeatable option whose values may be comma lists. */
+const collectList = (value: string, previous: string[] = []): string[] => [
+  ...previous,
+  ...value.split(','),
+];
+
 program
   .command('serve')
   .description('Serve the workspace as a local web app (static SPA, JSON API, SSE change stream)')
@@ -113,12 +128,23 @@ program
   .option('--port <n>', 'port to bind', '4317')
   .option('--no-open', 'do not open the browser on start')
   .option('--workspace <path>', 'override workspace root discovery')
-  .action(async (opts: { host: string; port: string; open: boolean; workspace?: string }) => {
+  .option(
+    '--public-url <url>',
+    'origin a reverse proxy serves the viewer on (repeatable or comma-separated)',
+    collectList
+  )
+  .option('--read-only', 'disable archive, config edits, and self-review launch')
+  .action(async (opts: ServeCliOptions) => {
     try {
       if (isIP(opts.host) === 0) {
         console.error(
           `Invalid --host "${opts.host}": use an IP address such as 127.0.0.1, 0.0.0.0, or ::.`
         );
+        process.exit(1);
+      }
+      const publicUrls = parsePublicUrls(opts.publicUrl ?? []);
+      if (!publicUrls.ok) {
+        console.error(publicUrls.error);
         process.exit(1);
       }
       const resolved = resolveWorkspaceRoot({ workspace: opts.workspace });
@@ -133,16 +159,24 @@ program
         port: Number(opts.port),
         open: opts.open,
         assetsDir: defaultAssetsDir(),
+        publicUrls: publicUrls.origins,
+        readOnly: opts.readOnly === true,
       });
-      console.log(`Serving ${handle.url}`);
-      if (handle.exposed) {
+      console.log(`Serving ${handle.url}${handle.readOnly ? ' (read-only)' : ''}`);
+      // A public URL means a proxy already exposes the viewer, whatever the bind.
+      if (handle.exposed || publicUrls.origins.length > 0) {
         console.error(
           chalk.yellow.bold('\nWarning: the viewer is reachable from the network.\n') +
             chalk.yellow(
-              'Anyone who can reach this address and port can read the workspace and edit its\n' +
-                'hooks, templates, and config.yaml, which agents run with their permissions.\n' +
+              (handle.readOnly
+                ? 'Anyone who can reach this address and port can read the workspace.\n'
+                : 'Anyone who can reach this address and port can read the workspace and edit its\n' +
+                  'hooks, templates, and config.yaml, which agents run with their permissions.\n') +
                 'Use it only on a trusted network, such as a VM host-only bridge.\n' +
-                `Reachable at: ${handle.reachableUrls.join(', ')}\n`
+                `Reachable at: ${[
+                  ...(handle.exposed ? handle.reachableUrls : []),
+                  ...publicUrls.origins,
+                ].join(', ')}\n`
             )
         );
       }

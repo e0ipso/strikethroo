@@ -31,8 +31,8 @@ _None._
 - Open [**Optional-by-absence pattern: new workspace files do not bump schema version**](practice-optional-by-absence-new-files-absent-means-feature-off.md) — CODE_REVIEW.md and self-review-v2.xsd are both optional by absence; their presence/absence gates the feature. v4 workspaces keep working unchanged.
 ### #config-yaml
 - Open [**config.yaml is local, and empty means unconfigured**](../skills/practice-config-yaml-is-local-and-empty-means-unconfigured.md) — Init tracks config.yaml but gitignores it. hasYamlContent is duplicated in the SPA; change both.
+- Open [**Never use reasoning effort max in default routing profiles**](../skills/practice-never-use-reasoning-effort-max-in-default-routing-profiles.md) — The shipped config template caps reasoning effort at xhigh, for routing targets and harness cli_args defaults alike. Never max.
 - Open [**Customize editors keep draft, baseline, and disk apart**](../web/editor/practice-config-editors-keep-draft-baseline-and-disk-apart.md) — configYaml.ts is the only YAML boundary; draftState.ts stops revalidation from overwriting typing.
-- Open [**Review gate runs only on explicit opt-in**](practice-review-gate-runs-only-on-explicit-opt-in.md) — code_review.enabled must be boolean true. Anything else skips before any other check.
 ### #design-thesis
 - Open [**Design thesis: configuration is Markdown, guarantees are compiled**](practice-design-thesis-markdown-is-negotiable-guarantees-are-compiled.md) — Hooks and templates are editable Markdown. Rules a user must not loosen live in TypeScript.
 ### #dispatch

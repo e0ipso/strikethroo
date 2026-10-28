@@ -21,7 +21,13 @@ import { useState } from 'react';
 import { Chrome, type ChromeTab } from '../../components/Chrome';
 import { StatusPill, Button, type StatusKind } from '../../components/primitives';
 import { ErrorSurface, LoadingSurface } from '../../components/StateSurface';
-import { usePlanDetail, useCapabilities, launchSelfReview, type PlanDetail } from '../../data/api';
+import {
+  usePlanDetail,
+  useCapabilities,
+  isReadOnly,
+  launchSelfReview,
+  type PlanDetail,
+} from '../../data/api';
 import { humanizeSlug, stripIdPrefix } from '../derive';
 import { copyToClipboard } from '../../vendor/utils/clipboard';
 import { useModal, PlanModals } from '../modals';
@@ -41,6 +47,7 @@ function LoadedRoute({ detail }: { detail: PlanDetail }) {
   const [activeTab, setActiveTab] = useState<number>(TAB_PLAN);
   const modal = useModal();
   const caps = useCapabilities();
+  const readOnly = isReadOnly(caps);
   const [launching, setLaunching] = useState(false);
 
   const slug = stripIdPrefix(detail.name);
@@ -101,7 +108,7 @@ function LoadedRoute({ detail }: { detail: PlanDetail }) {
         right={
           <>
             <StatusPill kind={detail.state as StatusKind} />
-            {detail.state === 'drafted' && (
+            {detail.state === 'drafted' && !readOnly && (
               <Button
                 kind="outline"
                 size="sm"

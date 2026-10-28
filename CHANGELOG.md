@@ -1,3 +1,39 @@
+## [4.4.2](https://github.com/e0ipso/strikethroo/compare/v4.4.1...v4.4.2) (2026-10-27)
+
+### Bug Fixes
+
+* **config:** use xhigh instead of max effort in the template ([#146](https://github.com/e0ipso/strikethroo/issues/146)) ([0651d75](https://github.com/e0ipso/strikethroo/commit/0651d7538153212378c14fd2bc909f79a7176dd2)), closes [#145](https://github.com/e0ipso/strikethroo/issues/145)
+
+## [4.4.1](https://github.com/e0ipso/strikethroo/compare/v4.4.0...v4.4.1) (2026-10-27)
+
+### Bug Fixes
+
+* close viewer and profile review gaps ([#144](https://github.com/e0ipso/strikethroo/issues/144)) ([387813c](https://github.com/e0ipso/strikethroo/commit/387813cc9bede3b8659a377e9929dcfcaf50854c))
+
+## [4.4.0](https://github.com/e0ipso/strikethroo/compare/v4.3.0...v4.4.0) (2026-10-27)
+
+### Features
+
+* **serve:** support public proxy URLs ([ab6355c](https://github.com/e0ipso/strikethroo/commit/ab6355c82315308bf32e200df5d7d2d71ade1a16))
+
+## [4.3.0](https://github.com/e0ipso/strikethroo/compare/v4.2.3...v4.3.0) (2026-10-27)
+
+### Features
+
+* **serve:** add a read-only mode ([2b44262](https://github.com/e0ipso/strikethroo/commit/2b442629cec54b5dcc32f6952a4175c43c332195))
+
+## [4.2.3](https://github.com/e0ipso/strikethroo/compare/v4.2.2...v4.2.3) (2026-10-27)
+
+### Bug Fixes
+
+* tighten viewer, init and profile handling ([#128](https://github.com/e0ipso/strikethroo/issues/128)) ([29974ef](https://github.com/e0ipso/strikethroo/commit/29974ef790136cba258508106a98edf670a66e7f)), closes [#125](https://github.com/e0ipso/strikethroo/issues/125)
+
+## [4.2.2](https://github.com/e0ipso/strikethroo/compare/v4.2.1...v4.2.2) (2026-10-27)
+
+### Bug Fixes
+
+* update default routing and reviewer models ([fce8493](https://github.com/e0ipso/strikethroo/commit/fce8493fa1c502890475c8b8116632b295207582))
+
 ## [4.2.1](https://github.com/e0ipso/strikethroo/compare/v4.2.0...v4.2.1) (2026-10-27)
 
 ### Bug Fixes

@@ -152,28 +152,23 @@ const SKIPPED_SECTIONS: ReadonlyArray<readonly [string, string]> = [
 ];
 
 const stripCommentsCdataAndPis = (xml: string): string => {
-  let kept = '';
+  const kept: string[] = [];
   let index = 0;
-  while (index < xml.length) {
-    let next = Infinity;
-    let section: readonly [string, string] | undefined;
-    for (const candidate of SKIPPED_SECTIONS) {
-      const at = xml.indexOf(candidate[0], index);
-      if (at !== -1 && at < next) {
-        next = at;
-        section = candidate;
-      }
-    }
+  let start = 0;
+  while ((index = xml.indexOf('<', index)) !== -1) {
+    const section = SKIPPED_SECTIONS.find(([opener]) => xml.startsWith(opener, index));
     if (section === undefined) {
-      kept += xml.slice(index);
-      break;
+      index += 1;
+      continue;
     }
-    kept += xml.slice(index, next);
+    kept.push(xml.slice(start, index));
     const [opener, closer] = section;
-    const end = xml.indexOf(closer, next + opener.length);
+    const end = xml.indexOf(closer, index + opener.length);
     index = end === -1 ? xml.length : end + closer.length;
+    start = index;
   }
-  return kept;
+  kept.push(xml.slice(start));
+  return kept.join('');
 };
 
 const FORBIDDEN_DECLARATION_RE = /<!(DOCTYPE|ENTITY|ELEMENT|ATTLIST|NOTATION)\b/i;

@@ -148,10 +148,13 @@ export class EventsHub {
   handleConnection(req: http.IncomingMessage, res: http.ServerResponse): void {
     // An `<img src="/api/events">` in rendered Markdown or a mermaid image node
     // would otherwise hold a never-ending stream per tag and exhaust the
-    // browser's per-host connections. `EventSource` sends `Sec-Fetch-Dest:
-    // empty`; non-browser clients send no fetch metadata at all.
+    // browser's per-host connections. Fetch metadata is absent on HTTP LAN
+    // origins, so every client must explicitly request the SSE media type.
     const dest = req.headers['sec-fetch-dest'];
-    if (dest !== undefined && dest !== 'empty') {
+    const acceptsEvents = (req.headers.accept ?? '')
+      .split(',')
+      .some(value => value.split(';', 1)[0]?.trim().toLowerCase() === 'text/event-stream');
+    if (!acceptsEvents || (dest !== undefined && dest !== 'empty')) {
       const body = JSON.stringify({ error: 'The event stream is for EventSource clients only.' });
       res.writeHead(406, {
         'Content-Type': 'application/json; charset=utf-8',

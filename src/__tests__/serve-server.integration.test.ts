@@ -28,6 +28,7 @@ import {
   CAPABILITY_HEADER,
   SECURITY_HEADERS,
   hostAddressesFor,
+  parsePublicUrls,
 } from '../serve/server';
 import { resolveWorkspaceRoot, isResolveError } from '../serve/root';
 import { EventsHub, MAX_SSE_CLIENTS } from '../serve/events';
@@ -174,6 +175,25 @@ describe('serve server: read-only JSON API', () => {
       headers: { 'Sec-Fetch-Dest': 'image', 'Sec-Fetch-Site': 'same-origin' },
     });
     expect(res.status).toBe(406);
+    expect(handle.events.clientCount).toBe(0);
+  });
+
+  it('refuses event-stream images even without Fetch Metadata headers', async () => {
+    const status = await new Promise<number>((resolve, reject) => {
+      const req = http.get(
+        `${handle.url}/api/events`,
+        {
+          headers: { Accept: 'image/avif,image/webp,image/*,*/*;q=0.8' },
+        },
+        res => {
+          resolve(res.statusCode ?? 0);
+          res.destroy();
+          req.destroy();
+        }
+      );
+      req.on('error', reject);
+    });
+    expect(status).toBe(406);
     expect(handle.events.clientCount).toBe(0);
   });
 
@@ -608,6 +628,214 @@ describe('serve server: mutation media type and body rules', () => {
   });
 });
 
+// `--public-url`: the reverse-proxy opt-in widens the Host and Origin sets by
+// exactly the configured origins and nothing else.
+describe('serve server: public URLs behind a reverse proxy', () => {
+  const PUBLIC = 'https://viewer.example.com';
+
+  it('normalises valid values to origins and rejects anything with more than an origin', () => {
+    expect(
+      parsePublicUrls([
+        'https://Viewer.Example.com/',
+        'https://viewer.example.com:443',
+        ' http://viewer.example.com:8080 ',
+        'http://[::1]:9000',
+        'https://bücher.example',
+      ])
+    ).toEqual({
+      ok: true,
+      origins: [
+        'https://viewer.example.com',
+        'http://viewer.example.com:8080',
+        'http://[::1]:9000',
+        'https://xn--bcher-kva.example',
+      ],
+    });
+    expect(parsePublicUrls([])).toEqual({ ok: true, origins: [] });
+
+    for (const bad of [
+      '',
+      'viewer.example.com',
+      '//viewer.example.com',
+      'https:viewer.example.com',
+      'ftp://viewer.example.com',
+      'https://',
+      'https://viewer.example.com/app',
+      'https://viewer.example.com/?',
+      'https://viewer.example.com?x=1',
+      'https://viewer.example.com#top',
+      'https://user:pass@viewer.example.com',
+    ]) {
+      const result = parsePublicUrls([PUBLIC, bad]);
+      expect(result.ok, bad).toBe(false);
+      if (!result.ok) expect(result.error, bad).toContain('Invalid --public-url value 2:');
+    }
+  });
+
+  it('refuses to start on an invalid public URL', async () => {
+    await expect(
+      startServer({
+        root: FIXTURE_ROOT,
+        port: 0,
+        open: false,
+        assetsDir: ASSETS_DIR,
+        publicUrls: ['https://viewer.example.com/app'],
+      })
+    ).rejects.toThrow('Invalid --public-url');
+  });
+
+  it('rejects startup public URLs without exposing secrets', async () => {
+    for (const secretUrl of [
+      'https://review-user:dummy-password@viewer.example.com',
+      'https://viewer.example.com?access_token=dummy-token',
+      'https://review-user:malformed-password@[',
+    ]) {
+      await expect(
+        startServer({ root: FIXTURE_ROOT, port: 0, open: false, publicUrls: [PUBLIC, secretUrl] })
+      ).rejects.toThrow(
+        /^Invalid --public-url value 2: (?!.*(?:review-user|password|dummy-token))/
+      );
+    }
+  });
+
+  it('keeps read-only refusals on an allowed public origin', async () => {
+    const handle = await startServer({
+      root: FIXTURE_ROOT,
+      port: 0,
+      open: false,
+      publicUrls: [PUBLIC],
+      readOnly: true,
+    });
+    const headers = {
+      Host: 'viewer.example.com',
+      Origin: PUBLIC,
+      'Sec-Fetch-Site': 'same-origin',
+      'Content-Type': 'application/json',
+      [CAPABILITY_HEADER]: handle.capability,
+    };
+    try {
+      const caps = await request(handle, { method: 'GET', path: '/api/capabilities', headers });
+      expect(caps.status).toBe(200);
+      expect(JSON.parse(caps.body).readOnly).toBe(true);
+      for (const [method, route] of [
+        ['GET', '/api/session'],
+        ['POST', '/api/plans/38--fix-jekyll-link-baseurl/archive'],
+        ['PUT', '/api/config/hooks/PRE_PLAN'],
+        ['POST', '/api/self-review'],
+      ]) {
+        const response = await request(handle, { method, path: route, headers });
+        expect(response.status).toBe(403);
+        expect(JSON.parse(response.body).reason).toBe('read-only');
+      }
+    } finally {
+      const closed = new Promise<void>(resolve => handle.server.close(() => resolve()));
+      handle.server.closeAllConnections();
+      await closed;
+    }
+  });
+
+  describe('with --public-url set', () => {
+    let handle: ServeHandle;
+
+    beforeAll(async () => {
+      handle = await startServer({
+        root: FIXTURE_ROOT,
+        port: 0,
+        open: false,
+        assetsDir: ASSETS_DIR,
+        publicUrls: [PUBLIC],
+      });
+    });
+
+    afterAll(async () => {
+      const done = new Promise<void>(resolve => handle.server.close(() => resolve()));
+      handle.server.closeAllConnections();
+      await done;
+    });
+
+    const session = (headers: Record<string, string>): Promise<FullResponse> =>
+      request(handle, { method: 'GET', path: '/api/session', headers });
+
+    it('serves the public Host and still refuses other hostnames', async () => {
+      const get = async (host: string, target = '/api/plans'): Promise<number> =>
+        (await request(handle, { method: 'GET', path: target, headers: { Host: host } })).status;
+
+      expect(await get('viewer.example.com')).toBe(200);
+      expect(await get('VIEWER.example.com', '/')).toBe(200);
+      expect(await get(`127.0.0.1:${handle.port}`)).toBe(200);
+      expect(await get('other.example.com')).toBe(421);
+      expect(await get('viewer.example.com:8443')).toBe(421);
+      expect(await get(`viewer.example.com.evil.example`)).toBe(421);
+      expect(handle.exposed).toBe(false);
+    });
+
+    it('accepts exactly the public origin on the session bootstrap', async () => {
+      const ok = await session({
+        Host: 'viewer.example.com',
+        Origin: PUBLIC,
+        'Sec-Fetch-Site': 'same-origin',
+      });
+      expect(ok.status).toBe(200);
+      expect(JSON.parse(ok.body)).toEqual({ token: handle.capability });
+
+      for (const origin of [
+        'http://viewer.example.com',
+        'https://viewer.example.com:8443',
+        'https://other.example.com',
+        `https://127.0.0.1:${handle.port}`,
+      ]) {
+        const res = await session({ Host: 'viewer.example.com', Origin: origin });
+        expect(res.status, origin).toBe(403);
+        expect(res.body, origin).not.toContain(handle.capability);
+      }
+    });
+
+    it('opens the event stream on the public Host', async () => {
+      const status = await new Promise<{ code: number; type?: string }>((resolve, reject) => {
+        const addr = boundAddress(handle);
+        const req = http.request(
+          {
+            host: addr.address,
+            port: addr.port,
+            path: '/api/events',
+            headers: { Host: 'viewer.example.com', Accept: 'text/event-stream' },
+          },
+          res => {
+            resolve({ code: res.statusCode ?? 0, type: res.headers['content-type'] });
+            res.destroy();
+          }
+        );
+        req.on('error', reject);
+        req.end();
+      });
+      expect(status.code).toBe(200);
+      expect(status.type).toContain('text/event-stream');
+    });
+  });
+
+  it('accepts the http origin only when it is listed too', async () => {
+    const handle = await startServer({
+      root: FIXTURE_ROOT,
+      port: 0,
+      open: false,
+      assetsDir: ASSETS_DIR,
+      publicUrls: [PUBLIC, 'http://viewer.example.com'],
+    });
+    try {
+      for (const origin of [PUBLIC, 'http://viewer.example.com']) {
+        const res = await request(handle, {
+          method: 'GET',
+          path: '/api/session',
+          headers: { Host: 'viewer.example.com', Origin: origin },
+        });
+        expect(res.status, origin).toBe(200);
+      }
+    } finally {
+      await new Promise<void>(resolve => handle.server.close(() => resolve()));
+    }
+  });
+});
+
 // The per-start capability and the browser-origin policy on the three mutation
 // routes. A disposable workspace again, with the self-review launcher stubbed
 // so a rejected request is proven to launch nothing.
@@ -859,6 +1087,157 @@ describe('serve server: mutation capability and origin policy', () => {
   });
 });
 
+// `--read-only`: every mutation and the session bootstrap are refused with a
+// typed error, even for a request that would otherwise be authorized, while
+// the read API answers exactly as a writable server on the same workspace.
+describe('serve server: read-only mode', () => {
+  let root: string;
+  let handle: ServeHandle;
+  let writable: ServeHandle;
+  let launches: string[][];
+
+  const start = (readOnly: boolean): Promise<ServeHandle> =>
+    startServer({
+      root,
+      port: 0,
+      open: false,
+      assetsDir: os.tmpdir(),
+      debounceMs: 50,
+      readOnly,
+      selfReviewDeps: {
+        available: () => true,
+        spawn: (_cmd, args) => {
+          launches.push(args);
+          const child = new EventEmitter() as EventEmitter & { unref: () => void };
+          child.unref = () => {};
+          process.nextTick(() => child.emit('spawn'));
+          return child;
+        },
+      },
+    });
+
+  beforeEach(async () => {
+    launches = [];
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'serve-read-only-test-'));
+    root = path.join(tmpRoot, '.ai', 'strikethroo');
+    fs.cpSync(FIXTURE_ROOT, root, { recursive: true });
+    fs.mkdirSync(path.join(root, 'plans', '12--example', 'tasks'), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, 'plans', '12--example', 'plan-12--example.md'),
+      '---\nid: 12\nsummary: "Plan 12"\ncreated: 2026-05-28\n---\n# Plan 12\n'
+    );
+    fs.writeFileSync(
+      path.join(root, 'plans', '12--example', 'tasks', '01--first.md'),
+      '---\nid: 1\ngroup: "g"\ndependencies: []\nstatus: "completed"\nskills: [typescript]\n---\n# Task 1\n'
+    );
+    handle = await start(true);
+    writable = await start(false);
+  });
+
+  afterEach(async () => {
+    for (const h of [handle, writable]) {
+      const closed = new Promise<void>(resolve => h.server.close(() => resolve()));
+      h.server.closeAllConnections();
+      await closed;
+    }
+    fs.rmSync(path.resolve(root, '..', '..'), { recursive: true, force: true });
+  });
+
+  const expectReadOnly = (res: FullResponse): void => {
+    expect(res.status).toBe(403);
+    expect(JSON.parse(res.body)).toEqual({
+      error: 'This viewer is read-only.',
+      reason: 'read-only',
+    });
+    expect(res.body).not.toContain(handle.capability);
+  };
+
+  it('reports read-only in /api/capabilities and issues no session token', async () => {
+    expect(handle.readOnly).toBe(true);
+    const caps = JSON.parse(
+      (await request(handle, { method: 'GET', path: '/api/capabilities' })).body
+    );
+    expect(caps.readOnly).toBe(true);
+    const writableCaps = JSON.parse(
+      (await request(writable, { method: 'GET', path: '/api/capabilities' })).body
+    );
+    expect(writableCaps.readOnly).toBe(false);
+
+    expectReadOnly(await request(handle, { method: 'GET', path: '/api/session' }));
+  });
+
+  it('refuses every mutation route even with a valid token, touching nothing', async () => {
+    const hookFile = path.join(root, 'config', 'hooks', 'PRE_PLAN.md');
+    const configFile = path.join(root, 'config', 'config.yaml');
+    const hookBefore = fs.readFileSync(hookFile, 'utf8');
+    const configBefore = fs.readFileSync(configFile, 'utf8');
+    const authorized = {
+      'Content-Type': 'application/json',
+      [CAPABILITY_HEADER]: handle.capability!,
+      Origin: `http://127.0.0.1:${boundAddress(handle).port}`,
+      'Sec-Fetch-Site': 'same-origin',
+    };
+    const mutations = [
+      { method: 'POST', path: '/api/plans/12--example/archive', body: '{}' },
+      {
+        method: 'PUT',
+        path: '/api/config/hooks/PRE_PLAN',
+        body: JSON.stringify({ content: 'overwritten' }),
+      },
+      {
+        method: 'PUT',
+        path: '/api/config/workspace/config',
+        body: JSON.stringify({ content: 'overwritten: true\n' }),
+      },
+      {
+        method: 'POST',
+        path: '/api/self-review',
+        body: JSON.stringify({ path: 'plans/12--example/plan-12--example.md' }),
+      },
+    ];
+    for (const m of mutations) {
+      expectReadOnly(await request(handle, { ...m, headers: authorized }));
+    }
+
+    expect(fs.readFileSync(hookFile, 'utf8')).toBe(hookBefore);
+    expect(fs.readFileSync(configFile, 'utf8')).toBe(configBefore);
+    expect(fs.existsSync(path.join(root, 'plans', '12--example'))).toBe(true);
+    expect(fs.existsSync(path.join(root, 'archive', '12--example'))).toBe(false);
+    expect(launches).toEqual([]);
+  });
+
+  it('answers every read route exactly as a writable server does', async () => {
+    for (const route of [
+      '/api/plans',
+      '/api/plans/12--example',
+      '/api/plans/38--fix-jekyll-link-baseurl',
+      '/api/config',
+    ]) {
+      const ro = await request(handle, { method: 'GET', path: route });
+      const rw = await request(writable, { method: 'GET', path: route });
+      expect(ro.status, route).toBe(200);
+      expect(ro.body, route).toBe(rw.body);
+    }
+  });
+
+  it('streams change events on /api/events', async () => {
+    let received = '';
+    const req = http.get(
+      `${handle.url}/api/events`,
+      { headers: { Accept: 'text/event-stream' } },
+      res => {
+        expect(res.statusCode).toBe(200);
+        res.on('data', chunk => (received += chunk.toString()));
+      }
+    );
+    await delay(120);
+    fs.writeFileSync(path.join(root, 'plans', '12--example', 'scratch.md'), 'change\n');
+    await delay(400);
+    req.destroy();
+    expect(received).toContain('event: changed');
+  });
+});
+
 describe('serve server: SSE change stream coalescing', () => {
   let handle: ServeHandle;
   const scratchFile = path.join(FIXTURE_ROOT, 'plans', '.sse-integration-tmp.md');
@@ -880,9 +1259,13 @@ describe('serve server: SSE change stream coalescing', () => {
 
   it('coalesces a burst of rapid writes into exactly one changed event', async () => {
     let received = '';
-    const req = http.get(`${handle.url}/api/events`, res => {
-      res.on('data', chunk => (received += chunk.toString()));
-    });
+    const req = http.get(
+      `${handle.url}/api/events`,
+      { headers: { Accept: 'text/event-stream' } },
+      res => {
+        res.on('data', chunk => (received += chunk.toString()));
+      }
+    );
 
     // Let the SSE connection register before mutating the workspace.
     await delay(120);
@@ -955,10 +1338,13 @@ describe('serve server: SSE admission, backpressure, and cleanup', () => {
   const connectSse = (port: number): Promise<SseClient> =>
     new Promise((resolve, reject) => {
       let data = '';
-      const req = http.get({ host: '127.0.0.1', port, path: '/api/events' }, res => {
-        res.on('data', chunk => (data += chunk.toString()));
-        resolve({ req, res, data: () => data });
-      });
+      const req = http.get(
+        { host: '127.0.0.1', port, path: '/api/events', headers: { Accept: 'text/event-stream' } },
+        res => {
+          res.on('data', chunk => (data += chunk.toString()));
+          resolve({ req, res, data: () => data });
+        }
+      );
       req.on('error', reject);
     });
 
@@ -993,7 +1379,9 @@ describe('serve server: SSE admission, backpressure, and cleanup', () => {
   // An EventSource request: real ones always carry headers, and these have
   // the fetch metadata a browser sends.
   const fakePair = (): { req: EventEmitter; res: FakeResponse } => ({
-    req: Object.assign(new EventEmitter(), { headers: { 'sec-fetch-dest': 'empty' } }),
+    req: Object.assign(new EventEmitter(), {
+      headers: { 'sec-fetch-dest': 'empty', accept: 'text/event-stream' },
+    }),
     res: new FakeResponse(),
   });
 
@@ -1073,7 +1461,9 @@ describe('serve server: SSE admission, backpressure, and cleanup', () => {
       let received = 0;
       let closed = false;
       const socket = net.connect(host.port, '127.0.0.1', () => {
-        socket.write(`GET /api/events HTTP/1.1\r\nHost: 127.0.0.1:${host.port}\r\n\r\n`);
+        socket.write(
+          `GET /api/events HTTP/1.1\r\nHost: 127.0.0.1:${host.port}\r\nAccept: text/event-stream\r\n\r\n`
+        );
         socket.pause();
       });
       socket.on('data', chunk => (received += chunk.length));

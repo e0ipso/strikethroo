@@ -1,11 +1,11 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:67d4440f10ce3cab6ed52db5005d9a38ff54120547b473ebd0882d6bb52be8d2'
-node_count: 104
+nodes_hash: 'sha256:4378fc7e02c8c307ff5d2efbb163d3351ddc4206385900a985de1a6b25c47fc2'
+node_count: 105
 ---
 # kenkeep Graph
 
-Total nodes: 104
+Total nodes: 105
 
 ## map-archive-ui-control-confirmation-gated-archive-button-on-done-plans
 
@@ -497,6 +497,15 @@ Total nodes: 104
 - **path:** release/practice-never-hand-commit-generated-skill-artifacts.md
 - **tags:** build, skills, git, gitattributes, review-gate, generated-artifacts
 - **relates_to:** practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime, map-src-skill-prompts-is-the-authored-source-of-truth-for-skill-md-content
+
+## practice-never-use-reasoning-effort-max-in-default-routing-profiles
+
+- **kind:** practice
+- **title:** Never use reasoning effort max in default routing profiles
+- **path:** skills/practice-never-use-reasoning-effort-max-in-default-routing-profiles.md
+- **tags:** execution-routing, config-yaml, reasoning-effort, defaults
+- **relates_to:** practice-task-routing-and-harness-dispatch, practice-config-yaml-is-local-and-empty-means-unconfigured
+- **derived_from:** 3c9e5246-e863-4a07-80c3-872c421a4fa3:practice:0
 
 ## practice-npm-run-lint-only-covers-ts-files-tsx-web-files-need-separate-type-check
 

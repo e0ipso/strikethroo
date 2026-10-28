@@ -510,6 +510,29 @@ describe('Profiles Integration', () => {
   });
 
   describe('source credentials', () => {
+    it('rejects malformed source URLs without printing encoded or decoded credentials', async () => {
+      for (const profile of [
+        'https://review-user:FAKE%5FSECRET@127.0.0.1:99999/p.git',
+        'https://review-user:FAKE%5FSECRET@[broken/p.git',
+      ]) {
+        const result = await init({
+          harnesses: 'claude',
+          destinationDirectory: path.join(sandbox, 'project'),
+          profile,
+        });
+        expect(result.success).toBe(false);
+        const output = [
+          result.message,
+          ...consoleLogSpy.mock.calls.flat(),
+          ...consoleErrorSpy.mock.calls.flat(),
+        ].join('\n');
+        expect(output).toContain('Profile source URL is invalid');
+        for (const secret of ['review-user', 'FAKE%5FSECRET', 'FAKE_SECRET']) {
+          expect(output).not.toContain(secret);
+        }
+      }
+    });
+
     it('keeps URL credentials out of the recorded and displayed source', () => {
       expect(redactSourceCredentials('https://user:ghp_secret@example.com/team/p.git')).toBe(
         'https://example.com/team/p.git'

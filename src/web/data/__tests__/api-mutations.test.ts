@@ -66,6 +66,18 @@ describe('api.ts mutation capability', () => {
     api = await import('../api');
   });
 
+  it('requires successful capability discovery, including after a failed refresh', () => {
+    const writable = { selfReview: false, readOnly: false };
+    expect(api.isReadOnly({ status: 'loading' })).toBe(true);
+    expect(api.isReadOnly({ status: 'error', error: new Error('unavailable') })).toBe(true);
+    expect(api.isReadOnly({ status: 'data', data: writable })).toBe(false);
+    expect(
+      api.isReadOnly({ status: 'data', data: writable, error: new Error('refresh failed') })
+    ).toBe(true);
+    expect(api.isReadOnly({ status: 'data', data: writable })).toBe(false);
+    expect(api.isReadOnly({ status: 'data', data: { selfReview: false } })).toBe(false);
+  });
+
   it('shares one bootstrap across concurrent mutations and sends the capability as JSON', async () => {
     const server = fakeServer({ tokens: ['tok-1'], answer: () => ({ status: 200 }) });
 

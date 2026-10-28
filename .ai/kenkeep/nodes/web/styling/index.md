@@ -63,7 +63,7 @@ _None._
 ### #layout
 - Open [**Apply sticky positioning to .sb sidebar to keep footer visible on all pages**](practice-apply-sticky-positioning-to-sb-sidebar-to-keep-footer-visible-on-all-pages.md) — Without sticky+100vh, .sb stretches to content height in the grid; its footer disappears below the fold on long plans.
 ### #sidebar
-- Open [**GET /api/capabilities returns project name and path via deriveProject()**](../../serve/map-get-api-capabilities-returns-project-name-and-path-via-deriveproject.md) — The capabilities endpoint exposes { selfReview, project: { name, path } }. deriveProject(root) resolves the project directory two levels up from the .ai/strikethroo root.
+- Open [**GET /api/capabilities returns project name and path via deriveProject()**](../../serve/map-get-api-capabilities-returns-project-name-and-path-via-deriveproject.md) — The capabilities endpoint exposes { selfReview, readOnly, project: { name, path } }. deriveProject(root) resolves the project directory two levels up from the .ai/strikethroo root.
 - Open [**Apply sticky positioning to .sb sidebar to keep footer visible on all pages**](practice-apply-sticky-positioning-to-sb-sidebar-to-keep-footer-visible-on-all-pages.md) — Without sticky+100vh, .sb stretches to content height in the grid; its footer disappears below the fold on long plans.
 ### #styles
 - Open [**SPA vendor styles: five retained CSS files under src/web/vendor/styles/**](map-spa-vendor-styles-five-retained-css-files-under-src-web-vendor-styles.md) — After the Plan 102 Tailwind migration, the CSS foundation is exactly five files: index.css, fonts.css, tokens.css, base.css, mermaid.css. All component/screen CSS deleted.

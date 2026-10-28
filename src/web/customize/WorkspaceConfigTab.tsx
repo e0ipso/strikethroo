@@ -24,7 +24,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Chip } from '../components/primitives';
-import { saveConfigFile, type ConfigFile } from '../data/api';
+import { saveConfigFile, useReadOnly, type ConfigFile } from '../data/api';
 import { cn } from '../vendor/utils/cn';
 import { SUPPORTED_HARNESSES, type Harness } from '../../types';
 import { DiskConflictBanner, RefreshErrorBanner } from './DiskConflictBanner';
@@ -388,6 +388,7 @@ function ConfigForm({ file, readError }: { file: ConfigFile; readError?: Error }
     view.kind === 'parsed' ? seedDraft(view.disk) : null
   );
   const [save, setSave] = useState<SaveState>({ phase: 'idle' });
+  const readOnly = useReadOnly();
 
   useEffect(() => {
     setState(prev => {
@@ -470,7 +471,12 @@ function ConfigForm({ file, readError }: { file: ConfigFile; readError?: Error }
           onKeep={onKeepEditing}
         />
       )}
-      <div data-testid="workspace-config-form" className="flex flex-col gap-5 p-7">
+      {/* A disabled fieldset makes the whole form inert on a read-only server. */}
+      <fieldset
+        data-testid="workspace-config-form"
+        disabled={readOnly}
+        className="flex min-w-0 flex-col gap-5 p-7"
+      >
         <div className="max-w-3xl font-sans text-sm leading-relaxed text-ink-2">
           <p>
             <Chip>{file.relPath}</Chip> is the workspace&apos;s single structured configuration
@@ -662,22 +668,24 @@ function ConfigForm({ file, readError }: { file: ConfigFile; readError?: Error }
           </ul>
         )}
 
-        <div className="flex items-center gap-3">
-          <Button kind="primary" onClick={onSave}>
-            Save configuration
-          </Button>
-          <span
-            data-testid="workspace-config-status"
-            className={cn(
-              'font-sans text-sm text-ink-3',
-              dirty && !saving && save.phase !== 'error' && 'font-semibold text-ink-2'
-            )}
-            role={save.phase === 'error' ? 'alert' : undefined}
-          >
-            {status}
-          </span>
-        </div>
-      </div>
+        {!readOnly && (
+          <div className="flex items-center gap-3">
+            <Button kind="primary" onClick={onSave}>
+              Save configuration
+            </Button>
+            <span
+              data-testid="workspace-config-status"
+              className={cn(
+                'font-sans text-sm text-ink-3',
+                dirty && !saving && save.phase !== 'error' && 'font-semibold text-ink-2'
+              )}
+              role={save.phase === 'error' ? 'alert' : undefined}
+            >
+              {status}
+            </span>
+          </div>
+        )}
+      </fieldset>
     </>
   );
 }

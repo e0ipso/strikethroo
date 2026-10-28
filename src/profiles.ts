@@ -227,6 +227,14 @@ export async function resolveProfileSource(value: string): Promise<ResolvedProfi
     return { kind: 'git', location: `https://github.com/${value}.git` };
   }
 
+  if (/^[a-z][a-z\d+.-]*:\/\//i.test(value)) {
+    try {
+      new URL(value);
+    } catch {
+      throw new ProfileError('Profile source URL is invalid. Check its scheme, host, and port.');
+    }
+  }
+
   return { kind: 'git', location: value };
 }
 

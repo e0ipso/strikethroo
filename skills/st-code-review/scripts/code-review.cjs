@@ -3702,26 +3702,32 @@ var countCommentsWithXmllint = async (xmlFile, timeoutMs = XMLLINT_TIMEOUT_MS) =
   const answer = run2.stdout.trim();
   return /^\d+(\.0+)?$/.test(answer) ? Number(answer) : null;
 };
-var stripCommentsAndCdata = (xml) => {
-  let kept = "";
+var SKIPPED_SECTIONS = [
+  ["<!--", "-->"],
+  ["<![CDATA[", "]]>"],
+  ["<?", "?>"]
+];
+var stripCommentsCdataAndPis = (xml) => {
+  const kept = [];
   let index = 0;
-  while (index < xml.length) {
-    const comment = xml.indexOf("<!--", index);
-    const cdata = xml.indexOf("<![CDATA[", index);
-    const next = Math.min(comment === -1 ? Infinity : comment, cdata === -1 ? Infinity : cdata);
-    if (next === Infinity) {
-      kept += xml.slice(index);
-      break;
+  let start = 0;
+  while ((index = xml.indexOf("<", index)) !== -1) {
+    const section = SKIPPED_SECTIONS.find(([opener2]) => xml.startsWith(opener2, index));
+    if (section === void 0) {
+      index += 1;
+      continue;
     }
-    kept += xml.slice(index, next);
-    const [opener, closer] = next === comment ? ["<!--", "-->"] : ["<![CDATA[", "]]>"];
-    const end = xml.indexOf(closer, next + opener.length);
+    kept.push(xml.slice(start, index));
+    const [opener, closer] = section;
+    const end = xml.indexOf(closer, index + opener.length);
     index = end === -1 ? xml.length : end + closer.length;
+    start = index;
   }
-  return kept;
+  kept.push(xml.slice(start));
+  return kept.join("");
 };
 var FORBIDDEN_DECLARATION_RE = /<!(DOCTYPE|ENTITY|ELEMENT|ATTLIST|NOTATION)\b/i;
-var hasForbiddenDeclarations = (xml) => FORBIDDEN_DECLARATION_RE.test(stripCommentsAndCdata(xml));
+var hasForbiddenDeclarations = (xml) => FORBIDDEN_DECLARATION_RE.test(stripCommentsCdataAndPis(xml));
 var SUMMARY_LIMIT = 400;
 var decodeEntities = (text) => text.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#(\d+);/g, (_match, digits) => String.fromCodePoint(Number(digits))).replace(
   /&#x([0-9a-fA-F]+);/g,

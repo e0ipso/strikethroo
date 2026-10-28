@@ -11,9 +11,10 @@
 
 ## Conventions (how we build)
 - Open [**config.yaml is local, and empty means unconfigured**](practice-config-yaml-is-local-and-empty-means-unconfigured.md) to learn about: Init tracks config.yaml but gitignores it. hasYamlContent is duplicated in the SPA; change both. #config-yaml #execution-routing
-- Open [**Adding a skill means editing five registries**](practice-adding-a-skill-touches-five-registries.md) to learn about: Template, SKILL_ENTRYPOINTS, plugin.json, STRIKETHROO_WORKFLOW_SKILLS, EXPECTED_SKILLS. The mirror test blocks it until release. #skills #build
-- Open [**Route workspace file access through safe-fs**](practice-route-workspace-file-access-through-safe-fs.md) to learn about: serve, the CLI, and skill bundles share safe-fs.ts for link-refusing reads and atomic writes. #safe-fs #security
 - Open [**Task routing: one profile writer, strict dispatch**](practice-task-routing-and-harness-dispatch.md) to learn about: route-task-execution.cjs alone writes execution_profile. Dispatch never silently falls back on bad metadata. #execution-routing #dispatch
+- Open [**Adding a skill means editing five registries**](practice-adding-a-skill-touches-five-registries.md) to learn about: Template, SKILL_ENTRYPOINTS, plugin.json, STRIKETHROO_WORKFLOW_SKILLS, EXPECTED_SKILLS. The mirror test blocks it until release. #skills #build
+- Open [**Never use reasoning effort max in default routing profiles**](practice-never-use-reasoning-effort-max-in-default-routing-profiles.md) to learn about: The shipped config template caps reasoning effort at xhigh, for routing targets and harness cli_args defaults alike. Never max. #execution-routing #config-yaml #reasoning-effort #defaults
+- Open [**Route workspace file access through safe-fs**](practice-route-workspace-file-access-through-safe-fs.md) to learn about: serve, the CLI, and skill bundles share safe-fs.ts for link-refusing reads and atomic writes. #safe-fs #security
 - Open [**Use resolveWorkspaceRoot, not findStrikethrooRoot, outside skill bundles**](practice-use-resolveworkspaceroot-not-findstrikethrooroot-outside-skill-bundles.md) to learn about: findStrikethrooRoot calls process.exit(1) on schema-version skew; resolveWorkspaceRoot returns a typed result and never exits. #workspace-root #cli #skill-scripts #serve #gotcha
 
 ## Components (what exists)
@@ -24,6 +25,10 @@
 
 ## By topic
 
+### #execution-routing
+- Open [**config.yaml is local, and empty means unconfigured**](practice-config-yaml-is-local-and-empty-means-unconfigured.md) — Init tracks config.yaml but gitignores it. hasYamlContent is duplicated in the SPA; change both.
+- Open [**Never use reasoning effort max in default routing profiles**](practice-never-use-reasoning-effort-max-in-default-routing-profiles.md) — The shipped config template caps reasoning effort at xhigh, for routing targets and harness cli_args defaults alike. Never max.
+- Open [**Task routing: one profile writer, strict dispatch**](practice-task-routing-and-harness-dispatch.md) — route-task-execution.cjs alone writes execution_profile. Dispatch never silently falls back on bad metadata.
 ### #skills
 - Open [**Adding a skill means editing five registries**](practice-adding-a-skill-touches-five-registries.md) — Template, SKILL_ENTRYPOINTS, plugin.json, STRIKETHROO_WORKFLOW_SKILLS, EXPECTED_SKILLS. The mirror test blocks it until release.
 - Open [**Skills are auto-loaded by intent matching, not slash-command prefix**](map-skills-are-auto-loaded-by-intent-matching-not-slash-command-prefix.md) — Users do not type /st-create-plan; the harness matches the user's intent to the skill description and auto-loads it.
@@ -36,9 +41,10 @@
 - Open [**CLI exposes five thin commands and no plan-management surface**](map-cli-exposes-only-init-and-serve-commands-all-visualization-management-commands-removed.md) — src/cli.ts registers init, update, export profile, serve, and validate; there are no visualization/management (status, plan) commands.
 - Open [**Rebuild dist/ before running the suite — integration tests exec the compiled CLI**](../testing/practice-rebuild-dist-before-running-the-suite-integration-tests-exec-the-compiled-cli.md) — cli.integration.test.ts shells out to dist/cli.js, so a stale dist/ makes the suite fail against source that is already correct.
 - Open [**Use resolveWorkspaceRoot, not findStrikethrooRoot, outside skill bundles**](practice-use-resolveworkspaceroot-not-findstrikethrooroot-outside-skill-bundles.md) — findStrikethrooRoot calls process.exit(1) on schema-version skew; resolveWorkspaceRoot returns a typed result and never exits.
-### #execution-routing
+### #config-yaml
 - Open [**config.yaml is local, and empty means unconfigured**](practice-config-yaml-is-local-and-empty-means-unconfigured.md) — Init tracks config.yaml but gitignores it. hasYamlContent is duplicated in the SPA; change both.
-- Open [**Task routing: one profile writer, strict dispatch**](practice-task-routing-and-harness-dispatch.md) — route-task-execution.cjs alone writes execution_profile. Dispatch never silently falls back on bad metadata.
+- Open [**Never use reasoning effort max in default routing profiles**](practice-never-use-reasoning-effort-max-in-default-routing-profiles.md) — The shipped config template caps reasoning effort at xhigh, for routing targets and harness cli_args defaults alike. Never max.
+- Open [**Customize editors keep draft, baseline, and disk apart**](../web/editor/practice-config-editors-keep-draft-baseline-and-disk-apart.md) — configYaml.ts is the only YAML boundary; draftState.ts stops revalidation from overwriting typing.
 ### #harness
 - Open [**Skills are auto-loaded by intent matching, not slash-command prefix**](map-skills-are-auto-loaded-by-intent-matching-not-slash-command-prefix.md) — Users do not type /st-create-plan; the harness matches the user's intent to the skill description and auto-loads it.
 - Open [**Cross-harness code abstraction centralized in ~54 lines across 3 locations**](map-cross-harness-code-abstraction-centralized-in-54-lines-across-3-locations.md) — All harness-specific logic lives in src/types.ts (union type), src/utils.ts (VALID_HARNESSES + getAgentFormat), and src/index.ts (createHarnessStructure). Skills are harness-agnostic.
@@ -54,10 +60,8 @@
 - Open [**Adding a skill means editing five registries**](practice-adding-a-skill-touches-five-registries.md) — Template, SKILL_ENTRYPOINTS, plugin.json, STRIKETHROO_WORKFLOW_SKILLS, EXPECTED_SKILLS. The mirror test blocks it until release.
 - Open [**Use build-time composition to eliminate cross-skill prompt duplication**](prompts/practice-use-build-time-composition-to-eliminate-cross-skill-prompt-duplication.md) — Shared procedural blocks in SKILL.md files must live as Handlebars partials under src/skill-prompts/_partials/, not copy-pasted per skill.
 - Open [**SPA source changes require npm run build:web before serve reflects them**](../dev/practice-spa-source-changes-require-npm-run-build-web-before-serve-reflects-them.md) — serve hosts the prebuilt dist-web/ bundle. SPA source changes are not visible until npm run build:web is run; a hard-refresh clears cached content-hashed chunks.
-### #config-yaml
-- Open [**config.yaml is local, and empty means unconfigured**](practice-config-yaml-is-local-and-empty-means-unconfigured.md) — Init tracks config.yaml but gitignores it. hasYamlContent is duplicated in the SPA; change both.
-- Open [**Customize editors keep draft, baseline, and disk apart**](../web/editor/practice-config-editors-keep-draft-baseline-and-disk-apart.md) — configYaml.ts is the only YAML boundary; draftState.ts stops revalidation from overwriting typing.
-- Open [**Review gate runs only on explicit opt-in**](../code-review/practice-review-gate-runs-only-on-explicit-opt-in.md) — code_review.enabled must be boolean true. Anything else skips before any other check.
+### #defaults
+- Open [**Never use reasoning effort max in default routing profiles**](practice-never-use-reasoning-effort-max-in-default-routing-profiles.md) — The shipped config template caps reasoning effort at xhigh, for routing targets and harness cli_args defaults alike. Never max.
 ### #dispatch
 - Open [**Model-optional dispatch: reviewer harness omits --model to use CLI defaults**](../code-review/map-model-optional-dispatch-reviewer-harness-omits-model.md) — Harness discovery yields a harness, not a model id. Reviewer dispatch omits \`--model\`; execution_routing dispatch still requires it. Harness probes work the same way for the same reason.
 - Open [**Task routing: one profile writer, strict dispatch**](practice-task-routing-and-harness-dispatch.md) — route-task-execution.cjs alone writes execution_profile. Dispatch never silently falls back on bad metadata.
@@ -67,6 +71,8 @@
 - Open [**markdown.ts needs a private DOMPurify instance or mermaid loses every SVG attribute**](../web/rendering/practice-markdown-policy-needs-its-own-dompurify-instance.md) — markdown.ts registers its sanitize hooks on a private DOMPurify instance; on the shared default they also apply to mermaid's strict-mode SVG pass and blank the Graph tab.
 ### #invocation
 - Open [**Skills are auto-loaded by intent matching, not slash-command prefix**](map-skills-are-auto-loaded-by-intent-matching-not-slash-command-prefix.md) — Users do not type /st-create-plan; the harness matches the user's intent to the skill description and auto-loads it.
+### #reasoning-effort
+- Open [**Never use reasoning effort max in default routing profiles**](practice-never-use-reasoning-effort-max-in-default-routing-profiles.md) — The shipped config template caps reasoning effort at xhigh, for routing targets and harness cli_args defaults alike. Never max.
 ### #safe-fs
 - Open [**Route workspace file access through safe-fs**](practice-route-workspace-file-access-through-safe-fs.md) — serve, the CLI, and skill bundles share safe-fs.ts for link-refusing reads and atomic writes.
 ### #security

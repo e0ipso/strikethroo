@@ -85,7 +85,7 @@ Discovery probes external harnesses with the ordered `cli_args` from `config/con
 
 - Related: [map-model-optional-dispatch-reviewer-harness-omits-model](map-model-optional-dispatch-reviewer-harness-omits-model.md)
 - Related: [practice-optional-by-absence-new-files-absent-means-feature-off](practice-optional-by-absence-new-files-absent-means-feature-off.md)
-- Related: [practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore](../practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore.md)
+- Related: [practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore](../git/practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

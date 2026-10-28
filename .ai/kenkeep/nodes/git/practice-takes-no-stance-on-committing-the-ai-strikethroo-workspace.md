@@ -34,5 +34,5 @@ Teams that want to share a starting configuration use a strikethroo setup profil
 # Related
 
 - Related: [practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore](practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore.md)
-- Related: [practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore](git/practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore.md)
+- Related: [practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore](practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore.md)
 <!-- kk:related:end -->

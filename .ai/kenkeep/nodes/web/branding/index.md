@@ -39,7 +39,7 @@ _None yet._
 ### #playwright
 - Open [**window.__stRevalidationCount — Playwright observability hook for SSE-driven revalidation**](../../testing/map-window-strevalidationcount-playwright-observability-hook-for-sse-driven-revalidation.md) — Deliberately-shipped window counter that Playwright e2e tests read to verify live-data revalidation fired after an SSE change event.
 - Open [**Use domcontentloaded not networkidle when Playwright-driving the SPA**](../../capture/practice-use-domcontentloaded-not-networkidle-when-playwright-driving-the-spa.md) — The SPA holds an open SSE connection (/api/events) so networkidle never fires. Use domcontentloaded plus explicit waitForSelector calls instead.
-- Open [**Playwright e2e suites flake under full-suite parallelism due to CPU contention**](../../testing/practice-playwright-e2e-suites-flake-under-full-suite-parallelism-due-to-cpu-contention.md) — Under default workers, parallel Playwright/Chromium processes starve each other; random tests timeout. Run --workers=2 to prove genuine green.
+- Open [**Playwright e2e suites flake under full-suite parallelism due to CPU contention**](../../testing/practice-playwright-e2e-suites-flake-under-full-suite-parallelism-due-to-cpu-contention.md) — Browser suites use at most two workers and half the available CPUs to avoid shared-host contention. Diagnose timeouts in isolation before retrying a suite.
 ### #svg
 - Open [**Strikethroo brand favicon at src/web/public/favicon.svg**](practice-strikethroo-brand-favicon-svg.md) — Cream Outfit \`s\` on ink rounded-square with strike-through; embed real glyph paths and hex colors only.
 ### #web

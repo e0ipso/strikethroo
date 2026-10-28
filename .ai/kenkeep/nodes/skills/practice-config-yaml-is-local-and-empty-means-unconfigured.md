@@ -22,5 +22,5 @@ Absent, blank, or comment-only means nothing is configured, in every reader, thr
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace](../practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md)
+- Related: [practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace](../git/practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md)
 <!-- kk:related:end -->

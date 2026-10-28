@@ -35,7 +35,7 @@ The rebuild writes `dist/`, `dist-web/`, and `dist-test/`, all of which are igno
 # Related
 
 - Related: [practice-after-a-git-merge-always-rebuild-dist-web-before-running-e2e-tests](practice-after-a-git-merge-always-rebuild-dist-web-before-running-e2e-tests.md)
-- Related: [practice-never-hand-commit-generated-skill-artifacts](../practice-never-hand-commit-generated-skill-artifacts.md)
+- Related: [practice-never-hand-commit-generated-skill-artifacts](../release/practice-never-hand-commit-generated-skill-artifacts.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

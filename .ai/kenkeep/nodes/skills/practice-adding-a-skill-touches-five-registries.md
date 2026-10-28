@@ -22,5 +22,5 @@ The mirror test compares `plugin.json` with the release-only `skills/` tree, so 
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-never-hand-commit-generated-skill-artifacts](../practice-never-hand-commit-generated-skill-artifacts.md)
+- Related: [practice-never-hand-commit-generated-skill-artifacts](../release/practice-never-hand-commit-generated-skill-artifacts.md)
 <!-- kk:related:end -->

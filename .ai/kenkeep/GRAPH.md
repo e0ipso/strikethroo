@@ -1,11 +1,11 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:f52ba01ed5e76035c9fc21768352ceb594aae60193d0e7eef68ddedc6a1b981a'
-node_count: 104
+nodes_hash: 'sha256:4378fc7e02c8c307ff5d2efbb163d3351ddc4206385900a985de1a6b25c47fc2'
+node_count: 105
 ---
 # kenkeep Graph
 
-Total nodes: 104
+Total nodes: 105
 
 ## map-archive-ui-control-confirmation-gated-archive-button-on-done-plans
 
@@ -335,7 +335,7 @@ Total nodes: 104
 
 - **kind:** practice
 - **title:** Design thesis: configuration is Markdown, guarantees are compiled
-- **path:** practice-design-thesis-markdown-is-negotiable-guarantees-are-compiled.md
+- **path:** code-review/practice-design-thesis-markdown-is-negotiable-guarantees-are-compiled.md
 - **tags:** design-thesis, enforcement
 - **relates_to:** practice-uncertified-review-is-never-reported-clean, practice-review-gate-reports-it-does-not-fix
 
@@ -428,7 +428,7 @@ Total nodes: 104
 
 - **kind:** practice
 - **title:** Keep comment prose terse and single-sourced
-- **path:** practice-keep-comment-prose-terse-and-single-sourced.md
+- **path:** conventions/practice-keep-comment-prose-terse-and-single-sourced.md
 - **tags:** comments, code-style, documentation, xsd, prose
 - **relates_to:** practice-documentation-captures-current-state-only
 
@@ -494,9 +494,18 @@ Total nodes: 104
 
 - **kind:** practice
 - **title:** Never hand-commit generated skill artifacts in either tree
-- **path:** practice-never-hand-commit-generated-skill-artifacts.md
+- **path:** release/practice-never-hand-commit-generated-skill-artifacts.md
 - **tags:** build, skills, git, gitattributes, review-gate, generated-artifacts
 - **relates_to:** practice-spa-assets-are-prebuilt-and-force-added-into-release-commit-never-built-at-runtime, map-src-skill-prompts-is-the-authored-source-of-truth-for-skill-md-content
+
+## practice-never-use-reasoning-effort-max-in-default-routing-profiles
+
+- **kind:** practice
+- **title:** Never use reasoning effort max in default routing profiles
+- **path:** skills/practice-never-use-reasoning-effort-max-in-default-routing-profiles.md
+- **tags:** execution-routing, config-yaml, reasoning-effort, defaults
+- **relates_to:** practice-task-routing-and-harness-dispatch, practice-config-yaml-is-local-and-empty-means-unconfigured
+- **derived_from:** 3c9e5246-e863-4a07-80c3-872c421a4fa3:practice:0
 
 ## practice-npm-run-lint-only-covers-ts-files-tsx-web-files-need-separate-type-check
 
@@ -580,7 +589,7 @@ Total nodes: 104
 
 - **kind:** practice
 - **title:** Review gate artifacts are git-ignored by a workspace-root .gitignore
-- **path:** practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore.md
+- **path:** git/practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore.md
 - **tags:** code-review, gitignore, workspace, init, generated-artifacts
 - **relates_to:** practice-never-hand-commit-generated-skill-artifacts, practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore
 
@@ -690,7 +699,7 @@ Total nodes: 104
 
 - **kind:** practice
 - **title:** Strikethroo profile packages tolerate inert package-root extras
-- **path:** practice-strikethroo-profile-packages-tolerate-inert-package-root-extras.md
+- **path:** serve/practice-strikethroo-profile-packages-tolerate-inert-package-root-extras.md
 - **tags:** profiles, init, validation, security
 - **relates_to:** practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace
 - **derived_from:** 67ec33eb-6c26-4c0a-8c3f-e117dc130acf:practice:0
@@ -699,7 +708,7 @@ Total nodes: 104
 
 - **kind:** practice
 - **title:** Workspace tracking is project-owned except local configuration and runtime output
-- **path:** practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md
+- **path:** git/practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md
 - **tags:** gitignore, workspace, documentation, code-review, init
 - **relates_to:** practice-review-gate-artifacts-are-git-ignored-by-a-workspace-root-gitignore, practice-keep-ai-strikethroo-dogfood-workspace-explicitly-ignored-in-gitignore
 

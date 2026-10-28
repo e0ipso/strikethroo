@@ -37,8 +37,8 @@ _None._
 - Open [**Add lazy-only CodeMirror packages to vite optimizeDeps.include to prevent dev-server MIME errors**](practice-add-lazy-only-codemirror-packages-to-vite-optimizedeps-include-to-prevent-dev-se.md) — CodeMirror packages reached only through React.lazy are not pre-bundled by Vite; add them to optimizeDeps.include to avoid empty-MIME errors on first navigation to the editor.
 ### #config-yaml
 - Open [**config.yaml is local, and empty means unconfigured**](../../skills/practice-config-yaml-is-local-and-empty-means-unconfigured.md) — Init tracks config.yaml but gitignores it. hasYamlContent is duplicated in the SPA; change both.
+- Open [**Never use reasoning effort max in default routing profiles**](../../skills/practice-never-use-reasoning-effort-max-in-default-routing-profiles.md) — The shipped config template caps reasoning effort at xhigh, for routing targets and harness cli_args defaults alike. Never max.
 - Open [**Customize editors keep draft, baseline, and disk apart**](practice-config-editors-keep-draft-baseline-and-disk-apart.md) — configYaml.ts is the only YAML boundary; draftState.ts stops revalidation from overwriting typing.
-- Open [**Review gate runs only on explicit opt-in**](../../code-review/practice-review-gate-runs-only-on-explicit-opt-in.md) — code_review.enabled must be boolean true. Anything else skips before any other check.
 ### #dev-server
 - Open [**Add lazy-only CodeMirror packages to vite optimizeDeps.include to prevent dev-server MIME errors**](practice-add-lazy-only-codemirror-packages-to-vite-optimizedeps-include-to-prevent-dev-se.md) — CodeMirror packages reached only through React.lazy are not pre-bundled by Vite; add them to optimizeDeps.include to avoid empty-MIME errors on first navigation to the editor.
 ### #devdependencies

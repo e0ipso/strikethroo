@@ -34,5 +34,5 @@ Note that a strikethroo profile is a setup package imported at `init`, distinct 
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace](practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md)
+- Related: [practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace](../git/practice-takes-no-stance-on-committing-the-ai-strikethroo-workspace.md)
 <!-- kk:related:end -->

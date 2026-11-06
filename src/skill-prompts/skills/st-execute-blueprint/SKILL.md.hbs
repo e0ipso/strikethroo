@@ -1,6 +1,6 @@
 ---
 name: st-execute-blueprint
-description: Use when the user asks to run, execute, implement, or carry out a Strikethroo plan or its blueprint by plan ID in this repository — triggers include execute blueprint, run the plan, implement plan, build the plan. Do not use to create a plan, to only generate tasks, to run a single task, or for generic development outside Strikethroo.
+description: Use when the user asks to run, execute, or implement a Strikethroo plan or blueprint by plan ID. Do not use to run a single task.
 ---
 
 # st-execute-blueprint
@@ -19,15 +19,13 @@ The user supplies the numeric plan ID conversationally.
      heading="###"
      heading_child="####"
      step_resolve="2"
-     step_validate="3"
-     step_generate="4"
-     step_branch="5"
-     step_context="6"
-     step_phases="7"
-     step_post="8"
-     summary_step="9"
-     archive_step="10"}}
-{{#*inline "update_check_startup"}}{{> update-check-default}}{{/inline}}
+     step_generate="3"
+     step_branch="4"
+     step_context="5"
+     step_phases="6"
+     step_post="7"
+     summary_step="8"
+     archive_step="9"}}
 {{#*inline "plan_resolution_failure"}}{{> plan-resolution-user-failure}}{{/inline}}
 {{#*inline "auto_generate_dispatch"}}Follow the `st-generate-tasks` skill for this plan ID. Execute its operating procedure in full, including running `POST_TASK_GENERATION_ALL.md` to write the Execution Blueprint.{{/inline}}
 {{/procedure-execute-blueprint}}

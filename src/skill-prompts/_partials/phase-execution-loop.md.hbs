@@ -1,4 +1,9 @@
-Use an internal task or todo tracker to monitor progress. For each phase defined in the Execution Blueprint:
+Use an internal task or todo tracker to monitor progress. Track these steps for each phase defined in the Execution Blueprint:
+
+- [ ] Phase pre-execution
+- [ ] Task dispatch
+- [ ] Phase completion verification
+- [ ] Phase post-execution
 
 {{heading}} {{phase_step}}a. Phase pre-execution
 Run `scripts/check-phase-readiness.cjs <plan-id> <phase-number>`. If the script exits non-zero, halt the phase and report the blocking issues before continuing.
@@ -6,16 +11,15 @@ Run `scripts/check-phase-readiness.cjs <plan-id> <phase-number>`. If the script 
 Read `<root>/config/hooks/PRE_PHASE.md` and execute its instructions before starting the phase.
 
 {{heading}} {{phase_step}}b. Task dispatch
-Identify all tasks scheduled for this phase whose dependencies are fully satisfied. Read `<root>/config/hooks/PRE_TASK_ASSIGNMENT.md` and follow its instructions for agent selection before dispatching tasks.
+Identify all tasks scheduled for this phase whose dependencies are fully satisfied. For each task, read `<root>/config/hooks/PRE_TASK_ASSIGNMENT.md` and follow its instructions for sub-agent selection before dispatching tasks.
 
-Resolve every selected task's execution route first. Invoke one resolver per selected
-task simultaneously in a single parallel tool operation:
+Resolve every selected task's execution route first. Run the `resolve` command once per selected task, all in a single parallel tool operation:
 
 ```text
 scripts/dispatch-task-execution.cjs resolve <task-file> <current-harness> <workspace> <plan-id> <task-id>
 ```
 
-Resolvers never launch external processes. After interpreting all route results, issue
+Resolution never launches an external process. After interpreting all route results, issue
 every external execution and every sub-agent **together in one parallel
 tool operation**. External execution uses:
 
@@ -25,14 +29,12 @@ scripts/dispatch-task-execution.cjs execute <handoff> <task-file> <current-harne
 
 {{> dispatch-outcomes}}
 
-Deploy all remaining native sub-agents simultaneously. Each sub-agent must read and execute `<root>/config/hooks/PRE_TASK_EXECUTION.md` before any implementation work, then execute the task and update its status. Do not run `scripts/check-for-updates.cjs`; delegated workers do not consume update notices.
+Deploy all remaining native sub-agents simultaneously. Each sub-agent must read and execute `<root>/config/hooks/PRE_TASK_EXECUTION.md` before any implementation work, then execute the task and update its status.
 
 {{heading}} {{phase_step}}c. Phase completion verification
 Ensure every task in the phase has status `completed` and collect its outputs. Do not accept a subagent's report of success as proof. Apply the evidence gate in `<root>/config/shared/verification-gate.md` before marking the phase complete.
 
 {{heading}} {{phase_step}}d. Phase post-execution
-Read `<root>/config/hooks/POST_PHASE.md` and execute its instructions. Do not proceed to the next phase until this hook succeeds.
-
-Update the phase status to `completed` in the plan's Execution Blueprint section.
+Read `<root>/config/hooks/POST_PHASE.md` and execute its instructions. Then update the phase status to `completed` in the plan's Execution Blueprint section.
 
 Repeat for the next phase until all phases are complete.

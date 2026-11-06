@@ -35,17 +35,17 @@ interface Consumer {
 const CONSUMERS: Consumer[] = [
   {
     skill: 'st-execute-blueprint',
-    post: '### 8. Post-execution validation',
-    review: '#### Run the code review gate',
-    summary: '### 9. Append execution summary',
-    archive: '### 10. Archive the plan',
+    post: '### 7. Post-execution validation',
+    review: '#### 7a. Run the code review gate',
+    summary: '### 8. Append execution summary',
+    archive: '### 9. Archive the plan',
   },
   {
     skill: 'st-full-workflow',
-    post: '#### 7. Post-execution validation',
-    review: '##### Run the code review gate',
-    summary: '#### 8. Append execution summary',
-    archive: '#### 9. Archive the plan',
+    post: '#### 6. Post-execution validation',
+    review: '##### 6a. Run the code review gate',
+    summary: '#### 7. Append execution summary',
+    archive: '#### 8. Archive the plan',
   },
 ];
 
@@ -83,8 +83,10 @@ describe('rendered execution skills compose the review gate', () => {
       const section = content.slice(headingIndex(content, review), headingIndex(content, summary));
 
       expect(section).toContain('code-review.cjs <plan-id> <current-harness>');
-      expect(section).toContain('If the `st-code-review` skill is not installed');
-      expect(section).toContain('record that outcome');
+      expect(section).toContain(
+        'If the project is not a git repository or the `st-code-review` skill is not installed'
+      );
+      expect(section).toContain('record why');
       expect(section).toContain('verbatim');
       expect(section).toContain('top-level `action`');
       expect(section).toContain('Copy `codeReview` verbatim');

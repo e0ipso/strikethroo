@@ -72,8 +72,9 @@ const main = (startPath: string = process.cwd()): void => {
   const inputId = process.argv[2]!;
 
   if (!_isGitRepo()) {
-    _printError('Not a git repository');
-    process.exit(1);
+    _printWarning('Not a git repository');
+    _printInfo('Proceeding without creating a new branch');
+    process.exit(0);
   }
 
   const resolved = resolvePlan(inputId, startPath);

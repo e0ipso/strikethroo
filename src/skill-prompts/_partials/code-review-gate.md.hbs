@@ -2,7 +2,7 @@
   The terminal review gate shared by both execution skills. The compiled
   result's top-level action owns the halt/continue decision. Keep this prompt
   limited to consuming that contract and the three rules fields cannot express.
---}}{{heading}} Run the code review gate
+--}}{{heading}} {{step}}a. Run the code review gate
 
 After `POST_EXECUTION.md` reports green, follow the `st-code-review` skill and run its bundled mechanism:
 
@@ -10,7 +10,7 @@ After `POST_EXECUTION.md` reports green, follow the `st-code-review` skill and r
 code-review.cjs <plan-id> <current-harness>
 ```
 
-Resolve `code-review.cjs` from the `st-code-review` skill's sibling `scripts` directory and pass the exact supported harness identifier running this skill. If the `st-code-review` skill is not installed, record that outcome in the execution summary and continue to summary and archival.
+Resolve `code-review.cjs` from the `st-code-review` skill's sibling `scripts` directory and pass the exact supported harness identifier running this skill. If the project is not a git repository or the `st-code-review` skill is not installed, skip the review, record why in the execution summary, and continue to summary and archival.
 
 Handle the one JSON line it prints on stdout, in this order:
 
@@ -22,6 +22,6 @@ Never report an uncertified review as clean.
 
 Hard rules:
 
-- The review runs once. Do not re-run the gate to check a fix.
+- The review runs once. Do not re-run the gate to check a fix unless the user explicitly asks for it.
 - Detection uses the reviewer route. Dispatch each fix on the implementer route; the reviewer does not fix its findings.
-- After any fix, re-run `POST_EXECUTION.md` in full before declaring execution complete. The earlier green result no longer applies.
+- After any fix, the earlier green result no longer applies. Re-run `POST_EXECUTION.md` in full before declaring execution complete.

@@ -67,11 +67,16 @@ describe('rendered parent skills compose update notices', () => {
   test.each(PARENT_SKILLS)('%s contains the update check and final-notice placement', skill => {
     const content = readSkill(skill);
     expect(content).toContain('check-for-updates.cjs "<root>"');
-    expect(content).toContain(
-      'Delegated execution workers skip this step and do not emit update notices'
-    );
     expect(content).toContain('Nothing may follow the notice');
     expect(content).toContain('Never pause for permission and never run an update');
+  });
+
+  test.each(PARENT_SKILLS)('%s runs the update check at the end, not at startup', skill => {
+    const content = readSkill(skill);
+    const check = content.indexOf('run `scripts/check-for-updates.cjs "<root>"`');
+    expect(check).toBeGreaterThan(-1);
+    expect(check).toBeGreaterThan(content.lastIndexOf('\n### '));
+    expect(content).not.toContain('Delegated execution workers');
   });
 
   test('st-code-review does not reference check-for-updates', () => {
@@ -81,7 +86,7 @@ describe('rendered parent skills compose update notices', () => {
 
   test('st-full-workflow runs exactly one parent update check', () => {
     const content = readSkill('st-full-workflow');
-    expect(countOccurrences(content, 'Run `scripts/check-for-updates.cjs "<root>"`')).toBe(1);
+    expect(countOccurrences(content, 'run `scripts/check-for-updates.cjs "<root>"`')).toBe(1);
   });
 
   test('st-create-plan preserves the Plan Summary fence byte-for-byte', () => {
@@ -107,12 +112,5 @@ describe('rendered parent skills compose update notices', () => {
       'A newer Strikethroo release is available. Run `npx strikethroo@latest update` to update.';
     const response = `Done.\n\n${summary}\n\n${notice}`;
     expect(extractPlanSummaryBlock(response)).toBe(summary);
-  });
-
-  test('delegated worker instructions forbid the update checker', () => {
-    const executeTask = readSkill('st-execute-task');
-    const executeBlueprint = readSkill('st-execute-blueprint');
-    expect(executeTask).toContain('Do not run `scripts/check-for-updates.cjs`');
-    expect(executeBlueprint).toContain('Do not run `scripts/check-for-updates.cjs`');
   });
 });

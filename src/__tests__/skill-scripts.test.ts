@@ -455,6 +455,16 @@ describe('create-feature-branch integration', () => {
     expect(currentBranch()).toBe('feature/42--my-test-plan');
   });
 
+  test('skips branch creation outside a git repository', () => {
+    const result = runScript(path.join(tempDir, 'plan.md'), tempDir, {
+      ...process.env,
+      GIT_CEILING_DIRECTORIES: path.dirname(tempDir),
+    });
+    expect(result.status).toBe(0);
+    expect(result.output).toContain('Not a git repository');
+    expect(result.output).toContain('Proceeding without creating a new branch');
+  });
+
   test('skips branch creation when not on main', () => {
     const planFile = buildGitFixture(tempDir, 'my-test-plan', 42);
     execFileSync('git', ['checkout', '-b', 'other-branch'], {

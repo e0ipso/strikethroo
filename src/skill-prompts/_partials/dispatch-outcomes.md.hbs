@@ -4,8 +4,10 @@
   execute commands before calling this partial, and neither restates an outcome
   kind afterwards. Keyed on the `kind` values the script's own result unions
   emit; add a row here when a union gains one.
---}}`<current-harness>` is the exact supported harness identifier running this
-skill; `<workspace>` is the project working directory.
+--}}Where:
+
+- `<current-harness>` is the exact supported harness identifier running this skill.
+- `<workspace>` is the project working directory.
 
 Interpret the one-line JSON result and act on its `kind` exactly once:
 

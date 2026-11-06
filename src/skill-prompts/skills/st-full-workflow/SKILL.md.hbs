@@ -20,13 +20,9 @@ The user supplies the work order conversationally.
 {{#> procedure-create-plan
      heading="####"
      summary_heading="Emit the Step 1 structured summary"
-     summary_lead_in="Conclude Step 1 with exactly this block (a retained update notice, when present, follows after the workflow's final summary):"
+     summary_lead_in="Conclude Step 1 with exactly this block (an update notice, when present, follows the workflow's final summary):"
      summary_closing="Parse the `Plan ID` value from this output and pass it to Step 2."}}
-{{#*inline "update_check_startup"}}{{> update-check-default}}{{/inline}}
 {{#*inline "post_summary_actions"}}{{/inline}}
-{{#*inline "clarification_gate_context"}}
-Also read `<root>/config/shared/anti-rationalization.md`.
-{{/inline}}
 {{#*inline "clarification_gate"}}{{!-- Hands-off workflow has no approval gate. --}}{{/inline}}
 {{/procedure-create-plan}}
 
@@ -48,7 +44,6 @@ Using the plan ID from Step 1:
      step_validation="10"
      step_routing="11"
      step_hook="12"}}
-{{#*inline "update_check_startup"}}{{/inline}}
 {{#*inline "plan_resolution_failure"}}{{> plan-resolution-generated-failure}}{{/inline}}
 {{/procedure-generate-tasks}}
 
@@ -60,22 +55,20 @@ Using the plan ID from Step 1:
      heading="####"
      heading_child="#####"
      step_resolve="1"
-     step_validate="2"
-     step_generate="3"
-     step_branch="4"
-     step_context="5"
-     step_phases="6"
-     step_post="7"
-     summary_step="8"
-     archive_step="9"}}
-{{#*inline "update_check_startup"}}{{/inline}}
+     step_generate="2"
+     step_branch="3"
+     step_context="4"
+     step_phases="5"
+     step_post="6"
+     summary_step="7"
+     archive_step="8"}}
 {{#*inline "plan_resolution_failure"}}{{> plan-resolution-generated-failure}}{{/inline}}
 {{#*inline "auto_generate_dispatch"}}Execute the full task generation procedure from Step 2 for this plan ID.{{/inline}}
 {{/procedure-execute-blueprint}}
 
 ## Failure Modes
 
-- **Plan directory already exists for the allocated ID in Step 1.** Re-run the next-plan-id script and retry once. If the conflict persists, stop and report.
+- **Plan directory already exists for the allocated ID in Step 1.** Determine the next available plan ID by re-running `scripts/get-next-plan-id.cjs`, then update the frontmatter and paths to match.
 - **Execution errors.** If a task fails, read `<root>/config/hooks/POST_ERROR_DETECTION.md`, document the error in Noteworthy Events, halt the phase, and request user direction before continuing.
 
 {{> execution-summary}}

@@ -93,7 +93,7 @@ The LLM diagnoses the failure, updates task status, documents what went wrong, a
 
 **When:** After all blueprint phases complete, before summary generation and archival.
 
-The LLM verifies all tasks reached `completed` status, checks that documentation (including AGENTS.md) is still accurate, executes the plan's self-validation steps, and assesses whether the plan left behind tech debt or dead code. If any validation gate fails, the plan stays in `plans/` for debugging.
+The LLM verifies all tasks reached `completed` status, checks that documentation (including AGENTS.md) is still accurate, executes the plan's self-validation steps, and assesses whether the plan left behind tech debt or dead code. If a validation gate fails, the LLM documents the failure in the plan, writes a new task with the steps to fix it, and runs that task with `st-execute-task`. Then `POST_EXECUTION` runs again in full. If the same gate fails a second time, execution halts and the plan stays in `plans/` for debugging.
 
 #### CODE_REVIEW
 

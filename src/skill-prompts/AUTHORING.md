@@ -32,9 +32,10 @@ Prefer steps, checkpoints, and checkable rules over paragraphs of advice.
   belongs in `AGENTS.md` or `README.md`, not in a prompt step.
 - **Imperative phrasing.** "Run the proving command", not "you could run". Give
   the exact command/URL/log that proves the work; "verify it works" is not a check.
-- **Descriptions are triggers, not summaries.** Lead with "Use when…", list
-  triggering conditions + keywords, add a short "Do not use…" guard, and omit the
-  workflow recitation. Keep it tight.
+- **Descriptions are triggers, not summaries.** Lead with "Use when…", name
+  the triggering request in one sentence, and omit the workflow recitation.
+  Add a short "Do not use…" guard only for a sibling skill the same request
+  could trigger.
 - **Shared vs inline vs runtime.** Three levels of reuse:
   - *Build-time partial* (`_partials/*.md.hbs`, called as `{{> name}}`) —
     content used by two or more templates. Pass values with hash arguments.

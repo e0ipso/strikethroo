@@ -3,38 +3,44 @@
   heading levels, step numbers, plan-resolution failure behavior, and task
   generation dispatch. Root discovery remains at each call site.
 
-  auto_generate_dispatch renders inside a list item and must not add line
-  breaks. heading_child applies to the nested phase-loop and review partials;
-  the summary and archive sections are steps of the caller's own procedure and
-  take heading.
---}}{{> update_check_startup}}
+  plan_resolution_failure renders inside a numbered list item; its lines are
+  indented by the standalone partial tag. auto_generate_dispatch renders inside
+  a list item and must not add line breaks. heading_child applies to the nested
+  phase-loop and review partials; the summary and archive sections are steps of
+  the caller's own procedure and take heading.
+--}}{{heading}} {{step_resolve}}. Validate the plan and the tasks
 
-{{heading}} {{step_resolve}}. Resolve the plan
-
-{{> plan-resolution}}
-
-Run `scripts/validate-plan-blueprint.cjs <plan-id> planDir` and treat the
-printed path as `<plan-dir>`.
-
-{{heading}} {{step_validate}}. Validate tasks and blueprint existence
-
-Run `scripts/validate-plan-blueprint.cjs <plan-id> taskCount` and
-`scripts/validate-plan-blueprint.cjs <plan-id> blueprintExists`.
+1. Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` for the plan
+   file's absolute path.
+   {{> plan_resolution_failure}}
+2. Run `scripts/validate-plan-blueprint.cjs <plan-id> planDir` and treat the
+   printed path as `<plan-dir>`.
+3. Run `scripts/validate-plan-blueprint.cjs <plan-id> taskCount` and
+   `scripts/validate-plan-blueprint.cjs <plan-id> blueprintExists`.
 
 {{heading}} {{step_generate}}. Auto-generate tasks and blueprint if missing
 
 If `taskCount` is 0 or `blueprintExists` is `no`:
 
-Notify the user: "Tasks or execution blueprint not found. Generating tasks automatically..."
+Notify the user: "⚠️ Tasks or execution blueprint not found. Generating tasks automatically..."
 
 - {{> auto_generate_dispatch}}
 - Re-run the `planFile`, `planDir`, `taskCount`, and `blueprintExists` queries to refresh the resolved paths and counts.
 
 If the plan still has no tasks or no blueprint, stop and report failure.
 
-{{heading}} {{step_branch}}. Optionally create a feature branch
+{{heading}} {{step_branch}}. (Optional) Create a feature branch
 
-Run `scripts/create-feature-branch.cjs <plan-id>` once before phase execution. A skip is not a failure. Continue on the current branch, and never create the branch by hand. Uncommitted or untracked changes are permitted only inside the repository-root `.ai/strikethroo` subtree. An error result halts execution; report it.
+Run `scripts/create-feature-branch.cjs <plan-id>` once before phase execution. If the script skips branch creation, continue on the current branch. Never create the branch by hand.
+
+Uncommitted or untracked changes are permitted only inside the repository-root `.ai/strikethroo` subtree. When the script reports changes outside it, halt and offer the user these choices:
+
+- Commit the changes on the current branch.
+- Commit the changes on a temporary branch, then continue on this branch without them.
+- Stash the changes.
+- Discard the changes.
+
+Apply the user's choice, then re-run the script. Any other error halts execution; report it.
 
 Then run `scripts/capture-base-commit.cjs <plan-id>` once to record the commit the review gate diffs against. A `skipped` result continues execution and means the review gate will skip. Only an `error` result halts.
 
@@ -60,10 +66,10 @@ Apply `<root>/config/shared/anti-rationalization.md` to this rationalization tab
 
 {{heading}} {{step_post}}. Post-execution validation
 
-Read `<root>/config/hooks/POST_EXECUTION.md` and execute its instructions. If validation fails, halt execution. The plan remains in `plans/` for debugging.
+Read `<root>/config/hooks/POST_EXECUTION.md` and execute its instructions. If a validation gate fails, follow the hook's failure behavior, then re-run `POST_EXECUTION.md` in full. If the same gate fails again, halt execution and leave the plan in `plans/` for debugging.
 
 Before declaring execution complete, apply the evidence gate in `<root>/config/shared/verification-gate.md` to the plan's Success Criteria and Self Validation steps.
 
-{{> code-review-gate heading=heading_child}}
+{{> code-review-gate heading=heading_child step=step_post}}
 
 {{> summary-and-archive heading=heading summary_step=summary_step archive_step=archive_step}}

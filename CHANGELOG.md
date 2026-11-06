@@ -1,3 +1,9 @@
+## [4.5.0](https://github.com/e0ipso/strikethroo/compare/v4.4.2...v4.5.0) (2026-11-06)
+
+### Features
+
+* **skills:** rework plan and blueprint prompts ([#154](https://github.com/e0ipso/strikethroo/issues/154)) ([31c8bb1](https://github.com/e0ipso/strikethroo/commit/31c8bb1b6e135b9e7e19ed21d47f80fbcb2e89e4))
+
 ## [4.4.2](https://github.com/e0ipso/strikethroo/compare/v4.4.1...v4.4.2) (2026-10-27)
 
 ### Bug Fixes

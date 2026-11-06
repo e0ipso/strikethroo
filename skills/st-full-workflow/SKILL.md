@@ -24,21 +24,13 @@ it exits non-zero, stop and ask the user to run `npx strikethroo init`.
 
 Treat the path it prints as `<root>` for every subsequent step.
 
-Delegated execution workers skip this step and do not emit update notices.
-
-Run `scripts/check-for-updates.cjs "<root>"` as a separate command using this
-skill's script path. Keep the user's working directory. Read the one JSON line
-on stdout. When `notice` is present, retain its exact text for the final
-user-facing response. Never pause for permission and never run an update.
-
 #### 2. Load project context
 
-Read `<root>/config/STRIKETHROO.md` for this project's directory conventions.
-Read `<root>/config/hooks/PRE_PLAN.md` and execute its instructions before
-proceeding. Read `<root>/config/templates/PLAN_TEMPLATE.md`; the plan must
-conform to it.
+Read these files, in order:
 
-Also read `<root>/config/shared/anti-rationalization.md`.
+- `<root>/config/STRIKETHROO.md` for this project's directory conventions.
+- `<root>/config/hooks/PRE_PLAN.md`, and execute its instructions before
+  proceeding.
 
 #### 3. Analyze the work order
 
@@ -49,6 +41,7 @@ Identify:
 - Success criteria.
 - Dependencies, prerequisites, blockers.
 - Technical requirements and constraints.
+- Blast radius size.
 
 #### 4. Clarification loop
 
@@ -60,12 +53,13 @@ a missing answer.
 If the user declines to clarify a blocking question, stop and report the
 plan as needing clarification. Do not produce a partial plan.
 
-Apply `<root>/config/shared/anti-rationalization.md` to this rationalization table:
+Read `<root>/config/shared/anti-rationalization.md` and apply it to this
+rationalization table:
 
-| You catch yourself thinking… | The binding rule |
+| You catch yourself thinking… | …do this instead |
 | --- | --- |
-| "I can reasonably assume the answer." | An assumption is not an answer. Ask the question; never invent answers. |
-| "Asking again is annoying." | A question the user can decline is recoverable; a silent wrong assumption is not. Ask. |
+| "I can deduce the answer." | An assumption is not an answer. Ask the question and never invent answers. |
+| "Asking again is annoying." | A silent wrong assumption is unrecoverable. Ask. |
 | "The user implied it, so it's settled." | An implication is not a confirmation. Surface it as a question and get an explicit answer. |
 
 #### 5. Allocate the next plan ID
@@ -76,14 +70,16 @@ unpadded integer in the plan frontmatter.
 
 #### 6. Emit the plan
 
+Read `<root>/config/templates/PLAN_TEMPLATE.md`. Projects customize this
+template, so follow it instead of any default plan layout.
+
 Write the plan to
 `<root>/plans/{padded-id}--{slug}/plan-{padded-id}--{slug}.md`, conforming to
-`<root>/config/templates/PLAN_TEMPLATE.md` in both frontmatter and sections.
-Include no time estimates, task lists, or code samples; those belong to the
-task-generation step.
+the plan template in both frontmatter and sections. Derive `<slug>` from the
+plan summary: lowercase, alphanumeric and hyphens only, no prepositions, no
+conjunctions, repeated hyphens collapsed, trimmed.
 
-Derive `<slug>` from the plan summary: lowercase, alphanumeric and hyphens
-only, collapsed, trimmed.
+Do not include time estimates, task lists, or code samples.
 
 #### 7. Run post-plan hook
 
@@ -91,7 +87,7 @@ Execute `<root>/config/hooks/POST_PLAN.md`.
 
 #### 8. Emit the Step 1 structured summary
 
-Conclude Step 1 with exactly this block (a retained update notice, when present, follows after the workflow's final summary):
+Conclude Step 1 with exactly this block (an update notice, when present, follows the workflow's final summary):
 
 ```
 ---
@@ -108,8 +104,6 @@ Parse the `Plan ID` value from this output and pass it to Step 2.
 ### Step 2: Task Generation
 
 Using the plan ID from Step 1:
-
-
 
 #### 1. Resolve the plan
 
@@ -296,43 +290,44 @@ reported routing off.
 
 Using the plan ID from Step 1:
 
+#### 1. Validate the plan and the tasks
 
-
-#### 1. Resolve the plan
-
-Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` for the plan
-file's absolute path. Another field name prints that field instead.
-
-If the script exits non-zero, surface its stderr to the user and stop the
+1. Run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` for the plan
+   file's absolute path.
+   If the script exits non-zero, surface its stderr to the user and stop the
 workflow.
-Do not guess a different ID.
+2. Run `scripts/validate-plan-blueprint.cjs <plan-id> planDir` and treat the
+   printed path as `<plan-dir>`.
+3. Run `scripts/validate-plan-blueprint.cjs <plan-id> taskCount` and
+   `scripts/validate-plan-blueprint.cjs <plan-id> blueprintExists`.
 
-Run `scripts/validate-plan-blueprint.cjs <plan-id> planDir` and treat the
-printed path as `<plan-dir>`.
-
-#### 2. Validate tasks and blueprint existence
-
-Run `scripts/validate-plan-blueprint.cjs <plan-id> taskCount` and
-`scripts/validate-plan-blueprint.cjs <plan-id> blueprintExists`.
-
-#### 3. Auto-generate tasks and blueprint if missing
+#### 2. Auto-generate tasks and blueprint if missing
 
 If `taskCount` is 0 or `blueprintExists` is `no`:
 
-Notify the user: "Tasks or execution blueprint not found. Generating tasks automatically..."
+Notify the user: "⚠️ Tasks or execution blueprint not found. Generating tasks automatically..."
 
 - Execute the full task generation procedure from Step 2 for this plan ID.
 - Re-run the `planFile`, `planDir`, `taskCount`, and `blueprintExists` queries to refresh the resolved paths and counts.
 
 If the plan still has no tasks or no blueprint, stop and report failure.
 
-#### 4. Optionally create a feature branch
+#### 3. (Optional) Create a feature branch
 
-Run `scripts/create-feature-branch.cjs <plan-id>` once before phase execution. A skip is not a failure. Continue on the current branch, and never create the branch by hand. Uncommitted or untracked changes are permitted only inside the repository-root `.ai/strikethroo` subtree. An error result halts execution; report it.
+Run `scripts/create-feature-branch.cjs <plan-id>` once before phase execution. If the script skips branch creation, continue on the current branch. Never create the branch by hand.
+
+Uncommitted or untracked changes are permitted only inside the repository-root `.ai/strikethroo` subtree. When the script reports changes outside it, halt and offer the user these choices:
+
+- Commit the changes on the current branch.
+- Commit the changes on a temporary branch, then continue on this branch without them.
+- Stash the changes.
+- Discard the changes.
+
+Apply the user's choice, then re-run the script. Any other error halts execution; report it.
 
 Then run `scripts/capture-base-commit.cjs <plan-id>` once to record the commit the review gate diffs against. A `skipped` result continues execution and means the review gate will skip. Only an `error` result halts.
 
-#### 5. Load project context and execution blueprint
+#### 4. Load project context and execution blueprint
 
 Read these files, in order:
 
@@ -340,26 +335,30 @@ Read these files, in order:
 - The plan document at the path from step 1, including its Execution Blueprint section, which defines the phase groupings and task dispatch order.
 - `<root>/config/shared/verification-gate.md` and `<root>/config/shared/anti-rationalization.md`, both applied in the phase loop below.
 
-#### 6. Execute phases in order
+#### 5. Execute phases in order
 
-Use an internal task or todo tracker to monitor progress. For each phase defined in the Execution Blueprint:
+Use an internal task or todo tracker to monitor progress. Track these steps for each phase defined in the Execution Blueprint:
 
-##### 6a. Phase pre-execution
+- [ ] Phase pre-execution
+- [ ] Task dispatch
+- [ ] Phase completion verification
+- [ ] Phase post-execution
+
+##### 5a. Phase pre-execution
 Run `scripts/check-phase-readiness.cjs <plan-id> <phase-number>`. If the script exits non-zero, halt the phase and report the blocking issues before continuing.
 
 Read `<root>/config/hooks/PRE_PHASE.md` and execute its instructions before starting the phase.
 
-##### 6b. Task dispatch
-Identify all tasks scheduled for this phase whose dependencies are fully satisfied. Read `<root>/config/hooks/PRE_TASK_ASSIGNMENT.md` and follow its instructions for agent selection before dispatching tasks.
+##### 5b. Task dispatch
+Identify all tasks scheduled for this phase whose dependencies are fully satisfied. For each task, read `<root>/config/hooks/PRE_TASK_ASSIGNMENT.md` and follow its instructions for sub-agent selection before dispatching tasks.
 
-Resolve every selected task's execution route first. Invoke one resolver per selected
-task simultaneously in a single parallel tool operation:
+Resolve every selected task's execution route first. Run the `resolve` command once per selected task, all in a single parallel tool operation:
 
 ```text
 scripts/dispatch-task-execution.cjs resolve <task-file> <current-harness> <workspace> <plan-id> <task-id>
 ```
 
-Resolvers never launch external processes. After interpreting all route results, issue
+Resolution never launches an external process. After interpreting all route results, issue
 every external execution and every sub-agent **together in one parallel
 tool operation**. External execution uses:
 
@@ -367,8 +366,10 @@ tool operation**. External execution uses:
 scripts/dispatch-task-execution.cjs execute <handoff> <task-file> <current-harness> <workspace> <plan-id> <task-id>
 ```
 
-`<current-harness>` is the exact supported harness identifier running this
-skill; `<workspace>` is the project working directory.
+Where:
+
+- `<current-harness>` is the exact supported harness identifier running this skill.
+- `<workspace>` is the project working directory.
 
 Interpret the one-line JSON result and act on its `kind` exactly once:
 
@@ -387,15 +388,13 @@ Handoff rules:
 - Pass the exact opaque `handoff` string the resolver returned for that task. Never reconstruct one.
 - Never reuse a handoff for another task, and never rerun resolution after launches begin.
 
-Deploy all remaining native sub-agents simultaneously. Each sub-agent must read and execute `<root>/config/hooks/PRE_TASK_EXECUTION.md` before any implementation work, then execute the task and update its status. Do not run `scripts/check-for-updates.cjs`; delegated workers do not consume update notices.
+Deploy all remaining native sub-agents simultaneously. Each sub-agent must read and execute `<root>/config/hooks/PRE_TASK_EXECUTION.md` before any implementation work, then execute the task and update its status.
 
-##### 6c. Phase completion verification
+##### 5c. Phase completion verification
 Ensure every task in the phase has status `completed` and collect its outputs. Do not accept a subagent's report of success as proof. Apply the evidence gate in `<root>/config/shared/verification-gate.md` before marking the phase complete.
 
-##### 6d. Phase post-execution
-Read `<root>/config/hooks/POST_PHASE.md` and execute its instructions. Do not proceed to the next phase until this hook succeeds.
-
-Update the phase status to `completed` in the plan's Execution Blueprint section.
+##### 5d. Phase post-execution
+Read `<root>/config/hooks/POST_PHASE.md` and execute its instructions. Then update the phase status to `completed` in the plan's Execution Blueprint section.
 
 Repeat for the next phase until all phases are complete.
 
@@ -407,13 +406,13 @@ Apply `<root>/config/shared/anti-rationalization.md` to this rationalization tab
 | "The tests probably pass." | "Probably" is a red flag. Run the proving command, read its output and exit code, then state the result. |
 | "I'll verify later, after the next phase." | A phase is not complete until `POST_PHASE.md` succeeds against verified evidence. Verify now; do not advance on an unverified phase. |
 
-#### 7. Post-execution validation
+#### 6. Post-execution validation
 
-Read `<root>/config/hooks/POST_EXECUTION.md` and execute its instructions. If validation fails, halt execution. The plan remains in `plans/` for debugging.
+Read `<root>/config/hooks/POST_EXECUTION.md` and execute its instructions. If a validation gate fails, follow the hook's failure behavior, then re-run `POST_EXECUTION.md` in full. If the same gate fails again, halt execution and leave the plan in `plans/` for debugging.
 
 Before declaring execution complete, apply the evidence gate in `<root>/config/shared/verification-gate.md` to the plan's Success Criteria and Self Validation steps.
 
-##### Run the code review gate
+##### 6a. Run the code review gate
 
 After `POST_EXECUTION.md` reports green, follow the `st-code-review` skill and run its bundled mechanism:
 
@@ -421,7 +420,7 @@ After `POST_EXECUTION.md` reports green, follow the `st-code-review` skill and r
 code-review.cjs <plan-id> <current-harness>
 ```
 
-Resolve `code-review.cjs` from the `st-code-review` skill's sibling `scripts` directory and pass the exact supported harness identifier running this skill. If the `st-code-review` skill is not installed, record that outcome in the execution summary and continue to summary and archival.
+Resolve `code-review.cjs` from the `st-code-review` skill's sibling `scripts` directory and pass the exact supported harness identifier running this skill. If the project is not a git repository or the `st-code-review` skill is not installed, skip the review, record why in the execution summary, and continue to summary and archival.
 
 Handle the one JSON line it prints on stdout, in this order:
 
@@ -433,26 +432,26 @@ Never report an uncertified review as clean.
 
 Hard rules:
 
-- The review runs once. Do not re-run the gate to check a fix.
+- The review runs once. Do not re-run the gate to check a fix unless the user explicitly asks for it.
 - Detection uses the reviewer route. Dispatch each fix on the implementer route; the reviewer does not fix its findings.
-- After any fix, re-run `POST_EXECUTION.md` in full before declaring execution complete. The earlier green result no longer applies.
+- After any fix, the earlier green result no longer applies. Re-run `POST_EXECUTION.md` in full before declaring execution complete.
 
-#### 8. Append execution summary
+#### 7. Append execution summary
 
-Append an execution summary section to the plan document, filling every field of `<root>/config/templates/EXECUTION_SUMMARY_TEMPLATE.md`. Include a Code Review entry using the result’s `codeReview` field, or Failed with the reason no result was produced. Under Noteworthy Events, always record the review gate's JSON line verbatim, then which findings you acted on versus ignored and why.
+Append an execution summary section to the plan document, filling every field of `<root>/config/templates/EXECUTION_SUMMARY_TEMPLATE.md`. If the code review ran, include a Code Review entry using the result’s `codeReview` field, or Failed with the reason no result was produced. Under Noteworthy Events, record the review gate's JSON line verbatim, then which findings you acted on versus ignored and why.
 
-#### 9. Archive the plan
+#### 8. Archive the plan
 
-Move the completed plan directory from `<root>/plans/<plan-folder>` to `<root>/archive/<plan-folder>`, preserving the entire folder structure. If the move fails, log the error but do not fail the overall execution.
+Move the completed plan directory from `<root>/plans/<plan-folder>` to `<root>/archive/<plan-folder>`, preserving the entire folder structure.
 
 ## Failure Modes
 
-- **Plan directory already exists for the allocated ID in Step 1.** Re-run the next-plan-id script and retry once. If the conflict persists, stop and report.
+- **Plan directory already exists for the allocated ID in Step 1.** Determine the next available plan ID by re-running `scripts/get-next-plan-id.cjs`, then update the frontmatter and paths to match.
 - **Execution errors.** If a task fails, read `<root>/config/hooks/POST_ERROR_DETECTION.md`, document the error in Noteworthy Events, halt the phase, and request user direction before continuing.
 
 ## Execution Summary
 
-Conclude with exactly this block (a retained update notice, when present, follows separately):
+Conclude with exactly this block (an update notice, when present, follows separately):
 
 ```
 ---
@@ -468,6 +467,10 @@ Emit this block even when the review gate halts execution. Use the actual status
 
 The summary is consumed by downstream automation; keep the format exact.
 
-When the retained update `notice` is present, append that exact sentence after
-the structured summary block, or after your final response when this skill emits
-no summary block. Nothing may follow the notice.
+Before you write the final response, run `scripts/check-for-updates.cjs "<root>"`
+as a separate command using this skill's script path. Keep the user's working
+directory. Read the one JSON line on stdout.
+Never pause for permission and never run an update.
+When `notice` is present, append its exact text after the structured summary
+block, or after your final response when this skill emits no summary block.
+Nothing may follow the notice.

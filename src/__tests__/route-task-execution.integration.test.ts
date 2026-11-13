@@ -13,10 +13,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
-import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { BUILT_SKILLS_ROOT } from './built-skills';
 
-const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const SKILLS_ROOT = BUILT_SKILLS_ROOT;
 
 interface ScriptResult {
@@ -95,10 +94,6 @@ describe('route-task-execution bundle integration', () => {
     fs.writeFileSync(file, JSON.stringify(mapping));
     return file;
   };
-
-  beforeAll(() => {
-    execFileSync('npm', ['run', 'build:skills'], { cwd: REPO_ROOT, stdio: 'pipe' });
-  });
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'route-exec-'));
@@ -279,10 +274,6 @@ describe('route-task-execution bundle integration', () => {
 });
 
 describe('task-generation skill artifacts carry the routing procedure', () => {
-  beforeAll(() => {
-    execFileSync('npm', ['run', 'build:skill-prompts'], { cwd: REPO_ROOT, stdio: 'pipe' });
-  });
-
   it.each(['st-generate-tasks', 'st-full-workflow'])(
     '%s SKILL.md routes after task emission and before blueprint generation',
     skill => {

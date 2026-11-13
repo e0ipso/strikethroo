@@ -9,7 +9,6 @@
  * documents it.
  */
 
-import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { BUILT_SKILLS_ROOT } from './built-skills';
@@ -67,10 +66,6 @@ const outcomesBlock = (content: string): string => {
 };
 
 describe('rendered dispatch skills share one outcome contract', () => {
-  beforeAll(() => {
-    execFileSync('npm', ['run', 'build:skill-prompts'], { cwd: REPO_ROOT, stdio: 'pipe' });
-  });
-
   test('the documented kinds are exactly the ones the script can emit', () => {
     expect(KINDS).toEqual([
       'external-override',

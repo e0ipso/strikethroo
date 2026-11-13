@@ -15,7 +15,8 @@ permissions:
 jobs:
   test-and-lint:
     name: Test and Lint
-    runs-on: ubuntu-latest
+    # Keep the OS within the locked Playwright version's supported platforms.
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
 
@@ -46,7 +47,7 @@ jobs:
 
       # The code review gate validates every emitted review.xml against the
       # vendored XSD by shelling out to xmllint, so the suite exercising it
-      # needs a real validator. Not preinstalled on ubuntu-latest.
+      # needs a real validator. Not preinstalled on the runner.
       - name: Install xmllint
         run: sudo apt-get update && sudo apt-get install -y libxml2-utils
 

@@ -9,7 +9,6 @@ import * as path from 'path';
 import { execFileSync } from 'child_process';
 import { builtSkillDir } from './built-skills';
 
-const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const SKILL_DIR = builtSkillDir('st-full-workflow');
 
 const buildFixtureRoot = (root: string): string => {
@@ -78,13 +77,6 @@ const buildPlanWithTasks = (
 describe('st-full-workflow bundle smoke', () => {
   let tempDir: string;
   let fixtureSkillDir: string;
-
-  beforeAll(() => {
-    execFileSync('npm', ['run', 'build:skills'], {
-      cwd: REPO_ROOT,
-      stdio: 'pipe',
-    });
-  });
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tfw-bundle-'));

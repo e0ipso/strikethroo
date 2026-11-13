@@ -41,7 +41,6 @@ import {
   TRAILING_EXECUTION_SUMMARY,
 } from './fixtures/blueprint-trailing-summary';
 
-const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const SKILL_DIR = builtSkillDir('st-create-plan');
 
 const writeFile = (filePath: string, contents: string): void => {
@@ -386,14 +385,6 @@ describe('skill bundle smoke check', () => {
   let tempDir: string;
   let fixtureSkillDir: string;
 
-  beforeAll(() => {
-    // Build the bundles so .cjs files exist for this test run.
-    execFileSync('npm', ['run', 'build:skills'], {
-      cwd: REPO_ROOT,
-      stdio: 'pipe',
-    });
-  });
-
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-smoke-'));
     buildMixedFixture(tempDir);
@@ -666,13 +657,6 @@ describe('st-execute-blueprint bundle smoke check', () => {
   let tempDir: string;
   let fixtureSkillDir: string;
 
-  beforeAll(() => {
-    execFileSync('npm', ['run', 'build:skills'], {
-      cwd: REPO_ROOT,
-      stdio: 'pipe',
-    });
-  });
-
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-smoke-exec-'));
     const tm = path.join(tempDir, '.ai', 'strikethroo');
@@ -802,13 +786,6 @@ describe('st-execute-blueprint bundle smoke check', () => {
 describe('st-refine-plan bundle smoke check', () => {
   let tempDir: string;
   let fixtureSkillDir: string;
-
-  beforeAll(() => {
-    execFileSync('npm', ['run', 'build:skills'], {
-      cwd: REPO_ROOT,
-      stdio: 'pipe',
-    });
-  });
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-smoke-refine-'));
@@ -1181,13 +1158,6 @@ describe('task metadata reader', () => {
 describe('check-phase-readiness scenarios', () => {
   let tempDir: string;
 
-  beforeAll(() => {
-    execFileSync('npm', ['run', 'build:skills'], {
-      cwd: REPO_ROOT,
-      stdio: 'pipe',
-    });
-  });
-
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-phase-readiness-'));
   });
@@ -1375,13 +1345,6 @@ describe('st-execute-task bundle smoke check', () => {
   let tempDir: string;
   let fixtureSkillDir: string;
 
-  beforeAll(() => {
-    execFileSync('npm', ['run', 'build:skills'], {
-      cwd: REPO_ROOT,
-      stdio: 'pipe',
-    });
-  });
-
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-smoke-exec-task-'));
     buildTaskFixture(tempDir, 3, 'alpha', [
@@ -1466,13 +1429,6 @@ describe('st-execute-task bundle smoke check', () => {
 
 describe('check-task-dependencies scenarios', () => {
   let tempDir: string;
-
-  beforeAll(() => {
-    execFileSync('npm', ['run', 'build:skills'], {
-      cwd: REPO_ROOT,
-      stdio: 'pipe',
-    });
-  });
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-deps-scenario-'));

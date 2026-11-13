@@ -5,6 +5,8 @@
  * references into dist-test/ (gitignored). Suites that execute the bundles or
  * assert on rendered prompts read from here, so a stale build fails them
  * against source that is already correct. Rebuild before running the suite.
+ * Suites must not rebuild this shared tree while parallel tests copy or read it.
+ * Build-script tests use their own fixture output directories instead.
  *
  * The tracked root skills/ directory is the released tree and is never read by
  * tests, except by skills-mirror.test.ts, which checks its shape.

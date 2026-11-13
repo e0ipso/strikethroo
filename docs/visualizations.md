@@ -29,15 +29,15 @@ Switch between the pipeline **Board** and detail **Cards** in place:
 
 ## A single plan
 
-Read the plan document, with the task blueprint pinned alongside.
+The **Overview** tab opens with Plan Clarifications, Executive Summary, and Success Criteria in document order, when present. **Design** shows the remaining narrative, including Original Work Order, with the task blueprint pinned alongside. Plans without Overview sections show a single **Plan** tab with the blueprint rail.
 
-[![Plan Detail, Plan tab]({{ '/assets/plan-detail-plan.png' | relative_url }})]({{ '/assets/plan-detail-plan.png' | relative_url }})
+[![Plan Detail, Design tab]({{ '/assets/plan-detail-plan.png' | relative_url }})]({{ '/assets/plan-detail-plan.png' | relative_url }})
 
 See the task **dependency graph** -- a live mermaid render, not a baked image.
 
 [![Plan Detail, Graph tab]({{ '/assets/plan-detail-graph.png' | relative_url }})]({{ '/assets/plan-detail-graph.png' | relative_url }})
 
-Flip between the **Plan**, **Graph**, and **Tasks** (swimlanes) tabs:
+Flip between **Overview**, **Design**, **Graph**, and **Tasks** (swimlanes):
 
 <video class="wide-video" controls preload="metadata" src="{{ '/assets/plan-detail-tab-switch.webm' | relative_url }}"></video>
 

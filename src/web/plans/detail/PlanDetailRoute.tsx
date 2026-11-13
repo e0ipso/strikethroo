@@ -2,9 +2,9 @@
  * Plan Detail route container (`/plans/:id`).
  *
  * Owns the single data fetch (`usePlanDetail`), the shared `Chrome` (breadcrumb
- * trail, the Plan / Results / Graph / Tasks tab strip, the plan `StatusPill`,
+ * trail, the narrative / Results / Graph / Tasks tab strip, the plan `StatusPill`,
  * and the `Copy path` action), and the active-tab state. The tab strip is
- * interactive: selecting a tab swaps the body between the Reader (Plan), the
+ * interactive: selecting a tab swaps the body between the narrative Reader, the
  * Results markdown, the Graph, and the Execution blueprint (Tasks). The route
  * has no tab in its URL — tab selection is local UI state, mirroring the design
  * where each Plan Detail screen shares one Chrome and differs only in body. The
@@ -28,7 +28,12 @@ import {
   launchSelfReview,
   type PlanDetail,
 } from '../../data/api';
-import { humanizeSlug, stripIdPrefix } from '../derive';
+import {
+  humanizeSlug,
+  stripIdPrefix,
+  splitResultsSections,
+  splitOverviewSections,
+} from '../derive';
 import { copyToClipboard } from '../../vendor/utils/clipboard';
 import { useModal, PlanModals } from '../modals';
 import { PlanDetailReader } from './PlanDetailReader';
@@ -36,15 +41,11 @@ import { PlanDetailResults } from './PlanDetailResults';
 import { PlanDetailGraph } from './PlanDetailGraph';
 import { ExecuteTab } from '../exec/ExecuteTab';
 
-/** The Plan Detail tabs, in order. The Tasks tab carries a count. */
-const TAB_PLAN = 0;
-const TAB_RESULTS = 1;
-const TAB_GRAPH = 2;
-const TAB_TASKS = 3;
+type DetailTab = 'plan' | 'design' | 'results' | 'graph' | 'tasks';
 
 /** The loaded route: shared Chrome plus the body for the active tab. */
 function LoadedRoute({ detail }: { detail: PlanDetail }) {
-  const [activeTab, setActiveTab] = useState<number>(TAB_PLAN);
+  const [activeTab, setActiveTab] = useState<DetailTab>('plan');
   const modal = useModal();
   const caps = useCapabilities();
   const readOnly = isReadOnly(caps);
@@ -77,23 +78,44 @@ function LoadedRoute({ detail }: { detail: PlanDetail }) {
     });
   };
 
-  // The plan-detail tab set; only the Tasks tab carries a count.
-  const tabs: ChromeTab[] = ['Plan', 'Results', 'Graph', ['Tasks', detail.tasks.length]];
+  const { planSections } = splitResultsSections(detail.sections);
+  const { overviewSections, designSections } = splitOverviewSections(planSections);
+  const hasOverview = overviewSections.length > 0;
+  const tabIds: DetailTab[] = hasOverview
+    ? ['plan', 'design', 'results', 'graph', 'tasks']
+    : ['plan', 'results', 'graph', 'tasks'];
+  const tabs: ChromeTab[] = [
+    ...(hasOverview ? ['Overview', 'Design'] : ['Plan']),
+    'Results',
+    'Graph',
+    ['Tasks', detail.tasks.length],
+  ];
+  // Preserve the selected tab when live updates change the narrative tab set.
+  const selectedTab = tabIds.includes(activeTab) ? activeTab : 'plan';
 
   let body;
-  switch (activeTab) {
-    case TAB_RESULTS:
+  switch (selectedTab) {
+    case 'results':
       body = <PlanDetailResults detail={detail} />;
       break;
-    case TAB_GRAPH:
+    case 'graph':
       body = <PlanDetailGraph detail={detail} />;
       break;
-    case TAB_TASKS:
+    case 'tasks':
       body = <ExecuteTab detail={detail} />;
       break;
-    case TAB_PLAN:
+    case 'design':
+      body = <PlanDetailReader detail={detail} sections={designSections} />;
+      break;
+    case 'plan':
     default:
-      body = <PlanDetailReader detail={detail} />;
+      body = (
+        <PlanDetailReader
+          detail={detail}
+          sections={hasOverview ? overviewSections : planSections}
+          showBlueprintRail={!hasOverview}
+        />
+      );
       break;
   }
 
@@ -103,8 +125,8 @@ function LoadedRoute({ detail }: { detail: PlanDetail }) {
         title={title}
         crumbs={[{ label: 'Plans', href: '/' }, slug, 'plan.md']}
         tabs={tabs}
-        activeTab={activeTab}
-        onTabSelect={setActiveTab}
+        activeTab={tabIds.indexOf(selectedTab)}
+        onTabSelect={index => setActiveTab(tabIds[index])}
         right={
           <>
             <StatusPill kind={detail.state as StatusKind} />

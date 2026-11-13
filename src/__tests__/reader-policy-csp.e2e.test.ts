@@ -179,7 +179,6 @@ test.describe('Reader policy, mermaid lock-down, and CSP (Playwright)', () => {
       });
       expect(response?.headers()['content-security-policy']).toBe(CONTENT_SECURITY_POLICY);
       await page.getByTestId('reader').waitFor();
-      await page.getByTestId('reader-mermaid').waitFor();
 
       // Forbidden controls, embeds, overlays, author styling, and ids are gone.
       expect(await countForbidden(page)).toEqual(zeroes);
@@ -219,6 +218,9 @@ test.describe('Reader policy, mermaid lock-down, and CSP (Playwright)', () => {
       expect(await reader.locator('img[src^="data:image/png;base64,"]').count()).toBe(1);
 
       // The inline diagram rendered through the lazy boundary, inside its host.
+      await page.getByRole('tab', { name: 'Design', exact: true }).click();
+      await page.getByTestId('reader-mermaid').waitFor();
+      expect(await countForbidden(page)).toEqual(zeroes);
       await page.waitForSelector('[data-testid="reader-mermaid"] .mermaid-host svg');
 
       // Graph tab: the diagram renders despite `maxTextSize: 1`, `loose` did

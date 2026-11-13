@@ -33,7 +33,6 @@ __export(check_task_dependencies_exports, {
   _main: () => _main
 });
 module.exports = __toCommonJS(check_task_dependencies_exports);
-var fs5 = __toESM(require("fs"));
 var path5 = __toESM(require("path"));
 
 // src/skill-scripts/shared/plan-resolve.ts
@@ -60,13 +59,6 @@ var getStrikethrooAt = (directory) => {
   const strikethrooPath = path.join(directory, ".ai", "strikethroo");
   return isValidStrikethrooRoot(strikethrooPath) ? strikethrooPath : null;
 };
-var getParentPaths = (currentPath, acc = []) => {
-  const absolutePath = path.resolve(currentPath);
-  const nextAcc = [...acc, absolutePath];
-  const parentPath = path.dirname(absolutePath);
-  if (parentPath === absolutePath) return nextAcc;
-  return getParentPaths(parentPath, nextAcc);
-};
 var checkWorkspaceSchema = (strikethrooRoot) => {
   let metadata;
   try {
@@ -92,10 +84,14 @@ var checkWorkspaceSchema = (strikethrooRoot) => {
   process.exit(1);
 };
 var discoverStrikethrooRoot = (startPath = process.cwd()) => {
-  const paths = getParentPaths(startPath);
-  const found = paths.find((p) => getStrikethrooAt(p));
-  if (!found) return null;
-  return getStrikethrooAt(found);
+  let directory = path.resolve(startPath);
+  for (; ; ) {
+    const root = getStrikethrooAt(directory);
+    if (root) return root;
+    const parent = path.dirname(directory);
+    if (parent === directory) return null;
+    directory = parent;
+  }
 };
 var findStrikethrooRoot = (startPath = process.cwd()) => {
   const root = discoverStrikethrooRoot(startPath);
@@ -106,158 +102,6 @@ var findStrikethrooRoot = (startPath = process.cwd()) => {
 // src/skill-scripts/shared/plan-scan.ts
 var fs2 = __toESM(require("fs"));
 var path2 = __toESM(require("path"));
-
-// src/skill-scripts/shared/frontmatter.ts
-var ID_PATTERNS = [
-  /^\s*["']?id["']?\s*:\s*["']?([+-]?\d+)["']?\s*(?:#.*)?$/im,
-  /^\s*id\s*:\s*([+-]?\d+)\s*(?:#.*)?$/im,
-  /^\s*["']?id["']?\s*:\s*"([+-]?\d+)"\s*(?:#.*)?$/im,
-  /^\s*["']?id["']?\s*:\s*'([+-]?\d+)'\s*(?:#.*)?$/im,
-  /^\s*["']id["']\s*:\s*([+-]?\d+)\s*(?:#.*)?$/im,
-  /^\s*id\s*:\s*[|>]\s*([+-]?\d+)\s*$/im
-];
-var validateId = (rawId) => {
-  const id = parseInt(rawId, 10);
-  if (Number.isNaN(id) || id < 0 || id > Number.MAX_SAFE_INTEGER) return null;
-  return id;
-};
-var extractIdFromMarkdown = (content) => {
-  const frontmatterMatch = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/);
-  if (!frontmatterMatch || !frontmatterMatch[1]) return null;
-  const block = frontmatterMatch[1];
-  for (const pattern of ID_PATTERNS) {
-    const match = block.match(pattern);
-    if (match && match[1]) {
-      const id = validateId(match[1]);
-      if (id !== null) return id;
-    }
-  }
-  return null;
-};
-var extractPlanId = (content, _filePath) => {
-  return extractIdFromMarkdown(content);
-};
-
-// src/skill-scripts/shared/plan-scan.ts
-var PLAN_EXTENSIONS = [".md"];
-var scanPlanDir = (planDirPath, dirName, isArchive) => {
-  let entries;
-  try {
-    entries = fs2.readdirSync(planDirPath, { withFileTypes: true });
-  } catch (_err) {
-    return [];
-  }
-  return entries.filter((e) => e.isFile() && PLAN_EXTENSIONS.some((ext) => e.name.endsWith(ext))).flatMap((e) => {
-    const filePath = path2.join(planDirPath, e.name);
-    try {
-      const content = fs2.readFileSync(filePath, "utf8");
-      const id = extractPlanId(content, filePath);
-      if (id === null) return [];
-      return [{ id, file: filePath, dir: planDirPath, isArchive, name: dirName }];
-    } catch (_err) {
-      return [];
-    }
-  });
-};
-var getAllPlans = (taskManagerRoot) => {
-  const sources = [
-    { dir: path2.join(taskManagerRoot, "plans"), isArchive: false },
-    { dir: path2.join(taskManagerRoot, "archive"), isArchive: true }
-  ];
-  return sources.flatMap(({ dir, isArchive }) => {
-    if (!fs2.existsSync(dir)) return [];
-    let entries;
-    try {
-      entries = fs2.readdirSync(dir, { withFileTypes: true });
-    } catch (_err) {
-      return [];
-    }
-    return entries.filter((e) => e.isDirectory()).flatMap((e) => scanPlanDir(path2.join(dir, e.name), e.name, isArchive));
-  });
-};
-
-// src/skill-scripts/shared/plan-resolve.ts
-var _classifyPlanInput = (input, isAbsolute2 = path3.isAbsolute) => {
-  if (input === null || input === void 0 || input === "") return { kind: "invalid" };
-  const candidate = String(input);
-  if (isAbsolute2(candidate)) return { kind: "path", planFile: candidate };
-  const planId = parseInt(candidate, 10);
-  return Number.isNaN(planId) ? { kind: "invalid" } : { kind: "id", planId };
-};
-var isValidRootDir = (strikethrooPath) => {
-  try {
-    if (!fs3.existsSync(strikethrooPath)) return false;
-    if (!fs3.lstatSync(strikethrooPath).isDirectory()) return false;
-    const metadataPath = path3.join(strikethrooPath, ".init-metadata.json");
-    if (!fs3.existsSync(metadataPath)) return false;
-    const metadata = JSON.parse(fs3.readFileSync(metadataPath, "utf8"));
-    return typeof metadata === "object" && metadata !== null;
-  } catch (_err) {
-    return false;
-  }
-};
-var checkStandardRootShortcut = (filePath) => {
-  const planDir = path3.dirname(filePath);
-  const parentDir = path3.dirname(planDir);
-  const possibleRoot = path3.dirname(parentDir);
-  const parentBase = path3.basename(parentDir);
-  if (parentBase !== "plans" && parentBase !== "archive") return null;
-  if (path3.basename(possibleRoot) !== "strikethroo") return null;
-  const dotAiDir = path3.dirname(possibleRoot);
-  if (path3.basename(dotAiDir) !== ".ai") return null;
-  return isValidRootDir(possibleRoot) ? possibleRoot : null;
-};
-var discoverRootForPlanFile = (planFile) => checkStandardRootShortcut(planFile) ?? discoverStrikethrooRoot(path3.dirname(planFile));
-var locateRootForPlanFile = (planFile) => {
-  const root = discoverRootForPlanFile(planFile);
-  if (root) checkWorkspaceSchema(root);
-  return root;
-};
-var resolveByPath = (absolutePath) => {
-  let content;
-  try {
-    content = fs3.readFileSync(absolutePath, "utf8");
-  } catch (_err) {
-    return null;
-  }
-  const planId = extractPlanId(content, absolutePath);
-  if (planId === null) return null;
-  const tmRoot = locateRootForPlanFile(absolutePath);
-  if (!tmRoot) return null;
-  return {
-    planFile: absolutePath,
-    planDir: path3.dirname(absolutePath),
-    strikethrooRoot: tmRoot,
-    planId
-  };
-};
-var resolveById = (planId, startPath) => {
-  const tmRoot = findStrikethrooRoot(startPath);
-  if (!tmRoot) return null;
-  const match = getAllPlans(tmRoot).find((p) => p.id === planId);
-  if (!match) return null;
-  return {
-    planFile: match.file,
-    planDir: match.dir,
-    strikethrooRoot: tmRoot,
-    planId
-  };
-};
-var resolvePlan = (input, startPath = process.cwd()) => {
-  const classified = _classifyPlanInput(input);
-  switch (classified.kind) {
-    case "path":
-      return resolveByPath(classified.planFile);
-    case "id":
-      return resolveById(classified.planId, startPath);
-    case "invalid":
-      return null;
-  }
-};
-
-// src/skill-scripts/shared/task-file.ts
-var fs4 = __toESM(require("fs"));
-var path4 = __toESM(require("path"));
 
 // node_modules/js-yaml/dist/js-yaml.mjs
 var NOT_RESOLVED = /* @__PURE__ */ Symbol("NOT_RESOLVED");
@@ -2731,8 +2575,9 @@ var hasYamlContent = (block) => block.split(/\r?\n/).some((line) => {
   const trimmed = line.trim();
   return trimmed !== "" && !trimmed.startsWith("#");
 });
-var readYamlFrontmatter = (markdown) => {
-  const source = markdown.startsWith("\uFEFF") ? markdown.slice(1) : markdown;
+var splitFrontmatter = (markdown) => {
+  const offset = markdown.startsWith("\uFEFF") ? 1 : 0;
+  const source = markdown.slice(offset);
   const opening = OPENING_FENCE.exec(source);
   if (!opening) return { kind: "none" };
   if ((opening[1] ?? "").trim() !== "") {
@@ -2746,17 +2591,26 @@ var readYamlFrontmatter = (markdown) => {
   if (!closing) {
     return { kind: "invalid", reason: "Frontmatter has no closing fence." };
   }
-  const block = rest.slice(0, closing.index);
-  if (Buffer.byteLength(block, "utf8") > MAX_FRONTMATTER_BYTES) {
+  return {
+    kind: "block",
+    text: rest.slice(0, closing.index),
+    start: offset + opening[0].length,
+    bodyStart: offset + opening[0].length + closing.index + closing[0].length
+  };
+};
+var readYamlFrontmatter = (markdown) => {
+  const block = splitFrontmatter(markdown);
+  if (block.kind !== "block") return block;
+  if (Buffer.byteLength(block.text, "utf8") > MAX_FRONTMATTER_BYTES) {
     return {
       kind: "invalid",
       reason: `Frontmatter exceeds the ${MAX_FRONTMATTER_BYTES}-byte limit.`
     };
   }
-  if (!hasYamlContent(block)) return { kind: "data", data: {} };
+  if (!hasYamlContent(block.text)) return { kind: "data", data: {} };
   let parsed;
   try {
-    parsed = load(block);
+    parsed = load(block.text);
   } catch (error) {
     return {
       kind: "invalid",
@@ -2769,7 +2623,145 @@ var readYamlFrontmatter = (markdown) => {
   return { kind: "data", data: parsed };
 };
 
+// src/skill-scripts/shared/frontmatter.ts
+var parseInteger = (value) => {
+  const number = typeof value === "number" ? value : typeof value === "string" && /^[+-]?\d+$/.test(value.trim()) ? Number(value) : NaN;
+  return Number.isSafeInteger(number) ? number : void 0;
+};
+var extractPlanId = (content, _filePath) => {
+  const parsed = readYamlFrontmatter(content);
+  const id = parsed.kind === "data" ? parseInteger(parsed.data.id) : void 0;
+  return id !== void 0 && id >= 0 ? id : null;
+};
+var idFromName = (name) => parseInteger(/^(?:plan-)?(\d+)--/.exec(name)?.[1]) ?? null;
+
+// src/skill-scripts/shared/plan-scan.ts
+var PLAN_EXTENSIONS = [".md"];
+var discoverPlanId = (content, file) => {
+  const id = extractPlanId(content, file);
+  if (id !== null) return id;
+  const name = path2.basename(file);
+  if (!/^plan(?:-.*)?\.md$/.test(name) || splitFrontmatter(content).kind !== "block") return null;
+  return idFromName(path2.basename(path2.dirname(file))) ?? idFromName(name);
+};
+var scanPlanDir = (planDirPath, dirName, isArchive) => {
+  let entries;
+  try {
+    entries = fs2.readdirSync(planDirPath, { withFileTypes: true });
+  } catch (_err) {
+    return [];
+  }
+  return entries.filter((e) => e.isFile() && PLAN_EXTENSIONS.some((ext) => e.name.endsWith(ext))).flatMap((e) => {
+    const filePath = path2.join(planDirPath, e.name);
+    try {
+      const content = fs2.readFileSync(filePath, "utf8");
+      const id = discoverPlanId(content, filePath);
+      if (id === null) return [];
+      return [{ id, file: filePath, dir: planDirPath, isArchive, name: dirName }];
+    } catch (_err) {
+      return [];
+    }
+  });
+};
+var getAllPlans = (taskManagerRoot) => {
+  const sources = [
+    { dir: path2.join(taskManagerRoot, "plans"), isArchive: false },
+    { dir: path2.join(taskManagerRoot, "archive"), isArchive: true }
+  ];
+  return sources.flatMap(({ dir, isArchive }) => {
+    if (!fs2.existsSync(dir)) return [];
+    let entries;
+    try {
+      entries = fs2.readdirSync(dir, { withFileTypes: true });
+    } catch (_err) {
+      return [];
+    }
+    return entries.filter((e) => e.isDirectory()).flatMap((e) => scanPlanDir(path2.join(dir, e.name), e.name, isArchive));
+  });
+};
+
+// src/skill-scripts/shared/plan-resolve.ts
+var _classifyPlanInput = (input, isAbsolute2 = path3.isAbsolute) => {
+  if (input === null || input === void 0 || input === "") return { kind: "invalid" };
+  const candidate = String(input);
+  if (isAbsolute2(candidate)) return { kind: "path", planFile: candidate };
+  const planId = parseInt(candidate, 10);
+  return Number.isNaN(planId) ? { kind: "invalid" } : { kind: "id", planId };
+};
+var isValidRootDir = (strikethrooPath) => {
+  try {
+    if (!fs3.existsSync(strikethrooPath)) return false;
+    if (!fs3.lstatSync(strikethrooPath).isDirectory()) return false;
+    const metadataPath = path3.join(strikethrooPath, ".init-metadata.json");
+    if (!fs3.existsSync(metadataPath)) return false;
+    const metadata = JSON.parse(fs3.readFileSync(metadataPath, "utf8"));
+    return typeof metadata === "object" && metadata !== null;
+  } catch (_err) {
+    return false;
+  }
+};
+var checkStandardRootShortcut = (filePath) => {
+  const planDir = path3.dirname(filePath);
+  const parentDir = path3.dirname(planDir);
+  const possibleRoot = path3.dirname(parentDir);
+  const parentBase = path3.basename(parentDir);
+  if (parentBase !== "plans" && parentBase !== "archive") return null;
+  if (path3.basename(possibleRoot) !== "strikethroo") return null;
+  const dotAiDir = path3.dirname(possibleRoot);
+  if (path3.basename(dotAiDir) !== ".ai") return null;
+  return isValidRootDir(possibleRoot) ? possibleRoot : null;
+};
+var discoverRootForPlanFile = (planFile) => checkStandardRootShortcut(planFile) ?? discoverStrikethrooRoot(path3.dirname(planFile));
+var locateRootForPlanFile = (planFile) => {
+  const root = discoverRootForPlanFile(planFile);
+  if (root) checkWorkspaceSchema(root);
+  return root;
+};
+var resolveByPath = (absolutePath) => {
+  let content;
+  try {
+    content = fs3.readFileSync(absolutePath, "utf8");
+  } catch (_err) {
+    return null;
+  }
+  const planId = discoverPlanId(content, absolutePath);
+  if (planId === null) return null;
+  const tmRoot = locateRootForPlanFile(absolutePath);
+  if (!tmRoot) return null;
+  return {
+    planFile: absolutePath,
+    planDir: path3.dirname(absolutePath),
+    strikethrooRoot: tmRoot,
+    planId
+  };
+};
+var resolveById = (planId, startPath) => {
+  const tmRoot = findStrikethrooRoot(startPath);
+  if (!tmRoot) return null;
+  const match = getAllPlans(tmRoot).find((p) => p.id === planId);
+  if (!match) return null;
+  return {
+    planFile: match.file,
+    planDir: match.dir,
+    strikethrooRoot: tmRoot,
+    planId
+  };
+};
+var resolvePlan = (input, startPath = process.cwd()) => {
+  const classified = _classifyPlanInput(input);
+  switch (classified.kind) {
+    case "path":
+      return resolveByPath(classified.planFile);
+    case "id":
+      return resolveById(classified.planId, startPath);
+    case "invalid":
+      return null;
+  }
+};
+
 // src/skill-scripts/shared/task-file.ts
+var fs4 = __toESM(require("fs"));
+var path4 = __toESM(require("path"));
 var findTaskFile = (planDir, taskId) => {
   const taskDir = path4.join(planDir, "tasks");
   if (!fs4.existsSync(taskDir)) return null;
@@ -2839,12 +2831,8 @@ var describeValue = (value) => {
 };
 var isTaskStatus = (value) => typeof value === "string" && TASK_STATUSES.includes(value);
 var toTaskId = (value) => {
-  if (typeof value === "number") return Number.isSafeInteger(value) && value >= 0 ? value : null;
-  if (typeof value === "string" && /^[0-9]+$/.test(value)) {
-    const id = Number(value);
-    return Number.isSafeInteger(id) ? id : null;
-  }
-  return null;
+  const id = parseInteger(value);
+  return id !== void 0 && id >= 0 ? id : null;
 };
 var readDependencies = (value) => {
   if (value === void 0 || value === null) return [];
@@ -2890,7 +2878,7 @@ var readDocument2 = (file) => {
     return null;
   }
 };
-var collectTaskReadinessIssues = (planDir, taskId) => {
+var inspectTaskReadiness = (planDir, taskId) => {
   const idLabel = String(taskId);
   const issue = (kind, detail) => ({
     taskId: idLabel,
@@ -2898,16 +2886,24 @@ var collectTaskReadinessIssues = (planDir, taskId) => {
     detail
   });
   const taskFile = findTaskFile(planDir, taskId);
-  if (!taskFile) return [issue("missing", "task file not found")];
+  const dependencies = [];
+  const rejected = (kind, detail) => ({
+    taskFile,
+    dependencies,
+    issues: [issue(kind, detail)]
+  });
+  if (!taskFile) return rejected("missing", "task file not found");
   const taskContent = readDocument2(taskFile);
-  if (taskContent === null) return [issue("invalid-metadata", "task file could not be read")];
+  if (taskContent === null) return rejected("invalid-metadata", "task file could not be read");
   const task = readTaskMetadata(taskContent);
-  if (task.kind === "rejected") return [issue("invalid-metadata", task.reason)];
+  if (task.kind === "rejected") return rejected("invalid-metadata", task.reason);
   const issues = [];
   if (task.metadata.status === "needs-clarification") {
     issues.push(issue("needs-clarification", "status is needs-clarification"));
   }
   for (const depId of task.metadata.dependencies) {
+    const dependency = { taskId: depId, status: null };
+    dependencies.push(dependency);
     const depFile = findTaskFile(planDir, depId);
     if (!depFile) {
       issues.push(issue("unresolved-dependency", `dependency ${depId} not found`));
@@ -2925,13 +2921,14 @@ var collectTaskReadinessIssues = (planDir, taskId) => {
       );
       continue;
     }
+    dependency.status = dep.metadata.status;
     if (dep.metadata.status !== "completed") {
       issues.push(
         issue("unresolved-dependency", `dependency ${depId} status is ${dep.metadata.status}`)
       );
     }
   }
-  return issues;
+  return { taskFile, dependencies, issues };
 };
 
 // src/skill-scripts/check-task-dependencies.ts
@@ -2967,14 +2964,13 @@ var _main = (startPath = process.cwd()) => {
   }
   const { planDir, planId } = resolved;
   _printInfo(`Found plan directory: ${planDir}`);
-  const taskFile = findTaskFile(planDir, taskId);
+  const { taskFile, dependencies, issues } = inspectTaskReadiness(planDir, taskId);
   if (!taskFile) {
     _printError(`Task with ID ${taskId} not found in plan ${planId}`);
     process.exit(1);
   }
   _printInfo(`Checking task: ${path5.basename(taskFile)}`);
   console.log("");
-  const issues = collectTaskReadinessIssues(planDir, taskId);
   const dependencyIssues = issues.filter((issue) => issue.kind === "unresolved-dependency");
   const blockingIssues = issues.filter((issue) => issue.kind !== "unresolved-dependency");
   if (blockingIssues.length > 0) {
@@ -2983,28 +2979,19 @@ var _main = (startPath = process.cwd()) => {
     }
     process.exit(1);
   }
-  const metadata = readTaskMetadata(fs5.readFileSync(taskFile, "utf8"));
-  if (metadata.kind === "rejected") {
-    _printError(metadata.reason);
-    process.exit(1);
-  }
-  const dependencies = metadata.metadata.dependencies;
   if (dependencies.length === 0) {
     _printSuccess("Task has no dependencies - ready to execute!");
     process.exit(0);
   }
   _printInfo("Task dependencies found:");
-  dependencies.forEach((dep) => {
-    console.log(`  - Task ${dep}`);
+  dependencies.forEach(({ taskId: taskId2 }) => {
+    console.log(`  - Task ${taskId2}`);
   });
   console.log("");
   _printInfo("Checking dependency status...");
   console.log("");
   let resolvedCount = 0;
-  for (const depId of dependencies) {
-    const depFile = findTaskFile(planDir, depId);
-    const depMetadata = depFile ? readTaskMetadata(fs5.readFileSync(depFile, "utf8")) : null;
-    const depStatus = depMetadata?.kind === "metadata" ? depMetadata.metadata.status : null;
+  for (const { taskId: depId, status: depStatus } of dependencies) {
     if (depStatus === "completed") {
       _printSuccess(`Task ${depId} - Status: completed \u2713`);
       resolvedCount++;

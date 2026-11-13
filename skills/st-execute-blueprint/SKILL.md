@@ -85,12 +85,12 @@ Resolve every selected task's execution route first. Run the `resolve` command o
 scripts/dispatch-task-execution.cjs resolve <task-file> <current-harness> <workspace> <plan-id> <task-id>
 ```
 
-Resolution never launches an external process. After interpreting all route results, issue
+Resolution does not execute a task. After interpreting all route results, issue
 every external execution and every sub-agent **together in one parallel
 tool operation**. External execution uses:
 
 ```text
-scripts/dispatch-task-execution.cjs execute <handoff> <task-file> <current-harness> <workspace> <plan-id> <task-id>
+scripts/dispatch-task-execution.cjs execute <handoff>
 ```
 
 Where:
@@ -113,7 +113,7 @@ Interpret the one-line JSON result and act on its `kind` exactly once:
 Handoff rules:
 
 - Pass the exact opaque `handoff` string the resolver returned for that task. Never reconstruct one.
-- Never reuse a handoff for another task, and never rerun resolution after launches begin.
+- Pass only the returned handoff to `execute`; it binds the task revision and configured invocation. Complete orchestrator status changes and assignment-hook edits before resolution. Task drift detected during execution preflight halts dispatch; workers may update status after launch. Never reuse a handoff for another task, and never rerun resolution after launches begin.
 
 Deploy all remaining native sub-agents simultaneously. Each sub-agent must read and execute `<root>/config/hooks/PRE_TASK_EXECUTION.md` before any implementation work, then execute the task and update its status.
 

@@ -78,7 +78,7 @@ scripts/dispatch-task-execution.cjs resolve <task-file> <current-harness> <works
 External execution uses:
 
 ```text
-scripts/dispatch-task-execution.cjs execute <handoff> <task-file> <current-harness> <workspace> <plan-id> <task-id>
+scripts/dispatch-task-execution.cjs execute <handoff>
 ```
 
 Where:
@@ -101,7 +101,7 @@ Interpret the one-line JSON result and act on its `kind` exactly once:
 Handoff rules:
 
 - Pass the exact opaque `handoff` string the resolver returned for that task. Never reconstruct one.
-- Never reuse a handoff for another task, and never rerun resolution after launches begin.
+- Pass only the returned handoff to `execute`; it binds the task revision and configured invocation. Complete orchestrator status changes and assignment-hook edits before resolution. Task drift detected during execution preflight halts dispatch; workers may update status after launch. Never reuse a handoff for another task, and never rerun resolution after launches begin.
 
 Steps 9–11 are this skill's failed-status and error-hook path.
 

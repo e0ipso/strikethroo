@@ -172,6 +172,24 @@ describe('workspace-model against synthetic fixtures', () => {
     expect(plan!.total).toBe(0);
   });
 
+  it.each([
+    ['malformed', 'id: 17\nnotes: [unfinished'],
+    ['duplicate', 'id: 17\nnotes: first\nnotes: second'],
+    ['oversized', `id: 17\nnotes: ${'x'.repeat(65_536)}`],
+    ['missing-id', 'metadata:\n  id: 999\nsummary: |\n  id: 888'],
+  ])('keeps plans visible and readable with %s metadata', (_label, fields) => {
+    const root = path.join(tmpRoot, 'strikethroo');
+    const body = '# Repairable plan\n\nKeep this body.\n';
+    for (const base of ['plans', 'archive'] as const) {
+      makePlan(root, `17--${base}`, `---\n${fields}\n---\n${body}`, [], base);
+      expect(getPlanSummaries(root).find(p => p.name === `17--${base}`)).toMatchObject({
+        id: 17,
+        archived: base === 'archive',
+      });
+      expect(getPlanDetail(root, `17--${base}`)?.rawBody).toBe(body);
+    }
+  });
+
   it('treats an unknown/in-progress task status as started without throwing', () => {
     const root = path.join(tmpRoot, 'strikethroo');
     makePlan(

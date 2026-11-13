@@ -3,7 +3,7 @@ type: practice
 title: 'validate reports deleted files, never hash drift'
 description: >-
   validateWorkspace avoids findStrikethrooRoot, treats edits as customization,
-  and keeps its own strict reader.
+  and applies strict field policy over shared YAML parsing.
 tags:
   - validate
   - frontmatter
@@ -20,4 +20,6 @@ kk_confidence: high
 
 A hash mismatch against `.init-metadata.json` is user customization, not a finding. Only deleted files are, minus `OPTIONAL_BY_ABSENCE`.
 
-`strict-pass.ts` keeps its own frontmatter reader because the viewer's lenient one cannot tell a missing field from a malformed one. Do not merge them. The task status list is copied in `TASK_STATUSES` (`shared/task-file.ts`), `strict-pass.ts` and the `TASK_TEMPLATE.md` comment. Change all three together.
+`strict-pass.ts`, execution, and the viewer share `readYamlFrontmatter` in `shared/task-frontmatter.ts`. Its result distinguishes absent, malformed, and parsed metadata; strict validation separately checks missing fields and their types. Keep that policy separate from tolerant display and discovery. Discovery recovers named plans with closed metadata blocks from directory/filename IDs when metadata is invalid or lacks an ID. Allocation also reserves IDs in existing names, including unfinished plan directories. Nested YAML fields and scalar text never supply a root ID.
+
+`TASK_STATUSES` in `shared/task-file.ts` supplies the strict validator's status list. Keep it consistent with the `TASK_TEMPLATE.md` comment.

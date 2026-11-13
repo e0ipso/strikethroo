@@ -315,7 +315,7 @@ export function serializeWorkspaceConfig(
         entry.reasoning_effort = target.reasoningEffort.trim();
       return entry;
     });
-    profiles[profile.name.trim()] = { description: profile.description.trim(), models };
+    profiles[profile.name] = { description: profile.description.trim(), models };
   }
 
   // Key order is what js-yaml dumps, so the switches land first.
@@ -377,9 +377,9 @@ export function validateRoutingForm(routing: RoutingForm): string[] {
   const errors: string[] = [];
   const seen = new Set<string>();
   for (const profile of routing.profiles) {
-    const name = profile.name.trim();
-    const label = name === '' ? 'Unnamed profile' : `Profile "${name}"`;
-    if (name === '') errors.push('Every profile needs a name.');
+    const name = profile.name;
+    const label = name.trim() === '' ? 'Unnamed profile' : `Profile "${name}"`;
+    if (name.trim() === '') errors.push('Every profile needs a name.');
     if (seen.has(name)) errors.push(`Duplicate profile name "${name}".`);
     seen.add(name);
     if (profile.description.trim() === '') {

@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import { execFileSync } from 'child_process';
 
 /**
@@ -78,3 +79,17 @@ export const execGitDiffAllowingChanges = (
 /** Split a `-z` listing into its paths, dropping the empty tail after the last `\0`. */
 export const splitNulDelimited = (listing: string): string[] =>
   listing.split('\0').filter(entry => entry.length > 0);
+
+/** The captured review scope anchor, or null for missing or invalid JSON. */
+export const readBaseCommit = (filePath: string): string | null => {
+  try {
+    const parsed: unknown = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    if (parsed && typeof parsed === 'object') {
+      const candidate = (parsed as { baseCommit?: unknown }).baseCommit;
+      if (typeof candidate === 'string' && /^[0-9a-f]{40}$/i.test(candidate)) return candidate;
+    }
+  } catch {
+    // An invalid anchor is treated as absent by both capture and review.
+  }
+  return null;
+};

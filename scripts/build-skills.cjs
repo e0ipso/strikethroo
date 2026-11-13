@@ -4,7 +4,7 @@
  * self-contained .cjs file inside the corresponding skill directory.
  *
  * To add a future skill: add a TypeScript entrypoint under
- * src/skill-scripts/, register it in SKILL_ENTRYPOINTS below, and
+ * src/skill-scripts/, register it in SKILL_SCRIPTS below, and
  * `npm run build` will produce the bundled .cjs under
  * dist-test/<skill>/scripts/.
  *
@@ -28,198 +28,59 @@ const { outputDir: SKILLS_ROOT, clean } = parseOutputArgs(process.argv.slice(2),
 const { CURRENT_WORKSPACE_SCHEMA_VERSION } = require(path.join(REPO_ROOT, 'dist', 'metadata.js'));
 const { version: PACKAGE_VERSION } = require(path.join(REPO_ROOT, 'package.json'));
 
-const SKILL_ENTRYPOINTS = [
-  {
-    src: 'src/skill-scripts/find-strikethroo-root.ts',
-    skill: 'st-code-review',
-    out: 'find-strikethroo-root.cjs',
-  },
-  {
-    src: 'src/skill-scripts/validate-plan-blueprint.ts',
-    skill: 'st-code-review',
-    out: 'validate-plan-blueprint.cjs',
-  },
-  {
-    // The only entry carrying a banner. Attribution belongs on the review
-    // mechanism alone: esbuild strips ordinary source comments, and a globally
-    // applied banner would stamp unrelated bundles with a notice that does not
-    // describe them.
-    src: 'src/skill-scripts/code-review.ts',
-    skill: 'st-code-review',
-    out: 'code-review.cjs',
-    banner: {
-      js:
-        '// Review-category modelling and false-positive suppression heuristics in\n' +
-        '// this skill draw on PR-Agent (https://github.com/The-PR-Agent/pr-agent),\n' +
-        '// used under its permissive licence. No PR-Agent code is vendored.',
-    },
-  },
-  {
-    src: 'src/skill-scripts/find-strikethroo-root.ts',
-    skill: 'st-create-plan',
-    out: 'find-strikethroo-root.cjs',
-  },
-  {
-    src: 'src/skill-scripts/check-for-updates.ts',
-    skill: 'st-create-plan',
-    out: 'check-for-updates.cjs',
-  },
-  {
-    src: 'src/skill-scripts/get-next-plan-id.ts',
-    skill: 'st-create-plan',
-    out: 'get-next-plan-id.cjs',
-  },
-  {
-    src: 'src/skill-scripts/find-strikethroo-root.ts',
-    skill: 'st-generate-tasks',
-    out: 'find-strikethroo-root.cjs',
-  },
-  {
-    src: 'src/skill-scripts/check-for-updates.ts',
-    skill: 'st-generate-tasks',
-    out: 'check-for-updates.cjs',
-  },
-  {
-    src: 'src/skill-scripts/validate-plan-blueprint.ts',
-    skill: 'st-generate-tasks',
-    out: 'validate-plan-blueprint.cjs',
-  },
-  {
-    src: 'src/skill-scripts/get-next-task-id.ts',
-    skill: 'st-generate-tasks',
-    out: 'get-next-task-id.cjs',
-  },
-  {
-    src: 'src/skill-scripts/route-task-execution.ts',
-    skill: 'st-generate-tasks',
-    out: 'route-task-execution.cjs',
-  },
-  {
-    src: 'src/skill-scripts/find-strikethroo-root.ts',
-    skill: 'st-execute-blueprint',
-    out: 'find-strikethroo-root.cjs',
-  },
-  {
-    src: 'src/skill-scripts/check-for-updates.ts',
-    skill: 'st-execute-blueprint',
-    out: 'check-for-updates.cjs',
-  },
-  {
-    src: 'src/skill-scripts/validate-plan-blueprint.ts',
-    skill: 'st-execute-blueprint',
-    out: 'validate-plan-blueprint.cjs',
-  },
-  {
-    src: 'src/skill-scripts/create-feature-branch.ts',
-    skill: 'st-execute-blueprint',
-    out: 'create-feature-branch.cjs',
-  },
-  {
-    src: 'src/skill-scripts/capture-base-commit.ts',
-    skill: 'st-execute-blueprint',
-    out: 'capture-base-commit.cjs',
-  },
-  {
-    src: 'src/skill-scripts/check-phase-readiness.ts',
-    skill: 'st-execute-blueprint',
-    out: 'check-phase-readiness.cjs',
-  },
-  {
-    src: 'src/skill-scripts/dispatch-task-execution.ts',
-    skill: 'st-execute-blueprint',
-    out: 'dispatch-task-execution.cjs',
-  },
-  {
-    src: 'src/skill-scripts/find-strikethroo-root.ts',
-    skill: 'st-refine-plan',
-    out: 'find-strikethroo-root.cjs',
-  },
-  {
-    src: 'src/skill-scripts/check-for-updates.ts',
-    skill: 'st-refine-plan',
-    out: 'check-for-updates.cjs',
-  },
-  {
-    src: 'src/skill-scripts/validate-plan-blueprint.ts',
-    skill: 'st-refine-plan',
-    out: 'validate-plan-blueprint.cjs',
-  },
-  {
-    src: 'src/skill-scripts/find-strikethroo-root.ts',
-    skill: 'st-execute-task',
-    out: 'find-strikethroo-root.cjs',
-  },
-  {
-    src: 'src/skill-scripts/check-for-updates.ts',
-    skill: 'st-execute-task',
-    out: 'check-for-updates.cjs',
-  },
-  {
-    src: 'src/skill-scripts/validate-plan-blueprint.ts',
-    skill: 'st-execute-task',
-    out: 'validate-plan-blueprint.cjs',
-  },
-  {
-    src: 'src/skill-scripts/check-task-dependencies.ts',
-    skill: 'st-execute-task',
-    out: 'check-task-dependencies.cjs',
-  },
-  {
-    src: 'src/skill-scripts/dispatch-task-execution.ts',
-    skill: 'st-execute-task',
-    out: 'dispatch-task-execution.cjs',
-  },
-  {
-    src: 'src/skill-scripts/find-strikethroo-root.ts',
-    skill: 'st-full-workflow',
-    out: 'find-strikethroo-root.cjs',
-  },
-  {
-    src: 'src/skill-scripts/check-for-updates.ts',
-    skill: 'st-full-workflow',
-    out: 'check-for-updates.cjs',
-  },
-  {
-    src: 'src/skill-scripts/get-next-plan-id.ts',
-    skill: 'st-full-workflow',
-    out: 'get-next-plan-id.cjs',
-  },
-  {
-    src: 'src/skill-scripts/validate-plan-blueprint.ts',
-    skill: 'st-full-workflow',
-    out: 'validate-plan-blueprint.cjs',
-  },
-  {
-    src: 'src/skill-scripts/get-next-task-id.ts',
-    skill: 'st-full-workflow',
-    out: 'get-next-task-id.cjs',
-  },
-  {
-    src: 'src/skill-scripts/route-task-execution.ts',
-    skill: 'st-full-workflow',
-    out: 'route-task-execution.cjs',
-  },
-  {
-    src: 'src/skill-scripts/create-feature-branch.ts',
-    skill: 'st-full-workflow',
-    out: 'create-feature-branch.cjs',
-  },
-  {
-    src: 'src/skill-scripts/capture-base-commit.ts',
-    skill: 'st-full-workflow',
-    out: 'capture-base-commit.cjs',
-  },
-  {
-    src: 'src/skill-scripts/check-phase-readiness.ts',
-    skill: 'st-full-workflow',
-    out: 'check-phase-readiness.cjs',
-  },
-  {
-    src: 'src/skill-scripts/dispatch-task-execution.ts',
-    skill: 'st-full-workflow',
-    out: 'dispatch-task-execution.cjs',
-  },
-];
+// Each skill lists its script names; paths and output names follow one convention.
+const SKILL_SCRIPTS = {
+  'st-code-review': ['find-strikethroo-root', 'validate-plan-blueprint', 'code-review'],
+  'st-create-plan': ['find-strikethroo-root', 'check-for-updates', 'get-next-plan-id'],
+  'st-generate-tasks': [
+    'find-strikethroo-root',
+    'check-for-updates',
+    'validate-plan-blueprint',
+    'get-next-task-id',
+    'route-task-execution',
+  ],
+  'st-execute-blueprint': [
+    'find-strikethroo-root',
+    'check-for-updates',
+    'validate-plan-blueprint',
+    'create-feature-branch',
+    'capture-base-commit',
+    'check-phase-readiness',
+    'dispatch-task-execution',
+  ],
+  'st-refine-plan': ['find-strikethroo-root', 'check-for-updates', 'validate-plan-blueprint'],
+  'st-execute-task': [
+    'find-strikethroo-root',
+    'check-for-updates',
+    'validate-plan-blueprint',
+    'check-task-dependencies',
+    'dispatch-task-execution',
+  ],
+  'st-full-workflow': [
+    'find-strikethroo-root',
+    'check-for-updates',
+    'get-next-plan-id',
+    'validate-plan-blueprint',
+    'get-next-task-id',
+    'route-task-execution',
+    'create-feature-branch',
+    'capture-base-commit',
+    'check-phase-readiness',
+    'dispatch-task-execution',
+  ],
+};
+
+const SKILL_ENTRYPOINTS = Object.entries(SKILL_SCRIPTS).flatMap(([skill, scripts]) =>
+  scripts.map(name => ({ skill, src: `src/skill-scripts/${name}.ts`, out: `${name}.cjs` }))
+);
+
+// Attribution belongs only on the review mechanism.
+const REVIEW_BANNER = {
+  js:
+    '// Review-category modelling and false-positive suppression heuristics in\n' +
+    '// this skill draw on PR-Agent (https://github.com/The-PR-Agent/pr-agent),\n' +
+    '// used under its permissive licence. No PR-Agent code is vendored.',
+};
 
 const nodeTarget = `node${process.versions.node.split('.')[0]}`;
 
@@ -238,8 +99,7 @@ const buildAll = async () => {
       bundle: true,
       target: nodeTarget,
       logLevel: 'warning',
-      // Opt-in per entry: only entries that declare a banner get one.
-      ...(entry.banner ? { banner: entry.banner } : {}),
+      ...(entry.out === 'code-review.cjs' ? { banner: REVIEW_BANNER } : {}),
       define: {
         EXPECTED_WORKSPACE_SCHEMA_VERSION: JSON.stringify(CURRENT_WORKSPACE_SCHEMA_VERSION),
         SKILL_RELEASE_VERSION: JSON.stringify(PACKAGE_VERSION),

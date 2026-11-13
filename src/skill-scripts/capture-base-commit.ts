@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { execGit } from './shared/git-utils';
+import { execGit, readBaseCommit as _readExistingBaseCommit } from './shared/git-utils';
 import { resolvePlan } from './shared/plan-resolve';
 
 const SHA_RE = /^[0-9a-f]{40}$/i;
@@ -20,34 +20,6 @@ const _isGitRepo = (): boolean => execGit(['rev-parse', '--is-inside-work-tree']
 
 const _isValidSha = (value: unknown): value is string =>
   typeof value === 'string' && SHA_RE.test(value);
-
-/**
- * Read a previously captured base commit, if the file exists and is valid.
- * Returns null for a missing file, unparsable JSON, or a shape that lacks a
- * valid 40-hex `baseCommit` — all of which are treated as "not yet captured"
- * so the caller overwrites rather than preserving a corrupt scope anchor.
- */
-const _readExistingBaseCommit = (filePath: string): string | null => {
-  let raw: string;
-  try {
-    raw = fs.readFileSync(filePath, 'utf8');
-  } catch {
-    return null;
-  }
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (
-      parsed &&
-      typeof parsed === 'object' &&
-      _isValidSha((parsed as { baseCommit?: unknown }).baseCommit)
-    ) {
-      return (parsed as { baseCommit: string }).baseCommit;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-};
 
 const main = (startPath: string = process.cwd()): void => {
   if (!_isGitRepo()) {

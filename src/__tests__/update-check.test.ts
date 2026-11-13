@@ -83,6 +83,16 @@ const makeDeps = (
 };
 
 describe('compareToRelease', () => {
+  test.each([
+    ['2.10.0', '2.9.9', 'ahead'],
+    ['1.0.0-rc.9', '1.0.0-rc.10', 'outdated'],
+    ['1.0.0+build.7', '1.0.0+build.99', 'current'],
+    ['9007199254740991.0.0', '9007199254740990.0.0', 'ahead'],
+    ['9007199254740992.0.0', '1.0.0', 'unknown'],
+  ])('compares %s with %s as %s', (local, release, expected) => {
+    expect(compareToRelease(local, release)).toBe(expected);
+  });
+
   test('orders semver correctly', () => {
     expect(compareToRelease('3.20.0', '3.21.0')).toBe('outdated');
     expect(compareToRelease('3.21.0', '3.21.0')).toBe('current');

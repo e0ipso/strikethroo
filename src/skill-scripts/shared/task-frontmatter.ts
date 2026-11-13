@@ -35,16 +35,15 @@ export const hasYamlContent = (block: string): boolean =>
     return trimmed !== '' && !trimmed.startsWith('#');
   });
 
-/**
- * Reads a task document's leading frontmatter as YAML data only.
- *
- * Task content is untrusted: it can arrive through a shared checkout or from
- * a worker's output. Nothing here evaluates it. Language-tagged fences
- * (`---js`, `---coffee`, ...) are rejected outright, and the block is parsed
- * with js-yaml's default schema, which has no executable types. Never throws.
- */
-export const readYamlFrontmatter = (markdown: string): FrontmatterResult => {
-  const source = markdown.startsWith('﻿') ? markdown.slice(1) : markdown;
+export type FrontmatterBlock =
+  | { kind: 'none' }
+  | { kind: 'invalid'; reason: string }
+  | { kind: 'block'; text: string; start: number; bodyStart: number };
+
+/** Locate only the leading block, preserving offsets into the original document. */
+export const splitFrontmatter = (markdown: string): FrontmatterBlock => {
+  const offset = markdown.startsWith('﻿') ? 1 : 0;
+  const source = markdown.slice(offset);
   const opening = OPENING_FENCE.exec(source);
   if (!opening) return { kind: 'none' };
   if ((opening[1] ?? '').trim() !== '') {
@@ -60,19 +59,30 @@ export const readYamlFrontmatter = (markdown: string): FrontmatterResult => {
     return { kind: 'invalid', reason: 'Frontmatter has no closing fence.' };
   }
 
-  const block = rest.slice(0, closing.index);
-  if (Buffer.byteLength(block, 'utf8') > MAX_FRONTMATTER_BYTES) {
+  return {
+    kind: 'block',
+    text: rest.slice(0, closing.index),
+    start: offset + opening[0].length,
+    bodyStart: offset + opening[0].length + closing.index + closing[0].length,
+  };
+};
+
+/** Parse YAML data once. Callers decide whether malformed or absent metadata blocks their work. */
+export const readYamlFrontmatter = (markdown: string): FrontmatterResult => {
+  const block = splitFrontmatter(markdown);
+  if (block.kind !== 'block') return block;
+  if (Buffer.byteLength(block.text, 'utf8') > MAX_FRONTMATTER_BYTES) {
     return {
       kind: 'invalid',
       reason: `Frontmatter exceeds the ${MAX_FRONTMATTER_BYTES}-byte limit.`,
     };
   }
   // js-yaml v5 throws on an empty document; an empty block is an empty mapping.
-  if (!hasYamlContent(block)) return { kind: 'data', data: {} };
+  if (!hasYamlContent(block.text)) return { kind: 'data', data: {} };
 
   let parsed: unknown;
   try {
-    parsed = yaml.load(block);
+    parsed = yaml.load(block.text);
   } catch (error) {
     return {
       kind: 'invalid',

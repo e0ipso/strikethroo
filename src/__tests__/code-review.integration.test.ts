@@ -21,6 +21,7 @@ import {
   type ReviewResult,
 } from '../skill-scripts/code-review';
 import { buildReviewXml, FAKE_SHA, makeReviewGateWorkspace } from './fixtures/review-gate';
+import { resolveExecutablePath } from '../skill-scripts/shared/executable-resolution';
 
 const stubDeps = (overrides: Partial<ReviewDependencies> = {}): ReviewDependencies => ({
   discover: async () => ({ outcomes: [], reviewerCandidates: ['codex'] }),
@@ -1021,8 +1022,20 @@ describe('code review gate — single-channel stdout delivery', () => {
       expect(fs.readFileSync(path.join(reviewDir, 'custom-review.xml'), 'utf8')).toBe(custom);
       expect(fs.existsSync(path.join(reviewDir, 'findings.json'))).toBe(true);
       const findingsRecord = fs.readFileSync(path.join(reviewDir, 'findings.json'), 'utf8');
-      expect(findingsRecord).toContain('fresh.ts');
-      expect(findingsRecord).not.toContain('stale.ts');
+      expect(JSON.parse(findingsRecord)).toMatchObject({
+        status: 'evaluated',
+        counts: { total: 1, minor: 1, critical: 0 },
+      });
+      expect(JSON.parse(findingsRecord).findings).toEqual([
+        {
+          file: 'fresh.ts',
+          location: null,
+          severity: 'minor',
+          confidence: 'low',
+          category: 'bug',
+          summary: 'A finding.',
+        },
+      ]);
     } finally {
       ws.cleanup();
     }
@@ -1294,77 +1307,201 @@ describe('code review gate — the compiled result contract', () => {
   });
 });
 
-/**
- * A certified count must be the validated document's count. The built-in gate
- * cross-checks its scanner against an independent `xmllint` count; the counter
- * is injectable only so the disagreement branch can be reached from a document
- * the real scanner reads correctly.
- */
-describe('code review gate — certified counts match the validated document', () => {
-  const token = 'abc123';
-  const delivered = (xml: string) =>
-    `<<<BEGIN REVIEW XML ${token}>>>\n${xml}\n<<<END REVIEW XML ${token}>>>\n`;
-
-  it('stays uncertified when the independent count disagrees with the scanner or cannot be obtained', async () => {
-    const xml = buildReviewXml([{ file: 'src/x.ts', severity: 'critical', confidence: 'high' }]);
-    const run = (countComments: (file: string) => Promise<number | null>) => {
-      const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
-      const reviewFile = path.join(ws.planDir, 'review', 'review.xml');
-      const gate = createFindingsGate({ countComments });
-      return gate({
+describe('code review gate — certified counts come from the validated XML', () => {
+  it('preserves the findings objects with native namespace and entity semantics', async () => {
+    const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    const token = 'abc123';
+    const xml =
+      '<?xml version="1.0"?><review xmlns="urn:self-review:v2" timestamp="2026-01-01T00:00:00Z">' +
+      '<file path="src/real.ts" xmlns:path="urn:unrelated" change-type="modified" viewed="true">' +
+      '<comment severity="critical" xmlns:severity="urn:unrelated">' +
+      '<body>Keep &#38;amp; literally.</body><category>bug</category></comment></file></review>';
+    const reviewFile = path.join(ws.planDir, 'review', 'review.xml');
+    try {
+      const outcome = await createFindingsGate()({
         reviewFile,
         xsdFile: ws.xsdFile,
         planDir: ws.planDir,
-        reviewerStdout: delivered(xml),
+        reviewerStdout: `<<<BEGIN REVIEW XML ${token}>>>\n${xml}\n<<<END REVIEW XML ${token}>>>`,
         deliveryToken: token,
-      }).then(outcome => {
-        const record: unknown = JSON.parse(
-          fs.readFileSync(path.join(ws.planDir, 'review', 'findings.json'), 'utf8')
-        );
-        ws.cleanup();
-        return { outcome, record };
       });
-    };
-
-    const agreeing = await run(async () => 1);
-    expect(agreeing.outcome).toMatchObject({ kind: 'evaluated', counts: { total: 1 } });
-
-    const disagreeing = await run(async () => 0);
-    expect(disagreeing.outcome).toMatchObject({
-      kind: 'findings-absent',
-      detail: expect.stringMatching(/1 finding.*0 .*comment/s),
-    });
-    expect(disagreeing.record).toMatchObject({ status: 'findings-absent', findings: [] });
-
-    const uncounted = await run(async () => null);
-    expect(uncounted.outcome).toMatchObject({ kind: 'validator-unavailable' });
-    expect(uncounted.record).toMatchObject({ status: 'validator-unavailable', findings: [] });
-  });
-
-  it('turns a count mismatch into review-failed with exit 1 through the same classifier', async () => {
-    const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
-    const xml = buildReviewXml([{ file: 'src/x.ts', severity: 'minor', confidence: 'low' }]);
-    const dispatch: ReviewDependencies['dispatch'] = async request => {
-      const minted = /<<<BEGIN REVIEW XML ([0-9a-f]+)>>>/.exec(request.prompt)?.[1] ?? '';
-      return {
-        kind: 'launched-success',
-        exitCode: 0,
-        stdout: `<<<BEGIN REVIEW XML ${minted}>>>\n${xml}\n<<<END REVIEW XML ${minted}>>>\n`,
-      };
-    };
-    try {
-      const result = await runReview(
-        { plan: '1', currentHarness: 'claude', startPath: ws.root },
-        stubDeps({
-          dispatch,
-          evaluateFindings: createFindingsGate({ countComments: async () => 5 }),
-        })
-      );
-      expect(result).toMatchObject({ kind: 'reviewed', verdict: { kind: 'review-failed' } });
-      expect(result).not.toHaveProperty('counts');
-      expect(_classify(result)).toEqual({ action: 'halt', exitCode: 1 });
+      const counts = { total: 1, critical: 1, major: 0, minor: 0, info: 0, unlabelled: 0 };
+      expect(outcome).toMatchObject({ kind: 'evaluated', counts });
+      expect(fs.readFileSync(reviewFile, 'utf8')).toBe(`${xml}\n`);
+      expect(
+        JSON.parse(fs.readFileSync(path.join(ws.planDir, 'review', 'findings.json'), 'utf8'))
+      ).toEqual({
+        reviewFile,
+        xsdFile: ws.xsdFile,
+        status: 'evaluated',
+        counts,
+        findings: [
+          {
+            file: 'src/real.ts',
+            location: null,
+            severity: 'critical',
+            confidence: null,
+            category: 'bug',
+            summary: 'Keep &amp; literally.',
+          },
+        ],
+      });
     } finally {
       ws.cleanup();
     }
   });
+
+  it.each([false, true])(
+    'projects Unicode, delimiter text, locations and empty labels across batches (prefixed %s)',
+    async prefixed => {
+      const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+      const body = `  😀:0:1:,;|\n"quoted" &amp; 'apostrophe' ` + 'λ'.repeat(410) + '  ';
+      const xmlBody = body.replace(/&amp;/g, '&#38;amp;');
+      let xml =
+        '<?xml version="1.0"?><review xmlns="urn:self-review:v2" timestamp="2026-01-01T00:00:00Z">' +
+        '<file path="src/🌌: odd,|;&quot;.ts" change-type="modified" viewed="true">' +
+        Array.from(
+          { length: 9 },
+          (_, index) =>
+            '<comment ' +
+            (index % 2 === 0
+              ? 'new-line-start="2" new-line-end="5" severity="major" confidence="low"'
+              : 'old-line-start="7"') +
+            `><body>${xmlBody}</body><category>  category:0:,|;😀  </category></comment>`
+        ).join('') +
+        '</file></review>';
+      if (prefixed)
+        xml = xml
+          .replace('xmlns="urn:self-review:v2"', 'xmlns:sr="urn:self-review:v2"')
+          .replace(/<(\/?)(review|file|comment|body|category)(?=[\s>])/g, '<$1sr:$2');
+      const reviewFile = path.join(ws.planDir, 'review', 'review.xml');
+      try {
+        const result = await createFindingsGate()({
+          reviewFile,
+          xsdFile: ws.xsdFile,
+          planDir: ws.planDir,
+          reviewerStdout: `<<<BEGIN REVIEW XML abc>>>\n${xml}\n<<<END REVIEW XML abc>>>`,
+          deliveryToken: 'abc',
+        });
+        expect(result).toMatchObject({
+          kind: 'evaluated',
+          counts: { total: 9, major: 5, unlabelled: 4 },
+        });
+        const record = JSON.parse(
+          fs.readFileSync(path.join(ws.planDir, 'review', 'findings.json'), 'utf8')
+        );
+        expect(record.findings).toEqual(
+          Array.from({ length: 9 }, (_, index) => ({
+            file: 'src/🌌: odd,|;".ts',
+            location: index % 2 === 0 ? 'new:2-5' : 'old:7-7',
+            severity: index % 2 === 0 ? 'major' : null,
+            confidence: index % 2 === 0 ? 'low' : null,
+            category: 'category:0:,|;😀',
+            summary: body.trim().slice(0, 400),
+          }))
+        );
+      } finally {
+        ws.cleanup();
+      }
+    }
+  );
+
+  it('preserves Unicode across native output chunks and the original 400-code-unit summary boundary', async () => {
+    const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    const body = '😀:'.repeat(60_000);
+    const xml = buildReviewXml([{ file: 'src/astral.ts', severity: 'minor', body }]);
+    const reviewFile = path.join(ws.planDir, 'review', 'review.xml');
+    try {
+      const result = await createFindingsGate()({
+        reviewFile,
+        xsdFile: ws.xsdFile,
+        planDir: ws.planDir,
+        reviewerStdout: `<<<BEGIN REVIEW XML abc>>>\n${xml}\n<<<END REVIEW XML abc>>>`,
+        deliveryToken: 'abc',
+      });
+      expect(result).toMatchObject({ kind: 'evaluated', counts: { total: 1, minor: 1 } });
+      const record = JSON.parse(
+        fs.readFileSync(path.join(ws.planDir, 'review', 'findings.json'), 'utf8')
+      );
+      expect(record.findings[0].summary).toBe(body.slice(0, 400));
+    } finally {
+      ws.cleanup();
+    }
+  });
+
+  it('retains an empty findings array for a certified empty review', async () => {
+    const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    const reviewFile = path.join(ws.planDir, 'review', 'review.xml');
+    try {
+      const result = await createFindingsGate()({
+        reviewFile,
+        xsdFile: ws.xsdFile,
+        planDir: ws.planDir,
+        reviewerStdout: `<<<BEGIN REVIEW XML abc>>>\n${buildReviewXml([])}\n<<<END REVIEW XML abc>>>`,
+        deliveryToken: 'abc',
+      });
+      expect(result).toMatchObject({ kind: 'evaluated', counts: { total: 0 } });
+      expect(
+        JSON.parse(fs.readFileSync(path.join(ws.planDir, 'review', 'findings.json'), 'utf8'))
+          .findings
+      ).toEqual([]);
+    } finally {
+      ws.cleanup();
+    }
+  });
+
+  it.each(['failure', 'inconsistent tally', 'projection failure', 'malformed projection'])(
+    'halts without counts when xmllint validates but counting returns %s',
+    async failure => {
+      const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+      const bin = path.join(ws.root, 'bin');
+      fs.mkdirSync(bin);
+      const nativeXmllint = resolveExecutablePath('xmllint');
+      expect(nativeXmllint).not.toBeNull();
+      fs.writeFileSync(
+        path.join(bin, 'xmllint'),
+        `#!${process.execPath}
+const {spawnSync} = require('child_process');
+const args = process.argv.slice(2);
+if (args.includes('--xpath') && (${JSON.stringify(failure)}.includes('projection') === args.join(' ').includes('string-length'))) {
+  process.stdout.write(${JSON.stringify(failure === 'malformed projection' ? '1:x' : '0,1,0,0,0,0')});
+  process.exit(${failure === 'failure' || failure === 'projection failure' ? 1 : 0});
+}
+const result = spawnSync(${JSON.stringify(nativeXmllint)}, args, {stdio: 'inherit'});
+process.exit(result.status ?? 1);
+`,
+        { mode: 0o700 }
+      );
+      const previousPath = process.env.PATH;
+      process.env.PATH = `${bin}${path.delimiter}${previousPath ?? ''}`;
+      try {
+        const xml = buildReviewXml([{ file: 'src/x.ts', severity: 'minor' }]);
+        const result = await runReview(
+          { plan: '1', currentHarness: 'claude', startPath: ws.root },
+          stubDeps({
+            dispatch: async request => {
+              const token = /<<<BEGIN REVIEW XML ([0-9a-f]+)>>>/.exec(request.prompt)?.[1] ?? '';
+              return {
+                kind: 'launched-success',
+                exitCode: 0,
+                stdout: `<<<BEGIN REVIEW XML ${token}>>>\n${xml}\n<<<END REVIEW XML ${token}>>>`,
+              };
+            },
+          })
+        );
+        expect(result).toMatchObject({ kind: 'reviewed', verdict: { kind: 'review-failed' } });
+        expect(result).not.toHaveProperty('counts');
+        expect(_classify(result)).toEqual({ action: 'halt', exitCode: 1 });
+        const record = JSON.parse(
+          fs.readFileSync(path.join(ws.planDir, 'review', 'findings.json'), 'utf8')
+        );
+        expect(record.status).toBe('validator-unavailable');
+        expect(record).not.toHaveProperty('counts');
+        expect(record.findings).toEqual([]);
+      } finally {
+        process.env.PATH = previousPath;
+        ws.cleanup();
+      }
+    }
+  );
 });

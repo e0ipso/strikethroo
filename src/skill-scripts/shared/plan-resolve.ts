@@ -1,8 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { checkWorkspaceSchema, discoverStrikethrooRoot, findStrikethrooRoot } from './root';
-import { getAllPlans } from './plan-scan';
-import { extractPlanId } from './frontmatter';
+import { getAllPlans, discoverPlanId } from './plan-scan';
 
 export interface ResolvedPlan {
   planFile: string;
@@ -87,7 +86,7 @@ const resolveByPath = (absolutePath: string): ResolvedPlan | null => {
   } catch (_err) {
     return null;
   }
-  const planId = extractPlanId(content, absolutePath);
+  const planId = discoverPlanId(content, absolutePath);
   if (planId === null) return null;
 
   const tmRoot = locateRootForPlanFile(absolutePath);

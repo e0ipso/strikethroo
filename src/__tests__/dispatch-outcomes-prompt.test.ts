@@ -108,6 +108,39 @@ describe('rendered dispatch skills share one outcome contract', () => {
     expect(block).toContain('after launches begin');
   });
 
+  test.each(CONSUMERS)('%s executes the bound request without repeated task arguments', skill => {
+    const content = readSkill(skill);
+    expect(content).toContain('scripts/dispatch-task-execution.cjs execute <handoff>\n');
+    expect(content).not.toContain('execute <handoff> <task-file>');
+    expect(outcomesBlock(content)).toContain('binds the task revision and configured invocation');
+  });
+
+  test('execute-task completes its status transition before resolving the immutable request', () => {
+    const content = readSkill('st-execute-task');
+    const transition = content.indexOf('### 7. Update status to in-progress');
+    const resolution = content.indexOf('scripts/dispatch-task-execution.cjs resolve <task-file>');
+    const execution = content.indexOf('scripts/dispatch-task-execution.cjs execute <handoff>');
+    expect(transition).toBeGreaterThan(-1);
+    expect(resolution).toBeGreaterThan(transition);
+    expect(execution).toBeGreaterThan(resolution);
+  });
+
+  test.each(['st-execute-blueprint', 'st-full-workflow'])(
+    '%s completes assignment hooks and every route before task launches',
+    skill => {
+      const content = readSkill(skill);
+      const phase = content.slice(content.indexOf('Identify all tasks scheduled for this phase'));
+      const assignment = phase.indexOf('PRE_TASK_ASSIGNMENT.md');
+      const resolution = phase.indexOf('scripts/dispatch-task-execution.cjs resolve <task-file>');
+      const barrier = phase.indexOf('After interpreting all route results');
+      const execution = phase.indexOf('scripts/dispatch-task-execution.cjs execute <handoff>');
+      expect(assignment).toBeGreaterThan(-1);
+      expect(resolution).toBeGreaterThan(assignment);
+      expect(barrier).toBeGreaterThan(resolution);
+      expect(execution).toBeGreaterThan(barrier);
+    }
+  );
+
   test.each(CONSUMERS)('%s sends both failure kinds through the error hook', skill => {
     const rows = outcomesBlock(readSkill(skill)).split('\n');
     const rowIndex = (kind: string): number =>

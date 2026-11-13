@@ -24,4 +24,4 @@ Interpret the one-line JSON result and act on its `kind` exactly once:
 Handoff rules:
 
 - Pass the exact opaque `handoff` string the resolver returned for that task. Never reconstruct one.
-- Never reuse a handoff for another task, and never rerun resolution after launches begin.
+- Pass only the returned handoff to `execute`; it binds the task revision and configured invocation. Complete orchestrator status changes and assignment-hook edits before resolution. Task drift detected during execution preflight halts dispatch; workers may update status after launch. Never reuse a handoff for another task, and never rerun resolution after launches begin.

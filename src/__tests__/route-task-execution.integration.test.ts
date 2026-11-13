@@ -140,6 +140,55 @@ describe('route-task-execution bundle integration', () => {
     expect(fs.readFileSync(path.join(tasksDir, '01--first.md'), 'utf8')).toBe(taskFile(1, 2));
   });
 
+  it.each(['', '   '])('rejects invalid profile identity %j before writing any task', name => {
+    fs.writeFileSync(
+      path.join(workspace, 'config', 'config.yaml'),
+      `execution_routing:\n  profiles:\n    ${JSON.stringify(name)}:\n      description: d\n      models: [{model: exact/model}]\n`
+    );
+    const result = runScript(
+      script,
+      ['apply', '12', writeMapping({ '1': name, '2': name })],
+      tempDir
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.json.kind).toBe('invalid-config');
+    expect(fs.readFileSync(path.join(tasksDir, '01--first.md'), 'utf8')).toBe(taskFile(1, 2));
+    expect(fs.readFileSync(path.join(tasksDir, '02--second.md'), 'utf8')).toBe(taskFile(2, 8));
+  });
+
+  it('round-trips an exact nonempty profile name through generation and dispatch', () => {
+    const name = '  release:α  ';
+    fs.writeFileSync(
+      path.join(workspace, 'config', 'config.yaml'),
+      `execution_routing:\n  profiles:\n    ${JSON.stringify(name)}:\n      description: d\n      models: [{model: exact/model, harness: codex}]\n`
+    );
+    const result = runScript(
+      script,
+      ['apply', '12', writeMapping({ '1': name, '2': name })],
+      tempDir
+    );
+    expect(result.exitCode).toBe(0);
+    expect(fs.readFileSync(path.join(tasksDir, '01--first.md'), 'utf8')).toContain(
+      `execution_profile: ${JSON.stringify(name)}`
+    );
+    const dispatch = path.join(
+      SKILLS_ROOT,
+      'st-execute-task',
+      'scripts',
+      'dispatch-task-execution.cjs'
+    );
+    expect(
+      runScript(
+        dispatch,
+        ['resolve', path.join(tasksDir, '01--first.md'), 'codex', tempDir, '12', '1'],
+        tempDir
+      )
+    ).toEqual({
+      exitCode: 0,
+      json: { kind: 'native-override', model: 'exact/model' },
+    });
+  });
+
   it('lists configured profiles with their LLM-facing descriptions', () => {
     fs.writeFileSync(path.join(workspace, 'config', 'config.yaml'), ROUTING_CONFIG);
     const result = runScript(script, ['profiles', '12'], tempDir);

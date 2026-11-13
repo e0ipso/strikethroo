@@ -19,12 +19,12 @@ Resolve every selected task's execution route first. Run the `resolve` command o
 scripts/dispatch-task-execution.cjs resolve <task-file> <current-harness> <workspace> <plan-id> <task-id>
 ```
 
-Resolution never launches an external process. After interpreting all route results, issue
+Resolution does not execute a task. After interpreting all route results, issue
 every external execution and every sub-agent **together in one parallel
 tool operation**. External execution uses:
 
 ```text
-scripts/dispatch-task-execution.cjs execute <handoff> <task-file> <current-harness> <workspace> <plan-id> <task-id>
+scripts/dispatch-task-execution.cjs execute <handoff>
 ```
 
 {{> dispatch-outcomes}}

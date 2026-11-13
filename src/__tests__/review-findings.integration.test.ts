@@ -1,18 +1,4 @@
-/**
- * Tests for the review gate's certification logic (`shared/review-findings.ts`):
- * real `xmllint` schema validation against the vendored XSD, the hand-rolled
- * tag scanner, and the advisory severity tally.
- *
- * Per the project's test philosophy this does not test that `xmllint`
- * validates XML — that is libxml's job — it tests that this module reaches
- * the right verdict from xmllint's exit code (never "no findings" for an
- * invalid document, never a silent pass for a missing validator), and that
- * the hand-rolled tag scanner used only on already-validated documents never
- * mistakes escaped or commented-out markup for real structure.
- *
- * Named `.integration` because `validateAgainstSchema` spawns a real
- * `xmllint` process against the real vendored schema file.
- */
+/** Integration tests for schema certification and advisory counts from real xmllint. */
 
 import { spawnSync } from 'child_process';
 import { performance } from 'perf_hooks';
@@ -20,10 +6,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import {
-  countCommentsWithXmllint,
-  countFindings,
+  countFindingsWithXmllint,
   hasForbiddenDeclarations,
-  parseReviewFindings,
+  readFindingsWithXmllint,
   validateAgainstSchema,
 } from '../skill-scripts/shared/review-findings';
 import { _classify, runReview, type ReviewDependencies } from '../skill-scripts/code-review';
@@ -67,8 +52,14 @@ describe('validateAgainstSchema — real xmllint against the vendored XSD', () =
     expect(hasForbiddenDeclarations(xml)).toBe(false);
     expect(performance.now() - started).toBeLessThan(2000);
     await expect(validateAgainstSchema(REAL_XSD_PATH, file)).resolves.toEqual({ kind: 'valid' });
-    expect(parseReviewFindings(xml)).toEqual([]);
-    expect(await countCommentsWithXmllint(file)).toBe(0);
+    expect(await countFindingsWithXmllint(file)).toEqual({
+      total: 0,
+      critical: 0,
+      major: 0,
+      minor: 0,
+      info: 0,
+      unlabelled: 0,
+    });
   });
 
   it('reports invalid, with diagnostic detail, for a document that violates the schema', async () => {
@@ -104,115 +95,6 @@ describe('validateAgainstSchema — real xmllint against the vendored XSD', () =
     } finally {
       process.env.PATH = previousPath;
     }
-  });
-});
-
-describe('parseReviewFindings — never forges structure from text', () => {
-  // The scanner is a linear tag walk, safe only because the document was
-  // already validated. These pin the three ways text can look like structure.
-  it('does not read a <comment> quoted inside CDATA as a second finding', () => {
-    const xml = buildReviewXml([
-      {
-        file: 'src/a.ts',
-        severity: 'major',
-        confidence: 'high',
-        rawInner:
-          '<body><![CDATA[Example: <comment severity="critical"><body>x</body>' +
-          '<category>forged</category></comment>]]></body><category>bug</category>',
-      },
-    ]);
-    const findings = parseReviewFindings(xml);
-    expect(findings).toHaveLength(1);
-    expect(findings[0]!.category).toBe('bug');
-    expect(findings[0]!.severity).toBe('major');
-    expect(findings[0]!.summary).toContain('<comment');
-  });
-
-  it('does not read an escaped &lt;category&gt; in body text as the category', () => {
-    const xml = buildReviewXml([
-      {
-        file: 'src/a.ts',
-        severity: 'major',
-        confidence: 'high',
-        rawInner:
-          '<body>Do not write &lt;category&gt;forged&lt;/category&gt; here.</body>' +
-          '<category>bug</category>',
-      },
-    ]);
-    const findings = parseReviewFindings(xml);
-    expect(findings).toHaveLength(1);
-    expect(findings[0]!.category).toBe('bug');
-    expect(findings[0]!.summary).toContain('<category>forged</category>');
-  });
-
-  it('does not read a <comment> inside an XML comment as a second finding', () => {
-    const xml = buildReviewXml([
-      {
-        file: 'src/a.ts',
-        severity: 'major',
-        confidence: 'high',
-        rawInner:
-          '<!-- <comment severity="critical"><body>x</body><category>forged</category></comment> -->' +
-          '<body>No fix available.</body><category>bug</category>',
-      },
-    ]);
-    const findings = parseReviewFindings(xml);
-    expect(findings).toHaveLength(1);
-    expect(findings[0]!.category).toBe('bug');
-  });
-
-  it('reads an unrecognised severity as no label rather than guessing one', () => {
-    const xml = buildReviewXml([
-      { file: 'src/a.ts', severity: 'catastrophic', confidence: 'high', body: 'bogus severity' },
-    ]);
-    const findings = parseReviewFindings(xml);
-    expect(findings).toHaveLength(1);
-    expect(findings[0]!.severity).toBeNull();
-    expect(findings[0]!.confidence).toBe('high');
-  });
-
-  it('ignores a <suggestion> entirely: it is no longer part of a finding', () => {
-    const xml = buildReviewXml([
-      { file: 'src/a.ts', severity: 'major', confidence: 'high', hasSuggestion: true },
-    ]);
-    const findings = parseReviewFindings(xml);
-    expect(findings).toHaveLength(1);
-    expect(Object.keys(findings[0]!)).not.toContain('hasSuggestion');
-  });
-});
-
-describe('countFindings — an advisory tally, not a filter', () => {
-  it('counts every finding by label and never drops one', () => {
-    const findings = parseReviewFindings(
-      buildReviewXml([
-        { file: 'a.ts', severity: 'critical', confidence: 'high', body: 'one' },
-        { file: 'a.ts', severity: 'major', confidence: 'low', body: 'two' },
-        { file: 'b.ts', severity: 'minor', confidence: 'medium', body: 'three' },
-        { file: 'b.ts', severity: 'info', body: 'four' },
-        { file: 'c.ts', confidence: 'high', body: 'five, no severity' },
-      ])
-    );
-    // Every one is counted, including the unlabelled one and the `low`
-    // confidence one. Nothing here is a threshold.
-    expect(countFindings(findings)).toEqual({
-      total: 5,
-      critical: 1,
-      major: 1,
-      minor: 1,
-      info: 1,
-      unlabelled: 1,
-    });
-  });
-
-  it('reports an empty review as zero rather than as an absence', () => {
-    expect(countFindings([])).toEqual({
-      total: 0,
-      critical: 0,
-      major: 0,
-      minor: 0,
-      info: 0,
-      unlabelled: 0,
-    });
   });
 });
 
@@ -257,130 +139,184 @@ describe('hasForbiddenDeclarations — DTD syntax is refused before the schema s
 });
 
 /**
- * The scanner is only trusted because it agrees with the validator. These run
- * the real `xmllint` and skip only where it is absent — in CI it is installed,
- * so the path is always exercised there.
+ * Counts come from the same XML implementation as schema validation. Prefixes,
+ * comments and quoted markup must not change the semantic count.
  */
-describe.skipIf(!xmllintAvailable)('certification integrity — scanner and validator agree', () => {
-  let dir: string;
+describe.skipIf(!xmllintAvailable)(
+  'certification integrity — native counts follow the validated document',
+  () => {
+    let dir: string;
 
-  beforeEach(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'strikethroo-count-'));
-  });
+    beforeEach(() => {
+      dir = fs.mkdtempSync(path.join(os.tmpdir(), 'strikethroo-count-'));
+    });
 
-  afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
+    afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
-  const writeXml = (name: string, content: string): string => {
-    const file = path.join(dir, name);
-    fs.writeFileSync(file, content);
-    return file;
-  };
-
-  // Default namespace, mixed quoting, a comment carrying every delimiter the
-  // scanner cares about, a CDATA body quoting a <comment>, and escaped markup.
-  const DEFAULT_NAMESPACE =
-    '<?xml version="1.0" encoding="UTF-8"?>\n' +
-    '<!-- it\'s a "review" <with> angle > brackets -->\n' +
-    '<review xmlns="urn:self-review:v2" timestamp=\'2026-01-01T00:00:00Z\'>' +
-    '<file path="src/a.ts" change-type=\'modified\' viewed="true">' +
-    '<comment severity=\'critical\' confidence="high"><body><![CDATA[Quoted: ' +
-    '<comment severity="info"><body>x</body><category>y</category></comment>]]></body>' +
-    '<category>security</category></comment>' +
-    '<!-- <comment><body>in a comment \'"<></body><category>c</category></comment> -->' +
-    '<comment severity="major"><body>Escaped &lt;comment&gt; &amp; &quot;q&quot; &apos;a&apos;' +
-    '</body><category>bug</category></comment>' +
-    '</file>' +
-    "<file path='src/b.ts' change-type=\"added\" viewed='false'/>" +
-    '</review>\n';
-
-  // The same shape under a prefix: local names, never prefixes, are what count.
-  const PREFIXED_NAMESPACE =
-    '<?xml version="1.0" encoding="UTF-8"?>\n' +
-    '<sr:review xmlns:sr="urn:self-review:v2" timestamp="2026-01-01T00:00:00Z">' +
-    '<sr:file path="src/a.ts" change-type="modified" viewed="true">' +
-    "<sr:comment severity='minor' confidence='low'><sr:body>one</sr:body>" +
-    '<sr:category>style</sr:category></sr:comment>' +
-    '<sr:comment><sr:body><![CDATA[two <sr:comment/>]]></sr:body><sr:category>q</sr:category>' +
-    '</sr:comment>' +
-    '<sr:comment severity="info"><sr:body>three &lt;sr:comment/&gt;</sr:body>' +
-    '<sr:category>nit</sr:category></sr:comment>' +
-    '</sr:file></sr:review>\n';
-
-  it('counts exactly what xmllint counts, across namespaces, comments, CDATA, escaping and quoting', async () => {
-    const cases: Array<[string, string, number]> = [
-      ['default.xml', DEFAULT_NAMESPACE, 2],
-      ['prefixed.xml', PREFIXED_NAMESPACE, 3],
-    ];
-    for (const [name, xml, expected] of cases) {
-      const file = writeXml(name, xml);
-      // Each document is one the gate would accept, so the comparison is on
-      // certifiable input, not on arbitrary XML.
-      expect(hasForbiddenDeclarations(xml)).toBe(false);
-      await expect(validateAgainstSchema(REAL_XSD_PATH, file)).resolves.toEqual({
-        kind: 'valid',
-      });
-      const independent = await countCommentsWithXmllint(file);
-      expect(independent).toBe(expected);
-      expect(parseReviewFindings(xml)).toHaveLength(expected);
-    }
-  });
-
-  it('returns null, never a number, when xmllint cannot produce a count', async () => {
-    await expect(countCommentsWithXmllint(writeXml('bad.xml', '<review><file>'))).resolves.toBe(
-      null
-    );
-    await expect(countCommentsWithXmllint(path.join(dir, 'missing.xml'))).resolves.toBe(null);
-  });
-
-  it('never certifies the audit payload (a DOCTYPE whose comment carries an apostrophe) as a clean review', async () => {
-    // Schema-valid, and xmllint counts one critical finding — but the raw
-    // scanner's quote tracking is derailed by the apostrophe and reads none.
-    // Without an upstream rejection this is a certified "Pass" with a finding
-    // sitting in review.xml.
-    const payload =
-      '<?xml version="1.0" encoding="UTF-8"?>\n' +
-      "<!DOCTYPE review [ <!-- it's --> ]>\n" +
-      '<review xmlns="urn:self-review:v2" timestamp="2026-01-01T00:00:00Z">' +
-      "<file path='src/x.ts' change-type='modified' viewed='true'>" +
-      "<comment severity='critical' confidence='high'><body>Boom</body>" +
-      '<category>security</category></comment></file></review>\n';
-    await expect(
-      validateAgainstSchema(REAL_XSD_PATH, writeXml('a7.xml', payload))
-    ).resolves.toEqual({ kind: 'valid' });
-    expect(hasForbiddenDeclarations(payload)).toBe(true);
-
-    const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
-    const dispatch: ReviewDependencies['dispatch'] = async request => {
-      const token = /<<<BEGIN REVIEW XML ([0-9a-f]+)>>>/.exec(request.prompt)?.[1] ?? '';
-      return {
-        kind: 'launched-success',
-        exitCode: 0,
-        stdout: `<<<BEGIN REVIEW XML ${token}>>>\n${payload}\n<<<END REVIEW XML ${token}>>>\n`,
-      };
+    const writeXml = (name: string, content: string): string => {
+      const file = path.join(dir, name);
+      fs.writeFileSync(file, content);
+      return file;
     };
-    try {
-      const result = await runReview(
-        { plan: '1', currentHarness: 'claude', startPath: ws.root },
-        {
-          discover: async () => ({ outcomes: [], reviewerCandidates: ['codex'] }),
-          dispatch,
-          readDiff: () => 'diff --git a/x.ts b/x.ts\n+changed\n',
-          validatorAvailable: () => true,
-        }
-      );
-      expect(result).toMatchObject({
-        kind: 'reviewed',
-        verdict: { kind: 'review-failed' },
-        detail: expect.stringContaining('DOCTYPE'),
+
+    // Default namespace, mixed quoting, a comment carrying every delimiter the
+    // DTD preflight cares about, a CDATA body quoting a <comment>, and escaped markup.
+    const DEFAULT_NAMESPACE =
+      '<?xml version="1.0" encoding="UTF-8"?>\n' +
+      '<!-- it\'s a "review" <with> angle > brackets -->\n' +
+      '<review xmlns="urn:self-review:v2" timestamp=\'2026-01-01T00:00:00Z\'>' +
+      '<file path="src/a.ts" change-type=\'modified\' viewed="true">' +
+      '<comment severity=\'critical\' confidence="high"><body><![CDATA[Quoted: ' +
+      '<comment severity="info"><body>x</body><category>y</category></comment>]]></body>' +
+      '<category>security</category></comment>' +
+      '<!-- <comment><body>in a comment \'"<></body><category>c</category></comment> -->' +
+      '<comment severity="major"><body>Escaped &lt;comment&gt; &amp; &quot;q&quot; &apos;a&apos;' +
+      '</body><category>bug</category></comment>' +
+      '</file>' +
+      "<file path='src/b.ts' change-type=\"added\" viewed='false'/>" +
+      '</review>\n';
+
+    // The same shape under a prefix: local names, never prefixes, are what count.
+    const PREFIXED_NAMESPACE =
+      '<?xml version="1.0" encoding="UTF-8"?>\n' +
+      '<sr:review xmlns:sr="urn:self-review:v2" timestamp="2026-01-01T00:00:00Z">' +
+      '<sr:file path="src/a.ts" change-type="modified" viewed="true">' +
+      "<sr:comment severity='minor' confidence='low'><sr:body>one</sr:body>" +
+      '<sr:category>style</sr:category></sr:comment>' +
+      '<sr:comment><sr:body><![CDATA[two <sr:comment/>]]></sr:body><sr:category>q</sr:category>' +
+      '</sr:comment>' +
+      '<sr:comment severity="info"><sr:body>three &lt;sr:comment/&gt;</sr:body>' +
+      '<sr:category>nit</sr:category></sr:comment>' +
+      '</sr:file></sr:review>\n';
+
+    it('counts exactly what xmllint counts, across namespaces, comments, CDATA, escaping and quoting', async () => {
+      const cases: Array<[string, string, number]> = [
+        ['default.xml', DEFAULT_NAMESPACE, 2],
+        ['prefixed.xml', PREFIXED_NAMESPACE, 3],
+      ];
+      for (const [name, xml, expected] of cases) {
+        const file = writeXml(name, xml);
+        // Each document is one the gate would accept, so the comparison is on
+        // certifiable input, not on arbitrary XML.
+        expect(hasForbiddenDeclarations(xml)).toBe(false);
+        await expect(validateAgainstSchema(REAL_XSD_PATH, file)).resolves.toEqual({
+          kind: 'valid',
+        });
+        const counts = await countFindingsWithXmllint(file);
+        expect(counts?.total).toBe(expected);
+      }
+    });
+
+    it('counts every advisory label and unlabelled finding without filtering low confidence', async () => {
+      const xml = buildReviewXml([
+        { file: 'a.ts', severity: 'critical', confidence: 'high' },
+        { file: 'a.ts', severity: 'major', confidence: 'low' },
+        { file: 'b.ts', severity: 'minor', confidence: 'medium' },
+        { file: 'b.ts', severity: 'info' },
+        { file: 'c.ts', confidence: 'high' },
+      ]);
+      const file = writeXml('labels.xml', xml);
+      await expect(validateAgainstSchema(REAL_XSD_PATH, file)).resolves.toEqual({ kind: 'valid' });
+      await expect(countFindingsWithXmllint(file)).resolves.toEqual({
+        total: 5,
+        critical: 1,
+        major: 1,
+        minor: 1,
+        info: 1,
+        unlabelled: 1,
       });
-      expect(result).not.toHaveProperty('counts');
-      expect(_classify(result).exitCode).toBe(1);
-      const record: unknown = JSON.parse(
-        fs.readFileSync(path.join(ws.planDir, 'review', 'findings.json'), 'utf8')
+    });
+
+    it('refuses an unrecognized severity through schema certification', async () => {
+      const file = writeXml(
+        'bad-label.xml',
+        buildReviewXml([{ file: 'a.ts', severity: 'catastrophic' }])
       );
-      expect(record).toMatchObject({ status: 'schema-invalid', findings: [] });
-    } finally {
-      ws.cleanup();
-    }
-  });
-});
+      await expect(validateAgainstSchema(REAL_XSD_PATH, file)).resolves.toMatchObject({
+        kind: 'invalid',
+      });
+    });
+
+    it('returns null, never partial counts, when xmllint cannot produce counts', async () => {
+      await expect(countFindingsWithXmllint(writeXml('bad.xml', '<review><file>'))).resolves.toBe(
+        null
+      );
+      await expect(countFindingsWithXmllint(path.join(dir, 'missing.xml'))).resolves.toBe(null);
+    });
+
+    it('rejects a structural tally that includes elements outside the findings namespace', async () => {
+      const file = writeXml(
+        'extra-element.xml',
+        buildReviewXml([{ file: 'a.ts', severity: 'minor' }]).replace(
+          '</file>',
+          '<other xmlns="urn:other"/></file>'
+        )
+      );
+      await expect(countFindingsWithXmllint(file)).resolves.toBe(null);
+    });
+
+    it('projects a large valid review within a bounded extraction deadline', async () => {
+      const file = writeXml(
+        'many-findings.xml',
+        buildReviewXml(Array.from({ length: 1000 }, () => ({ file: 'a.ts', severity: 'minor' })))
+      );
+      await expect(validateAgainstSchema(REAL_XSD_PATH, file)).resolves.toEqual({ kind: 'valid' });
+      await expect(countFindingsWithXmllint(file)).resolves.toMatchObject({ total: 1000 });
+      const findings = await readFindingsWithXmllint(file, 1000, 8000);
+      expect(findings).toHaveLength(1000);
+      expect(findings?.[999]).toMatchObject({ file: 'a.ts', severity: 'minor' });
+    }, 15_000);
+
+    it('never certifies the audit payload (a DOCTYPE whose comment carries an apostrophe) as a clean review', async () => {
+      // Schema-valid DTD syntax is still refused before validation; declarations
+      // must never alter the meaning of a certified document.
+      const payload =
+        '<?xml version="1.0" encoding="UTF-8"?>\n' +
+        "<!DOCTYPE review [ <!-- it's --> ]>\n" +
+        '<review xmlns="urn:self-review:v2" timestamp="2026-01-01T00:00:00Z">' +
+        "<file path='src/x.ts' change-type='modified' viewed='true'>" +
+        "<comment severity='critical' confidence='high'><body>Boom</body>" +
+        '<category>security</category></comment></file></review>\n';
+      await expect(
+        validateAgainstSchema(REAL_XSD_PATH, writeXml('a7.xml', payload))
+      ).resolves.toEqual({ kind: 'valid' });
+      expect(hasForbiddenDeclarations(payload)).toBe(true);
+
+      const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+      const dispatch: ReviewDependencies['dispatch'] = async request => {
+        const token = /<<<BEGIN REVIEW XML ([0-9a-f]+)>>>/.exec(request.prompt)?.[1] ?? '';
+        return {
+          kind: 'launched-success',
+          exitCode: 0,
+          stdout: `<<<BEGIN REVIEW XML ${token}>>>\n${payload}\n<<<END REVIEW XML ${token}>>>\n`,
+        };
+      };
+      try {
+        const result = await runReview(
+          { plan: '1', currentHarness: 'claude', startPath: ws.root },
+          {
+            discover: async () => ({ outcomes: [], reviewerCandidates: ['codex'] }),
+            dispatch,
+            readDiff: () => 'diff --git a/x.ts b/x.ts\n+changed\n',
+            validatorAvailable: () => true,
+          }
+        );
+        expect(result).toMatchObject({
+          kind: 'reviewed',
+          verdict: { kind: 'review-failed' },
+          detail: expect.stringContaining('DOCTYPE'),
+        });
+        expect(result).not.toHaveProperty('counts');
+        expect(_classify(result).exitCode).toBe(1);
+        const record: unknown = JSON.parse(
+          fs.readFileSync(path.join(ws.planDir, 'review', 'findings.json'), 'utf8')
+        );
+        expect(record).toMatchObject({ status: 'schema-invalid' });
+        expect(record).not.toHaveProperty('counts');
+        expect(record).toHaveProperty('findings', []);
+      } finally {
+        ws.cleanup();
+      }
+    });
+  }
+);

@@ -12,6 +12,7 @@ import {
   loadRoutingConfig,
   WORKSPACE_CONFIG_RELPATH,
 } from '../skill-scripts/shared/execution-routing';
+import { loadCodeReviewConfiguration } from '../skill-scripts/shared/code-review-configuration';
 import { parseWorkspaceConfig } from '../web/customize/configYaml';
 import { SUPPORTED_HARNESSES } from '../types';
 
@@ -29,6 +30,16 @@ describe('harness configuration', () => {
     fs.mkdirSync(path.dirname(configPath), { recursive: true });
     fs.writeFileSync(configPath, contents);
   };
+
+  it.each(['null', '~'])("preserves each feature's explicit-null policy for %s", contents => {
+    writeConfig(contents);
+    expect(loadHarnessConfiguration(root).kind).toBe('config');
+    expect(loadRoutingConfig(root, SUPPORTED_HARNESSES)).toEqual({ kind: 'disabled' });
+    expect(loadCodeReviewConfiguration(root)).toEqual({
+      kind: 'invalid',
+      detail: 'config.yaml must be a YAML mapping.',
+    });
+  });
 
   it('defaults every supported harness to an empty argument list', () => {
     const result = loadHarnessConfiguration(root);

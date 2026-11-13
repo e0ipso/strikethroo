@@ -341,7 +341,10 @@ describe('serializeWorkspaceConfig round-trip', () => {
     const reloaded = load(output) as {
       execution_routing: { profiles: Record<string, { models: unknown[] }>; resolver?: unknown };
     };
-    expect(reloaded.execution_routing.profiles.routine?.models).toEqual([{ model: 'haiku-x' }]);
+    expect(Object.keys(reloaded.execution_routing.profiles)).toEqual([' routine ']);
+    expect(reloaded.execution_routing.profiles[' routine ']?.models).toEqual([
+      { model: 'haiku-x' },
+    ]);
     expect(reloaded.execution_routing.resolver).toBeUndefined();
   });
 
@@ -523,6 +526,23 @@ describe('validateRoutingForm', () => {
 
   it('accepts a well-formed profile', () => {
     expect(validateRoutingForm(valid)).toEqual([]);
+  });
+
+  it('keeps distinct exact profile names through validation and a form save', () => {
+    const routing = {
+      ...valid,
+      profiles: [' route 🦊 ', 'route 🦊'].map(name => ({ ...valid.profiles[0]!, name })),
+    };
+    expect(validateRoutingForm(routing)).toEqual([]);
+    const output = serializeWorkspaceConfig({}, EMPTY_HARNESSES, routing, EMPTY_CODE_REVIEW);
+    const parsed = parseWorkspaceConfig(output);
+    expect(parsed.kind).toBe('parsed');
+    if (parsed.kind === 'parsed') {
+      expect(parsed.routing.profiles.map(profile => profile.name)).toEqual([
+        ' route 🦊 ',
+        'route 🦊',
+      ]);
+    }
   });
 
   it('skips every profile check while routing is disabled', () => {

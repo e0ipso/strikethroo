@@ -1,21 +1,20 @@
 #!/usr/bin/env node
 import * as fs from 'fs';
+import { createHash } from 'crypto';
 import * as path from 'path';
 import { SUPPORTED_HARNESSES, type Harness } from '../types';
 import { selectDispatchTarget } from './shared/dispatch-target-selector';
 import { dispatchExternalTask, type RoutedDispatchRequest } from './shared/external-dispatch';
 import { checkHarnessAvailability } from './shared/harness-availability';
 import { loadHarnessConfiguration } from './shared/harness-configuration';
-import { loadRoutingConfig } from './shared/execution-routing';
+import { isExecutionProfileName, loadRoutingConfig } from './shared/execution-routing';
 import { readYamlFrontmatter } from './shared/task-frontmatter';
 
-interface ExternalHandoff {
-  version: 1;
-  kind: 'external-override';
-  harness: Harness;
-  model: string;
-  reasoningEffort?: string;
-}
+/** A resolved invocation plus the exact task revision it may execute. Content stays on stdin. */
+type ExecutionRequest = Omit<RoutedDispatchRequest, 'taskMarkdown' | 'cliArgs'> & {
+  cliArgs: readonly string[];
+  taskDigest: string;
+};
 
 type ResolvedRoute =
   | { kind: 'native-default' }
@@ -34,48 +33,45 @@ const emit = (result: object, exitCode: number): never => {
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
-const encodeHandoff = (route: Omit<ExternalHandoff, 'version'>): string =>
-  Buffer.from(JSON.stringify({ version: 1, ...route }), 'utf8').toString('base64url');
+const taskDigest = (markdown: string): string =>
+  createHash('sha256').update(markdown).digest('hex');
+const encodeHandoff = (request: ExecutionRequest): string =>
+  Buffer.from(JSON.stringify(request), 'utf8').toString('base64url');
 
-const decodeHandoff = (encoded: string): ExternalHandoff => {
-  let raw: unknown;
+const decodeHandoff = (encoded: string): ExecutionRequest => {
+  let value: unknown;
   try {
-    raw = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
+    value = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
   } catch {
-    throw new Error('Resolved execution handoff is not valid encoded JSON.');
+    throw new Error('Resolved execution request is not valid encoded JSON.');
   }
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    throw new Error('Resolved execution handoff must be an object.');
-  }
-  const value = raw as Record<string, unknown>;
-  const allowed = ['version', 'kind', 'harness', 'model', 'reasoningEffort'];
+  const strings = ['harness', 'model', 'workspace', 'planId', 'taskId', 'taskFile', 'taskDigest'];
   if (
-    Object.keys(value).some(key => !allowed.includes(key)) ||
-    value.version !== 1 ||
-    value.kind !== 'external-override' ||
-    typeof value.harness !== 'string' ||
-    !SUPPORTED_HARNESSES.includes(value.harness as Harness) ||
-    typeof value.model !== 'string' ||
-    value.model.length === 0 ||
-    ('reasoningEffort' in value && typeof value.reasoningEffort !== 'string')
-  ) {
-    throw new Error('Resolved execution handoff has an invalid shape.');
-  }
-  return value as unknown as ExternalHandoff;
-};
-
-const externalRoute = (
-  harness: Harness,
-  model: string,
-  reasoningEffort?: string
-): ResolvedRoute => {
-  const exact = {
-    kind: 'external-override' as const,
-    harness,
-    model,
-    ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
-  };
-  return { ...exact, handoff: encodeHandoff(exact) };
+    !value ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    Object.keys(value).some(key => ![...strings, 'cliArgs', 'reasoningEffort'].includes(key)) ||
+    strings.some(key => {
+      const field = (value as Record<string, unknown>)[key];
+      return typeof field !== 'string' || field.trim() === '' || field.includes('\0');
+    })
+  )
+    throw new Error('Resolved execution request has an invalid shape.');
+  const request = value as ExecutionRequest;
+  if (
+    !SUPPORTED_HARNESSES.includes(request.harness) ||
+    !path.isAbsolute(request.workspace) ||
+    !path.isAbsolute(request.taskFile) ||
+    !/^[a-f0-9]{64}$/.test(request.taskDigest) ||
+    !Array.isArray(request.cliArgs) ||
+    request.cliArgs.some(arg => typeof arg !== 'string' || arg === '' || arg.includes('\0')) ||
+    ('reasoningEffort' in request &&
+      (typeof request.reasoningEffort !== 'string' ||
+        request.reasoningEffort.trim() === '' ||
+        request.reasoningEffort.includes('\0')))
+  )
+    throw new Error('Resolved execution request has an invalid shape.');
+  return request;
 };
 
 type ProfileRead = { kind: 'profile'; profile?: string } | { kind: 'rejected'; reason: string };
@@ -93,7 +89,7 @@ const readProfile = (taskMarkdown: string): ProfileRead => {
     return { kind: 'profile' };
   }
   const profile = frontmatter.data.execution_profile;
-  if (typeof profile !== 'string' || profile.trim() === '') {
+  if (!isExecutionProfileName(profile)) {
     return { kind: 'rejected', reason: 'execution_profile must be a non-empty string.' };
   }
   return { kind: 'profile', profile };
@@ -104,7 +100,9 @@ export interface ResolveDispatchRequest {
   currentHarness: Harness;
   workspace: string;
   strikethrooRoot: string;
-  taskId: number;
+  taskId: string;
+  planId: string;
+  taskFile: string;
 }
 
 /** Resolve only: selection and probes happen here, but task execution never does. */
@@ -139,7 +137,7 @@ export const resolveDispatchRoute = async (
     const selection = selectDispatchTarget(configResult.config, profile, avoided, {
       currentHarness: request.currentHarness,
       projectRoot: request.workspace,
-      taskId: request.taskId,
+      taskId: Number(request.taskId),
     });
     if (selection.kind === 'native-default') {
       return { kind: 'fallback', reason: selection.reason, detail: selection.detail };
@@ -173,7 +171,28 @@ export const resolveDispatchRoute = async (
       invocation,
     });
     if (availability.available) {
-      return externalRoute(harness, selection.target.model, selection.target.reasoning_effort);
+      const execution: ExecutionRequest = {
+        harness,
+        cliArgs: invocation.cliArgs,
+        model: selection.target.model,
+        ...(selection.target.reasoning_effort === undefined
+          ? {}
+          : { reasoningEffort: selection.target.reasoning_effort }),
+        workspace: request.workspace,
+        planId: request.planId,
+        taskId: request.taskId,
+        taskFile: request.taskFile,
+        taskDigest: taskDigest(request.taskMarkdown),
+      };
+      return {
+        kind: 'external-override',
+        harness,
+        model: execution.model,
+        ...(execution.reasoningEffort === undefined
+          ? {}
+          : { reasoningEffort: execution.reasoningEffort }),
+        handoff: encodeHandoff(execution),
+      };
     }
     unavailable.push(
       `${harness} (${availability.source === 'probe' ? 'fresh' : availability.source})`
@@ -190,84 +209,60 @@ export const resolveDispatchRoute = async (
 };
 
 const main = async (): Promise<void> => {
-  const args = process.argv.slice(2);
-  const mode = args.shift();
-  if ((mode !== 'resolve' && mode !== 'execute') || args.length < (mode === 'execute' ? 6 : 5)) {
+  const [mode, ...args] = process.argv.slice(2);
+  if (mode === 'execute' && args.length === 1) {
+    const request = decodeHandoff(args[0]!);
+    const taskMarkdown = fs.readFileSync(request.taskFile, 'utf8');
+    if (taskDigest(taskMarkdown) !== request.taskDigest) {
+      throw new Error(
+        `Task ${request.taskId} changed after route resolution. This request cannot be executed.`
+      );
+    }
+    const { taskDigest: _digest, ...invocation } = request;
+    const result = await dispatchExternalTask({ ...invocation, taskMarkdown });
+    emit(
+      result,
+      result.kind === 'infrastructure-failure' ? 2 : result.kind === 'launched-failure' ? 1 : 0
+    );
+  }
+  if (mode !== 'resolve' || args.length !== 5) {
     emit(
       {
         kind: 'infrastructure-failure',
         detail:
           'Usage: dispatch-task-execution.cjs resolve <task-file> <current-harness> <workspace> ' +
-          '<plan-id> <task-id> | execute <handoff> <task-file> <current-harness> <workspace> ' +
-          '<plan-id> <task-id>',
+          '<plan-id> <task-id> | execute <handoff>',
       },
       2
     );
   }
-  const handoffArg = mode === 'execute' ? args.shift() : undefined;
-  const [taskFile, currentHarnessRaw, workspace, planId, taskId] = args as string[];
+  const [taskFile, currentHarness, workspace, planId, taskId] = args as [
+    string,
+    Harness,
+    string,
+    string,
+    string,
+  ];
   if (
-    !taskFile ||
-    !currentHarnessRaw ||
-    !workspace ||
-    !planId ||
-    !taskId ||
-    !SUPPORTED_HARNESSES.includes(currentHarnessRaw as Harness)
+    !args.every(Boolean) ||
+    !planId.trim() ||
+    !taskId.trim() ||
+    !SUPPORTED_HARNESSES.includes(currentHarness)
   ) {
     emit({ kind: 'infrastructure-failure', detail: 'Task dispatch arguments are invalid.' }, 2);
   }
-  const validTaskFile = taskFile!;
-  const validCurrentHarness = currentHarnessRaw as Harness;
-  const validWorkspace = workspace!;
-  const validPlanId = planId!;
-  const validTaskId = taskId!;
-  const taskPath = path.resolve(validTaskFile);
-  const taskMarkdown = fs.readFileSync(taskPath, 'utf8');
-  if (mode === 'resolve') {
-    const route = await resolveDispatchRoute({
-      taskMarkdown,
-      currentHarness: validCurrentHarness,
-      workspace: path.resolve(validWorkspace),
-      strikethrooRoot: path.join(path.resolve(validWorkspace), '.ai', 'strikethroo'),
-      taskId: Number(validTaskId),
-    });
-    emit(route, route.kind === 'infrastructure-failure' ? 2 : 0);
-  }
-
-  const handoff = decodeHandoff(handoffArg!);
-  const executionConfiguration = loadHarnessConfiguration(
-    path.join(path.resolve(validWorkspace), '.ai', 'strikethroo')
-  );
-  if (executionConfiguration.kind === 'invalid') {
-    return emit(
-      {
-        kind: 'infrastructure-failure',
-        detail: `Harness invocation configuration is invalid: ${executionConfiguration.errors.join(
-          ' '
-        )}`,
-      },
-      2
-    );
-  }
-  // Routing always resolves an exact model. The narrowed type keeps the compiler
-  // enforcing that here even though dispatch itself allows omission for the
-  // discovery-driven review path.
-  const routed: RoutedDispatchRequest = {
-    harness: handoff.harness,
-    cliArgs: executionConfiguration.config[handoff.harness].cliArgs,
-    model: handoff.model,
-    ...(handoff.reasoningEffort === undefined ? {} : { reasoningEffort: handoff.reasoningEffort }),
-    workspace: path.resolve(validWorkspace),
-    planId: validPlanId,
-    taskId: validTaskId,
+  const taskPath = path.resolve(taskFile);
+  const projectRoot = path.resolve(workspace);
+  const route = await resolveDispatchRoute({
+    taskMarkdown: fs.readFileSync(taskPath, 'utf8'),
     taskFile: taskPath,
-    taskMarkdown,
-  };
-  const result = await dispatchExternalTask(routed);
-  emit(
-    result,
-    result.kind === 'infrastructure-failure' ? 2 : result.kind === 'launched-failure' ? 1 : 0
-  );
+    currentHarness,
+    workspace: projectRoot,
+    strikethrooRoot: path.join(projectRoot, '.ai', 'strikethroo'),
+    planId,
+    taskId,
+  });
+  emit(route, route.kind === 'infrastructure-failure' ? 2 : 0);
 };
 
 main().catch(error => {

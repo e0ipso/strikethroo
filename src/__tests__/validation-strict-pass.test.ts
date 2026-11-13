@@ -15,6 +15,10 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { strictPass } from '../validation/strict-pass';
+import { extractPlanId } from '../skill-scripts/shared/frontmatter';
+import { readYamlFrontmatter } from '../skill-scripts/shared/task-frontmatter';
+import { readTaskMetadata } from '../skill-scripts/shared/task-file';
+import { parseFrontmatter, extractBody } from '../serve/markdown';
 
 const makeWorkspace = (): string => fs.mkdtempSync(path.join(os.tmpdir(), 'st-strict-'));
 
@@ -169,24 +173,22 @@ describe('strict frontmatter pass', () => {
       {
         label: 'an unterminated quote',
         frontmatter: VALID_TASK.replace('"pending"', '"pending'),
-        checks: ['task/status-invalid'],
+        checks: ['task/frontmatter-malformed'],
       },
       {
         label: 'a quoted value followed by text that is not a comment',
         frontmatter: VALID_TASK.replace('"pending"', '"completed" garbage'),
-        checks: ['task/status-invalid'],
-        messageContains: '`"completed" garbage`',
+        checks: ['task/frontmatter-malformed'],
       },
       {
         label: 'a single-quoted value followed by text, then a comment',
         frontmatter: VALID_TASK.replace('"pending"', "'completed' x # c"),
-        checks: ['task/status-invalid'],
-        messageContains: "'completed' x",
+        checks: ['task/frontmatter-malformed'],
       },
       {
         label: 'a comment glued to the closing quote',
         frontmatter: VALID_TASK.replace('"pending"', '"completed"# done'),
-        checks: ['task/status-invalid'],
+        checks: ['task/frontmatter-malformed'],
       },
       {
         label: 'an absent field',
@@ -218,4 +220,96 @@ describe('strict frontmatter pass', () => {
       }
     }
   });
+});
+
+describe('one YAML interpretation across discovery, execution, validation, and display', () => {
+  it.each(['\n', '\r\n'])(
+    'ignores nested IDs and scalar text while preserving YAML values (%j)',
+    eol => {
+      const root = makeWorkspace();
+      const fields = [
+        'metadata:',
+        '  id: 999',
+        'summary: |',
+        '  id: 888',
+        '  A multiline description.',
+        'id: "03"',
+        'created: 2026-01-01',
+        'status: pending',
+        'dependencies: [1, "02"]',
+        'skills: ["typescript, vitest", "a # b"]',
+        'complexity_score: "7"',
+      ];
+      const document = ['﻿---  ', ...fields, '...  ', '# Body', '---', 'unchanged'].join(eol);
+      const parsed = readYamlFrontmatter(document);
+      expect(parsed.kind).toBe('data');
+      expect(extractPlanId(document, 'fixture.md')).toBe(3);
+      expect(readTaskMetadata(document)).toEqual({
+        kind: 'metadata',
+        metadata: { status: 'pending', dependencies: [1, 2] },
+      });
+      expect(parseFrontmatter(document)).toMatchObject({
+        id: 3,
+        created: '2026-01-01',
+        summary: 'id: 888\nA multiline description.\n',
+        dependencies: [1, 2],
+        skills: ['typescript, vitest', 'a # b'],
+        complexity_score: 7,
+      });
+      expect(extractBody(document)).toBe(['# Body', '---', 'unchanged'].join(eol));
+      write(path.join(root, 'plans', '3--shared', 'plan-shared.md'), document);
+      write(path.join(root, 'plans', '3--shared', 'tasks', '03--shared.md'), document);
+      expect(strictPass(root)).toEqual([]);
+    }
+  );
+
+  it('reads flow mappings and quoted keys, and leaves body whitespace unchanged', () => {
+    const root = makeWorkspace();
+    const document =
+      '---\n{"id": "03", "summary": "quoted # text", "created": "2026-01-01", "status": "pending", "dependencies": [], "skills": [], "complexity_score": 7}\n---\n\n# Body\n';
+    expect(extractPlanId(document, 'fixture.md')).toBe(3);
+    expect(readTaskMetadata(document)).toEqual({
+      kind: 'metadata',
+      metadata: { status: 'pending', dependencies: [] },
+    });
+    expect(parseFrontmatter(document)).toMatchObject({
+      id: 3,
+      summary: 'quoted # text',
+      created: '2026-01-01',
+      complexity_score: 7,
+    });
+    expect(extractBody(document)).toBe('\n# Body\n');
+    write(path.join(root, 'plans', '3--flow', 'plan-flow.md'), document);
+    write(path.join(root, 'plans', '3--flow', 'tasks', '03--flow.md'), document);
+    expect(strictPass(root)).toEqual([]);
+  });
+
+  it('bounds metadata bytes while allowing a large Markdown body', () => {
+    const document = `---\nid: 3\nstatus: pending\ndependencies: []\n---\n${'λ'.repeat(100_000)}`;
+    expect(extractPlanId(document, 'fixture.md')).toBe(3);
+    expect(readTaskMetadata(document).kind).toBe('metadata');
+    const oversized = `---\nid: 3\nnotes: "${'λ'.repeat(32_768)}"\n---\n# Body\n`;
+    expect(readYamlFrontmatter(oversized)).toEqual({
+      kind: 'invalid',
+      reason: 'Frontmatter exceeds the 65536-byte limit.',
+    });
+    expect(extractPlanId(oversized, 'fixture.md')).toBeNull();
+    expect(parseFrontmatter(oversized)).toEqual({ dependencies: [], skills: [], extra: {} });
+    expect(extractBody(oversized)).toBe('# Body\n');
+  });
+
+  it.each(['id: 3\nid: 4', 'id: "unterminated', '- id: 3', 'just a scalar'])(
+    'rejects malformed or non-mapping metadata consistently: %s',
+    fields => {
+      const root = makeWorkspace();
+      const document = `---\n${fields}\n---\n# Body\n`;
+      expect(readYamlFrontmatter(document).kind).toBe('invalid');
+      expect(extractPlanId(document, 'fixture.md')).toBeNull();
+      expect(readTaskMetadata(document).kind).toBe('rejected');
+      expect(parseFrontmatter(document)).toEqual({ dependencies: [], skills: [], extra: {} });
+      expect(extractBody(document)).toBe('# Body\n');
+      write(path.join(root, 'plans', '3--invalid', 'plan-invalid.md'), document);
+      expect(strictPass(root).map(f => f.check)).toEqual(['plan/frontmatter-malformed']);
+    }
+  );
 });

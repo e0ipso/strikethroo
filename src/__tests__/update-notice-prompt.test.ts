@@ -2,12 +2,10 @@
  * Rendered-prompt regression tests for parent-owned update notices.
  */
 
-import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { BUILT_SKILLS_ROOT } from './built-skills';
 
-const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const SKILLS_ROOT = BUILT_SKILLS_ROOT;
 
 const PARENT_SKILLS = [
@@ -60,10 +58,6 @@ const extractPlanSummaryBlock = (response: string): string | null => {
 };
 
 describe('rendered parent skills compose update notices', () => {
-  beforeAll(() => {
-    execFileSync('npm', ['run', 'build:skill-prompts'], { cwd: REPO_ROOT, stdio: 'pipe' });
-  });
-
   test.each(PARENT_SKILLS)('%s contains the update check and final-notice placement', skill => {
     const content = readSkill(skill);
     expect(content).toContain('check-for-updates.cjs "<root>"');

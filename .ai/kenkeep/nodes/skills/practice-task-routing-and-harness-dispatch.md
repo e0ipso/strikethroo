@@ -22,6 +22,10 @@ Unreadable task frontmatter fails with exit 2 instead of falling back to native 
 
 Harness `cli_args` pass through byte-for-byte with `shell: false`. Like hooks and the selector script, they are unsandboxed executable authority.
 
+Resolution captures an external task's path, content digest, workspace, IDs, model settings, and exact CLI arguments. `execute` consumes only that request. Any task edit between resolution and launch requires fresh resolution; configuration edits affect future resolutions. The single-task skill marks in-progress before resolution, and blueprint assignment hooks finish before resolution. Workers can edit their task after launch. Executable lookup and credentials still use the launch environment.
+
+Profile names are exact non-empty strings. Whitespace-only names fail before task writes; names containing other characters retain their surrounding whitespace through config editing, assignment, and dispatch.
+
 <!-- kk:related:start -->
 # Related
 

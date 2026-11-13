@@ -1,9 +1,14 @@
 #!/usr/bin/env node
-import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { SUPPORTED_HARNESSES, type Harness } from '../types';
-import { execGit, execGitDiffAllowingChanges, splitNulDelimited } from './shared/git-utils';
+import { readBaseCommit } from './shared/git-utils';
+import { readCumulativeDiff } from './shared/review-scope';
+import {
+  makeDeliveryToken,
+  extractReviewDocument,
+  buildReviewerPrompt,
+} from './shared/review-delivery';
 import { checkWorkspaceSchema } from './shared/root';
 import { loadCodeReviewConfiguration } from './shared/code-review-configuration';
 import { discoverPlanWorkspace, resolvePlan } from './shared/plan-resolve';
@@ -11,14 +16,21 @@ import { discoverHarnesses } from './shared/harness-discovery';
 import { executableResolves } from './shared/executable-resolution';
 import { dispatchReview } from './shared/external-dispatch';
 import {
-  countCommentsWithXmllint,
-  countFindings,
+  countFindingsWithXmllint,
+  readFindingsWithXmllint,
   hasForbiddenDeclarations,
-  parseReviewFindings,
   SEVERITIES,
   validateAgainstSchema,
   type FindingCounts,
 } from './shared/review-findings';
+
+export { readCumulativeDiff as _readCumulativeDiff } from './shared/review-scope';
+export {
+  makeDeliveryToken as _makeDeliveryToken,
+  extractReviewDocument as _extractReviewDocument,
+  buildReviewerPrompt,
+  type ReviewerPromptInput,
+} from './shared/review-delivery';
 
 /**
  * The code review gate: scope the plan's cumulative diff, dispatch a second
@@ -36,7 +48,6 @@ const REVIEW_FILE_NAME = 'review.xml';
 const FINDINGS_FILE_NAME = 'findings.json';
 /** The reviewer's captured transcript, written only when a review does not certify. */
 const TRANSCRIPT_FILE_NAME = 'reviewer-output.txt';
-const SHA_RE = /^[0-9a-f]{40}$/i;
 
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -106,20 +117,14 @@ export type FindingsGateOutcome =
 /** Supply this to evaluate the reviewer's emitted findings. */
 export type FindingsGate = (context: FindingsEvaluationContext) => Promise<FindingsGateOutcome>;
 
-export interface FindingsGateOptions {
-  /** Independent `<comment>` count the scanner is checked against. Injectable for tests only. */
-  countComments?: (xmlFile: string) => Promise<number | null>;
-}
-
 /**
- * Refuse DTD syntax, validate the delivered document against the XSD, read its
- * findings, cross-check that read against libxml's count, and record the outcome
+ * Refuse DTD syntax, validate the delivered document against the XSD, read
+ * libxml's advisory counts, and record the outcome
  * to `<plan-dir>/review/findings.json`, on every outcome including failures.
  */
 export const createFindingsGate =
-  (options: FindingsGateOptions = {}): FindingsGate =>
+  (): FindingsGate =>
   async (context: FindingsEvaluationContext): Promise<FindingsGateOutcome> => {
-    const countComments = options.countComments ?? countCommentsWithXmllint;
     const reviewDir = path.dirname(context.reviewFile);
     const findingsFile = path.join(reviewDir, FINDINGS_FILE_NAME);
     const record = (payload: Record<string, unknown>): void => {
@@ -135,16 +140,23 @@ export const createFindingsGate =
     };
     const base = { reviewFile: context.reviewFile, xsdFile: context.xsdFile };
 
+    const fail = (
+      kind: Exclude<FindingsGateOutcome, { kind: 'evaluated' }>['kind'],
+      detail: string
+    ): FindingsGateOutcome => {
+      record({ ...base, status: kind, detail, findings: [] });
+      return { kind, detail };
+    };
+
     // The reviewer prints; this process writes. The document meets the XSD at
     // the single `validateAgainstSchema` call below before anything parses it.
-    const delivered = _extractReviewDocument(context.reviewerStdout, context.deliveryToken);
+    const delivered = extractReviewDocument(context.reviewerStdout, context.deliveryToken);
     if (delivered === null) {
       const detail =
         "The reviewer printed no complete findings document between this dispatch's " +
         'delimiters. A review with no findings document cannot be read as a review with ' +
         'no findings.';
-      record({ ...base, status: 'findings-absent', detail, findings: [] });
-      return { kind: 'findings-absent', detail };
+      return fail('findings-absent', detail);
     }
     try {
       fs.mkdirSync(reviewDir, { recursive: true });
@@ -167,56 +179,34 @@ export const createFindingsGate =
         "<!ELEMENT, <!ATTLIST or <!NOTATION). The review gate accepts only the schema's own " +
         'syntax, so the document was refused before validation and none of its findings was ' +
         'recorded.';
-      record({ ...base, status: 'schema-invalid', detail, findings: [] });
-      return { kind: 'schema-invalid', detail };
+      return fail('schema-invalid', detail);
     }
 
     const validation = await validateAgainstSchema(context.xsdFile, context.reviewFile);
     if (validation.kind === 'validator-unavailable') {
-      record({
-        ...base,
-        status: 'validator-unavailable',
-        detail: validation.detail,
-        findings: [],
-      });
-      return { kind: 'validator-unavailable', detail: validation.detail };
+      return fail('validator-unavailable', validation.detail);
     }
     if (validation.kind === 'invalid') {
       const detail =
         `${context.reviewFile} does not validate against ${context.xsdFile}, so its findings ` +
         `could not be certified and none of them was recorded. xmllint reported: ${validation.detail}`;
-      record({ ...base, status: 'schema-invalid', detail, findings: [] });
-      return { kind: 'schema-invalid', detail };
+      return fail('schema-invalid', detail);
     }
 
-    const xml = readFileOrNull(context.reviewFile);
-    if (xml === null) {
-      const detail = `${context.reviewFile} validated but could not then be read.`;
-      record({ ...base, status: 'findings-absent', detail, findings: [] });
-      return { kind: 'findings-absent', detail };
+    const counts = await countFindingsWithXmllint(context.reviewFile);
+    if (counts === null) {
+      return fail(
+        'validator-unavailable',
+        `${context.reviewFile} validated, but xmllint could not read its finding counts, so the review could not be certified.`
+      );
     }
-
-    // Safe only after validation: the scan assumes the XSD's shape. Even then it
-    // certifies only a count libxml confirms.
-    const findings = parseReviewFindings(xml);
-    const independent = await countComments(context.reviewFile);
-    if (independent === null) {
-      const detail =
-        `${context.reviewFile} validated, but xmllint could not independently count its ` +
-        `<comment> elements, so the ${findings.length} finding(s) the scanner read could not ` +
-        'be certified and none was recorded.';
-      record({ ...base, status: 'validator-unavailable', detail, findings: [] });
-      return { kind: 'validator-unavailable', detail };
+    const findings = await readFindingsWithXmllint(context.reviewFile, counts.total);
+    if (findings === null) {
+      return fail(
+        'validator-unavailable',
+        `${context.reviewFile} validated, but xmllint could not project its findings, so the review could not be certified.`
+      );
     }
-    if (independent !== findings.length) {
-      const detail =
-        `${context.reviewFile} validated, but the scanner read ${findings.length} finding(s) ` +
-        `where xmllint counted ${independent} <comment> element(s). A count that disagrees ` +
-        'with the validated document cannot be certified, so none of the findings was recorded.';
-      record({ ...base, status: 'findings-absent', detail, findings: [] });
-      return { kind: 'findings-absent', detail };
-    }
-    const counts = countFindings(findings);
     record({ ...base, status: 'evaluated', counts, findings });
     return { kind: 'evaluated', counts, findingsFile };
   };
@@ -331,151 +321,12 @@ export interface ReviewDependencies {
   validatorAvailable: () => boolean;
 }
 
-/** The recorded base commit, or null when missing, unreadable, or not a 40-hex sha. */
-export const _readBaseCommit = (filePath: string): string | null => {
-  const raw = readFileOrNull(filePath);
-  if (raw === null) return null;
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object') {
-      const candidate = (parsed as { baseCommit?: unknown }).baseCommit;
-      if (typeof candidate === 'string' && SHA_RE.test(candidate)) return candidate;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-};
-
-const GENERATED_ATTRIBUTES = ['linguist-generated', 'linguist-vendored'] as const;
-
-/**
- * `check-attr` reports `unspecified`, `unset` (`-linguist-generated`), `set`
- * (the bare `out/* linguist-generated`), or the written value. Every other
- * value marks the path, as it does for GitHub's linguist, so the bare form
- * excludes exactly as `=true` does.
- */
-const ATTRIBUTE_UNMARKED: ReadonlySet<string> = new Set(['unspecified', 'unset', 'false']);
-
-/**
- * The subset of `files` that `.gitattributes` marks generated or vendored.
- * Paths go to git over stdin, NUL-delimited, so a name is never an argument
- * and the set has no length limit. `null` when the check itself failed; the
- * caller propagates that rather than treating it as "nothing excluded".
- */
-const attributeExcluded = (workspace: string, files: readonly string[]): Set<string> | null => {
-  const excluded = new Set<string>();
-  if (files.length === 0) return excluded;
-  const report = execGit(
-    ['-C', workspace, 'check-attr', '--stdin', '-z', ...GENERATED_ATTRIBUTES],
-    { input: files.map(file => `${file}\0`).join(''), trim: false }
-  );
-  if (report === null) return null;
-  // `-z` output is a flat sequence of `<path>\0<attribute>\0<value>\0` records;
-  // a path appears once per attribute asked about.
-  const fields = report.split('\0');
-  for (let i = 0; i + 2 < fields.length; i += 3) {
-    if (!ATTRIBUTE_UNMARKED.has(fields[i + 2]!)) excluded.add(fields[i]!);
-  }
-  return excluded;
-};
-
-/**
- * Changed paths marked generated or vendored. `--no-renames` so `--name-only`
- * lists both sides of a rename; excluding only the destination would leave the
- * source in the diff as a full deletion. `null` when the listing or the
- * attribute check failed.
- */
-const excludedPaths = (workspace: string, baseCommit: string): string[] | null => {
-  const changed = execGit(
-    ['-C', workspace, 'diff', '--no-renames', '--name-only', '-z', baseCommit, '--'],
-    { trim: false }
-  );
-  if (changed === null) return null;
-  const excluded = attributeExcluded(workspace, splitNulDelimited(changed));
-  return excluded === null ? null : [...excluded];
-};
-
-/**
- * Untracked, unignored paths minus generated and vendored ones.
- * `core.quotePath=false`: a quoted non-ASCII name would not resolve in
- * `git diff --no-index`, and the file would silently drop out. `null` when
- * the listing or the attribute check failed.
- */
-const untrackedPaths = (workspace: string): string[] | null => {
-  const listed = execGit(
-    [
-      '-c',
-      'core.quotePath=false',
-      '-C',
-      workspace,
-      'ls-files',
-      '--others',
-      '--exclude-standard',
-      '-z',
-    ],
-    { trim: false }
-  );
-  if (listed === null) return null;
-  const files = splitNulDelimited(listed);
-  const excluded = attributeExcluded(workspace, files);
-  if (excluded === null) return null;
-  return files.filter(file => !excluded.has(file));
-};
-
-/** Add-diff for one untracked file. `--no-index` numbers the prefixes otherwise. */
-const untrackedDiff = (workspace: string, file: string): string | null =>
-  execGitDiffAllowingChanges([
-    '-C',
-    workspace,
-    'diff',
-    '--no-index',
-    '--src-prefix=a/',
-    '--dst-prefix=b/',
-    '--',
-    '/dev/null',
-    file,
-  ]);
-
-/**
- * Scope: two-dot `git diff <base>` against the working tree, plus an add-diff
- * per untracked unignored path, minus paths `.gitattributes` marks generated
- * or vendored. Why each: `.ai/kenkeep/nodes/code-review/`.
- *
- * Every Git step is argv-based: paths from the repository are data, never part
- * of a command string. Any step failing — the listings, the attribute check,
- * the tracked diff, or any one untracked add-diff — makes the whole read `null`,
- * so the gate reports infrastructure failure instead of reviewing a scope that
- * silently lost a file.
- */
-export const _readCumulativeDiff = (workspace: string, baseCommit: string): string | null => {
-  const excluded = excludedPaths(workspace, baseCommit);
-  if (excluded === null) return null;
-  const tracked = execGit([
-    '-C',
-    workspace,
-    'diff',
-    baseCommit,
-    '--',
-    '.',
-    ...excluded.map(file => `:(exclude,literal)${file}`),
-  ]);
-  if (tracked === null) return null;
-  const untracked = untrackedPaths(workspace);
-  if (untracked === null) return null;
-  const added: string[] = [];
-  for (const file of untracked) {
-    const diff = untrackedDiff(workspace, file);
-    if (diff === null) return null;
-    if (diff.trim() !== '') added.push(diff);
-  }
-  return [tracked, ...added].filter(part => part.trim() !== '').join('\n');
-};
+export { readBaseCommit as _readBaseCommit } from './shared/git-utils';
 
 const defaultDependencies: ReviewDependencies = {
   discover: discoverHarnesses,
   dispatch: dispatchReview,
-  readDiff: _readCumulativeDiff,
+  readDiff: readCumulativeDiff,
   validatorAvailable: () => executableResolves('xmllint'),
 };
 
@@ -489,163 +340,34 @@ const readReviewerSkill = (): string => {
     : content;
 };
 
-/** Per-dispatch collision token for the delimiters. Not a secret; the reviewer sees it. */
-export const _makeDeliveryToken = (): string => crypto.randomBytes(6).toString('hex');
-
-/** Both ends of the channel use these; a drift would silently disable delivery. */
-const beginMarker = (token: string): string => `<<<BEGIN REVIEW XML ${token}>>>`;
-const endMarker = (token: string): string => `<<<END REVIEW XML ${token}>>>`;
-
-/** CSI sequences. The leading ESC is required, or `<![CDATA[` would be stripped. */
-// eslint-disable-next-line no-control-regex
-const ANSI_PATTERN = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
-
-/**
- * The last complete token-bearing region of reviewer stdout that looks like an
- * XML document. Last, because a harness may print the block twice; XML-shaped,
- * because the prompt itself contains the markers. `null` keeps the caller's
- * `findings-absent` outcome.
- */
-export const _extractReviewDocument = (stdout: string, token: string): string | null => {
-  const clean = stdout.replace(ANSI_PATTERN, '');
-  const begin = beginMarker(token);
-  const end = endMarker(token);
-  // `lastIndexOf(x, -1)` searches from 0, so -1 terminates rather than wraps.
-  let searchFrom = clean.length;
-  while (searchFrom >= 0) {
-    const endIndex = clean.lastIndexOf(end, searchFrom);
-    if (endIndex === -1) return null;
-    const beginIndex = clean.lastIndexOf(begin, endIndex);
-    if (beginIndex === -1) return null;
-    const inner = clean.slice(beginIndex + begin.length, endIndex).trim();
-    if (inner.startsWith('<?xml') || inner.startsWith('<review')) return inner;
-    searchFrom = beginIndex - 1;
-  }
-  return null;
-};
-
-export interface ReviewerPromptInput {
-  planId: number;
-  planFile: string;
-  strikethrooRoot: string;
-  workspace: string;
-  hookFile: string;
-  hookContent: string;
-  xsdFile: string;
-  baseCommit: string;
-  diff: string;
-  skillInstructions: string;
-  /** This dispatch's collision token, spliced into the delivery delimiters. */
-  deliveryToken: string;
-}
-
-/**
- * The reviewer dispatch. Travels on stdin, so it is neither argv-visible nor
- * bounded by ARG_MAX. Markers, not a fence, delimit the diff: a markdown diff
- * contains fences.
- */
-export const buildReviewerPrompt = (input: ReviewerPromptInput): string =>
-  [
-    `Strikethroo code review gate — Plan ${input.planId}.`,
-    '',
-    'You are the independent reviewer, running on a different harness than the one',
-    'that wrote this code. You detect; you never fix. Do not edit, create, or delete',
-    'source files. Do not run formatters. Do not commit. Your entire output is one',
-    'findings document, printed as described below, plus a short report of the counts.',
-    '',
-    `Repository / workspace root: ${input.workspace}`,
-    `Strikethroo workspace root: ${input.strikethrooRoot}`,
-    `Plan document (read it in full): ${input.planFile}`,
-    `Review mandate hook: ${input.hookFile}`,
-    `Findings schema to validate against: ${input.xsdFile}`,
-    `Base commit anchoring this plan's scope: ${input.baseCommit}`,
-    '',
-    '## How to deliver your findings',
-    '',
-    'Print the complete findings document as the final thing you print, between these',
-    'exact lines:',
-    '',
-    beginMarker(input.deliveryToken),
-    // Must not begin with `<?xml` or `<review`: `_extractReviewDocument` rejects
-    // such a region, which is what stops an echoed prompt from reading as a document.
-    '... the complete findings document, beginning with its XML declaration ...',
-    endMarker(input.deliveryToken),
-    '',
-    'Copy those two lines from this dispatch; never invent a token. Print nothing after',
-    'the closing line. Do not write the document to a file — this channel is the only',
-    'one that is read. The document is validated against the schema named above, so an',
-    'incomplete or invented document fails the review. Being unable to read the',
-    'repository is not a reason to emit this block: a review you could not perform is a',
-    'failed review, and emitting well-formed XML instead of reporting that failure is a',
-    'worse outcome than the failure.',
-    '',
-    '## Review mandate (authoritative — it overrides the reviewer instructions below)',
-    '',
-    input.hookContent.trim(),
-    '',
-    '## Reviewer instructions',
-    '',
-    input.skillInstructions.trim(),
-    '',
-    '## Cumulative diff',
-    '',
-    `Produced with \`git diff ${input.baseCommit} --\` in ${input.workspace}: the recorded`,
-    'base commit against the current working tree. Committed phase work and',
-    'uncommitted changes are both in scope. Review this diff, not an incremental one.',
-    input.diff.trim().length === 0
-      ? '\nThe cumulative diff is empty. Emit a <review> with no <file> children and report\nzero findings. That is not an error.'
-      : `\n<<<BEGIN CUMULATIVE DIFF>>>\n${input.diff}\n<<<END CUMULATIVE DIFF>>>`,
-    '',
-  ].join('\n');
-
 const skip = (reason: ReviewSkipReason, detail: string): ReviewResult =>
   decide({ kind: 'skipped', reason, detail });
 
-interface ReviewContext {
-  strikethrooRoot: string;
-  workspace: string;
-  hookFile: string;
-  hookContent: string;
-  xsdFile: string;
-}
-
-/**
- * The shape of the workspace the plan addresses, or the skip or failure that
- * ends the run. An absolute plan path can address a workspace other than the
- * one around `startPath`, and its own preference decides.
- */
-const resolveReviewContext = (
-  plan: string | number,
-  startPath: string,
-  validatorAvailable: () => boolean = () => executableResolves('xmllint')
-): { kind: 'resolved'; context: ReviewContext } | { kind: 'ended'; result: ReviewResult } => {
-  const strikethrooRoot = discoverPlanWorkspace(plan, startPath);
+/** Resolve, guard, discover, scope, dispatch, evaluate, report. Runs once. */
+export const runReview = async (
+  request: ReviewRequest,
+  overrides: Partial<ReviewDependencies> = {}
+): Promise<ReviewResult> => {
+  const dependencies = { ...defaultDependencies, ...overrides };
+  const startPath = request.startPath ?? process.cwd();
+  const strikethrooRoot = discoverPlanWorkspace(request.plan, startPath);
   if (!strikethrooRoot) {
-    return {
-      kind: 'ended',
-      result: decide({
-        kind: 'infrastructure-failure',
-        detail: `No Strikethroo workspace was found for plan "${plan}" from ${startPath}.`,
-      }),
-    };
+    return decide({
+      kind: 'infrastructure-failure',
+      detail: `No Strikethroo workspace was found for plan "${request.plan}" from ${startPath}.`,
+    });
   }
 
   const configuration = loadCodeReviewConfiguration(strikethrooRoot);
   if (configuration.kind === 'invalid') {
-    return {
-      kind: 'ended',
-      result: decide({ kind: 'infrastructure-failure', detail: configuration.detail }),
-    };
+    return decide({ kind: 'infrastructure-failure', detail: configuration.detail });
   }
   if (!configuration.enabled) {
-    return {
-      kind: 'ended',
-      result: skip(
-        'review-disabled',
-        'Code review is disabled. Set code_review.enabled to true in config/config.yaml or ' +
-          'select Enable code review in Customize to opt in.'
-      ),
-    };
+    return skip(
+      'review-disabled',
+      'Code review is disabled. Set code_review.enabled to true in config/config.yaml or ' +
+        'select Enable code review in Customize to opt in.'
+    );
   }
 
   checkWorkspaceSchema(strikethrooRoot);
@@ -653,74 +375,40 @@ const resolveReviewContext = (
   const hookFile = path.join(strikethrooRoot, HOOK_RELATIVE_PATH);
   const hookContent = readFileOrNull(hookFile);
   if (hookContent === null) {
-    return {
-      kind: 'ended',
-      result: skip(
-        'hook-absent',
-        `No code review mandate at ${hookFile}, so the review gate was skipped. Re-run ` +
-          '`npx strikethroo init` to add it.'
-      ),
-    };
+    return skip(
+      'hook-absent',
+      `No code review mandate at ${hookFile}, so the review gate was skipped. Re-run ` +
+        '`npx strikethroo init` to add it.'
+    );
   }
   if (hookContent.trim().length === 0) {
-    return {
-      kind: 'ended',
-      result: skip(
-        'hook-empty',
-        `The code review mandate at ${hookFile} is empty, so the opted-in review gate was skipped.`
-      ),
-    };
+    return skip(
+      'hook-empty',
+      `The code review mandate at ${hookFile} is empty, so the opted-in review gate was skipped.`
+    );
   }
 
   const xsdFile = path.join(strikethrooRoot, XSD_RELATIVE_PATH);
   if (!fs.existsSync(xsdFile)) {
-    return {
-      kind: 'ended',
-      result: skip(
-        'xsd-absent',
-        `No findings schema at ${xsdFile}, so findings could not be validated and the review ` +
-          'gate was skipped. Re-run `npx strikethroo init` to add it.'
-      ),
-    };
+    return skip(
+      'xsd-absent',
+      `No findings schema at ${xsdFile}, so findings could not be validated and the review ` +
+        'gate was skipped. Re-run `npx strikethroo init` to add it.'
+    );
   }
 
   // `xmllint` is a soft dependency: absence is a clean skip, checked before any
   // reviewer is dispatched. A skip is not a pass; its reason says the gate did not run.
-  if (!validatorAvailable()) {
-    return {
-      kind: 'ended',
-      result: skip(
-        'validator-absent',
-        'No `xmllint` on PATH, so emitted findings could not be validated against the vendored ' +
-          'schema and the review gate was skipped. Install libxml2-utils (Debian/Ubuntu), ' +
-          'libxml2 (Homebrew), or your platform equivalent to enable the gate.'
-      ),
-    };
+  if (!dependencies.validatorAvailable()) {
+    return skip(
+      'validator-absent',
+      'No `xmllint` on PATH, so emitted findings could not be validated against the vendored ' +
+        'schema and the review gate was skipped. Install libxml2-utils (Debian/Ubuntu), ' +
+        'libxml2 (Homebrew), or your platform equivalent to enable the gate.'
+    );
   }
 
-  return {
-    kind: 'resolved',
-    context: {
-      strikethrooRoot,
-      workspace: path.dirname(path.dirname(strikethrooRoot)),
-      hookFile,
-      hookContent,
-      xsdFile,
-    },
-  };
-};
-
-/** Resolve, guard, discover, scope, dispatch, evaluate, report. Once; there is no loop. */
-export const runReview = async (
-  request: ReviewRequest,
-  overrides: Partial<ReviewDependencies> = {}
-): Promise<ReviewResult> => {
-  const dependencies = { ...defaultDependencies, ...overrides };
-  const startPath = request.startPath ?? process.cwd();
-
-  const resolution = resolveReviewContext(request.plan, startPath, dependencies.validatorAvailable);
-  if (resolution.kind === 'ended') return resolution.result;
-  const { strikethrooRoot, workspace, hookFile, hookContent, xsdFile } = resolution.context;
+  const workspace = path.dirname(path.dirname(strikethrooRoot));
 
   const resolved = resolvePlan(request.plan, startPath);
   if (!resolved) {
@@ -738,7 +426,7 @@ export const runReview = async (
   const { planDir, planFile, planId } = resolved;
 
   const baseCommitFile = path.join(planDir, REVIEW_DIR_NAME, BASE_COMMIT_FILE_NAME);
-  const baseCommit = _readBaseCommit(baseCommitFile);
+  const baseCommit = readBaseCommit(baseCommitFile);
   if (baseCommit === null) {
     return skip(
       'base-commit-absent',
@@ -823,7 +511,7 @@ export const runReview = async (
     }
   }
 
-  const deliveryToken = _makeDeliveryToken();
+  const deliveryToken = makeDeliveryToken();
 
   const prompt = buildReviewerPrompt({
     planId,
@@ -844,11 +532,7 @@ export const runReview = async (
     harness,
     workspace,
     prompt,
-    ...(invocation === undefined
-      ? {}
-      : {
-          cliArgs: invocation.cliArgs,
-        }),
+    ...(invocation === undefined ? {} : { cliArgs: invocation.cliArgs }),
   });
   if (dispatched.kind === 'infrastructure-failure') {
     return decide({ kind: 'infrastructure-failure', detail: dispatched.detail });

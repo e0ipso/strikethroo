@@ -1,33 +1,12 @@
 import { spawn } from 'child_process';
 
-/**
- * The certification half of the code review gate: schema validation of an
- * emitted `review.xml` and a reader for the findings it carries.
- *
- * The gate reports; it does not decide. A second harness gives its opinion on
- * the diff, the findings are recorded, and the implementer reads them and
- * chooses what to act on. `severity` and `confidence` ride along as advisory
- * triage labels and nothing branches on them.
- *
- * One property is load-bearing and must not be softened: an XSD-invalid
- * document is a failed review, never "no findings", and a missing validator is
- * a distinct failure, never a silent pass. Telling "the reviewer found nothing"
- * apart from "the reviewer never ran" is the whole value of the gate.
- */
+/** Certify review.xml and project its findings through libxml. JavaScript never parses XML. */
 
 export type Severity = 'critical' | 'major' | 'minor' | 'info';
-export type Confidence = 'high' | 'medium' | 'low';
-
 export const SEVERITIES: readonly Severity[] = ['critical', 'major', 'minor', 'info'];
-const CONFIDENCES: readonly Confidence[] = ['high', 'medium', 'low'];
 
 /** Long enough for any plausible review document, short enough to never hang a gate. */
 export const XMLLINT_TIMEOUT_MS = 30_000;
-
-const isSeverity = (value: string): value is Severity =>
-  (SEVERITIES as readonly string[]).includes(value);
-const isConfidence = (value: string): value is Confidence =>
-  (CONFIDENCES as readonly string[]).includes(value);
 
 export type SchemaValidation =
   | { kind: 'valid' }
@@ -37,7 +16,8 @@ export type SchemaValidation =
 type XmllintRun =
   | { kind: 'exited'; code: number | null; stdout: string; stderr: string }
   | { kind: 'launch-failed'; code: string | undefined; message: string }
-  | { kind: 'timed-out' };
+  | { kind: 'timed-out' }
+  | { kind: 'output-limit' };
 
 const OUTPUT_CAP = 2000;
 
@@ -47,7 +27,11 @@ const OUTPUT_CAP = 2000;
  * nothing here has any business reaching the network. Entity expansion is never
  * enabled (no `--noent`, `--dtdattr`, `--loaddtd`); do not add those flags.
  */
-const runXmllint = (args: readonly string[], timeoutMs: number): Promise<XmllintRun> =>
+const runXmllint = (
+  args: readonly string[],
+  timeoutMs: number,
+  stdoutLimit = OUTPUT_CAP
+): Promise<XmllintRun> =>
   new Promise(resolve => {
     let settled = false;
     let stdout = '';
@@ -69,8 +53,16 @@ const runXmllint = (args: readonly string[], timeoutMs: number): Promise<Xmllint
       child.kill('SIGKILL');
       finish({ kind: 'timed-out' });
     }, timeoutMs);
-    child.stdout?.on('data', chunk => {
-      stdout = capped(stdout, chunk);
+    child.stdout?.setEncoding('utf8');
+    child.stderr?.setEncoding('utf8');
+    child.stdout?.on('data', (chunk: string) => {
+      if (stdout.length + chunk.length > stdoutLimit) {
+        child.kill('SIGKILL');
+        clearTimeout(timer);
+        finish({ kind: 'output-limit' });
+      } else {
+        stdout += chunk;
+      }
     });
     child.stderr?.on('data', chunk => {
       stderr = capped(stderr, chunk);
@@ -100,6 +92,11 @@ export const validateAgainstSchema = async (
 ): Promise<SchemaValidation> => {
   const run = await runXmllint(['--schema', xsdFile, xmlFile, '--noout'], timeoutMs);
   switch (run.kind) {
+    case 'output-limit':
+      return {
+        kind: 'validator-unavailable',
+        detail: `xmllint exceeded its output limit for ${xmlFile}.`,
+      };
     case 'timed-out':
       return {
         kind: 'validator-unavailable',
@@ -123,27 +120,202 @@ export const validateAgainstSchema = async (
   }
 };
 
-const COMMENT_COUNT_XPATH = "count(//*[local-name()='comment'])";
+/** How many findings carry each severity label, plus how many carry none. */
+export interface FindingCounts {
+  total: number;
+  critical: number;
+  major: number;
+  minor: number;
+  info: number;
+  unlabelled: number;
+}
 
-/**
- * libxml's own count of `<comment>` elements, by local name, for cross-checking
- * `parseReviewFindings`. `null` for anything but a clean numeric answer, so a
- * failed count can never agree with the scanner by accident.
- */
-export const countCommentsWithXmllint = async (
+const COUNT_FIELDS = ['total', ...SEVERITIES, 'unlabelled'] as const;
+const COMMENTS_XPATH =
+  "/*[local-name()='review' and namespace-uri()='urn:self-review:v2']" +
+  "/*[local-name()='file' and namespace-uri()='urn:self-review:v2']" +
+  "/*[local-name()='comment' and namespace-uri()='urn:self-review:v2']";
+const LABELLED = SEVERITIES.map(label => `@severity='${label}'`).join(' or ');
+const COUNTS_XPATH = `concat(${[
+  `count(${COMMENTS_XPATH})`,
+  ...SEVERITIES.map(label => `count(${COMMENTS_XPATH}[@severity='${label}'])`),
+  `count(${COMMENTS_XPATH}[not(${LABELLED})])`,
+  'count(/*/*/*)',
+].join(", ',', ")})`;
+
+/** Read all tallies in one native XPath evaluation after schema validation. */
+export const countFindingsWithXmllint = async (
   xmlFile: string,
   timeoutMs: number = XMLLINT_TIMEOUT_MS
-): Promise<number | null> => {
-  const run = await runXmllint(['--xpath', COMMENT_COUNT_XPATH, xmlFile], timeoutMs);
+): Promise<FindingCounts | null> => {
+  const run = await runXmllint(['--xpath', COUNTS_XPATH, xmlFile], timeoutMs);
   if (run.kind !== 'exited' || run.code !== 0) return null;
-  const answer = run.stdout.trim();
-  return /^\d+(\.0+)?$/.test(answer) ? Number(answer) : null;
+  const values = run.stdout.trim().split(',');
+  if (
+    values.length !== COUNT_FIELDS.length + 1 ||
+    values.some(value => !/^\d+(?:\.0+)?$/.test(value))
+  ) {
+    return null;
+  }
+  const counts = Object.fromEntries(
+    COUNT_FIELDS.map((field, index) => [field, Number(values[index])])
+  ) as unknown as FindingCounts;
+  if (
+    Object.values(counts).some(value => !Number.isSafeInteger(value)) ||
+    counts.total !== Number(values[COUNT_FIELDS.length]) ||
+    counts.total !== SEVERITIES.reduce((sum, label) => sum + counts[label], counts.unlabelled)
+  ) {
+    return null;
+  }
+  return counts;
+};
+
+export type Confidence = 'high' | 'medium' | 'low';
+export interface ReviewFinding {
+  file: string;
+  location: string | null;
+  severity: Severity | null;
+  confidence: Confidence | null;
+  category: string | null;
+  summary: string;
+}
+
+const PROJECTION_BATCH_SIZE = 8;
+const PROJECTION_BATCH_OUTPUT_LIMIT = 8 * 1024 * 1024;
+const PROJECTION_TOTAL_OUTPUT_LIMIT = 64 * 1024 * 1024;
+const SUMMARY_LIMIT = 400;
+
+/** Each XPath string is framed by its Unicode code-point length, not a sentinel that data can contain. */
+const frameXPath = (expression: string): string =>
+  `string-length(string(${expression})), ':', string(${expression})`;
+
+const projectionXPath = (start: number, end: number): string => {
+  const fields: string[] = [];
+  for (let index = start; index < end; index++) {
+    // XSD certification and the structural tally above establish that every
+    // third-level element is a qualified comment. Avoid re-filtering the whole
+    // document for every projected field.
+    const comment = `(/*/*/*)[${index + 1}]`;
+    fields.push(
+      ...[
+        `count(${comment})`,
+        `${comment}/../@path`,
+        ...[
+          'new-line-start',
+          'new-line-end',
+          'old-line-start',
+          'old-line-end',
+          'severity',
+          'confidence',
+        ].map(attribute => `${comment}/@${attribute}`),
+        ...['category', 'body'].map(
+          name => `${comment}/*[local-name()='${name}' and namespace-uri()='urn:self-review:v2']`
+        ),
+      ].map(frameXPath)
+    );
+  }
+  return `concat(${fields.join(', ')})`;
+};
+
+/** XPath string-length counts Unicode characters; JS string indices count UTF-16 code units. */
+const unframe = (output: string): string[] | null => {
+  const fields: string[] = [];
+  let offset = 0;
+  while (offset < output.length) {
+    const colon = output.indexOf(':', offset);
+    const length = output.slice(offset, colon);
+    if (colon === -1 || !/^\d+$/.test(length)) return null;
+    const count = Number(length);
+    if (!Number.isSafeInteger(count) || count > output.length) return null;
+    let end = colon + 1;
+    for (let character = 0; character < count; character++) {
+      if (end >= output.length) return null;
+      end += output.codePointAt(end)! > 0xffff ? 2 : 1;
+    }
+    fields.push(output.slice(colon + 1, end));
+    offset = end;
+  }
+  return fields;
+};
+
+/**
+ * Preserve the JSON findings contract using native XPath strings. Fixed-size batches
+ * bound argv/output size; one deadline and a total output limit bound the whole projection.
+ */
+export const readFindingsWithXmllint = async (
+  xmlFile: string,
+  count: number,
+  timeoutMs: number = XMLLINT_TIMEOUT_MS
+): Promise<ReviewFinding[] | null> => {
+  if (!Number.isSafeInteger(count) || count < 0) return null;
+  const findings: ReviewFinding[] = [];
+  const deadline = Date.now() + timeoutMs;
+  let totalOutput = 0;
+  for (let start = 0; start < count; start += PROJECTION_BATCH_SIZE) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) return null;
+    const end = Math.min(start + PROJECTION_BATCH_SIZE, count);
+    const run = await runXmllint(
+      ['--xpath', projectionXPath(start, end), xmlFile],
+      remaining,
+      PROJECTION_BATCH_OUTPUT_LIMIT
+    );
+    if (run.kind !== 'exited' || run.code !== 0) return null;
+    totalOutput += run.stdout.length;
+    if (totalOutput > PROJECTION_TOTAL_OUTPUT_LIMIT) return null;
+    // xmllint appends one transport newline after the XPath string result.
+    const fields = unframe(run.stdout.endsWith('\n') ? run.stdout.slice(0, -1) : run.stdout);
+    if (fields === null || fields.length !== (end - start) * 10) return null;
+    for (let offset = 0; offset < fields.length; offset += 10) {
+      const [
+        exists,
+        file,
+        newStart,
+        newEnd,
+        oldStart,
+        oldEnd,
+        severity,
+        confidence,
+        category,
+        body,
+      ] = fields.slice(offset, offset + 10) as [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
+      if (exists !== '1') return null;
+      findings.push({
+        file,
+        location: newStart
+          ? `new:${newStart}-${newEnd || newStart}`
+          : oldStart
+            ? `old:${oldStart}-${oldEnd || oldStart}`
+            : null,
+        severity: (SEVERITIES as readonly string[]).includes(severity)
+          ? (severity as Severity)
+          : null,
+        confidence: ['high', 'medium', 'low'].includes(confidence)
+          ? (confidence as Confidence)
+          : null,
+        category: category.trim() || null,
+        summary: body.trim().slice(0, SUMMARY_LIMIT),
+      });
+    }
+  }
+  return findings;
 };
 
 /**
  * Comments, CDATA, and processing instructions removed, tokenized in document
  * order so an opener inside one construct (`<?p <!-- ?>`) cannot hide what
- * follows it. An unterminated section runs to the end, as in the scanner.
+ * follows it. An unterminated section runs to the end.
  */
 const SKIPPED_SECTIONS: ReadonlyArray<readonly [string, string]> = [
   ['<!--', '-->'],
@@ -175,253 +347,7 @@ const FORBIDDEN_DECLARATION_RE = /<!(DOCTYPE|ENTITY|ELEMENT|ATTLIST|NOTATION)\b/
 
 /**
  * Whether the document carries a DTD or entity declaration outside comments and
- * CDATA. The gate accepts only the XSD's instance syntax: a DTD can change what
- * the validator sees, and a `<!…` construct is what the tag scanner cannot read
- * safely, so such a document is refused before validation.
+ * CDATA. A DTD can change the document's meaning, so it is refused before validation.
  */
 export const hasForbiddenDeclarations = (xml: string): boolean =>
   FORBIDDEN_DECLARATION_RE.test(stripCommentsCdataAndPis(xml));
-
-export interface ReviewFinding {
-  /** `path` of the enclosing `<file>`. */
-  file: string;
-  /** e.g. `new:42-44`, `old:17-17`, or null for a file-level comment. */
-  location: string | null;
-  severity: Severity | null;
-  confidence: Confidence | null;
-  category: string | null;
-  /** The `<body>` text, truncated. Enough to identify the finding in the artifact. */
-  summary: string;
-}
-
-const SUMMARY_LIMIT = 400;
-
-const decodeEntities = (text: string): string =>
-  text
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_match, digits: string) => String.fromCodePoint(Number(digits)))
-    .replace(/&#x([0-9a-fA-F]+);/g, (_match, hex: string) =>
-      String.fromCodePoint(parseInt(hex, 16))
-    )
-    .replace(/&amp;/g, '&');
-
-const localName = (raw: string): string => {
-  const colon = raw.indexOf(':');
-  return colon === -1 ? raw : raw.slice(colon + 1);
-};
-
-const ATTRIBUTE_RE = /([A-Za-z_:][-.\w:]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
-
-const parseAttributes = (source: string): Record<string, string> => {
-  const attributes: Record<string, string> = {};
-  ATTRIBUTE_RE.lastIndex = 0;
-  let match = ATTRIBUTE_RE.exec(source);
-  while (match !== null) {
-    attributes[localName(match[1]!)] = decodeEntities(match[2] ?? match[3] ?? '');
-    match = ATTRIBUTE_RE.exec(source);
-  }
-  return attributes;
-};
-
-/** Index just past the `>` that closes the tag starting at `start`, quote-aware. */
-const findTagEnd = (xml: string, start: number): number => {
-  let quote: string | null = null;
-  for (let index = start + 1; index < xml.length; index += 1) {
-    const character = xml[index]!;
-    if (quote !== null) {
-      if (character === quote) quote = null;
-      continue;
-    }
-    if (character === '"' || character === "'") {
-      quote = character;
-      continue;
-    }
-    if (character === '>') return index + 1;
-  }
-  return xml.length;
-};
-
-const lineRange = (attributes: Record<string, string>): string | null => {
-  const newStart = attributes['new-line-start'];
-  const newEnd = attributes['new-line-end'];
-  if (newStart !== undefined) return `new:${newStart}-${newEnd ?? newStart}`;
-  const oldStart = attributes['old-line-start'];
-  const oldEnd = attributes['old-line-end'];
-  if (oldStart !== undefined) return `old:${oldStart}-${oldEnd ?? oldStart}`;
-  return null;
-};
-
-interface PartialFinding {
-  file: string;
-  location: string | null;
-  severity: Severity | null;
-  confidence: Confidence | null;
-  category: string | null;
-  summary: string;
-}
-
-/**
- * Read every `<comment>` out of a `review.xml`.
- *
- * This is a linear tag scan rather than a parse through an XML library, because
- * the skill-scripts subtree carries no runtime dependencies and `package.json`
- * has none to offer. It is defensible only in one position: **the caller has
- * already validated the document against the vendored XSD with `xmllint`**, so
- * the element nesting, the attribute enums, and the child ordering are all
- * constrained before this function sees the text. An unvalidated scan of
- * arbitrary XML would not be defensible; run `validateAgainstSchema` first.
- *
- * Namespaces are handled by comparing local names, which is why no prefix has to
- * be bound: the document declares `urn:self-review:v2` as its default namespace
- * and a reviewer emitting it under a prefix is read identically.
- *
- * Comments, CDATA sections and processing instructions are skipped rather than
- * scanned, so a `<body>` quoting XML at itself cannot be mistaken for structure.
- * DTD and entity declarations are not handled here: `hasForbiddenDeclarations`
- * refuses them upstream, and the caller checks this scan's count against
- * `countCommentsWithXmllint`, so a scan that disagrees with the validated
- * document never certifies. An attribute value that arrives as an unexpanded
- * entity reference reads as an unrecognised enum value, which becomes a null
- * label rather than a guessed one.
- */
-export const parseReviewFindings = (xml: string): ReviewFinding[] => {
-  const findings: ReviewFinding[] = [];
-  let file: string | null = null;
-  let comment: PartialFinding | null = null;
-  let capture: 'body' | 'category' | null = null;
-  let buffer = '';
-  let index = 0;
-
-  const appendText = (text: string): void => {
-    if (capture !== null) buffer += text;
-  };
-
-  while (index < xml.length) {
-    const open = xml.indexOf('<', index);
-    if (open === -1) break;
-    if (open > index) appendText(decodeEntities(xml.slice(index, open)));
-
-    if (xml.startsWith('<!--', open)) {
-      const end = xml.indexOf('-->', open + 4);
-      index = end === -1 ? xml.length : end + 3;
-      continue;
-    }
-    if (xml.startsWith('<![CDATA[', open)) {
-      const end = xml.indexOf(']]>', open + 9);
-      appendText(xml.slice(open + 9, end === -1 ? xml.length : end));
-      index = end === -1 ? xml.length : end + 3;
-      continue;
-    }
-    if (xml.startsWith('<?', open)) {
-      const end = xml.indexOf('?>', open + 2);
-      index = end === -1 ? xml.length : end + 2;
-      continue;
-    }
-    if (xml.startsWith('<!', open)) {
-      // Declarations are refused upstream; this only keeps the scan moving.
-      index = findTagEnd(xml, open);
-      continue;
-    }
-
-    const tagEnd = findTagEnd(xml, open);
-    const raw = xml.slice(open + 1, tagEnd - 1);
-    index = tagEnd;
-    const closing = raw.startsWith('/');
-    const selfClosing = !closing && raw.trimEnd().endsWith('/');
-    const body = closing ? raw.slice(1) : selfClosing ? raw.trimEnd().slice(0, -1) : raw;
-    const nameMatch = /^\s*([^\s/>]+)/.exec(body);
-    if (nameMatch === null) continue;
-    const name = localName(nameMatch[1]!);
-    const rest = body.slice(nameMatch[0].length);
-
-    if (closing) {
-      if (name === 'body' && capture === 'body') {
-        if (comment !== null) comment.summary = buffer.trim().slice(0, SUMMARY_LIMIT);
-        capture = null;
-      } else if (name === 'category' && capture === 'category') {
-        if (comment !== null) comment.category = buffer.trim() || null;
-        capture = null;
-      } else if (name === 'comment') {
-        if (comment !== null) findings.push({ ...comment });
-        comment = null;
-        capture = null;
-      } else if (name === 'file') {
-        file = null;
-      }
-      continue;
-    }
-
-    const attributes = parseAttributes(rest);
-    if (name === 'file') {
-      if (!selfClosing) file = attributes['path'] ?? '';
-      continue;
-    }
-    if (name === 'comment') {
-      // No case folding: the schema's enumerations are case-sensitive, so a
-      // value this reads must be exactly a value the validator accepted.
-      const severity = attributes['severity'] ?? '';
-      const confidence = attributes['confidence'] ?? '';
-      comment = {
-        file: file ?? '',
-        location: lineRange(attributes),
-        // Absent, empty, and unrecognised all become null. The label is
-        // advisory, so an unreadable one is dropped rather than guessed at.
-        severity: isSeverity(severity) ? severity : null,
-        confidence: isConfidence(confidence) ? confidence : null,
-        category: null,
-        summary: '',
-      };
-      capture = null;
-      if (selfClosing) {
-        findings.push({ ...comment });
-        comment = null;
-      }
-      continue;
-    }
-    if (comment === null) continue;
-    if (name === 'body') {
-      capture = 'body';
-      buffer = '';
-    } else if (name === 'category') {
-      capture = 'category';
-      buffer = '';
-    }
-  }
-
-  return findings;
-};
-
-/** How many findings carry each severity label, plus how many carry none. */
-export interface FindingCounts {
-  total: number;
-  critical: number;
-  major: number;
-  minor: number;
-  info: number;
-  unlabelled: number;
-}
-
-/**
- * Tally findings by severity for the report.
- *
- * This is reporting only. Nothing downstream branches on the result: the
- * implementer reads `review.xml` and decides for itself what deserves a fix.
- */
-export const countFindings = (findings: readonly ReviewFinding[]): FindingCounts => {
-  const counts: FindingCounts = {
-    total: findings.length,
-    critical: 0,
-    major: 0,
-    minor: 0,
-    info: 0,
-    unlabelled: 0,
-  };
-  for (const finding of findings) {
-    if (finding.severity === null) counts.unlabelled += 1;
-    else counts[finding.severity] += 1;
-  }
-  return counts;
-};

@@ -30,14 +30,6 @@ const getStrikethrooAt = (directory: string): string | null => {
   return isValidStrikethrooRoot(strikethrooPath) ? strikethrooPath : null;
 };
 
-const getParentPaths = (currentPath: string, acc: string[] = []): string[] => {
-  const absolutePath = path.resolve(currentPath);
-  const nextAcc = [...acc, absolutePath];
-  const parentPath = path.dirname(absolutePath);
-  if (parentPath === absolutePath) return nextAcc;
-  return getParentPaths(parentPath, nextAcc);
-};
-
 /**
  * The one workspace-schema gate. Every plan-resolution route reaches it, so the
  * verdict and the message are the same however a workspace was addressed.
@@ -71,10 +63,14 @@ export const checkWorkspaceSchema = (strikethrooRoot: string): void => {
 
 /** Discovery only, for gates that must decide whether schema-dependent work is enabled. */
 export const discoverStrikethrooRoot = (startPath: string = process.cwd()): string | null => {
-  const paths = getParentPaths(startPath);
-  const found = paths.find(p => getStrikethrooAt(p));
-  if (!found) return null;
-  return getStrikethrooAt(found);
+  let directory = path.resolve(startPath);
+  for (;;) {
+    const root = getStrikethrooAt(directory);
+    if (root) return root;
+    const parent = path.dirname(directory);
+    if (parent === directory) return null;
+    directory = parent;
+  }
 };
 
 export const findStrikethrooRoot = (startPath: string = process.cwd()): string | null => {

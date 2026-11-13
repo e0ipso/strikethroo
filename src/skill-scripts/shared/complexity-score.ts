@@ -3,8 +3,9 @@ export type ComplexityScoreResult =
   | { valid: false; reason: 'non-integer' }
   | { valid: false; reason: 'out-of-range'; value: number };
 
-export const validateComplexityScore = (value: string): ComplexityScoreResult => {
-  const trimmed = value.trim();
+export const validateComplexityScore = (value: unknown): ComplexityScoreResult => {
+  const trimmed =
+    typeof value === 'number' || typeof value === 'string' ? String(value).trim() : '';
   if (!/^\d+$/.test(trimmed)) {
     return { valid: false, reason: 'non-integer' };
   }
@@ -17,7 +18,7 @@ export const validateComplexityScore = (value: string): ComplexityScoreResult =>
   return { valid: true, value: parsed };
 };
 
-export const parseComplexityScore = (value: string): number | undefined => {
+export const parseComplexityScore = (value: unknown): number | undefined => {
   const result = validateComplexityScore(value);
   return result.valid ? result.value : undefined;
 };

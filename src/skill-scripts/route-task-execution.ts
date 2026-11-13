@@ -5,6 +5,7 @@ import { SUPPORTED_HARNESSES } from '../types';
 import { resolvePlan } from './shared/plan-resolve';
 import { extractPlanId } from './shared/frontmatter';
 import {
+  isExecutionProfileName,
   loadRoutingConfig,
   validateAssignments,
   writeExecutionProfileFrontmatter,
@@ -166,7 +167,7 @@ const main = (): void => {
   const staged: { task: TaskDocument; next: string; profile: string }[] = [];
   for (const task of documents.tasks) {
     const profile = assignmentResult.assignments.get(task.id);
-    if (!profile) {
+    if (!isExecutionProfileName(profile)) {
       emit({ kind: 'routing-failure', detail: `no profile assigned for task ${task.id}.` }, 1);
       return;
     }

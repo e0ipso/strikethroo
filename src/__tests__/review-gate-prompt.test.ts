@@ -8,7 +8,6 @@
  * POST_EXECUTION -> review -> summary -> archive order.
  */
 
-import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { BUILT_SKILLS_ROOT } from './built-skills';
@@ -57,10 +56,6 @@ const headingIndex = (content: string, heading: string): number =>
   content.indexOf(`\n${heading}\n`);
 
 describe('rendered execution skills compose the review gate', () => {
-  beforeAll(() => {
-    execFileSync('npm', ['run', 'build:skill-prompts'], { cwd: REPO_ROOT, stdio: 'pipe' });
-  });
-
   test.each(CONSUMERS)(
     '$skill orders POST_EXECUTION validation, code review, summary, then archive',
     ({ skill, post, review, summary, archive }) => {

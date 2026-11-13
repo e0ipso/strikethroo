@@ -130,7 +130,7 @@ The entry names the selected reviewer harness. Model selection belongs to that h
 
 When no reviewer is available, the summary lists each alternative supported harness and why it was rejected. Diagnostics include missing executables, launch errors, timeouts, nonzero exits, and missing readiness evidence, with bounded stdout and stderr from the harness. Cached failures are labelled as cached.
 
-The review never creates task files and never mutates the execution blueprint. Findings are written to the plan directory under `review/` and are visible via `serve`.
+The review never creates task files and never mutates the execution blueprint. The complete findings are in `<plan-dir>/review/review.xml`; `findings.json` records certification status, severity counts, and the finding objects with summaries of up to 400 characters. Review artifacts are visible via `serve`.
 
 The reviewed scope runs from a base commit recorded before phase execution against the working tree, so committed phase work, uncommitted fixes, and untracked new files are all in scope — nothing needs to be staged or committed for the reviewer to see it. Ignored, generated, and vendored paths are excluded; see [Customization](customization.html#code_review) for the complete list of limitations.
 

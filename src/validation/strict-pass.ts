@@ -1,362 +1,134 @@
-/**
- * Strict frontmatter pass over `plans/<plan>/plan-<name>.md` and
- * `plans/<plan>/tasks/<name>.md`.
- *
- * Deliberately independent of the viewer's frontmatter reader in
- * `src/serve/markdown.ts`: that one is lenient by design and cannot distinguish
- * a missing field from a malformed one, which is precisely the distinction a
- * validator must report. It runs `parseInt` and leaves the field `undefined` on
- * failure, so `id: abc` and a file with no `id:` line at all produce
- * byte-identical results. The two parsers coexist with different tolerance
- * contracts, and the viewer's is not to be "fixed" — leniency is correct for
- * rendering.
- *
- * Enumeration is likewise hand-rolled rather than routed through the shared
- * plan-scan helpers in `src/skill-scripts/shared/`, which drop any plan whose
- * `id` will not parse and are therefore structurally incapable of reporting the
- * plans most likely to be broken.
- *
- * Scope is exactly `plans/`. Archived plans are immutable history, so a finding
- * against one is unfixable noise; the shipped task template carries literal
- * placeholders (`status: "[STATUS]"`), so a workspace-wide Markdown sweep would
- * make the workspace report its own templates as broken.
- *
- * Required plan *sections* are deliberately not checked: no machine-readable
- * list of them exists, and the templates are user-editable and wholesale
- * replaceable by a strikethroo profile.
- */
-
+/** Strict field policy over the same YAML data execution and the viewer read. */
 import * as fs from 'fs';
 import * as path from 'path';
+import { readYamlFrontmatter } from '../skill-scripts/shared/task-frontmatter';
+import { parseInteger } from '../skill-scripts/shared/frontmatter';
 import { validateComplexityScore } from '../skill-scripts/shared/complexity-score';
+import { describeValue, TASK_STATUSES } from '../skill-scripts/shared/task-file';
 import { Finding } from './types';
 
-/**
- * The task `status` enum, from `templates/strikethroo/config/templates/TASK_TEMPLATE.md`.
- * Encoded here because nothing machine-readable ships it.
- */
-const TASK_STATUSES = [
-  'pending',
-  'in-progress',
-  'completed',
-  'needs-clarification',
-  // Written by st-execute-task step 9 and by dispatch-outcomes on
-  // `launched-failure`, so a failed task is a legitimate state, not a defect.
-  'failed',
-] as const;
-
-/** Anchors the leading `---`-delimited block. A later `---` is body, not frontmatter. */
-const FRONTMATTER_RE = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/;
-
-/** A top-level frontmatter key line; leading whitespace excludes it (nested keys are ignored). */
-const KEY_LINE_RE = /^([A-Za-z_][A-Za-z0-9_-]*)[ \t]*:(.*)$/;
-
-/** A dashed list item belonging to the key above it. */
-const DASH_ITEM_RE = /^[ \t]*-[ \t]+(.*)$/;
-
-/** What may follow a quoted scalar's closing quote: nothing, or a whitespace-led comment. */
-const QUOTED_SUFFIX_RE = /^(?:[ \t]+#.*)?$/;
-
-const INTEGER_RE = /^-?\d+$/;
-const NON_NEGATIVE_INTEGER_RE = /^\d+$/;
-const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-/**
- * A frontmatter value as written. The `scalar`/`list` split is the whole point:
- * downstream consumers collapse them, this pass must not.
- */
-type FrontmatterValue = { kind: 'scalar'; text: string } | { kind: 'list'; items: string[] };
-
-/** Which document a set of checks belongs to; also the `check` identifier prefix. */
 type DocKind = 'plan' | 'task';
-
-/** Removes one layer of matching surrounding quotes. */
-const stripQuotes = (value: string): string => {
-  const trimmed = value.trim();
-  if (trimmed.length >= 2) {
-    const first = trimmed[0];
-    const last = trimmed[trimmed.length - 1];
-    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
-      return trimmed.slice(1, -1);
-    }
-  }
-  return trimmed;
+type Fields = Record<string, unknown>;
+const own = (fields: Fields, field: string): boolean =>
+  Object.prototype.hasOwnProperty.call(fields, field);
+const renderValue = (value: unknown): string =>
+  typeof value === 'string' ? value : describeValue(value);
+const isTaskId = (value: unknown): boolean => {
+  const id = parseInteger(value);
+  return id !== undefined && id >= 0;
 };
 
-/**
- * Index one past the closing quote of the quoted scalar at index 0, or `-1` when
- * it is unterminated. A `\` escape in a double-quoted scalar and a doubled quote
- * in a single-quoted one do not close it.
- */
-const quotedScalarEnd = (value: string, quote: string): number => {
-  for (let i = 1; i < value.length; i++) {
-    if (quote === '"' && value[i] === '\\') {
-      i++;
-      continue;
-    }
-    if (value[i] !== quote) continue;
-    if (quote === "'" && value[i + 1] === "'") {
-      i++;
-      continue;
-    }
-    return i + 1;
-  }
-  return -1;
-};
-
-/**
- * Drops a trailing YAML comment. A quoted scalar is consumed to its closing
- * quote, so `"a # b"` keeps its `#` and `"completed"  # done` loses its
- * comment. Only a whitespace-led comment may follow the closing quote: any
- * other suffix (`"completed" garbage`, `"completed"# done`) is malformed YAML
- * and is returned whole so the pass reports it, as is an unterminated quote.
- * The quotes themselves are left on, so `bareText` remains the one composition
- * point and `stripQuotes` runs once.
- */
-const stripComment = (value: string): string => {
-  const trimmed = value.trim();
-  const quote = trimmed[0];
-  if (quote === '"' || quote === "'") {
-    const end = quotedScalarEnd(trimmed, quote);
-    if (end === -1 || !QUOTED_SUFFIX_RE.test(trimmed.slice(end))) return trimmed;
-    return trimmed.slice(0, end);
-  }
-  const hashIndex = trimmed.indexOf('#');
-  return hashIndex === -1 ? trimmed : trimmed.slice(0, hashIndex).trim();
-};
-
-/** Normalizes a written value to its bare text: comment stripped, then unquoted. */
-const bareText = (value: string): string => stripQuotes(stripComment(value));
-
-/** Splits `[a, b]` into bare items, as the dashed-list path does. `[]` is empty. */
-const parseInlineList = (value: string): string[] => {
-  const inner = value.slice(1, -1).trim();
-  if (inner.length === 0) return [];
-  return inner.split(',').map(item => bareText(item));
-};
-
-/**
- * Reads the first frontmatter block into raw per-key values.
- *
- * Returns `null` when the file has no leading frontmatter block at all — a
- * different defect than an empty one. Duplicate keys are last-wins, matching the
- * existing convention; a duplicate-key finding is out of scope.
- */
-const readFrontmatter = (content: string): Map<string, FrontmatterValue> | null => {
-  const match = content.match(FRONTMATTER_RE);
-  if (!match || match[1] === undefined) return null;
-
-  const fields = new Map<string, FrontmatterValue>();
-  const lines = match[1].split(/\r?\n/);
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (line === undefined) continue;
-    const trimmed = line.trim();
-    // Blank lines, whole-line comments, and dashed items already consumed by
-    // their owning key.
-    if (trimmed.length === 0 || trimmed.startsWith('#') || DASH_ITEM_RE.test(line)) continue;
-
-    const keyMatch = line.match(KEY_LINE_RE);
-    if (!keyMatch || keyMatch[1] === undefined || keyMatch[2] === undefined) continue;
-    const key = keyMatch[1];
-    const written = stripComment(keyMatch[2]);
-
-    if (written.startsWith('[') && written.endsWith(']')) {
-      fields.set(key, { kind: 'list', items: parseInlineList(written) });
-      continue;
-    }
-
-    if (written.length > 0) {
-      fields.set(key, { kind: 'scalar', text: stripQuotes(written) });
-      continue;
-    }
-
-    // Empty value: collect the dashed items that follow, if any.
-    const items: string[] = [];
-    let j = i + 1;
-    while (j < lines.length) {
-      const next = lines[j];
-      if (next === undefined) break;
-      const dash = next.match(DASH_ITEM_RE);
-      if (!dash || dash[1] === undefined) break;
-      items.push(bareText(dash[1]));
-      j++;
-    }
-    if (items.length > 0) {
-      fields.set(key, { kind: 'list', items });
-      i = j - 1;
-    } else {
-      // A bare `key:` is YAML null. Treated as an empty scalar; the list-field
-      // checks accept it as an empty list, which is what every consumer already
-      // sees and therefore not a provable inconsistency.
-      fields.set(key, { kind: 'scalar', text: '' });
-    }
-  }
-
-  return fields;
-};
-
-/** Builds the finding for a key that is absent from the frontmatter block. */
 const missingField = (kind: DocKind, relPath: string, field: string): Finding => ({
   check: `${kind}/frontmatter-field-missing`,
   path: relPath,
   message: `${kind === 'plan' ? 'Plan' : 'Task'} frontmatter is missing required field \`${field}\`. Add it.`,
 });
 
-/** Builds the finding for a key that is present with a value failing its contract. */
 const malformedField = (
   kind: DocKind,
   relPath: string,
   field: string,
-  written: string,
+  value: unknown,
   expectation: string
 ): Finding => ({
   check: `${kind}/frontmatter-field-malformed`,
   path: relPath,
-  message: `${kind === 'plan' ? 'Plan' : 'Task'} frontmatter field \`${field}\` is \`${written}\`, which is not ${expectation}.`,
+  message: `${kind === 'plan' ? 'Plan' : 'Task'} frontmatter field \`${field}\` is \`${renderValue(value)}\`, which is not ${expectation}.`,
 });
 
-/** Renders a value the way it was written, for quoting back in a message. */
-const renderValue = (value: FrontmatterValue): string =>
-  value.kind === 'scalar' ? value.text : `[${value.items.join(', ')}]`;
-
-/**
- * Checks a required scalar field against a predicate, distinguishing absent from
- * present-but-wrong. A list where a scalar belongs is malformed, not missing.
- */
-const checkScalarField = (
+const checkField = (
   kind: DocKind,
   relPath: string,
-  fields: Map<string, FrontmatterValue>,
+  fields: Fields,
   field: string,
-  isValid: (text: string) => boolean,
+  isValid: (value: unknown) => boolean,
   expectation: string
 ): Finding[] => {
-  const value = fields.get(field);
-  if (value === undefined) return [missingField(kind, relPath, field)];
-  if (value.kind !== 'scalar' || !isValid(value.text)) {
-    return [malformedField(kind, relPath, field, renderValue(value), expectation)];
-  }
-  return [];
+  if (!own(fields, field)) return [missingField(kind, relPath, field)];
+  return isValid(fields[field])
+    ? []
+    : [malformedField(kind, relPath, field, fields[field], expectation)];
 };
 
-/**
- * Checks a required list field. A bare `key:` (empty scalar) counts as an empty
- * list; any other scalar is malformed. Items are validated individually and the
- * offenders are named.
- */
 const checkListField = (
   relPath: string,
-  fields: Map<string, FrontmatterValue>,
+  fields: Fields,
   field: string,
-  isValidItem: (item: string) => boolean,
+  isValidItem: (item: unknown) => boolean,
   expectation: string
 ): Finding[] => {
-  const value = fields.get(field);
-  if (value === undefined) return [missingField('task', relPath, field)];
-  if (value.kind === 'scalar') {
-    if (value.text.length === 0) return [];
-    return [malformedField('task', relPath, field, value.text, expectation)];
-  }
-  const offenders = value.items.filter(item => !isValidItem(item));
-  if (offenders.length === 0) return [];
-  return [
-    malformedField(
-      'task',
-      relPath,
-      field,
-      renderValue(value),
-      `${expectation} (offending entries: ${offenders.map(o => `\`${o}\``).join(', ')})`
-    ),
-  ];
+  if (!own(fields, field)) return [missingField('task', relPath, field)];
+  const value = fields[field];
+  if (value === null) return []; // A bare key means an empty list.
+  if (!Array.isArray(value)) return [malformedField('task', relPath, field, value, expectation)];
+  const offenders = value.filter(item => !isValidItem(item));
+  return offenders.length === 0
+    ? []
+    : [
+        malformedField(
+          'task',
+          relPath,
+          field,
+          value,
+          `${expectation} (offending entries: ${offenders.map(o => '`' + renderValue(o) + '`').join(', ')})`
+        ),
+      ];
 };
 
-/** Checks the frontmatter of one plan file. */
-const checkPlanFields = (relPath: string, fields: Map<string, FrontmatterValue>): Finding[] => [
-  ...checkScalarField(
-    'plan',
-    relPath,
-    fields,
-    'id',
-    text => NON_NEGATIVE_INTEGER_RE.test(text),
-    'a non-negative integer'
-  ),
-  ...checkScalarField(
+const checkPlanFields = (relPath: string, fields: Fields): Finding[] => [
+  ...checkField('plan', relPath, fields, 'id', isTaskId, 'a non-negative integer'),
+  ...checkField(
     'plan',
     relPath,
     fields,
     'summary',
-    text => text.length > 0,
+    value => typeof value === 'string' && value.length > 0,
     'a non-empty string'
   ),
-  ...checkScalarField(
+  ...checkField(
     'plan',
     relPath,
     fields,
     'created',
-    text => ISO_DATE_RE.test(text),
+    value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value),
     'a YYYY-MM-DD date'
   ),
 ];
 
-/** Checks the `status` field: absent and unrecognized are different defects. */
-const checkStatus = (relPath: string, fields: Map<string, FrontmatterValue>): Finding[] => {
-  const value = fields.get('status');
-  if (value === undefined) return [missingField('task', relPath, 'status')];
-  const written = renderValue(value);
-  if (value.kind === 'scalar' && (TASK_STATUSES as readonly string[]).includes(value.text)) {
-    return [];
-  }
-  return [
-    {
+const checkTaskFields = (relPath: string, fields: Fields): Finding[] => {
+  const findings = checkField('task', relPath, fields, 'id', isTaskId, 'a non-negative integer');
+  if (!own(fields, 'status')) findings.push(missingField('task', relPath, 'status'));
+  else if (
+    typeof fields.status !== 'string' ||
+    !(TASK_STATUSES as readonly string[]).includes(fields.status)
+  ) {
+    findings.push({
       check: 'task/status-invalid',
       path: relPath,
-      message: `Task \`status\` is \`${written}\`, which is not one of ${TASK_STATUSES.map(s => `\`${s}\``).join(', ')}.`,
-    },
-  ];
-};
-
-/** Checks the frontmatter of one task file. */
-const checkTaskFields = (relPath: string, fields: Map<string, FrontmatterValue>): Finding[] => {
-  const findings: Finding[] = [
-    ...checkScalarField(
-      'task',
-      relPath,
-      fields,
-      'id',
-      text => NON_NEGATIVE_INTEGER_RE.test(text),
-      'a non-negative integer'
-    ),
-    ...checkStatus(relPath, fields),
+      message: `Task \`status\` is \`${renderValue(fields.status)}\`, which is not one of ${TASK_STATUSES.map(s => '`' + s + '`').join(', ')}.`,
+    });
+  }
+  findings.push(
+    ...checkListField(relPath, fields, 'dependencies', isTaskId, 'a list of integer task ids'),
     ...checkListField(
       relPath,
       fields,
-      'dependencies',
-      item => INTEGER_RE.test(item),
-      'a list of integer task ids'
-    ),
-    ...checkListField(relPath, fields, 'skills', item => item.length > 0, 'a list of skill names'),
-  ];
-
-  // `complexity_score` is required only on newly generated tasks, so its absence
-  // is legitimate on older ones. When present it must satisfy its 1-10 contract,
-  // which `validateComplexityScore` already encodes — reused rather than
-  // duplicated so the range cannot drift.
-  const complexity = fields.get('complexity_score');
-  if (complexity !== undefined) {
-    const written = renderValue(complexity);
-    const result =
-      complexity.kind === 'scalar'
-        ? validateComplexityScore(complexity.text)
-        : ({ valid: false, reason: 'non-integer' } as const);
-    if (!result.valid) {
-      findings.push(
-        malformedField('task', relPath, 'complexity_score', written, 'an integer from 1 to 10')
-      );
-    }
+      'skills',
+      item => typeof item === 'string' && item.length > 0,
+      'a list of skill names'
+    )
+  );
+  if (own(fields, 'complexity_score') && !validateComplexityScore(fields.complexity_score).valid) {
+    findings.push(
+      malformedField(
+        'task',
+        relPath,
+        'complexity_score',
+        fields.complexity_score,
+        'an integer from 1 to 10'
+      )
+    );
   }
-
   return findings;
 };
 
@@ -389,8 +161,8 @@ const checkDocument = (absPath: string, relPath: string, kind: DocKind): Finding
     ];
   }
 
-  const fields = readFrontmatter(content);
-  if (fields === null) {
+  const parsed = readYamlFrontmatter(content);
+  if (parsed.kind === 'none') {
     return [
       {
         check: `${kind}/frontmatter-absent`,
@@ -400,7 +172,12 @@ const checkDocument = (absPath: string, relPath: string, kind: DocKind): Finding
     ];
   }
 
-  return kind === 'plan' ? checkPlanFields(relPath, fields) : checkTaskFields(relPath, fields);
+  if (parsed.kind === 'invalid') {
+    return [{ check: `${kind}/frontmatter-malformed`, path: relPath, message: parsed.reason }];
+  }
+  return kind === 'plan'
+    ? checkPlanFields(relPath, parsed.data)
+    : checkTaskFields(relPath, parsed.data);
 };
 
 const PLANS_DIR = 'plans';

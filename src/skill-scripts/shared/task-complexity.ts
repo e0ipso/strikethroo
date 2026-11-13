@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { validateComplexityScore } from './complexity-score';
-import { extractFrontmatter } from './task-file';
+import { readYamlFrontmatter } from './task-frontmatter';
 
 export const validateTaskComplexityScores = (planDir: string): string[] => {
   const tasksDir = path.join(planDir, 'tasks');
@@ -26,21 +26,22 @@ export const validateTaskComplexityScores = (planDir: string): string[] => {
       invalid.push(`${file}: unreadable`);
       continue;
     }
-    const frontmatter = extractFrontmatter(content);
-    // Linear: the value runs to end of line and the comment is cut in code.
-    const match = frontmatter
-      ? frontmatter.match(/^[ \t]*complexity_score[ \t]*:([^\r\n]*)$/im)
-      : null;
-    if (!match || match[1] === undefined) {
+    const frontmatter = readYamlFrontmatter(content);
+    if (frontmatter.kind !== 'data') {
+      invalid.push(
+        `${file}: ${frontmatter.kind === 'invalid' ? frontmatter.reason : 'missing complexity_score'}`
+      );
+      continue;
+    }
+    if (!Object.prototype.hasOwnProperty.call(frontmatter.data, 'complexity_score')) {
       invalid.push(`${file}: missing complexity_score`);
       continue;
     }
-
-    const raw = match[1].split('#', 1)[0]!.trim();
+    const raw = frontmatter.data.complexity_score;
     const result = validateComplexityScore(raw);
     if (result.valid) continue;
     if (result.reason === 'non-integer') {
-      invalid.push(`${file}: non-integer complexity_score "${raw}"`);
+      invalid.push(`${file}: non-integer complexity_score "${String(raw)}"`);
       continue;
     }
     invalid.push(`${file}: complexity_score ${result.value} out of range 1-10`);

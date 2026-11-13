@@ -46,21 +46,17 @@ const runSelector = (
 ): SelectorProcessResult => {
   try {
     const nodeScript = /\.(?:cjs|mjs|js)$/.test(scriptPath);
-    const stdout = nodeScript
-      ? execFileSync(process.execPath, [scriptPath], {
-          input,
-          encoding: 'utf8',
-          timeout: timeoutMs,
-          maxBuffer: 1024 * 1024,
-          stdio: ['pipe', 'pipe', 'pipe'],
-        })
-      : execFileSync(scriptPath, [], {
-          input,
-          encoding: 'utf8',
-          timeout: timeoutMs,
-          maxBuffer: 1024 * 1024,
-          stdio: ['pipe', 'pipe', 'pipe'],
-        });
+    const stdout = execFileSync(
+      nodeScript ? process.execPath : scriptPath,
+      nodeScript ? [scriptPath] : [],
+      {
+        input,
+        encoding: 'utf8',
+        timeout: timeoutMs,
+        maxBuffer: 1024 * 1024,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      }
+    );
     return { ok: true, stdout };
   } catch {
     // Child output and platform-specific errors can contain secrets or paths.

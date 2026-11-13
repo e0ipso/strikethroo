@@ -1,20 +1,6 @@
 import { parseComplexityScore } from '../skill-scripts/shared/complexity-score';
-
-/**
- * Pure, dependency-light markdown parsing primitives for the serve data layer.
- *
- * These functions operate on already-read string content. File reading itself
- * belongs to the task scanner and the model assembler. Everything here is
- * synchronous, read-only, and side-effect-free: no `fs`, no network, no writes.
- *
- * The existing `src/skill-scripts/shared/frontmatter.ts` only recovers the
- * numeric `id`; it is intentionally not forked. This module provides a richer
- * frontmatter reader the UI needs (summary, created, status, group,
- * dependencies[], skills[]).
- */
-
-/** Anchors the leading `---`-delimited frontmatter block (same as frontmatter.ts). */
-const FRONTMATTER_RE = /^---\s*\r?\n([\s\S]*?)\r?\n---/;
+import { parseInteger } from '../skill-scripts/shared/frontmatter';
+import { readYamlFrontmatter, splitFrontmatter } from '../skill-scripts/shared/task-frontmatter';
 
 /**
  * Parsed frontmatter. All fields are optional because real-world files vary and
@@ -61,146 +47,56 @@ export interface MermaidBlock {
   isArchitecturalApproach: boolean;
 }
 
-const stripQuotes = (value: string): string => {
-  const trimmed = value.trim();
-  if (trimmed.length >= 2) {
-    const first = trimmed[0];
-    const last = trimmed[trimmed.length - 1];
-    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
-      return trimmed.slice(1, -1);
-    }
-  }
-  return trimmed;
-};
+/** Display scalar values without interpreting YAML syntax a second time. */
+const scalarText = (value: unknown): string | undefined =>
+  value === null
+    ? ''
+    : typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+      ? String(value)
+      : undefined;
+const list = (value: unknown): unknown[] =>
+  value === null || value === undefined ? [] : Array.isArray(value) ? value : [value];
 
-/** Strips a trailing unquoted YAML comment (`# ...`). Quoted scalars are left intact. */
-const stripComment = (value: string): string => {
-  const trimmed = value.trim();
-  if (trimmed.startsWith('"') || trimmed.startsWith("'")) return trimmed;
-  const hashIndex = trimmed.indexOf('#');
-  return hashIndex === -1 ? trimmed : trimmed.slice(0, hashIndex).trim();
-};
-
-/** Parses a bracketed inline array like `[a, b]` or `[]` into trimmed, unquoted items. */
-const parseInlineArray = (value: string): string[] => {
-  const inner = value.slice(1, -1).trim();
-  if (inner.length === 0) return [];
-  return inner
-    .split(',')
-    .map(item => stripQuotes(item))
-    .filter(item => item.length > 0);
-};
-
-/** Coerces a dependency item to a number when it is purely numeric, else leaves it as-is. */
-const coerceDependency = (item: string): number | string => {
-  if (/^-?\d+$/.test(item)) {
-    return parseInt(item, 10);
-  }
-  return item;
-};
-
-/**
- * Reads the leading frontmatter block into typed fields. Never throws: malformed
- * lines are skipped and absent keys fall back to defaults (undefined scalars,
- * empty arrays).
- */
+/** Malformed documents render without metadata; the Markdown body remains available. */
 export const parseFrontmatter = (content: string): ParsedFrontmatter => {
-  const result: ParsedFrontmatter = {
-    dependencies: [],
-    skills: [],
-    extra: {},
-  };
-
-  const match = content.match(FRONTMATTER_RE);
-  if (!match || match[1] === undefined) return result;
-
-  const lines = match[1].split(/\r?\n/);
-  const listFields = new Set(['dependencies', 'skills']);
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (line === undefined) continue;
-    // Skip blank lines and dashed list items (they are consumed by their owning key).
-    if (line.trim().length === 0) continue;
-    if (/^\s*-\s+/.test(line)) continue;
-
-    const colonIndex = line.indexOf(':');
-    if (colonIndex === -1) continue;
-
-    const key = line.slice(0, colonIndex).trim();
-    const rawValue = line.slice(colonIndex + 1);
-    if (key.length === 0) continue;
-
-    if (listFields.has(key)) {
-      const value = stripComment(rawValue);
-      let items: string[];
-      if (value.startsWith('[') && value.endsWith(']')) {
-        items = parseInlineArray(value);
-      } else if (value.length > 0) {
-        // A scalar on the same line that is not a bracketed array: treat as a
-        // single-item list (lenient).
-        items = [stripQuotes(value)];
-      } else {
-        // Empty value: collect subsequent dashed-list items until indentation ends.
-        items = [];
-        let j = i + 1;
-        while (j < lines.length) {
-          const next = lines[j];
-          if (next === undefined) break;
-          const dashMatch = next.match(/^\s*-\s+(.*)$/);
-          if (!dashMatch || dashMatch[1] === undefined) break;
-          items.push(stripQuotes(stripComment(dashMatch[1])));
-          j++;
-        }
-        i = j - 1; // advance the outer cursor past the consumed items
-      }
-
-      if (key === 'dependencies') {
-        result.dependencies = items.map(coerceDependency);
-      } else {
-        result.skills = items;
-      }
-      continue;
-    }
-
-    const value = stripQuotes(stripComment(rawValue));
-    switch (key) {
-      case 'id': {
-        const parsed = parseInt(value, 10);
-        if (!Number.isNaN(parsed)) result.id = parsed;
-        break;
-      }
-      case 'summary':
-        result.summary = value;
-        break;
-      case 'created':
-        result.created = value;
-        break;
-      case 'status':
-        result.status = value;
-        break;
-      case 'group':
-        result.group = value;
-        break;
-      case 'complexity_score': {
-        const parsed = parseComplexityScore(value);
-        if (parsed !== undefined) result.complexity_score = parsed;
-        break;
-      }
-      default:
-        result.extra[key] = value;
-        break;
-    }
+  const result: ParsedFrontmatter = { dependencies: [], skills: [], extra: {} };
+  const parsed = readYamlFrontmatter(content);
+  if (parsed.kind !== 'data') return result;
+  const data = parsed.data;
+  result.id = parseInteger(data.id);
+  for (const key of ['summary', 'created', 'status', 'group'] as const) {
+    if (Object.prototype.hasOwnProperty.call(data, key)) result[key] = scalarText(data[key]);
   }
-
+  result.complexity_score = parseComplexityScore(data.complexity_score);
+  result.dependencies = list(data.dependencies).flatMap(item => {
+    const value = parseInteger(item) ?? scalarText(item);
+    return value === undefined ? [] : [value];
+  });
+  result.skills = list(data.skills).flatMap(item => {
+    const value = scalarText(item);
+    return value ? [value] : [];
+  });
+  const known = new Set([
+    'id',
+    'summary',
+    'created',
+    'status',
+    'group',
+    'complexity_score',
+    'dependencies',
+    'skills',
+  ]);
+  for (const [key, value] of Object.entries(data)) {
+    const text = scalarText(value);
+    if (!known.has(key) && text !== undefined) result.extra[key] = text;
+  }
   return result;
 };
 
-/** Returns the body: everything after the closing frontmatter `---`, or the whole content. */
+/** Return body bytes after the structural frontmatter fence, even when YAML is malformed. */
 export const extractBody = (content: string): string => {
-  const match = content.match(FRONTMATTER_RE);
-  if (!match) return content;
-  return content.slice(match.index! + match[0].length).replace(/^\r?\n/, '');
+  const block = splitFrontmatter(content);
+  return block.kind === 'block' ? content.slice(block.bodyStart) : content;
 };
 
 /**

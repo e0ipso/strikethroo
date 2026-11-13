@@ -1,8 +1,8 @@
-import * as fs from 'fs';
 import * as path from 'path';
-import * as yaml from 'js-yaml';
+import * as fs from 'fs';
 
-import { hasYamlContent } from './task-frontmatter';
+import { WORKSPACE_CONFIG_RELPATH, parseWorkspaceConfiguration } from './workspace-configuration';
+import { rewriteFrontmatter } from './frontmatter';
 
 /**
  * Execution routing configuration and generation-time profile persistence.
@@ -16,7 +16,7 @@ import { hasYamlContent } from './task-frontmatter';
  * feature claims one top-level section in it; this module owns only the
  * `execution_routing` section and ignores the rest.
  */
-export const WORKSPACE_CONFIG_RELPATH = path.join('config', 'config.yaml');
+export { WORKSPACE_CONFIG_RELPATH } from './workspace-configuration';
 export const EXECUTION_ROUTING_SECTION = 'execution_routing';
 
 export interface RoutingTarget {
@@ -48,6 +48,9 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === 'string' && value.trim().length > 0;
+
+/** Profile identity is exact, but must contain a non-whitespace character. */
+export const isExecutionProfileName = isNonEmptyString;
 
 const validateTarget = (
   profileName: string,
@@ -99,6 +102,10 @@ const validateProfile = (
   supportedHarnesses: readonly string[],
   errors: string[]
 ): RoutingProfile | null => {
+  if (!isExecutionProfileName(name)) {
+    errors.push('execution profile names must be non-empty strings.');
+    return null;
+  }
   if (!isPlainObject(raw)) {
     errors.push(`profile "${name}" must be a mapping with "description" and "models".`);
     return null;
@@ -154,21 +161,9 @@ export const loadRoutingConfig = (
     return { kind: 'no-config' };
   }
 
-  // js-yaml v5 throws on an empty document, and a config.yaml reduced to
-  // comments/blank lines is legitimately "nothing configured".
-  if (!hasYamlContent(contents)) return { kind: 'disabled' };
-
-  let document: unknown;
-  try {
-    document = yaml.load(contents);
-  } catch (error) {
-    return {
-      kind: 'invalid',
-      errors: [
-        `config.yaml is not valid YAML: ${error instanceof Error ? error.message : String(error)}`,
-      ],
-    };
-  }
+  const parsed = parseWorkspaceConfiguration(contents);
+  if (parsed.kind === 'invalid') return { kind: 'invalid', errors: [parsed.detail] };
+  const { document } = parsed;
 
   if (document === null || document === undefined) return { kind: 'disabled' };
   if (!isPlainObject(document)) {
@@ -286,7 +281,7 @@ export const validateAssignments = (
       errors.push(`assignment references unknown task ID ${id}.`);
       continue;
     }
-    if (typeof rawProfile !== 'string' || !profileNames.includes(rawProfile)) {
+    if (!isExecutionProfileName(rawProfile) || !profileNames.includes(rawProfile)) {
       errors.push(`task ${id} is assigned unknown profile "${String(rawProfile)}".`);
       continue;
     }
@@ -307,31 +302,24 @@ export const validateAssignments = (
  * `execution` mapping is removed when encountered so generation never leaves
  * concrete target metadata behind. Re-running is idempotent.
  */
-export const writeExecutionProfileFrontmatter = (taskMarkdown: string, profile: string): string => {
-  const match = taskMarkdown.match(/^(---\r?\n)([\s\S]*?)(\r?\n---)/);
-  if (!match) throw new Error('missing frontmatter');
-  const opening = match[1];
-  const frontmatter = match[2];
-  const closing = match[3];
-  if (opening === undefined || frontmatter === undefined || closing === undefined) {
-    throw new Error('missing frontmatter');
-  }
-
-  const eol = frontmatter.includes('\r\n') ? '\r\n' : '\n';
-  const lines = frontmatter.split(/\r?\n/);
-  const kept: string[] = [];
-  let inExecutionBlock = false;
-  for (const line of lines) {
-    if (/^execution_profile\s*:/.test(line)) continue;
-    if (/^execution\s*:/.test(line)) {
-      inExecutionBlock = true;
-      continue;
+export const writeExecutionProfileFrontmatter = (taskMarkdown: string, profile: string): string =>
+  rewriteFrontmatter(taskMarkdown, frontmatter => {
+    if (!isExecutionProfileName(profile))
+      throw new Error('execution_profile must be a non-empty string.');
+    const eol = frontmatter.includes('\r\n') ? '\r\n' : '\n';
+    const lines = frontmatter.split(/\r?\n/);
+    const kept: string[] = [];
+    let inExecutionBlock = false;
+    for (const line of lines) {
+      if (/^execution_profile\s*:/.test(line)) continue;
+      if (/^execution\s*:/.test(line)) {
+        inExecutionBlock = true;
+        continue;
+      }
+      if (inExecutionBlock && /^[ \t]/.test(line)) continue;
+      inExecutionBlock = false;
+      kept.push(line);
     }
-    if (inExecutionBlock && /^[ \t]/.test(line)) continue;
-    inExecutionBlock = false;
-    kept.push(line);
-  }
 
-  const newFrontmatter = [...kept, `execution_profile: ${JSON.stringify(profile)}`].join(eol);
-  return `${opening}${newFrontmatter}${closing}${taskMarkdown.slice(match[0].length)}`;
-};
+    return [...kept, `execution_profile: ${JSON.stringify(profile)}`].join(eol);
+  });

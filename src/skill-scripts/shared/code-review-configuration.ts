@@ -1,8 +1,5 @@
-import * as yaml from 'js-yaml';
-
-import { WORKSPACE_CONFIG_RELPATH } from './execution-routing';
 import { readContainedFile } from './safe-fs';
-import { hasYamlContent } from './task-frontmatter';
+import { WORKSPACE_CONFIG_RELPATH, parseWorkspaceConfiguration } from './workspace-configuration';
 
 export type CodeReviewConfiguration =
   | { kind: 'config'; enabled: boolean }
@@ -23,17 +20,9 @@ export const loadCodeReviewConfiguration = (strikethrooRoot: string): CodeReview
   }
   const contents = read.content;
 
-  if (!hasYamlContent(contents)) return { kind: 'config', enabled: false };
-
-  let document: unknown;
-  try {
-    document = yaml.load(contents);
-  } catch (error) {
-    return {
-      kind: 'invalid',
-      detail: `config.yaml is not valid YAML: ${error instanceof Error ? error.message : String(error)}`,
-    };
-  }
+  const parsed = parseWorkspaceConfiguration(contents);
+  if (parsed.kind === 'invalid') return parsed;
+  const { document } = parsed;
   if (!isPlainObject(document)) {
     return { kind: 'invalid', detail: 'config.yaml must be a YAML mapping.' };
   }

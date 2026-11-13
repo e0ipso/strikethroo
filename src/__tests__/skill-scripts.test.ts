@@ -16,6 +16,7 @@ import { execFileSync, spawnSync } from 'child_process';
 
 import { findStrikethrooRoot } from '../skill-scripts/shared/root';
 import { getAllPlans, computeNextPlanId } from '../skill-scripts/shared/plan-scan';
+import { computeNextTaskId } from '../skill-scripts/shared/task-scan';
 import { hasExecutionBlueprint } from '../skill-scripts/shared/blueprint-detection';
 import { parseBlueprintPhases, type BlueprintPhase } from '../skill-scripts/shared/blueprint-parse';
 import { parseComplexityScore } from '../skill-scripts/shared/complexity-score';
@@ -40,7 +41,6 @@ import {
   TRAILING_EXECUTION_SUMMARY,
 } from './fixtures/blueprint-trailing-summary';
 
-const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const SKILL_DIR = builtSkillDir('st-create-plan');
 
 const writeFile = (filePath: string, contents: string): void => {
@@ -98,6 +98,69 @@ describe('skill-scripts plan ID allocation', () => {
   test('computeNextPlanId returns max + 1', () => {
     const root = path.join(tempDir, '.ai', 'strikethroo');
     expect(computeNextPlanId(root)).toBe(8);
+  });
+
+  test.each([
+    ['malformed', 'id: 19\nnotes: [unfinished'],
+    ['duplicate', 'id: 19\nnotes: first\nnotes: second'],
+    ['oversized', `id: 19\nnotes: ${'x'.repeat(65_536)}`],
+    ['missing-id', 'summary: Repair this metadata'],
+  ])('reserves plan and task names with %s metadata in source and bundles', (_label, fields) => {
+    const root = path.join(tempDir, '.ai', 'strikethroo');
+    const planDir = path.join(root, 'archive', '19--repair');
+    writeFile(path.join(planDir, 'plan-19--repair.md'), `---\n${fields}\n---\n# Plan\n`);
+    writeFile(path.join(planDir, 'tasks', '23--repair.md'), `---\n${fields}\n---\n# Task\n`);
+
+    expect(computeNextPlanId(root)).toBe(20);
+    expect(computeNextTaskId(planDir)).toBe(24);
+    expect(
+      execFileSync('node', [path.join(SKILL_DIR, 'scripts/get-next-plan-id.cjs'), root], {
+        encoding: 'utf8',
+      }).trim()
+    ).toBe('20');
+    expect(
+      execFileSync(
+        'node',
+        [
+          path.join(builtSkillDir('st-generate-tasks'), 'scripts/get-next-task-id.cjs'),
+          path.join(planDir, 'plan-19--repair.md'),
+        ],
+        { encoding: 'utf8' }
+      ).trim()
+    ).toBe('24');
+  });
+
+  test('reserves empty plan directories and both names and valid root IDs', () => {
+    const root = path.join(tempDir, '.ai', 'strikethroo');
+    fs.mkdirSync(path.join(root, 'archive', '24--unfinished'), { recursive: true });
+    expect(computeNextPlanId(root)).toBe(25);
+    const planDir = path.join(root, 'plans', '23--different-id');
+    writeFile(
+      path.join(planDir, 'plan-23--different-id.md'),
+      '---\nmetadata:\n  id: 999\nsummary: |\n  id: 888\nid: 27\n---\n# Body\n'
+    );
+    writeFile(path.join(planDir, 'tasks', '32--named.md'), '---\nid: 29\n---\n');
+    expect(computeNextPlanId(root)).toBe(28);
+    expect(computeNextTaskId(planDir)).toBe(33);
+    writeFile(path.join(planDir, 'plan-34--unfinished.md'), '# Metadata not written yet\n');
+    expect(computeNextPlanId(root)).toBe(35);
+  });
+
+  test('fails allocation when a directory cannot be scanned', () => {
+    const root = path.join(tempDir, 'unscannable');
+    writeFile(path.join(root, 'plans'), 'not a directory');
+    writeFile(path.join(root, 'tasks'), 'not a directory');
+    expect(() => computeNextPlanId(root)).toThrow();
+    expect(() => computeNextTaskId(root)).toThrow();
+  });
+
+  test('refuses to allocate an unsafe successor', () => {
+    const root = path.join(tempDir, '.ai', 'strikethroo');
+    const planDir = path.join(root, 'plans', `${Number.MAX_SAFE_INTEGER}--last`);
+    writeFile(path.join(planDir, 'plan.md'), `---\nid: ${Number.MAX_SAFE_INTEGER}\n---\n`);
+    writeFile(path.join(planDir, 'tasks', `${Number.MAX_SAFE_INTEGER}--last.md`), '# Task\n');
+    expect(() => computeNextPlanId(root)).toThrow(/safe integer/i);
+    expect(() => computeNextTaskId(planDir)).toThrow(/safe integer/i);
   });
 
   test('computeNextPlanId returns 1 for an empty workspace', () => {
@@ -222,7 +285,6 @@ describe('skill-scripts validation helpers', () => {
     expect(validateTaskComplexityScores(planDir)).toEqual([
       '03--missing.md: missing complexity_score',
       '04--decimal.md: non-integer complexity_score "5.5"',
-      '05--quoted.md: non-integer complexity_score ""7""',
       '06--above.md: complexity_score 11 out of range 1-10',
     ]);
   });
@@ -242,7 +304,7 @@ describe('skill-scripts validation helpers', () => {
       `---\nid: 1\ncomplexity_score: 3${blanks}z\n---\n# Task\n`
     );
     expect(validateTaskComplexityScores(planDir)).toEqual([
-      `01--slow.md: non-integer complexity_score "3${blanks}z"`,
+      '01--slow.md: Frontmatter exceeds the 65536-byte limit.',
     ]);
     // The quadratic patterns took tens of seconds on this input.
     expect(Date.now() - started).toBeLessThan(2_000);
@@ -322,14 +384,6 @@ describe('skill-scripts validation helpers', () => {
 describe('skill bundle smoke check', () => {
   let tempDir: string;
   let fixtureSkillDir: string;
-
-  beforeAll(() => {
-    // Build the bundles so .cjs files exist for this test run.
-    execFileSync('npm', ['run', 'build:skills'], {
-      cwd: REPO_ROOT,
-      stdio: 'pipe',
-    });
-  });
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-smoke-'));
@@ -603,13 +657,6 @@ describe('st-execute-blueprint bundle smoke check', () => {
   let tempDir: string;
   let fixtureSkillDir: string;
 
-  beforeAll(() => {
-    execFileSync('npm', ['run', 'build:skills'], {
-      cwd: REPO_ROOT,
-      stdio: 'pipe',
-    });
-  });
-
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-smoke-exec-'));
     const tm = path.join(tempDir, '.ai', 'strikethroo');
@@ -739,13 +786,6 @@ describe('st-execute-blueprint bundle smoke check', () => {
 describe('st-refine-plan bundle smoke check', () => {
   let tempDir: string;
   let fixtureSkillDir: string;
-
-  beforeAll(() => {
-    execFileSync('npm', ['run', 'build:skills'], {
-      cwd: REPO_ROOT,
-      stdio: 'pipe',
-    });
-  });
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-smoke-refine-'));
@@ -1118,13 +1158,6 @@ describe('task metadata reader', () => {
 describe('check-phase-readiness scenarios', () => {
   let tempDir: string;
 
-  beforeAll(() => {
-    execFileSync('npm', ['run', 'build:skills'], {
-      cwd: REPO_ROOT,
-      stdio: 'pipe',
-    });
-  });
-
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-phase-readiness-'));
   });
@@ -1312,13 +1345,6 @@ describe('st-execute-task bundle smoke check', () => {
   let tempDir: string;
   let fixtureSkillDir: string;
 
-  beforeAll(() => {
-    execFileSync('npm', ['run', 'build:skills'], {
-      cwd: REPO_ROOT,
-      stdio: 'pipe',
-    });
-  });
-
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-smoke-exec-task-'));
     buildTaskFixture(tempDir, 3, 'alpha', [
@@ -1404,19 +1430,35 @@ describe('st-execute-task bundle smoke check', () => {
 describe('check-task-dependencies scenarios', () => {
   let tempDir: string;
 
-  beforeAll(() => {
-    execFileSync('npm', ['run', 'build:skills'], {
-      cwd: REPO_ROOT,
-      stdio: 'pipe',
-    });
-  });
-
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-deps-scenario-'));
   });
 
   afterEach(() => {
     fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  test('reports repeated completed dependencies and a missing dependency consistently', () => {
+    buildTaskFixture(tempDir, 1, 'mixed-deps', [
+      { id: 1, status: 'completed', dependencies: [] },
+      { id: 2, status: 'pending', dependencies: [1, 1, 99] },
+    ]);
+    const script = path.join(
+      builtSkillDir('st-execute-task'),
+      'scripts',
+      'check-task-dependencies.cjs'
+    );
+    const result = spawnSync(process.execPath, [script, '1', '2'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+    });
+    expect(result.status).toBe(1);
+    expect(result.stdout.match(/Task 1 - Status: completed/g)).toHaveLength(2);
+    expect(result.stdout).toContain('Task 99 - Status: unknown');
+    expect(result.stdout).toContain('Total dependencies: 3');
+    expect(result.stdout).toContain('Resolved: 2');
+    expect(result.stdout).toContain('Unresolved: 1');
+    expect(result.stdout).toContain('dependency 99 not found');
   });
 
   test('no dependencies', () => {

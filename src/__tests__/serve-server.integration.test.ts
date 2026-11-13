@@ -1152,6 +1152,29 @@ describe('serve server: read-only mode', () => {
     expect(res.body).not.toContain(handle.capability);
   };
 
+  it('serves plan list and detail while metadata needs repair', async () => {
+    const file = path.join(root, 'plans', '12--example', 'plan-12--example.md');
+    for (const fields of [
+      'id: 12\nnotes: [unfinished',
+      'id: 12\nnotes: first\nnotes: second',
+      `id: 12\nnotes: ${'x'.repeat(65_536)}`,
+      'metadata:\n  id: 999\nsummary: |\n  id: 888',
+    ]) {
+      fs.writeFileSync(file, `---\n${fields}\n---\n# Repairable plan\n\nBody stays visible.\n`);
+      const list = await request(handle, { method: 'GET', path: '/api/plans' });
+      expect(list.status).toBe(200);
+      expect(JSON.parse(list.body)).toContainEqual(
+        expect.objectContaining({ id: 12, name: '12--example' })
+      );
+      const detail = await request(handle, { method: 'GET', path: '/api/plans/12--example' });
+      expect(detail.status).toBe(200);
+      expect(JSON.parse(detail.body)).toMatchObject({
+        id: 12,
+        rawBody: '# Repairable plan\n\nBody stays visible.\n',
+      });
+    }
+  });
+
   it('reports read-only in /api/capabilities and issues no session token', async () => {
     expect(handle.readOnly).toBe(true);
     const caps = JSON.parse(

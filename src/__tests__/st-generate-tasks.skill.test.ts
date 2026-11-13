@@ -13,7 +13,6 @@ import { resolvePlan } from '../skill-scripts/shared/plan-resolve';
 import { computeNextTaskId } from '../skill-scripts/shared/task-scan';
 import { builtSkillDir } from './built-skills';
 
-const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const SKILL_DIR = builtSkillDir('st-generate-tasks');
 const writeFile = (filePath: string, contents: string): void => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -124,13 +123,6 @@ describe('st-generate-tasks bundle smoke', () => {
   let tempDir: string;
   let fixtureSkillDir: string;
   let tm: string;
-
-  beforeAll(() => {
-    execFileSync('npm', ['run', 'build:skills'], {
-      cwd: REPO_ROOT,
-      stdio: 'pipe',
-    });
-  });
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tgt-bundle-'));

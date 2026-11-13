@@ -154,6 +154,19 @@ describe('loadRoutingConfig', () => {
     }
   );
 
+  it.each(['', '   ', '\t'])(
+    'rejects empty profile identity %j before producing profiles',
+    name => {
+      writeConfig(
+        `execution_routing:\n  profiles:\n    ${JSON.stringify(name)}:\n      description: d\n      models: [{model: exact/model}]\n`
+      );
+      expect(loadRoutingConfig(tempDir, SUPPORTED_HARNESSES)).toEqual({
+        kind: 'invalid',
+        errors: ['execution profile names must be non-empty strings.'],
+      });
+    }
+  );
+
   it('parses the optional global resolver', () => {
     writeConfig(`${VALID_CONFIG}${RESOLVER_SUFFIX}`);
     const result = loadRoutingConfig(tempDir, SUPPORTED_HARNESSES);
@@ -234,6 +247,10 @@ describe('loadRoutingConfig', () => {
 describe('validateAssignments', () => {
   const profiles = ['routine', 'demanding'];
 
+  it('rejects whitespace-only assignments even if a caller supplies that profile name', () => {
+    expect(validateAssignments({ '1': '   ' }, [1], ['   ']).kind).toBe('invalid');
+  });
+
   it('accepts a complete one-to-one mapping', () => {
     const result = validateAssignments({ '1': 'routine', '2': 'demanding' }, [1, 2], profiles);
     expect(result.kind).toBe('assignments');
@@ -294,6 +311,12 @@ describe('writeExecutionProfileFrontmatter', () => {
     expect(twice).toContain('execution_profile: "demanding"');
     expect(twice).not.toContain('old-model');
     expect(twice).not.toMatch(/^execution:/m);
+  });
+
+  it.each(['', '   ', '\t'])('refuses to persist invalid profile identity %j', profile => {
+    expect(() => writeExecutionProfileFrontmatter(task, profile)).toThrow(
+      'execution_profile must be a non-empty string'
+    );
   });
 
   it('throws on a document without frontmatter', () => {

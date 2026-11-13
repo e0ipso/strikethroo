@@ -1,7 +1,6 @@
-import * as fs from 'fs';
 import * as path from 'path';
 import { resolvePlan } from './shared/plan-resolve';
-import { collectTaskReadinessIssues, findTaskFile, readTaskMetadata } from './shared/task-file';
+import { inspectTaskReadiness } from './shared/task-file';
 
 const _printError = (message: string) => {
   console.error(`ERROR: ${message}`);
@@ -45,7 +44,7 @@ const _main = (startPath: string = process.cwd()) => {
   const { planDir, planId } = resolved;
   _printInfo(`Found plan directory: ${planDir}`);
 
-  const taskFile = findTaskFile(planDir, taskId);
+  const { taskFile, dependencies, issues } = inspectTaskReadiness(planDir, taskId);
 
   if (!taskFile) {
     _printError(`Task with ID ${taskId} not found in plan ${planId}`);
@@ -55,7 +54,6 @@ const _main = (startPath: string = process.cwd()) => {
   _printInfo(`Checking task: ${path.basename(taskFile)}`);
   console.log('');
 
-  const issues = collectTaskReadinessIssues(planDir, taskId);
   const dependencyIssues = issues.filter(issue => issue.kind === 'unresolved-dependency');
   const blockingIssues = issues.filter(issue => issue.kind !== 'unresolved-dependency');
 
@@ -66,22 +64,14 @@ const _main = (startPath: string = process.cwd()) => {
     process.exit(1);
   }
 
-  const metadata = readTaskMetadata(fs.readFileSync(taskFile, 'utf8'));
-  if (metadata.kind === 'rejected') {
-    _printError(metadata.reason);
-    process.exit(1);
-  }
-
-  const dependencies = metadata.metadata.dependencies;
-
   if (dependencies.length === 0) {
     _printSuccess('Task has no dependencies - ready to execute!');
     process.exit(0);
   }
 
   _printInfo('Task dependencies found:');
-  dependencies.forEach(dep => {
-    console.log(`  - Task ${dep}`);
+  dependencies.forEach(({ taskId }) => {
+    console.log(`  - Task ${taskId}`);
   });
   console.log('');
 
@@ -89,11 +79,7 @@ const _main = (startPath: string = process.cwd()) => {
   console.log('');
 
   let resolvedCount = 0;
-  for (const depId of dependencies) {
-    const depFile = findTaskFile(planDir, depId);
-    const depMetadata = depFile ? readTaskMetadata(fs.readFileSync(depFile, 'utf8')) : null;
-    const depStatus = depMetadata?.kind === 'metadata' ? depMetadata.metadata.status : null;
-
+  for (const { taskId: depId, status: depStatus } of dependencies) {
     if (depStatus === 'completed') {
       _printSuccess(`Task ${depId} - Status: completed ✓`);
       resolvedCount++;

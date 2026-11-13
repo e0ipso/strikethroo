@@ -1,3 +1,9 @@
+## [4.6.0](https://github.com/e0ipso/strikethroo/compare/v4.5.1...v4.6.0) (2026-11-13)
+
+### Features
+
+* split plan overview and design ([#170](https://github.com/e0ipso/strikethroo/issues/170)) ([7e839d1](https://github.com/e0ipso/strikethroo/commit/7e839d15090411e97596d97ca2f82be4060facaf))
+
 ## [4.5.1](https://github.com/e0ipso/strikethroo/compare/v4.5.0...v4.5.1) (2026-11-13)
 
 ## [4.5.0](https://github.com/e0ipso/strikethroo/compare/v4.4.2...v4.5.0) (2026-11-06)

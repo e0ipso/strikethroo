@@ -59,11 +59,11 @@ flowchart LR
 /**
  * Markdown body with narrative sections, then the Notes + Execution Blueprint
  * tail. The Results tab starts at "Notes" (the first of the two), so Notes and
- * the blueprint both move off the Plan tab.
+ * the blueprint both move off Overview.
  */
 const RESULTS_BODY = `## Executive Summary
 
-The narrative half of the plan that stays on the Plan tab.
+The narrative half of the plan that stays on Overview.
 
 ## Notes
 
@@ -118,20 +118,19 @@ test.describe('Plan Detail Reader (Playwright)', () => {
     await new Promise<void>(r => liveHandle.server.close(() => r()));
   });
 
-  test('renders a live plan: Plan tab active, prose + rail from the API', async ({ page }) => {
+  test('renders a live plan: Overview active, Design rail from the API', async ({ page }) => {
     page.setDefaultTimeout(15_000);
     try {
       await page.goto(`${liveHandle.url}/plans/${livePlan.name}`, {
         waitUntil: 'domcontentloaded',
       });
 
-      // The two-column reader (prose + blueprint rail) is present.
       await page.getByTestId('reader').waitFor();
-      await page.getByTestId('blueprint-rail').waitFor();
+      await expect(page.getByRole('tab', { name: 'Overview', selected: true })).toBeVisible();
+      await expect(page.getByTestId('blueprint-rail')).toHaveCount(0);
 
-      // Plan tab is active in the Chrome tab bar.
-      const activeTab = await page.getByRole('tab', { selected: true }).textContent();
-      expect(activeTab).toContain('Plan');
+      await page.getByRole('tab', { name: 'Design', exact: true }).click();
+      await page.getByTestId('blueprint-rail').waitFor();
 
       // Breadcrumb ends in plan.md; a Copy path action is present.
       const crumbs = (await page.getByTestId('breadcrumbs').textContent()) ?? '';
@@ -166,16 +165,18 @@ test.describe('Plan Detail Reader (Playwright)', () => {
       });
       await page.getByTestId('reader').waitFor();
 
-      // Rail matches plan 38's actual derived phases/tasks (live, not the
-      // design's fictional 1-phase/3-task sample).
-      expect(await page.getByTestId('rail-phase').count()).toBe(detail.phases.length);
-      expect(await page.getByTestId('rail-task').count()).toBe(detail.tasks.length);
-
-      // Success Criteria render as struck-capable checklist rows.
+      // Success Criteria remain on Overview.
       const hasCriteria = detail.sections.some(s => /success\s+criteria/i.test(s.heading));
       if (hasCriteria) {
         expect(await page.getByTestId('crit-row').count()).toBeGreaterThan(0);
       }
+
+      await page.getByRole('tab', { name: 'Design', exact: true }).click();
+      await page.getByTestId('blueprint-rail').waitFor();
+      // Rail matches plan 38's actual derived phases/tasks (live, not the
+      // design's fictional 1-phase/3-task sample).
+      expect(await page.getByTestId('rail-phase').count()).toBe(detail.phases.length);
+      expect(await page.getByTestId('rail-task').count()).toBe(detail.tasks.length);
     } finally {
       await page.close();
     }
@@ -196,6 +197,8 @@ test.describe('Plan Detail Reader (Playwright)', () => {
         waitUntil: 'domcontentloaded',
       });
       await page.getByTestId('reader').waitFor();
+      await page.getByRole('tab', { name: 'Design', exact: true }).click();
+      await expect(page.getByTestId('reader')).toContainText('hostile content');
 
       // The injected script never ran.
       const pwned = await page.evaluate(() => (window as unknown as { __pwned?: boolean }).__pwned);
@@ -231,6 +234,7 @@ test.describe('Plan Detail Reader (Playwright)', () => {
       await page.goto(`${handle.url}/plans/702--mermaid-fixture`, {
         waitUntil: 'domcontentloaded',
       });
+      await page.getByRole('tab', { name: 'Design', exact: true }).click();
       await page.getByTestId('reader-mermaid').waitFor();
 
       // The fence's raw source stays available in the affordance's <details>.
@@ -250,9 +254,126 @@ test.describe('Plan Detail Reader (Playwright)', () => {
     }
   });
 
-  test('moves the Notes + Execution Blueprint tail to the Results tab, off the Plan tab', async ({
+  for (const withClarifications of [true, false]) {
+    test(`splits Overview and Design with clarifications ${withClarifications ? 'present' : 'absent'}`, async ({
+      page,
+    }) => {
+      const root = makeFixtureWorkspace(
+        704,
+        'overview-fixture',
+        `## Original Work Order
+
+The full original request.
+
+${withClarifications ? '## pLaN cLaRiFiCaTiOnS\n\nAn agreed clarification.\n' : ''}
+## executive summary
+
+A concise decision.
+
+## Context
+
+Technical background.
+
+## Executive Summary Details
+
+Custom technical section.
+
+## SUCCESS CRITERIA
+
+- A measurable outcome
+
+## Notes
+
+Execution notes.
+
+## Executive Summary
+
+A summary after the Results boundary.
+`
+      );
+      const handle = await startServer({ root, port: 0, open: false, assetsDir: ASSETS_DIR });
+      try {
+        await page.goto(`${handle.url}/plans/704--overview-fixture`, {
+          waitUntil: 'domcontentloaded',
+        });
+        await expect(page.getByRole('tab')).toHaveText([
+          'Overview',
+          'Design',
+          'Results',
+          'Graph',
+          'Tasks0',
+        ]);
+        await expect(page.getByRole('tab', { name: 'Overview', selected: true })).toBeVisible();
+        const overviewHeadings = [
+          ...(withClarifications ? ['##pLaN cLaRiFiCaTiOnS'] : []),
+          '##executive summary',
+          '##SUCCESS CRITERIA',
+        ];
+        await expect(page.getByTestId('reader-heading')).toHaveText(overviewHeadings);
+        await expect(page.getByTestId('blueprint-rail')).toHaveCount(0);
+        await expect(page.getByTestId('crit-row')).toHaveText('–A measurable outcome');
+
+        await page.getByRole('tab', { name: 'Design', exact: true }).click();
+        await expect(page.getByTestId('reader-heading')).toHaveText([
+          '##Original Work Order',
+          '##Context',
+          '##Executive Summary Details',
+        ]);
+        await expect(page.getByTestId('reader')).toContainText('The full original request.');
+        await expect(page.getByTestId('blueprint-rail')).toBeVisible();
+
+        await page.getByRole('tab', { name: 'Results', exact: true }).click();
+        await expect(page.getByTestId('reader-heading')).toHaveText([
+          '##Notes',
+          '##Executive Summary',
+        ]);
+        await expect(page.getByTestId('blueprint-rail')).toHaveCount(0);
+      } finally {
+        await page.close();
+        await new Promise<void>(r => handle.server.close(() => r()));
+        fs.rmSync(root, { recursive: true, force: true });
+      }
+    });
+  }
+
+  test('keeps the Plan tab and rail when no Overview headings precede Results', async ({
     page,
   }) => {
+    const root = makeFixtureWorkspace(
+      705,
+      'legacy-fixture',
+      `## Original Work Order
+
+A hand-written plan with only the request.
+
+## Notes
+
+Execution notes.
+
+## Executive Summary
+
+This summary belongs to Results.
+`
+    );
+    const handle = await startServer({ root, port: 0, open: false, assetsDir: ASSETS_DIR });
+    try {
+      await page.goto(`${handle.url}/plans/705--legacy-fixture`, {
+        waitUntil: 'domcontentloaded',
+      });
+      await expect(page.getByRole('tab')).toHaveText(['Plan', 'Results', 'Graph', 'Tasks0']);
+      await expect(
+        page.getByRole('tab', { name: 'Plan', exact: true, selected: true })
+      ).toBeVisible();
+      await expect(page.getByTestId('reader-heading')).toHaveText(['##Original Work Order']);
+      await expect(page.getByTestId('blueprint-rail')).toBeVisible();
+    } finally {
+      await page.close();
+      await new Promise<void>(r => handle.server.close(() => r()));
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('moves the Notes + Execution Blueprint tail to Results, off Overview', async ({ page }) => {
     page.setDefaultTimeout(15_000);
     const root = makeFixtureWorkspace(703, 'results-fixture', RESULTS_BODY);
     const handle = await startServer({
@@ -268,7 +389,7 @@ test.describe('Plan Detail Reader (Playwright)', () => {
       });
       await page.getByTestId('reader').waitFor();
 
-      // Plan tab: shows the narrative section but NOT Notes / Execution Blueprint.
+      // Overview shows the narrative section without the execution-time tail.
       const planProse = (await page.getByTestId('reader').textContent()) ?? '';
       expect(planProse).toContain('Executive Summary');
       expect(planProse).not.toContain('Execution Blueprint');

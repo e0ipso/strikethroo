@@ -1,34 +1,33 @@
 /**
- * Plan Detail — Reader body (the `/plans/:id` Plan tab content).
+ * Plan Detail reader body for the Overview, Design, or legacy Plan tab.
  *
- * Renders the design's two-column layout (sanitized markdown prose +
- * execution-blueprint rail on the right) for an already-loaded `PlanDetail`,
- * using a Tailwind flex row that stacks to one column below the `lg`
- * breakpoint. It carries NO
- * Chrome and NO data fetch: the surrounding `PlanDetailRoute` owns the shared
- * `Chrome` (crumbs / tab strip / StatusPill / actions), the `usePlanDetail`
- * fetch, and the loading/error surfaces, then mounts this body when the Plan tab
- * is active. The Board (Tasks tab) and Graph (Graph tab) bodies are sibling
- * components mounted by the same route container.
+ * Renders supplied narrative sections with the shared sanitized prose renderer.
+ * Design and legacy Plan include a blueprint rail on the right, stacking below
+ * the prose under the `lg` breakpoint. Overview uses the full width for prose.
+ * The surrounding route owns the data fetch, Chrome, and loading/error states.
  *
  * Ported from `scratch/ui/designs/screens-detail.jsx` (`PlanDetailReader`):
  * class names and layout are reproduced; all values come from the API payload.
  */
 
-import type { PlanDetail } from '../../data/api';
-import { splitResultsSections } from '../derive';
+import type { MarkdownSection, PlanDetail } from '../../data/api';
 import { BlueprintRail } from './BlueprintRail';
 import { ReaderProse } from './ReaderProse';
 
 /** Basename of an absolute or relative path. */
 const basename = (filePath: string): string => filePath.split(/[\\/]/).pop() ?? filePath;
 
-/** The Reader body: the prose column + blueprint rail bound to `detail`. */
-export function PlanDetailReader({ detail }: { detail: PlanDetail }) {
+/** The prose column and optional blueprint rail bound to `detail`. */
+export function PlanDetailReader({
+  detail,
+  sections,
+  showBlueprintRail = true,
+}: {
+  detail: PlanDetail;
+  sections: MarkdownSection[];
+  showBlueprintRail?: boolean;
+}) {
   const filename = basename(detail.file);
-  // The Notes / Execution Blueprint tail moves to the Results tab; the Plan tab
-  // shows the narrative sections that precede it.
-  const { planSections } = splitResultsSections(detail.sections);
 
   return (
     // Wide prose is the primary column; the blueprint rail sits on the right and
@@ -42,12 +41,14 @@ export function PlanDetailReader({ detail }: { detail: PlanDetail }) {
           created={detail.created}
           phaseCount={detail.phaseCount}
           taskCount={detail.tasks.length}
-          sections={planSections}
+          sections={sections}
         />
       </div>
-      <div className="lg:w-96 lg:shrink-0">
-        <BlueprintRail planId={detail.name} phases={detail.phases} tasks={detail.tasks} />
-      </div>
+      {showBlueprintRail && (
+        <div className="lg:w-96 lg:shrink-0">
+          <BlueprintRail planId={detail.name} phases={detail.phases} tasks={detail.tasks} />
+        </div>
+      )}
     </div>
   );
 }

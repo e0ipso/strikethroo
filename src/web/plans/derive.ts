@@ -166,7 +166,7 @@ const RESULTS_BOUNDARY_RE = /^(notes|execution\s+blueprint)\b/i;
  * (inclusive): `planSections` are the narrative sections before it;
  * `resultsSections` are the first of "Notes" / "Execution Blueprint" and
  * everything after it, to EOF. When neither heading exists, all sections stay in
- * `planSections` and `resultsSections` is empty. The Plan tab renders
+ * `planSections` and `resultsSections` is empty. The narrative tabs render
  * `planSections`; the Results tab renders `resultsSections`.
  */
 export const splitResultsSections = (
@@ -175,6 +175,22 @@ export const splitResultsSections = (
   const idx = sections.findIndex(s => RESULTS_BOUNDARY_RE.test(s.heading));
   if (idx === -1) return { planSections: sections, resultsSections: [] };
   return { planSections: sections.slice(0, idx), resultsSections: sections.slice(idx) };
+};
+
+const OVERVIEW_HEADING_RE = /^(plan\s+clarifications|executive\s+summary|success\s+criteria)$/i;
+
+/** Partition narrative sections in document order. Original Work Order stays in Design. */
+export const splitOverviewSections = (
+  sections: MarkdownSection[]
+): { overviewSections: MarkdownSection[]; designSections: MarkdownSection[] } => {
+  const overviewSections: MarkdownSection[] = [];
+  const designSections: MarkdownSection[] = [];
+  for (const section of sections) {
+    (OVERVIEW_HEADING_RE.test(section.heading.trim()) ? overviewSections : designSections).push(
+      section
+    );
+  }
+  return { overviewSections, designSections };
 };
 
 /**

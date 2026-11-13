@@ -307,11 +307,13 @@ const captureStills = async (
     if (picked) {
       const { detail, task, graphDetail } = picked;
 
-      // --- Plan Detail: Plan tab (Reader + blueprint rail) ---
+      // --- Plan Detail: Design tab (Reader + blueprint rail) ---
       await page.goto(`${baseUrl}/plans/${encodeURIComponent(detail.name)}`, {
         waitUntil: 'domcontentloaded',
       });
       await page.waitForSelector('[role="tablist"]');
+      const designTab = page.getByRole('tab', { name: 'Design', exact: true });
+      if ((await designTab.count()) > 0) await designTab.click();
       await page.waitForSelector('[data-testid="reader"]');
       await shot(page, 'plan-detail-plan');
 
@@ -419,7 +421,7 @@ const captureVideos = async (
       await beat(page, 1200); // video pacing: final hold on Task Detail
     });
 
-    // Switching Plan Detail tabs (Plan <-> Graph <-> Tasks).
+    // Switching Plan Detail tabs (Overview, Design, Graph, Tasks).
     await video(browser, baseUrl, 'plan-detail-tab-switch', async page => {
       page.setDefaultTimeout(20_000);
       await page.goto(`${baseUrl}/plans/${encodeURIComponent(detail.name)}`, {
@@ -427,7 +429,14 @@ const captureVideos = async (
       });
       await page.waitForSelector('[role="tablist"]');
       await page.waitForSelector('[data-testid="reader"]');
-      await beat(page); // video pacing: hold on the Plan tab
+      await beat(page); // video pacing: hold on Overview
+      const designTab = page.getByRole('tab', { name: 'Design', exact: true });
+      if ((await designTab.count()) > 0) {
+        await designTab.hover();
+        await designTab.click();
+        await page.waitForSelector('[data-testid="blueprint-rail"]');
+        await beat(page); // video pacing: hold on Design
+      }
       const graphTab = page.getByRole('tab', { name: 'Graph' });
       await graphTab.hover(); // move the visible cursor to the target before clicking
       await graphTab.click();
@@ -438,11 +447,11 @@ const captureVideos = async (
       await tasksTab.click();
       await page.waitForSelector('[data-testid="swimlanes"]');
       await beat(page); // video pacing: hold on the Tasks tab
-      const planTab = page.getByRole('tab', { name: 'Plan' }).first();
-      await planTab.hover();
-      await planTab.click();
+      const overviewTab = page.getByRole('tab', { name: /^(Overview|Plan)$/ });
+      await overviewTab.hover();
+      await overviewTab.click();
       await page.waitForSelector('[data-testid="reader"]');
-      await beat(page, 1200); // video pacing: final hold back on the Plan tab
+      await beat(page, 1200); // video pacing: final hold back on Overview
     });
   } else {
     log('skip plan-detail interaction videos (no plan with tasks found)');

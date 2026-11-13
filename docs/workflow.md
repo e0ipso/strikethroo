@@ -55,9 +55,9 @@ Open the plan file and verify:
 
 Edit the file directly -- it is yours, not the AI's. Optionally, ask a second assistant to refine the plan (`st-refine-plan` skill) for a two-agent feedback loop.
 
-Prefer reading it rendered? `npx strikethroo serve` shows the plan document with its task blueprint pinned alongside:
+Prefer reading it rendered? `npx strikethroo serve` opens **Overview** with Plan Clarifications, Executive Summary, and Success Criteria when present. **Design** shows the remaining narrative and the task blueprint:
 
-[![Plan Detail, Plan tab]({{ '/assets/plan-detail-plan.png' | relative_url }})]({{ '/assets/plan-detail-plan.png' | relative_url }})
+[![Plan Detail, Design tab]({{ '/assets/plan-detail-plan.png' | relative_url }})]({{ '/assets/plan-detail-plan.png' | relative_url }})
 
 <details markdown="1">
 <summary><strong>Optional detour: build the blueprint separately</strong></summary>

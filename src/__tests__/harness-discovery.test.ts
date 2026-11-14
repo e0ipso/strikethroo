@@ -34,7 +34,7 @@ describe('harness discovery', () => {
     }),
   });
 
-  it('excludes the current harness and returns local reviewer arguments', async () => {
+  it('lists alternatives in stable order, then the current harness last, with local reviewer arguments', async () => {
     fs.mkdirSync(path.join(root, 'config'), { recursive: true });
     fs.writeFileSync(
       path.join(root, 'config/config.yaml'),
@@ -44,12 +44,47 @@ describe('harness discovery', () => {
 
     const result = await discoverHarnesses(request(), dependencies);
 
-    expect(result.reviewerCandidates).not.toContain('claude');
-    expect(result.reviewerCandidates.sort()).toEqual(
-      SUPPORTED_HARNESSES.filter(harness => harness !== 'claude').sort()
+    expect(result.reviewerCandidates).toEqual([
+      ...SUPPORTED_HARNESSES.filter(harness => harness !== 'claude'),
+      'claude',
+    ]);
+    expect(Object.keys(result.reviewerInvocations ?? {}).sort()).toEqual(
+      [...SUPPORTED_HARNESSES].sort()
     );
     expect(result.reviewerInvocations?.codex?.cliArgs).toEqual(['--sandbox', 'workspace-write']);
-    expect(dependencies.runProbe).toHaveBeenCalledTimes(SUPPORTED_HARNESSES.length - 1);
+    // The current harness is probed too: no native bypass authorizes review.
+    expect(dependencies.runProbe).toHaveBeenCalledTimes(SUPPORTED_HARNESSES.length);
+    expect(result.outcomes.every(outcome => outcome.source !== 'bypass')).toBe(true);
+  });
+
+  it('offers only the current harness when no alternative is ready', async () => {
+    const dependencies = successfulDependencies();
+    const delegate = dependencies.runProbe;
+    const runProbe = vi.fn(async (command: { cwd: string; stdin: string; executable: string }) =>
+      command.executable.endsWith('/claude') ? delegate(command) : { exitCode: 1 }
+    );
+
+    const result = await discoverHarnesses(request(), { ...dependencies, runProbe });
+
+    expect(result.reviewerCandidates).toEqual(['claude']);
+    expect(Object.keys(result.reviewerInvocations ?? {})).toEqual(['claude']);
+  });
+
+  it('reports every harness as unavailable when the configuration is invalid', async () => {
+    fs.mkdirSync(path.join(root, 'config'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'config/config.yaml'), 'harnesses: [\n');
+
+    const result = await discoverHarnesses(request(), successfulDependencies());
+
+    expect(result.configurationErrors?.length).toBeGreaterThan(0);
+    expect(result.reviewerCandidates).toEqual([]);
+    expect(result.outcomes).toHaveLength(SUPPORTED_HARNESSES.length);
+    for (const outcome of result.outcomes) {
+      expect(outcome).toMatchObject({
+        available: false,
+        reason: 'Harness configuration is invalid.',
+      });
+    }
   });
 
   it('serves a second discovery from cache', async () => {
@@ -57,10 +92,10 @@ describe('harness discovery', () => {
     const now = () => 5_000;
 
     const first = await discoverHarnesses(request(), { ...dependencies, now });
-    expect(dependencies.runProbe).toHaveBeenCalledTimes(SUPPORTED_HARNESSES.length - 1);
+    expect(dependencies.runProbe).toHaveBeenCalledTimes(SUPPORTED_HARNESSES.length);
 
     const second = await discoverHarnesses(request(), { ...dependencies, now });
-    expect(dependencies.runProbe).toHaveBeenCalledTimes(SUPPORTED_HARNESSES.length - 1);
+    expect(dependencies.runProbe).toHaveBeenCalledTimes(SUPPORTED_HARNESSES.length);
     expect(second.reviewerCandidates).toEqual(first.reviewerCandidates);
   });
 
@@ -72,7 +107,7 @@ describe('harness discovery', () => {
     now += AVAILABLE_TTL_MS + 1;
     await discoverHarnesses(request(), { ...dependencies, now: () => now });
 
-    expect(dependencies.runProbe).toHaveBeenCalledTimes((SUPPORTED_HARNESSES.length - 1) * 2);
+    expect(dependencies.runProbe).toHaveBeenCalledTimes(SUPPORTED_HARNESSES.length * 2);
   });
 
   it('returns no candidates when probes fail', async () => {

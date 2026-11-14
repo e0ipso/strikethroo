@@ -33,10 +33,12 @@ export {
 } from './shared/review-delivery';
 
 /**
- * The code review gate: scope the plan's cumulative diff, dispatch a second
- * harness to review it, certify the findings, and emit one JSON line. It
- * reports; it never fixes, commits, or judges findings. Rationale for each
- * decision below is in `.ai/kenkeep/nodes/code-review/`.
+ * The code review gate: scope the plan's cumulative diff, dispatch a reviewer
+ * in a mandatory clean session, certify the findings, and emit one JSON line.
+ * Another harness is preferred as a best-effort diversity measure; the current
+ * harness is the fallback. Independence comes from the clean session, not from
+ * the harness name. It reports; it never fixes, commits, or judges findings.
+ * Rationale for each decision below is in `.ai/kenkeep/nodes/code-review/`.
  */
 
 const HOOK_RELATIVE_PATH = path.join('config', 'hooks', 'CODE_REVIEW.md');
@@ -452,16 +454,16 @@ export const runReview = async (
   if (harness === undefined) {
     return skip(
       'no-reviewer-candidate',
-      `No reviewer candidate; review gate skipped. ${request.currentHarness} is excluded as the current harness. ` +
-        SUPPORTED_HARNESSES.filter(candidate => candidate !== request.currentHarness)
-          .map(candidate => {
-            const outcome = discovery.outcomes.find(item => item.harness === candidate);
-            return (
-              `${candidate}: ${outcome?.reason ?? 'No availability outcome was reported.'}` +
-              (outcome?.source === 'cache' ? ' (cached readiness result)' : '')
-            );
-          })
-          .join(' ')
+      'No harness passed the clean-session readiness check; review gate skipped. ' +
+        SUPPORTED_HARNESSES.map(candidate => {
+          const outcome = discovery.outcomes.find(item => item.harness === candidate);
+          const label =
+            candidate === request.currentHarness ? `${candidate} (current harness)` : candidate;
+          return (
+            `${label}: ${outcome?.reason ?? 'No availability outcome was reported.'}` +
+            (outcome?.source === 'cache' ? ' (cached readiness result)' : '')
+          );
+        }).join(' ')
     );
   }
 

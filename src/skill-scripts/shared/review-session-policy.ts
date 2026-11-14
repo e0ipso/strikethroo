@@ -88,9 +88,11 @@ export interface ReviewSessionPolicy {
   readonly freshSessionArgv: readonly string[];
   /**
    * A long flag (`--resume`) matches an equal element or `--resume=<value>`.
-   * A short alias (`-r`) matches an equal element or one that starts with it
-   * (`-rID`, `-cp`): the parsers these CLIs use read such a token as that
-   * option first. A different long flag that shares a prefix
+   * A short alias (`-r`) matches any single-dash element that contains its
+   * letter before an `=`: an attached value (`-rID`) or a short-option group
+   * (`-pc`, `-prID`). These CLIs can read such a token as that option. This
+   * fails closed: a value-taking option whose attached value contains the
+   * letter is refused too. A different long flag that shares a prefix
    * (`--continue-on-error`) never matches.
    */
   readonly rejectedFlags: readonly string[];
@@ -198,9 +200,15 @@ export type ReviewCliArgsValidation = { ok: true } | { ok: false; detail: string
 /** A child process environment, the type `spawn` accepts for its `env` option. */
 export type ProcessEnvironment = typeof process.env;
 
+/** Letters of a single-dash short-option group, before any `=`; empty otherwise. */
+const shortOptionGroup = (element: string): string =>
+  element.startsWith('-') && !element.startsWith('--') ? element.slice(1).split('=')[0]! : '';
+
 const matchesFlag = (element: string, flag: string): boolean =>
   element === flag ||
-  (flag.startsWith('--') ? element.startsWith(`${flag}=`) : element.startsWith(flag));
+  (flag.startsWith('--')
+    ? element.startsWith(`${flag}=`)
+    : shortOptionGroup(element).includes(flag.slice(1)));
 
 const reusesSession = (policy: ReviewSessionPolicy, element: string): boolean =>
   policy.rejectedSubcommands.includes(element) ||

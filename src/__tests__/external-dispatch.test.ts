@@ -386,6 +386,8 @@ describe('clean-session review policy', () => {
     ['claude', ['--resume=auth-refactor'], '--resume=auth-refactor'],
     ['claude', ['-r', 'auth-refactor'], '-r'],
     ['claude', ['-rauth-refactor'], '-rauth-refactor'],
+    ['claude', ['-pc'], '-pc'],
+    ['claude', ['--model', 'x', '-prSESSION'], '-prSESSION'],
     ['claude', ['--session-id', UUID], '--session-id'],
     ['claude', [`--session-id=${UUID}`], `--session-id=${UUID}`],
     ['claude', ['--fork-session'], '--fork-session'],

@@ -19,7 +19,7 @@ kk_depends_on: []
 kk_confidence: high
 ---
 
-`src/skill-scripts/shared/harness-discovery.ts` loads the local harness invocation configuration, checks every supported harness, and returns responsive harness identifiers such as `"claude"` or `"gemini"`. The current harness is excluded from reviewer candidates. Discovery also returns the exact configured `cli_args` that made each external candidate ready, but it does not choose a model.
+`src/skill-scripts/shared/harness-discovery.ts` loads the local harness invocation configuration, checks every supported harness, and returns responsive harness identifiers such as `"claude"` or `"gemini"`. Every harness, the current one included, gets a separate-process review readiness probe. Ready alternatives come first in stable order, and the current harness is the last candidate. Discovery also returns the exact configured `cli_args` that made each candidate ready, but it does not choose a model.
 
 `src/skill-scripts/shared/harness-availability.ts` runs external readiness with the same adapter and ordered `cli_args` as dispatch. The probe uses a disposable Git workspace and asks the harness to create a nonce-bearing file. A zero exit without that exact file is unavailable. The probe omits a model because it proves that the configured harness invocation can act, not that a particular model id is accepted.
 

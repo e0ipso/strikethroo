@@ -16,6 +16,6 @@ kk_relates_to:
 kk_depends_on: []
 kk_confidence: high
 ---
-An agent's success report is a claim, a reviewing agent is no more reliable, and the user's attention is the scarce resource. So hooks, templates and project context are user-editable Markdown, and guarantees are compiled. Two examples: an uncertified review is never reported as clean, and reviewer and implementer run on different harnesses.
+An agent's success report is a claim, a reviewing agent is no more reliable, and the user's attention is the scarce resource. So hooks, templates and project context are user-editable Markdown, and guarantees are compiled. Two examples: an uncertified review is never reported as clean, and every reviewer starts in a clean session that rejects session-reuse arguments.
 
 When you add enforcement, put anything a user must not loosen in TypeScript. A bound a hook can raise is not a bound. Optimize time-to-merge, not time-to-first-draft. The user-facing version is `docs/why.md`.

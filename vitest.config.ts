@@ -10,6 +10,7 @@ export default defineConfig({
       'src/__tests__/capture-base-commit.integration.test.ts',
       'src/__tests__/ci-workflows.test.ts',
       'src/__tests__/cli.integration.test.ts',
+      'src/__tests__/code-review-clean-session.integration.test.ts',
       'src/__tests__/code-review.integration.test.ts',
       'src/__tests__/config-write.test.ts',
       'src/__tests__/conflict-detection.integration.test.ts',

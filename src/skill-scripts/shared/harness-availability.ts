@@ -11,9 +11,14 @@ import {
   type NormalizedHarnessInvocation,
 } from './harness-configuration';
 import { resolveExecutablePath } from './executable-resolution';
-import { EXTERNAL_HARNESS_ADAPTERS, type StructuredCommand } from './external-dispatch';
+import {
+  buildReviewCommand,
+  EXTERNAL_HARNESS_ADAPTERS,
+  type StructuredCommand,
+} from './external-dispatch';
+import { REVIEW_SESSION_POLICY_VERSION, validateReviewCliArgs } from './review-session-policy';
 
-export const AVAILABILITY_REGISTRY_VERSION = 4;
+export const AVAILABILITY_REGISTRY_VERSION = 5;
 export const AVAILABLE_TTL_MS = 30 * 60 * 1000;
 export const UNAVAILABLE_TTL_MS = 5 * 60 * 1000;
 export const PROBE_TIMEOUT_MS = 20_000;
@@ -87,6 +92,7 @@ const runProbe = (command: StructuredCommand, timeoutMs: number): Promise<ProbeR
     const child = spawn(command.executable, command.argv, {
       cwd: command.cwd,
       shell: false,
+      ...(command.env ? { env: command.env } : {}),
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     child.stdout?.setEncoding('utf8');
@@ -193,7 +199,8 @@ const writeCache = (cachePath: string, entry: CacheEntry): void => {
 const cacheKey = (
   harness: Harness,
   executableIdentity: string,
-  invocation: NormalizedHarnessInvocation
+  invocation: NormalizedHarnessInvocation,
+  purpose: AvailabilityPurpose
 ): string =>
   createHash('sha256')
     .update(
@@ -203,6 +210,10 @@ const cacheKey = (
         cliArgsHash: invocation.cliArgsHash,
         normalizationVersion: HARNESS_CONFIGURATION_NORMALIZATION_VERSION,
         probeRegistryVersion: AVAILABILITY_REGISTRY_VERSION,
+        purpose,
+        ...(purpose === 'review'
+          ? { reviewSessionPolicyVersion: REVIEW_SESSION_POLICY_VERSION }
+          : {}),
       })
     )
     .digest('hex');
@@ -247,12 +258,21 @@ const hasReadinessEvidence = (workspace: string, evidence: ReadinessEvidence): b
   }
 };
 
+/**
+ * `task` is native-or-external task routing readiness: the current harness
+ * needs no probe. `review` is separate-process reviewer readiness: every
+ * harness, the current one included, runs the clean-session review command.
+ */
+export type AvailabilityPurpose = 'task' | 'review';
+
 export interface CheckHarnessAvailabilityRequest {
   strikethrooRoot: string;
   workspace: string;
   harness?: Harness;
   currentHarness: Harness;
   invocation?: NormalizedHarnessInvocation;
+  /** Defaults to `task`. */
+  purpose?: AvailabilityPurpose;
 }
 
 const outcome = (
@@ -285,20 +305,35 @@ export const checkHarnessAvailability = async (
 ): Promise<HarnessAvailabilityOutcome> => {
   const active = { ...defaultDependencies, ...overrides };
   const now = active.now();
-  if (request.harness === undefined || request.harness === request.currentHarness) {
-    return {
-      harness: request.harness ?? request.currentHarness,
-      available: true,
-      observedAt: now,
-      expiresAt: now,
-      reason: 'Native/current harness targets do not require a probe.',
-      source: 'bypass',
-    };
-  }
-
+  const purpose = request.purpose ?? 'task';
+  const bypass = (target: Harness): HarnessAvailabilityOutcome => ({
+    harness: target,
+    available: true,
+    observedAt: now,
+    expiresAt: now,
+    reason: 'Native/current harness targets do not require a probe.',
+    source: 'bypass',
+  });
   const harness = request.harness;
+  if (harness === undefined) {
+    return purpose === 'review'
+      ? outcome(
+          request.currentHarness,
+          false,
+          now,
+          'Review readiness requires an explicit harness.'
+        )
+      : bypass(request.currentHarness);
+  }
+  if (purpose === 'task' && harness === request.currentHarness) return bypass(harness);
+
   const invocation = invocationFor(request, harness);
   if (!invocation) return outcome(harness, false, now, 'Harness configuration is invalid.');
+  if (purpose === 'review') {
+    // Depends only on configuration, so it is recomputed instead of cached.
+    const cleanSession = validateReviewCliArgs(harness, invocation.cliArgs);
+    if (!cleanSession.ok) return outcome(harness, false, now, cleanSession.detail);
+  }
 
   const definition = HARNESS_AVAILABILITY_REGISTRY[harness];
   const executableIdentity = active.resolveExecutable(definition.executable);
@@ -310,7 +345,7 @@ export const checkHarnessAvailability = async (
       `Harness executable '${definition.executable}' was not found on PATH.`
     );
 
-  const key = cacheKey(harness, executableIdentity, invocation);
+  const key = cacheKey(harness, executableIdentity, invocation, purpose);
   const cachePath = path.join(request.strikethrooRoot, AVAILABILITY_CACHE_RELATIVE_PATH);
   const cached = readCache(cachePath).entries.find(
     entry => entry.key === key && entry.expiresAt > now
@@ -344,11 +379,16 @@ export const checkHarnessAvailability = async (
 
   try {
     const evidence = readinessEvidence();
-    const command = definition.buildCommand(
-      probeWorkspace,
-      invocation.cliArgs,
-      readinessPrompt(evidence)
-    );
+    const prompt = readinessPrompt(evidence);
+    const command =
+      purpose === 'review'
+        ? buildReviewCommand({
+            harness,
+            cliArgs: invocation.cliArgs,
+            workspace: probeWorkspace,
+            prompt,
+          })
+        : definition.buildCommand(probeWorkspace, invocation.cliArgs, prompt);
     const probe = await active.runProbe(
       { ...command, executable: executableIdentity },
       PROBE_TIMEOUT_MS

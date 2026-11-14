@@ -25,9 +25,12 @@ export interface DiscoverHarnessesRequest {
 export interface HarnessDiscoveryResult {
   /** Every supported harness with its resolved availability outcome. */
   outcomes: HarnessAvailabilityOutcome[];
-  /** Reachable harnesses excluding the current one — the reviewer candidates. */
+  /**
+   * Reviewer candidates in preference order: ready alternatives in
+   * `SUPPORTED_HARNESSES` order, then the current harness when it is ready too.
+   */
   reviewerCandidates: Harness[];
-  /** Exact invocation identity that made each external reviewer candidate ready. */
+  /** Exact invocation identity that made each reviewer candidate ready. */
   reviewerInvocations?: Partial<
     Record<
       Harness,
@@ -41,13 +44,16 @@ export interface HarnessDiscoveryResult {
 }
 
 /**
- * Enumerate every supported harness's current availability and derive the
- * reviewer-candidate subset: reachable harnesses other than the current one.
- * The current harness is always excluded from candidates, even though its
- * own availability check short-circuits to an available "bypass" outcome —
- * a reviewer on the same harness as the implementer defeats the point of the
- * gate. Never throws: a probe failure yields `available: false` for that
- * harness, not an exception, so an empty candidate set is a normal result.
+ * Enumerate every supported harness's review readiness and derive the
+ * reviewer candidates. Ready alternatives to the current harness keep their
+ * stable order and come first. The current harness comes last when it is ready.
+ * Preferring another harness is a best-effort diversity measure: a CLI name
+ * does not establish a different provider or model. The independence boundary
+ * is the clean session that every review launch must use. Every harness, the
+ * current one included, is probed as a separate CLI process with
+ * `purpose: 'review'`, so the native bypass never authorizes a review. Never
+ * throws: a probe failure yields `available: false` for that harness, so an
+ * empty candidate set is a normal result.
  */
 export const discoverHarnesses = async (
   request: DiscoverHarnessesRequest,
@@ -59,14 +65,11 @@ export const discoverHarnesses = async (
     return {
       outcomes: SUPPORTED_HARNESSES.map(harness => ({
         harness,
-        available: harness === request.currentHarness,
+        available: false,
         observedAt: now,
         expiresAt: now,
-        reason:
-          harness === request.currentHarness
-            ? 'Native/current harness targets do not require a probe.'
-            : 'Harness configuration is invalid.',
-        source: harness === request.currentHarness ? ('bypass' as const) : ('probe' as const),
+        reason: 'Harness configuration is invalid.',
+        source: 'probe' as const,
       })),
       reviewerCandidates: [],
       configurationErrors: configuration.errors,
@@ -83,6 +86,7 @@ export const discoverHarnesses = async (
             harness,
             currentHarness: request.currentHarness,
             invocation: configuration.config[harness],
+            purpose: 'review',
           },
           overrides
         );
@@ -100,11 +104,14 @@ export const discoverHarnesses = async (
     })
   );
 
-  const reviewerCandidates = SUPPORTED_HARNESSES.filter(harness => {
-    if (harness === request.currentHarness) return false;
-    const outcome = outcomes.find(candidate => candidate.harness === harness);
-    return outcome?.available === true;
-  });
+  const isReady = (harness: Harness): boolean =>
+    outcomes.find(candidate => candidate.harness === harness)?.available === true;
+  const alternatives = SUPPORTED_HARNESSES.filter(
+    harness => harness !== request.currentHarness && isReady(harness)
+  );
+  const reviewerCandidates = isReady(request.currentHarness)
+    ? [...alternatives, request.currentHarness]
+    : alternatives;
 
   const reviewerInvocations = Object.fromEntries(
     reviewerCandidates.map(harness => [harness, { cliArgs: configuration.config[harness].cliArgs }])

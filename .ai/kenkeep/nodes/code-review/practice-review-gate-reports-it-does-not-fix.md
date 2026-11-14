@@ -26,7 +26,7 @@ kk_confidence: high
 ---
 The code review gate runs after `POST_EXECUTION` reports green, and it is terminal: once per plan, never per phase and never per task.
 
-It reports; it does not decide what to fix. A reviewer on a second harness critiques the cumulative diff. The gate validates the delivered findings against the vendored XSD and writes the result under the flat `<plan-dir>/review/` directory. Nothing is applied automatically. The implementer reads `review.xml` and chooses what to act on. `findings.json` records the evaluation status and, after certification, the parsed findings.
+It reports; it does not decide what to fix. A reviewer in a clean session critiques the cumulative diff. The gate validates the delivered findings against the vendored XSD and writes the result under the flat `<plan-dir>/review/` directory. Nothing is applied automatically. The implementer reads `review.xml` and chooses what to act on. `findings.json` records the evaluation status and, after certification, the parsed findings.
 
 ```text
 Phase N completes

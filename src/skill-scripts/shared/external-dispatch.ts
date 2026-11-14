@@ -2,6 +2,12 @@ import * as path from 'path';
 import { spawn } from 'child_process';
 import { SUPPORTED_HARNESSES, type Harness } from '../../types';
 import { executableResolves } from './executable-resolution';
+import {
+  buildReviewEnvironment,
+  REVIEW_SESSION_POLICIES,
+  validateReviewCliArgs,
+  type ProcessEnvironment,
+} from './review-session-policy';
 
 /**
  * CLI contracts were verified against their official CLI documentation:
@@ -51,6 +57,8 @@ export interface ReviewDispatchRequest {
 /** Input shared by task dispatch, review dispatch, and readiness probes. */
 export interface DispatchCommandRequest {
   readonly cliArgs: readonly string[];
+  /** Review only: argv placed after the adapter's mode argv and before `cliArgs`. */
+  readonly freshSessionArgv?: readonly string[];
   model?: string;
   reasoningEffort?: string;
   workspace: string;
@@ -62,6 +70,12 @@ export interface StructuredCommand {
   argv: string[];
   cwd: string;
   stdin: string;
+  /**
+   * The complete child environment. Review commands set it to drop inherited
+   * session variables. Task commands leave it absent, so their children
+   * inherit the parent environment.
+   */
+  env?: ProcessEnvironment;
 }
 
 /**
@@ -78,7 +92,8 @@ export type ExternalDispatchResult =
         | 'adapter-unavailable'
         | 'executable-unavailable'
         | 'authentication-failed'
-        | 'unsupported-reasoning-effort';
+        | 'unsupported-reasoning-effort'
+        | 'clean-session-unavailable';
       detail: string;
     };
 
@@ -116,16 +131,26 @@ const taskPrompt = (request: ExternalDispatchRequest): string =>
   `Read and implement this task. Preserve dependency validation, status transitions, ` +
   `evidence reporting, and error-hook handling. Report failures clearly.\n\n${request.taskMarkdown}`;
 
+/**
+ * Argv is the mode argv, then any fresh-session argv, then the configured
+ * `cliArgs`, then the adapter's own options.
+ */
 const adapter = (
   executable: string,
-  authenticationArgv: string[],
-  argv: (request: DispatchCommandRequest) => string[]
+  authenticationArgv: readonly string[],
+  modeArgv: readonly string[],
+  optionArgv: (request: DispatchCommandRequest) => string[]
 ): ExternalHarnessAdapter => ({
   executable,
   authenticationArgv: () => [...authenticationArgv],
   buildCommand: request => ({
     executable,
-    argv: argv(request),
+    argv: [
+      ...modeArgv,
+      ...(request.freshSessionArgv ?? []),
+      ...request.cliArgs,
+      ...optionArgv(request),
+    ],
     cwd: request.workspace,
     stdin: request.prompt,
   }),
@@ -135,42 +160,24 @@ const modelArgv = (model: string | undefined): string[] =>
   model === undefined ? [] : ['--model', model];
 
 export const EXTERNAL_HARNESS_ADAPTERS: Readonly<Record<Harness, ExternalHarnessAdapter>> = {
-  claude: adapter('claude', ['auth', 'status'], request => [
-    '-p',
-    ...request.cliArgs,
+  claude: adapter('claude', ['auth', 'status'], ['-p'], request => [
     ...modelArgv(request.model),
     ...(request.reasoningEffort === undefined ? [] : ['--effort', request.reasoningEffort]),
   ]),
-  codex: adapter('codex', ['login', 'status'], request => [
-    'exec',
-    ...request.cliArgs,
+  codex: adapter('codex', ['login', 'status'], ['exec'], request => [
     ...modelArgv(request.model),
     ...(request.reasoningEffort === undefined
       ? []
       : ['--config', `model_reasoning_effort=${request.reasoningEffort}`]),
     '-',
   ]),
-  cursor: adapter('cursor-agent', ['status'], request => [
-    '--print',
-    ...request.cliArgs,
-    ...modelArgv(request.model),
-  ]),
+  cursor: adapter('cursor-agent', ['status'], ['--print'], request => modelArgv(request.model)),
   // Gemini and Copilot require an empty prompt argument; content travels on stdin.
-  gemini: adapter('gemini', ['auth', 'status'], request => [
-    '--prompt',
-    '',
-    ...request.cliArgs,
-    ...modelArgv(request.model),
-  ]),
-  copilot: adapter('copilot', ['auth', 'status'], request => [
-    '-p',
-    '',
-    ...request.cliArgs,
-    ...modelArgv(request.model),
-  ]),
-  opencode: adapter('opencode', ['auth', 'list'], request => [
-    'run',
-    ...request.cliArgs,
+  gemini: adapter('gemini', ['auth', 'status'], ['--prompt', ''], request =>
+    modelArgv(request.model)
+  ),
+  copilot: adapter('copilot', ['auth', 'status'], ['-p', ''], request => modelArgv(request.model)),
+  opencode: adapter('opencode', ['auth', 'list'], ['run'], request => [
     ...modelArgv(request.model),
     ...(request.reasoningEffort === undefined ? [] : ['--variant', request.reasoningEffort]),
     '-',
@@ -193,6 +200,7 @@ const taskCommandRequest = (request: ExternalDispatchRequest): DispatchCommandRe
 
 const reviewCommandRequest = (request: ReviewDispatchRequest): DispatchCommandRequest => ({
   cliArgs: request.cliArgs ?? [],
+  freshSessionArgv: REVIEW_SESSION_POLICIES[request.harness].freshSessionArgv,
   workspace: request.workspace,
   prompt: request.prompt,
 });
@@ -205,9 +213,20 @@ export const buildExternalCommand = (request: ExternalDispatchRequest): Structur
  * stdin, no model, no reasoning effort. Deliberately does not reach
  * `taskPrompt`, which hard-codes a task file and a `PRE_TASK_EXECUTION.md`
  * instruction that a review must not inherit.
+ *
+ * The clean-session policy adds its fresh-session argv and an environment
+ * without inherited session variables. Callers validate `cliArgs` with
+ * `validateReviewCliArgs` first. This builder throws on a rejected argument so
+ * that a caller that skips validation cannot launch an unclean review.
  */
-export const buildReviewCommand = (request: ReviewDispatchRequest): StructuredCommand =>
-  EXTERNAL_HARNESS_ADAPTERS[request.harness].buildCommand(reviewCommandRequest(request));
+export const buildReviewCommand = (request: ReviewDispatchRequest): StructuredCommand => {
+  const cleanSession = validateReviewCliArgs(request.harness, request.cliArgs ?? []);
+  if (!cleanSession.ok) throw new Error(cleanSession.detail);
+  return {
+    ...EXTERNAL_HARNESS_ADAPTERS[request.harness].buildCommand(reviewCommandRequest(request)),
+    env: buildReviewEnvironment(),
+  };
+};
 
 /** Retain the final 256 KiB of reviewer stdout because the findings document is printed last. */
 export const CAPTURED_STDOUT_LIMIT = 262_144;
@@ -220,20 +239,25 @@ type OutputMode = 'ignore' | 'inherit' | 'capture';
 
 type ProcessOutcome = { exitCode: number; stdout?: string; timedOut?: true };
 
-/** Settle once on close, error, or the optional authentication deadline. Close waits for stdio. */
+/**
+ * Settle once on close, error, or the optional authentication deadline. Close
+ * waits for stdio. An absent `env` lets the child inherit the parent environment.
+ */
 const runProcess = (
   executable: string,
   argv: string[],
   cwd: string,
   stdin?: string,
   outputMode: OutputMode = 'ignore',
-  timeoutMs?: number
+  timeoutMs?: number,
+  env?: ProcessEnvironment
 ): Promise<ProcessOutcome> =>
   new Promise((resolve, reject) => {
     let settled = false;
     const child = spawn(executable, argv, {
       cwd,
       shell: false,
+      ...(env ? { env } : {}),
       stdio: [
         stdin === undefined ? 'ignore' : 'pipe',
         outputMode === 'capture' ? 'pipe' : outputMode,
@@ -296,7 +320,11 @@ const runProcess = (
     }
   });
 
-/** Bounded status check. Authentication argv is literal and never receives cli_args. */
+/**
+ * Bounded status check. Authentication argv is literal and never receives
+ * cli_args. It runs with the command's environment, so a review check does not
+ * see the parent's session variables either.
+ */
 export const authenticateHarness = async (
   commandSpec: StructuredCommand,
   adapter: ExternalHarnessAdapter,
@@ -310,7 +338,8 @@ export const authenticateHarness = async (
       commandSpec.cwd,
       undefined,
       'ignore',
-      timeoutMs
+      timeoutMs,
+      commandSpec.env
     );
     if (result.timedOut === true) {
       return {
@@ -344,17 +373,24 @@ const dependencies: ExternalDispatchDependencies = {
       commandSpec.argv,
       commandSpec.cwd,
       commandSpec.stdin,
-      options?.captureStdout === true ? 'capture' : 'inherit'
+      options?.captureStdout === true ? 'capture' : 'inherit',
+      undefined,
+      commandSpec.env
     ),
 };
 
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
-/** Shared pre-launch checks and launch. Only pre-launch failures may fall back. */
+/**
+ * Shared pre-launch checks and launch. Only pre-launch failures may fall back.
+ * `buildCommand` runs only after the adapter, reasoning-effort, and executable
+ * checks pass, and its result is the command that is authenticated and launched.
+ */
 const dispatch = async (
   harness: Harness,
-  input: DispatchCommandRequest,
+  reasoningEffort: string | undefined,
+  buildCommand: () => StructuredCommand,
   overrides: Partial<ExternalDispatchDependencies>,
   label: string,
   captureStdout = false
@@ -369,7 +405,7 @@ const dispatch = async (
     };
   }
   if (
-    input.reasoningEffort !== undefined &&
+    reasoningEffort !== undefined &&
     (harness === 'cursor' || harness === 'gemini' || harness === 'copilot')
   ) {
     return {
@@ -386,7 +422,7 @@ const dispatch = async (
       detail: `${executable} is unavailable.`,
     };
   }
-  const commandSpec = adapter.buildCommand(input);
+  const commandSpec = buildCommand();
   const authentication = await active.authenticate(commandSpec, adapter);
   if (!authentication.ok) {
     return {
@@ -414,11 +450,34 @@ export const dispatchExternalTask = async (
   request: ExternalDispatchRequest,
   overrides: Partial<ExternalDispatchDependencies> = {}
 ): Promise<ExternalDispatchResult> =>
-  dispatch(request.harness, taskCommandRequest(request), overrides, 'task');
+  dispatch(
+    request.harness,
+    request.reasoningEffort,
+    () => buildExternalCommand(request),
+    overrides,
+    'task'
+  );
 
-/** Reviewer stdout is the findings channel; retain its bounded tail and tee it to stderr. */
+/**
+ * Reviewer stdout is the findings channel; retain its bounded tail and tee it
+ * to stderr. The clean-session policy is checked again here, before the
+ * executable check, authentication, and launch, so a direct call cannot bypass
+ * it. A rejected argument launches nothing.
+ */
 export const dispatchReview = async (
   request: ReviewDispatchRequest,
   overrides: Partial<ExternalDispatchDependencies> = {}
-): Promise<ExternalDispatchResult> =>
-  dispatch(request.harness, reviewCommandRequest(request), overrides, 'review', true);
+): Promise<ExternalDispatchResult> => {
+  const cleanSession = validateReviewCliArgs(request.harness, request.cliArgs ?? []);
+  if (!cleanSession.ok) {
+    return { kind: 'fallback', reason: 'clean-session-unavailable', detail: cleanSession.detail };
+  }
+  return dispatch(
+    request.harness,
+    undefined,
+    () => buildReviewCommand(request),
+    overrides,
+    'review',
+    true
+  );
+};

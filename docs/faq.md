@@ -103,7 +103,7 @@ Reasons it may skip cleanly:
 - **Hook file empty** — if you delete the contents, the gate skips.
 - **XSD schema absent** — the vendored XSD is copied by `init`; older workspaces don't have it.
 - **No base commit** — the workspace is not a git repository, or has no commits yet.
-- **No second harness discovered** — only one AI assistant is installed and responsive, or all candidates are the current harness. That is expected, not a failure.
+- **No harness passed the clean-session readiness check** — the current harness included. Common causes: the CLI is not on `PATH`, the CLI is not authenticated, the nonce probe failed, or `cli_args` contain a session-reuse flag. That is expected when no CLI is set up for review, not a failure.
 
 Any of these routes to a clean skip with a note in the execution summary. No error.
 
@@ -160,7 +160,7 @@ Tasks within the same phase have no mutual dependencies and execute concurrently
 Most spec-driven frameworks optimize the input: write a better specification, get better code, and rely on a human at the end to catch what went wrong. They differ from each other mainly in artifact shape and ceremony. Strikethroo differs on three premises instead:
 
 1. **The agent is an unreliable narrator of its own work.** A subagent reporting success is making a claim, not supplying evidence. A shared verification gate requires identifying the proving command, running it fresh, and reading its exit code before any completion claim. Each skill also ships an anti-rationalization table enumerating the specific excuses a model produces when it is about to skip a discipline.
-2. **A second agent reviewing the first is also unreliable.** So the review gate records the second model's findings for you rather than acting on them, holds the reviewer to conformance and demonstrable defects only, and explicitly names "manufacturing a finding to justify the run" as the failure it is built to resist.
+2. **A second agent reviewing the first is also unreliable.** So the review gate records the reviewer's findings for you rather than acting on them, holds the reviewer to conformance and demonstrable defects only, and explicitly names "manufacturing a finding to justify the run" as the failure it is built to resist.
 3. **The scarce resource is your attention, not tokens.** Your careful read is spent on the plan (where a correction costs a sentence) and on the result, not on the diff (where the same correction costs a review cycle).
 
 The structural consequence is that Strikethroo separates *negotiable* configuration from *compiled* guarantees. Hooks and templates are plain Markdown you own. The certification rule (an uncertified review is never reported as clean) and the reviewer/implementer separation are compiled into the runtime and cannot be loosened by editing a hook. See [Why Strikethroo](why.html) for the full thesis and the list of claims you can verify in the source.

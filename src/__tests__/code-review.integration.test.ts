@@ -282,13 +282,15 @@ describe('code review gate — fail-safe skips', () => {
       );
       expect(result).toMatchObject({ kind: 'skipped', reason: 'no-reviewer-candidate' });
       expect(result.codeReview).toMatch(/^Failed;/);
-      for (const harness of SUPPORTED_HARNESSES.filter(harness => harness !== 'claude')) {
+      expect(result.detail).toContain('clean-session readiness check');
+      expect(result.detail).not.toContain('is excluded');
+      for (const harness of SUPPORTED_HARNESSES) {
+        const label = harness === 'claude' ? 'claude (current harness)' : harness;
         expect(result.detail).toContain(
-          `${harness}: ${harness} auth or quota failure (cached readiness result)`
+          `${label}: ${harness} auth or quota failure (cached readiness result)`
         );
         expect(result.codeReview).toContain(`${harness} auth or quota failure`);
       }
-      expect(result.detail).not.toContain('claude auth or quota failure');
       expect(_classify(result).exitCode).toBe(0);
       expect(stderrSpy).not.toHaveBeenCalled();
     } finally {
@@ -365,6 +367,54 @@ describe('code review gate — the gate reports, it does not judge', () => {
           cliArgs: ['--sandbox', 'workspace-write'],
         })
       );
+    } finally {
+      ws.cleanup();
+    }
+  });
+
+  it('dispatches the current harness with its proven invocation when it is the only candidate', async () => {
+    const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    const dispatch = vi.fn(async () => ({ kind: 'launched-success', exitCode: 0 }) as const);
+    try {
+      const result = await runReview(
+        { plan: '1', currentHarness: 'claude', startPath: ws.root },
+        stubDeps({
+          discover: async () => ({
+            outcomes: [],
+            reviewerCandidates: ['claude'],
+            reviewerInvocations: { claude: { cliArgs: ['--model', 'sonnet'] } },
+          }),
+          dispatch,
+          evaluateFindings: oneFinding,
+        })
+      );
+
+      expect(dispatch).toHaveBeenCalledTimes(1);
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({ harness: 'claude', cliArgs: ['--model', 'sonnet'] })
+      );
+      expect(result).toMatchObject({ kind: 'reviewed', harness: 'claude' });
+    } finally {
+      ws.cleanup();
+    }
+  });
+
+  it('prefers the first alternative over the trailing current harness', async () => {
+    const ws = makeReviewGateWorkspace({ baseCommit: FAKE_SHA });
+    const dispatch = vi.fn(async () => ({ kind: 'launched-success', exitCode: 0 }) as const);
+    try {
+      await runReview(
+        { plan: '1', currentHarness: 'claude', startPath: ws.root },
+        stubDeps({
+          discover: async () => ({
+            outcomes: [],
+            reviewerCandidates: ['codex', 'cursor', 'claude'],
+          }),
+          dispatch,
+          evaluateFindings: oneFinding,
+        })
+      );
+      expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ harness: 'codex' }));
     } finally {
       ws.cleanup();
     }

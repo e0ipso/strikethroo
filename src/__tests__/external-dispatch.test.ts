@@ -5,7 +5,7 @@ import * as path from 'path';
 
 import { afterEach, beforeEach } from 'vitest';
 
-import { SUPPORTED_HARNESSES } from '../types';
+import { SUPPORTED_HARNESSES, type Harness } from '../types';
 import {
   AUTHENTICATION_TIMEOUT_MS,
   authenticateHarness,
@@ -16,7 +16,14 @@ import {
   EXTERNAL_HARNESS_ADAPTERS,
   type ExternalDispatchDependencies,
   type RoutedDispatchRequest,
+  type StructuredCommand,
 } from '../skill-scripts/shared/external-dispatch';
+import {
+  buildReviewEnvironment,
+  REVIEW_SESSION_POLICIES,
+  REVIEW_SESSION_POLICY_VERSION,
+  validateReviewCliArgs,
+} from '../skill-scripts/shared/review-session-policy';
 
 const request = (
   harness: (typeof SUPPORTED_HARNESSES)[number],
@@ -321,6 +328,296 @@ describe('model-optional review dispatch (buildReviewCommand / dispatchReview)',
 });
 
 /**
+ * Save and restore the named parent variables around a test. Assertions in
+ * this file compare variable names or booleans, never whole environments, so
+ * a failure cannot print a credential value.
+ */
+const preserveEnvironment = (names: readonly string[]): (() => void) => {
+  const saved = names.map(name => [name, process.env[name]] as const);
+  return () => {
+    for (const [name, value] of saved) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  };
+};
+
+/**
+ * A review must start a new conversation. These cases lock the compiled
+ * clean-session policy: which configured arguments it refuses, which it keeps,
+ * which inherited session variables it removes, and that task dispatch keeps
+ * its existing contract.
+ */
+describe('clean-session review policy', () => {
+  const UUID = '550e8400-e29b-41d4-a716-446655440000';
+  const MODEL = 'vendor/model-X:preview';
+
+  /** Adapter mode argv, then the argv each path appends after `cli_args`. */
+  const MODE: Record<Harness, string[]> = {
+    claude: ['-p'],
+    codex: ['exec'],
+    cursor: ['--print'],
+    gemini: ['--prompt', ''],
+    copilot: ['-p', ''],
+    opencode: ['run'],
+  };
+  const REVIEW_TAIL: Record<Harness, string[]> = {
+    claude: [],
+    codex: ['-'],
+    cursor: [],
+    gemini: [],
+    copilot: [],
+    opencode: ['-'],
+  };
+  const TASK_TAIL: Record<Harness, string[]> = {
+    claude: ['--model', MODEL],
+    codex: ['--model', MODEL, '-'],
+    cursor: ['--model', MODEL],
+    gemini: ['--model', MODEL],
+    copilot: ['--model', MODEL],
+    opencode: ['--model', MODEL, '-'],
+  };
+
+  /** [harness, configured cli_args, the element the policy must name]. */
+  const REJECTED: ReadonlyArray<readonly [Harness, readonly string[], string]> = [
+    ['claude', ['--continue'], '--continue'],
+    ['claude', ['-c'], '-c'],
+    ['claude', ['--model', 'x', '--resume'], '--resume'],
+    ['claude', ['--resume=auth-refactor'], '--resume=auth-refactor'],
+    ['claude', ['-r', 'auth-refactor'], '-r'],
+    ['claude', ['-rauth-refactor'], '-rauth-refactor'],
+    ['claude', ['-pc'], '-pc'],
+    ['claude', ['--model', 'x', '-prSESSION'], '-prSESSION'],
+    ['claude', ['--session-id', UUID], '--session-id'],
+    ['claude', [`--session-id=${UUID}`], `--session-id=${UUID}`],
+    ['claude', ['--fork-session'], '--fork-session'],
+    ['claude', ['--from-pr', '123'], '--from-pr'],
+    ['claude', ['--from-pr=123'], '--from-pr=123'],
+    ['claude', ['--teleport'], '--teleport'],
+    ['claude', ['--cloud', 'session_abc'], '--cloud'],
+    ['claude', ['--remote', 'session_abc'], '--remote'],
+    ['claude', ['--remote=session_abc'], '--remote=session_abc'],
+    ['codex', ['resume', '--last'], 'resume'],
+    ['codex', ['--sandbox', 'workspace-write', 'resume', UUID], 'resume'],
+    ['codex', ['fork', UUID], 'fork'],
+    ['cursor', ['--resume'], '--resume'],
+    ['cursor', ['--resume=-1'], '--resume=-1'],
+    ['cursor', ['--continue'], '--continue'],
+    ['cursor', ['--force', 'resume'], 'resume'],
+    ['cursor', ['ls'], 'ls'],
+    ['cursor', ['persist', 'attach', 'review'], 'persist'],
+    ['gemini', ['--resume', 'latest'], '--resume'],
+    ['gemini', ['-r', '5'], '-r'],
+    ['gemini', ['--resume=latest'], '--resume=latest'],
+    ['gemini', ['--list-sessions'], '--list-sessions'],
+    ['gemini', ['--delete-session', '2'], '--delete-session'],
+    ['gemini', ['--delete-session=2'], '--delete-session=2'],
+    ['copilot', ['--resume'], '--resume'],
+    ['copilot', ['-r', 'review'], '-r'],
+    ['copilot', ['--resume=review'], '--resume=review'],
+    ['copilot', ['--continue'], '--continue'],
+    ['copilot', ['--session-id', UUID], '--session-id'],
+    ['copilot', ['--connect'], '--connect'],
+    ['copilot', ['--connect=task-1'], '--connect=task-1'],
+    ['opencode', ['--continue'], '--continue'],
+    ['opencode', ['-c'], '-c'],
+    ['opencode', ['--session', 'ses_4f2a1c'], '--session'],
+    ['opencode', ['-s', 'ses_4f2a1c'], '-s'],
+    ['opencode', ['-sses_4f2a1c'], '-sses_4f2a1c'],
+    ['opencode', ['--session=ses_4f2a1c'], '--session=ses_4f2a1c'],
+    ['opencode', ['--fork'], '--fork'],
+    ['opencode', ['--attach', 'http://localhost:4096'], '--attach'],
+    ['opencode', ['--attach=http://localhost:4096'], '--attach=http://localhost:4096'],
+  ];
+
+  /** Safe arguments, including near-misses that only share a prefix with a rejected flag. */
+  const SAFE: Record<Harness, string[]> = {
+    claude: [
+      '--dangerously-skip-permissions',
+      '--model',
+      'claude-opus-5-5',
+      '--effort',
+      'xhigh',
+      '--continue-on-error',
+      '--no-session-persistence',
+    ],
+    codex: ['--sandbox', 'workspace-write', '-c', 'model_reasoning_effort="xhigh"', '--ephemeral'],
+    cursor: ['--force', '--model', 'grok-4.7-xhigh', '--resume-hint'],
+    gemini: ['--approval-mode', 'yolo', '-s', '--sessions-dir', 'x'],
+    copilot: ['--allow-all', '--model', 'x', '--name', 'review'],
+    opencode: ['--model', 'x', '--variant', 'high', '--continue-on-error', '--title', 'review'],
+  };
+
+  /** Variables a parent harness exports to its children, one or more per policy. */
+  const PARENT_SESSION_VARIABLES: Record<string, string> = {
+    CLAUDECODE: '1',
+    CLAUDE_CODE_SESSION_ID: 'parent-session',
+    CODEX_THREAD_ID: 'parent-thread',
+    CURSOR_CONVERSATION_ID: 'parent-conversation',
+    GEMINI_CLI_IN_SHELL: '1',
+    OPENCODE_SESSION_ID: 'ses_parent',
+  };
+  const CREDENTIAL = 'ANTHROPIC_API_KEY';
+  let restoreEnvironment: () => void;
+
+  beforeEach(() => {
+    restoreEnvironment = preserveEnvironment([
+      ...Object.keys(PARENT_SESSION_VARIABLES),
+      CREDENTIAL,
+    ]);
+    Object.assign(process.env, PARENT_SESSION_VARIABLES);
+    process.env[CREDENTIAL] = 'test-credential';
+  });
+
+  afterEach(() => restoreEnvironment());
+
+  const countingDependencies = () => {
+    const calls = { executableExists: 0, authenticate: 0, launch: 0 };
+    const commands: { authenticate?: StructuredCommand; launch?: StructuredCommand } = {};
+    const dependencies: ExternalDispatchDependencies = {
+      executableExists: () => {
+        calls.executableExists += 1;
+        return true;
+      },
+      authenticate: async command => {
+        calls.authenticate += 1;
+        commands.authenticate = command;
+        return { ok: true };
+      },
+      launch: async command => {
+        calls.launch += 1;
+        commands.launch = command;
+        return { exitCode: 0 };
+      },
+    };
+    return { calls, commands, dependencies };
+  };
+
+  it('exercises every rejected flag and subcommand of every harness policy', () => {
+    expect(Number.isInteger(REVIEW_SESSION_POLICY_VERSION)).toBe(true);
+    expect(Object.keys(REVIEW_SESSION_POLICIES).sort()).toEqual([...SUPPORTED_HARNESSES].sort());
+    for (const harness of SUPPORTED_HARNESSES) {
+      const policy = REVIEW_SESSION_POLICIES[harness];
+      const exercised = new Set(
+        REJECTED.filter(([candidate]) => candidate === harness).map(([, , element]) => element)
+      );
+      const missing = [...policy.rejectedFlags, ...policy.rejectedSubcommands].filter(
+        form => !exercised.has(form)
+      );
+      expect({ harness, missing }).toEqual({ harness, missing: [] });
+    }
+  });
+
+  it.each(REJECTED)(
+    '%s refuses %j at the validator and at dispatchReview, before any check or launch',
+    async (harness, cliArgs, element) => {
+      const index = cliArgs.indexOf(element);
+      const validation = validateReviewCliArgs(harness, cliArgs);
+      expect(validation.ok).toBe(false);
+      const detail = (validation as { detail: string }).detail;
+      expect(detail).toContain(harness);
+      expect(detail).toContain(`config.yaml harnesses.${harness}.cli_args[${index}]`);
+      expect(detail).toContain(`"${element}"`);
+      expect(detail).toContain('Remove it to get a clean review session.');
+
+      const { calls, dependencies } = countingDependencies();
+      const result = await dispatchReview(
+        { harness, cliArgs, workspace: '/w', prompt: 'Review this diff.' },
+        dependencies
+      );
+      expect(result).toEqual({ kind: 'fallback', reason: 'clean-session-unavailable', detail });
+      expect(calls).toEqual({ executableExists: 0, authenticate: 0, launch: 0 });
+      // A builder that skips validation still cannot produce an unsafe command.
+      expect(() => buildReviewCommand({ harness, cliArgs, workspace: '/w', prompt: 'p' })).toThrow(
+        detail
+      );
+    }
+  );
+
+  it.each(SUPPORTED_HARNESSES)(
+    '%s keeps safe arguments unchanged and in order in the review argv it launches',
+    async harness => {
+      const cliArgs = SAFE[harness];
+      const expected = [
+        ...MODE[harness],
+        ...REVIEW_SESSION_POLICIES[harness].freshSessionArgv,
+        ...cliArgs,
+        ...REVIEW_TAIL[harness],
+      ];
+      expect(validateReviewCliArgs(harness, cliArgs)).toEqual({ ok: true });
+      expect(buildReviewCommand({ harness, cliArgs, workspace: '/w', prompt: 'p' }).argv).toEqual(
+        expected
+      );
+
+      const { calls, commands, dependencies } = countingDependencies();
+      const result = await dispatchReview(
+        { harness, cliArgs, workspace: '/w', prompt: 'p' },
+        dependencies
+      );
+      expect(result).toEqual({ kind: 'launched-success', exitCode: 0 });
+      expect(calls).toEqual({ executableExists: 1, authenticate: 1, launch: 1 });
+      expect(commands.launch?.argv).toEqual(expected);
+      expect(commands.launch?.stdin).toBe('p');
+    }
+  );
+
+  it('removes every policy session variable from the reviewer environment and keeps credentials and PATH', async () => {
+    const policyVariables = new Set(
+      SUPPORTED_HARNESSES.flatMap(harness => REVIEW_SESSION_POLICIES[harness].sessionEnvironment)
+    );
+    for (const name of Object.keys(PARENT_SESSION_VARIABLES)) {
+      expect({ name, inPolicy: policyVariables.has(name) }).toEqual({ name, inPolicy: true });
+    }
+
+    // Variables of every harness go, whichever harness reviews: an implementer
+    // on one harness can launch a reviewer on another.
+    for (const harness of SUPPORTED_HARNESSES) {
+      const env = buildReviewCommand({ harness, workspace: '/w', prompt: 'p' }).env;
+      expect(env).toBeDefined();
+      const names = Object.keys(env ?? {});
+      expect(names.filter(name => policyVariables.has(name))).toEqual([]);
+      expect(env?.[CREDENTIAL] === 'test-credential').toBe(true);
+      expect(env?.PATH === process.env.PATH).toBe(true);
+    }
+    // The parent environment itself is untouched.
+    expect(process.env.CLAUDECODE).toBe('1');
+    expect(process.env.CLAUDE_CODE_SESSION_ID).toBe('parent-session');
+
+    const fromParent = buildReviewEnvironment({
+      CLAUDECODE: '1',
+      HOME: '/home/u',
+      CODEX_HOME: '/c',
+    });
+    expect(fromParent).toEqual({ HOME: '/home/u', CODEX_HOME: '/c' });
+
+    const { commands, dependencies } = countingDependencies();
+    await dispatchReview({ harness: 'claude', workspace: '/w', prompt: 'p' }, dependencies);
+    for (const command of [commands.authenticate, commands.launch]) {
+      const names = Object.keys(command?.env ?? { missing: true });
+      expect(names).not.toContain('missing');
+      expect(names.filter(name => policyVariables.has(name))).toEqual([]);
+    }
+  });
+
+  it.each(SUPPORTED_HARNESSES)(
+    '%s task dispatch forwards session-reuse arguments unchanged and has no env field',
+    async harness => {
+      const cliArgs = REJECTED.find(([candidate]) => candidate === harness)![1];
+      const command = buildExternalCommand({ ...request(harness), cliArgs });
+      expect(command.argv).toEqual([...MODE[harness], ...cliArgs, ...TASK_TAIL[harness]]);
+      expect('env' in command).toBe(false);
+
+      const { commands, dependencies } = countingDependencies();
+      const result = await dispatchExternalTask({ ...request(harness), cliArgs }, dependencies);
+      expect(result).toEqual({ kind: 'launched-success', exitCode: 0 });
+      expect(commands.launch?.argv).toEqual(command.argv);
+      expect('env' in (commands.launch ?? {})).toBe(false);
+      expect('env' in (commands.authenticate ?? {})).toBe(false);
+    }
+  );
+});
+
+/**
  * The probe deadline is compiled. `config.yaml` configures what a harness is
  * launched with, never how long orchestration may wait for its status check. A
  * configurable bound could be set back to "forever", which is the hang this
@@ -531,6 +828,43 @@ describe.skipIf(process.platform === 'win32')('bounded authentication probe', ()
       '--model',
       'vendor/model-X:preview',
     ]);
+  });
+
+  it('spawns the reviewer probe and launch without parent session variables, while task children inherit them', async () => {
+    const watched = ['CLAUDECODE', 'CLAUDE_CODE_SESSION_ID', 'ANTHROPIC_API_KEY'];
+    const restore = preserveEnvironment(watched);
+    process.env.CLAUDECODE = '1';
+    process.env.CLAUDE_CODE_SESSION_ID = 'parent-session';
+    process.env.ANTHROPIC_API_KEY = 'test-credential';
+    const probeEnvFile = path.join(dir, 'probe.env.json');
+    const launchEnvFile = path.join(dir, 'launch.env.json');
+    // Record which watched names the child sees. Names only, never values.
+    const recordNames = (file: string): string =>
+      `fs.writeFileSync(${JSON.stringify(file)}, JSON.stringify(${JSON.stringify(
+        watched
+      )}.filter(name => name in process.env)));`;
+    writeFakeClaude(
+      `${recordNames(probeEnvFile)}\n  process.exit(0);`,
+      `${recordNames(launchEnvFile)}\n  drain();`
+    );
+    const seen = (file: string): unknown => JSON.parse(fs.readFileSync(file, 'utf8'));
+
+    try {
+      const review = await dispatchReview(
+        { harness: 'claude', workspace: dir, prompt: 'Review this diff.' },
+        boundedProbe()
+      );
+      expect(review).toMatchObject({ kind: 'launched-success', exitCode: 0 });
+      expect(seen(probeEnvFile)).toEqual(['ANTHROPIC_API_KEY']);
+      expect(seen(launchEnvFile)).toEqual(['ANTHROPIC_API_KEY']);
+
+      const task = await dispatchExternalTask(taskRequest(), boundedProbe());
+      expect(task).toEqual({ kind: 'launched-success', exitCode: 0 });
+      expect(seen(probeEnvFile)).toEqual(watched);
+      expect(seen(launchEnvFile)).toEqual(watched);
+    } finally {
+      restore();
+    }
   });
 
   it('leaves task dispatch and reviewer dispatch unbounded past the probe deadline', async () => {

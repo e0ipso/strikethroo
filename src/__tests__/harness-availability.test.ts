@@ -180,6 +180,133 @@ process.exit(7);
     expect(result.reason).toContain('ENOENT');
   });
 
+  describe('review purpose', () => {
+    const reviewRequest = () => ({
+      ...request(),
+      harness: 'claude' as const,
+      currentHarness: 'claude' as const,
+      purpose: 'review' as const,
+    });
+
+    let savedClaudeCode: string | undefined;
+    beforeEach(() => {
+      savedClaudeCode = process.env.CLAUDECODE;
+      process.env.CLAUDECODE = '1';
+    });
+    afterEach(() => {
+      if (savedClaudeCode === undefined) delete process.env.CLAUDECODE;
+      else process.env.CLAUDECODE = savedClaudeCode;
+    });
+
+    it('probes the current harness with a clean-session command and caches the result', async () => {
+      writeConfig(['--permission-mode', 'acceptEdits']);
+      const base = successfulProbe();
+      const runProbe = vi.fn(base.runProbe);
+      const dependencies = { ...base, runProbe };
+
+      const first = await checkHarnessAvailability(reviewRequest(), dependencies);
+      expect(first).toMatchObject({ harness: 'claude', available: true, source: 'probe' });
+      expect(runProbe).toHaveBeenCalledTimes(1);
+      const command = runProbe.mock.calls[0]![0];
+      expect(command.argv).toEqual(['-p', '--permission-mode', 'acceptEdits']);
+      expect(command.env).toBeDefined();
+      expect(command.env).not.toHaveProperty('CLAUDECODE');
+      expect(command.env).toHaveProperty('PATH', process.env.PATH);
+
+      const second = await checkHarnessAvailability(reviewRequest(), dependencies);
+      expect(second.source).toBe('cache');
+      expect(runProbe).toHaveBeenCalledTimes(1);
+    });
+
+    it('passes the cleaned environment to the real probe process', async () => {
+      writeConfig([]);
+      const executable = path.join(root, 'fake-harness');
+      fs.writeFileSync(
+        executable,
+        `#!/usr/bin/env node
+process.stdout.write('CLAUDECODE=' + (process.env.CLAUDECODE ?? 'unset'));
+process.exit(7);
+`,
+        { mode: 0o755 }
+      );
+      const dependencies = { resolveExecutable: () => executable };
+
+      const review = await checkHarnessAvailability(reviewRequest(), dependencies);
+      expect(review.reason).toContain('CLAUDECODE=unset');
+      const task = await checkHarnessAvailability(request(), dependencies);
+      expect(task.reason).toContain('CLAUDECODE=1');
+    });
+
+    it('does not bypass a missing current-harness executable, and needs an explicit harness', async () => {
+      writeConfig([]);
+      const runProbe = vi.fn();
+      const missing = await checkHarnessAvailability(reviewRequest(), {
+        resolveExecutable: () => null,
+        runProbe,
+      });
+      expect(missing).toMatchObject({ available: false, source: 'probe' });
+      expect(missing.reason).toContain("'claude' was not found on PATH");
+
+      const { harness: _harness, ...withoutHarness } = reviewRequest();
+      const implicit = await checkHarnessAvailability(withoutHarness, {
+        ...successfulProbe(),
+        runProbe,
+      });
+      expect(implicit).toMatchObject({ harness: 'claude', available: false });
+      expect(implicit.source).not.toBe('bypass');
+      expect(implicit.reason).toContain('explicit harness');
+      expect(runProbe).not.toHaveBeenCalled();
+    });
+
+    it('rejects a session-reuse argument without probing or caching', async () => {
+      writeConfig(['--resume', 'abc']);
+      const runProbe = vi.fn();
+      const result = await checkHarnessAvailability(reviewRequest(), {
+        resolveExecutable: () => '/opt/bin/claude',
+        runProbe,
+      });
+
+      expect(result).toMatchObject({ available: false, source: 'probe' });
+      expect(result.reason).toContain('harnesses.claude.cli_args[0]');
+      expect(result.reason).toContain('--resume');
+      expect(runProbe).not.toHaveBeenCalled();
+      expect(fs.existsSync(path.join(root, AVAILABILITY_CACHE_RELATIVE_PATH))).toBe(false);
+    });
+
+    it('keeps task and review cache entries apart in both directions', async () => {
+      writeConfig(['--same']);
+      const task = { ...request(), purpose: 'task' as const };
+      const review = { ...request(), purpose: 'review' as const };
+      const dependencies = (runProbe: ReturnType<typeof vi.fn>) => ({
+        now: () => 1_000,
+        resolveExecutable: () => '/opt/bin/claude',
+        runProbe,
+      });
+
+      const taskFirst = vi.fn(successfulProbe().runProbe);
+      expect((await checkHarnessAvailability(task, dependencies(taskFirst))).source).toBe('probe');
+      expect((await checkHarnessAvailability(review, dependencies(taskFirst))).source).toBe(
+        'probe'
+      );
+      expect(taskFirst).toHaveBeenCalledTimes(2);
+      expect((await checkHarnessAvailability(task, dependencies(taskFirst))).source).toBe('cache');
+      expect((await checkHarnessAvailability(review, dependencies(taskFirst))).source).toBe(
+        'cache'
+      );
+      expect(taskFirst).toHaveBeenCalledTimes(2);
+
+      fs.rmSync(path.join(root, AVAILABILITY_CACHE_RELATIVE_PATH));
+      const reviewFirst = vi.fn(successfulProbe().runProbe);
+      expect((await checkHarnessAvailability(review, dependencies(reviewFirst))).source).toBe(
+        'probe'
+      );
+      expect((await checkHarnessAvailability(task, dependencies(reviewFirst))).source).toBe(
+        'probe'
+      );
+      expect(reviewFirst).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it('caches by executable path and ordered argument hash', async () => {
     writeConfig(['--first']);
     const runProbe = vi.fn(successfulProbe().runProbe);

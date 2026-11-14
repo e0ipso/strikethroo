@@ -53,15 +53,20 @@ the model to stop, that is not a bound.
 
 ## Nobody marks their own homework
 
-The reviewer runs on a **different harness** than the one that wrote the code —
-structurally excluded from the candidate set, not merely deprioritized — and it
-**detects but never fixes**. Same reason execution routing exists: models fail
-differently, so a second model is an independent sample, not a cheaper one.
+The reviewer starts in a **clean session**. It receives only the review mandate,
+the plan, the findings schema, and the cumulative diff. It never sees the
+implementation conversation. It **detects but never fixes**.
+
+Strikethroo prefers a ready harness other than the current one, because a
+different CLI may sample a different model. That is best effort. A CLI does not
+report which provider or model it uses, so another harness is not proof of
+another model. If no other harness is ready, the current harness reviews, still
+in a clean session. Review refuses `cli_args` that reuse an existing session.
 
 ## The costs
 
 - **The reviewer will miss "works, matches the plan, wrong abstraction."**
-  Deliberately excluded: a second model is confidently wrong often enough that a
+  Deliberately excluded: a reviewer model is confidently wrong often enough that a
   narrow mandate beats a broad one, and design judgment is what your own read of
   the diff is preserved for.
 - **The gate fixes nothing for you.** It reports; you decide. That costs you a

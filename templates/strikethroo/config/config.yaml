@@ -7,9 +7,11 @@
 # web UI rewrites this file and does not preserve comments.
 #
 # Sections:
-#   code_review — report-only review on a second harness, enabled only by an
+#   code_review — report-only review in a clean session, enabled only by an
 #     explicit true boolean. Missing also means false. CODE_REVIEW.md supplies
 #     the mandate after opt-in; its presence alone never enables review.
+#     Review prefers a ready harness other than the current one, then falls
+#     back to the current harness. Review rejects session-reuse cli_args.
 #   harnesses — exact ordered argv elements added when Strikethroo invokes the
 #     named external CLI. The local user owns the resulting permissions. Values
 #     are never split or shell-expanded. Keep secrets and machine paths out of
@@ -67,7 +69,8 @@ harnesses:
 execution_routing:
   enabled: true
   # Restrict task targets to the orchestrator's harness unless explicitly enabled.
-  # Missing also means false. The code review gate still uses a second harness.
+  # Missing also means false. This does not affect code review. Review rejects
+  # harnesses.<h>.cli_args that reuse a session (for example --resume).
   allow_external_harness_execution: false
   profiles:
     docs-and-config:

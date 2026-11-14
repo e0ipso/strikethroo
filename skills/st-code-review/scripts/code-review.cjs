@@ -207,7 +207,7 @@ var extractReviewDocument = (stdout, token) => {
 };
 var buildReviewerPrompt = (input) => `Strikethroo code review gate \u2014 Plan ${input.planId}.
 
-You are the independent reviewer on a different harness than the implementer.
+You are the independent reviewer, running in a fresh session. Do not resume or consult any earlier conversation. All context comes from the mandate, plan, schema, and diff named below.
 Do not edit, create, or delete source files. Do not run formatters or commit.
 Report finding counts, then print one complete findings document as your final output.
 
@@ -3287,74 +3287,188 @@ var executableResolves = (executable, environment) => resolveExecutablePath(exec
 
 // src/skill-scripts/shared/external-dispatch.ts
 var import_child_process2 = require("child_process");
-var adapter = (executable, authenticationArgv, argv) => ({
+
+// src/skill-scripts/shared/review-session-policy.ts
+var REVIEW_SESSION_POLICY_VERSION = 1;
+var REVIEW_SESSION_POLICIES = Object.freeze({
+  // `claude -p` starts a new session. `-c -p` and `-r <id>` continue one.
+  claude: {
+    freshSessionArgv: [],
+    rejectedFlags: [
+      "--continue",
+      "-c",
+      "--resume",
+      "-r",
+      "--session-id",
+      "--fork-session",
+      "--from-pr",
+      "--teleport",
+      // With a session ID or URL, `--cloud` queues into an existing session.
+      // `--remote` is its deprecated alias, including that form.
+      "--cloud",
+      "--remote"
+    ],
+    rejectedSubcommands: [],
+    sessionEnvironment: [
+      "CLAUDECODE",
+      "CLAUDE_CODE_CHILD_SESSION",
+      "CLAUDE_CODE_SESSION_ID",
+      "CLAUDE_CODE_BRIDGE_SESSION_ID",
+      "CLAUDE_CODE_REMOTE_SESSION_ID",
+      "CLAUDE_CODE_MESSAGING_SOCKET",
+      "CLAUDE_CODE_MESSAGING_TOKEN",
+      "CLAUDE_CODE_SESSION_ATTENDED",
+      "CLAUDE_CODE_ENTRYPOINT",
+      "CLAUDE_PID"
+    ]
+  },
+  // `codex exec` starts a new session. `exec resume` and `exec fork` reuse one.
+  codex: {
+    freshSessionArgv: [],
+    rejectedFlags: [],
+    rejectedSubcommands: ["resume", "fork"],
+    sessionEnvironment: ["CODEX_THREAD_ID"]
+  },
+  // `cursor-agent --print` starts a new chat. `--continue` is `--resume=-1`.
+  cursor: {
+    freshSessionArgv: [],
+    rejectedFlags: ["--resume", "--continue"],
+    rejectedSubcommands: ["resume", "ls", "persist"],
+    sessionEnvironment: [
+      "CURSOR_CONVERSATION_ID",
+      "CURSOR_REQUEST_ID",
+      "CURSOR_AGENT_STORE_FILES_DIR",
+      "CURSOR_AGENT_STORE_SHARED_PATHS",
+      "CURSOR_AGENT_CHAT_ID"
+    ]
+  },
+  // `gemini --prompt` starts a new session. The list and delete flags act on
+  // stored sessions and exit, so no review runs.
+  gemini: {
+    freshSessionArgv: [],
+    rejectedFlags: ["--resume", "-r", "--list-sessions", "--delete-session"],
+    rejectedSubcommands: [],
+    sessionEnvironment: ["GEMINI_CLI_IN_SHELL", "GEMINI_CLI_NESTED_SESSION"]
+  },
+  // `copilot -p` starts a new session. `--session-id` resumes a matching one.
+  copilot: {
+    freshSessionArgv: [],
+    rejectedFlags: ["--resume", "-r", "--continue", "--session-id", "--connect"],
+    rejectedSubcommands: [],
+    sessionEnvironment: []
+  },
+  // `opencode run` starts a new session. `--attach` (v1) connects the run to
+  // a running server that can hold the implementer's session.
+  opencode: {
+    freshSessionArgv: [],
+    rejectedFlags: ["--continue", "-c", "--session", "-s", "--fork", "--attach"],
+    rejectedSubcommands: [],
+    sessionEnvironment: ["OPENCODE_SESSION_ID"]
+  }
+});
+var policyKeys = Object.keys(REVIEW_SESSION_POLICIES).sort();
+var harnessKeys = [...SUPPORTED_HARNESSES].sort();
+if (policyKeys.join("\0") !== harnessKeys.join("\0")) {
+  throw new Error("Review session policy registry does not cover SUPPORTED_HARNESSES exactly.");
+}
+var REVIEW_SESSION_ENVIRONMENT = new Set(
+  SUPPORTED_HARNESSES.flatMap((harness) => REVIEW_SESSION_POLICIES[harness].sessionEnvironment)
+);
+var shortOptionGroup = (element) => element.startsWith("-") && !element.startsWith("--") ? element.slice(1).split("=")[0] : "";
+var matchesFlag = (element, flag) => element === flag || (flag.startsWith("--") ? element.startsWith(`${flag}=`) : shortOptionGroup(element).includes(flag.slice(1)));
+var reusesSession = (policy, element) => policy.rejectedSubcommands.includes(element) || policy.rejectedFlags.some((flag) => matchesFlag(element, flag));
+var validateReviewCliArgs = (harness, cliArgs) => {
+  if (!Object.prototype.hasOwnProperty.call(REVIEW_SESSION_POLICIES, harness)) {
+    return {
+      ok: false,
+      detail: `No clean review session policy is registered for ${harness}.`
+    };
+  }
+  const policy = REVIEW_SESSION_POLICIES[harness];
+  const index = cliArgs.findIndex((element) => reusesSession(policy, element));
+  if (index === -1) return { ok: true };
+  return {
+    ok: false,
+    detail: `${harness} cannot start a clean review session. config.yaml harnesses.${harness}.cli_args[${index}] is "${cliArgs[index]}". This argument can make ${harness} use an existing session instead of a new one. Strikethroo does not remove configured arguments silently. Remove it to get a clean review session.`
+  };
+};
+var buildReviewEnvironment = (parent = process.env) => {
+  const environment = {};
+  for (const [name, value] of Object.entries(parent)) {
+    if (!REVIEW_SESSION_ENVIRONMENT.has(name)) environment[name] = value;
+  }
+  return environment;
+};
+
+// src/skill-scripts/shared/external-dispatch.ts
+var adapter = (executable, authenticationArgv, modeArgv, optionArgv) => ({
   executable,
   authenticationArgv: () => [...authenticationArgv],
   buildCommand: (request) => ({
     executable,
-    argv: argv(request),
+    argv: [
+      ...modeArgv,
+      ...request.freshSessionArgv ?? [],
+      ...request.cliArgs,
+      ...optionArgv(request)
+    ],
     cwd: request.workspace,
     stdin: request.prompt
   })
 });
 var modelArgv = (model) => model === void 0 ? [] : ["--model", model];
 var EXTERNAL_HARNESS_ADAPTERS = {
-  claude: adapter("claude", ["auth", "status"], (request) => [
-    "-p",
-    ...request.cliArgs,
+  claude: adapter("claude", ["auth", "status"], ["-p"], (request) => [
     ...modelArgv(request.model),
     ...request.reasoningEffort === void 0 ? [] : ["--effort", request.reasoningEffort]
   ]),
-  codex: adapter("codex", ["login", "status"], (request) => [
-    "exec",
-    ...request.cliArgs,
+  codex: adapter("codex", ["login", "status"], ["exec"], (request) => [
     ...modelArgv(request.model),
     ...request.reasoningEffort === void 0 ? [] : ["--config", `model_reasoning_effort=${request.reasoningEffort}`],
     "-"
   ]),
-  cursor: adapter("cursor-agent", ["status"], (request) => [
-    "--print",
-    ...request.cliArgs,
-    ...modelArgv(request.model)
-  ]),
+  cursor: adapter("cursor-agent", ["status"], ["--print"], (request) => modelArgv(request.model)),
   // Gemini and Copilot require an empty prompt argument; content travels on stdin.
-  gemini: adapter("gemini", ["auth", "status"], (request) => [
-    "--prompt",
-    "",
-    ...request.cliArgs,
-    ...modelArgv(request.model)
-  ]),
-  copilot: adapter("copilot", ["auth", "status"], (request) => [
-    "-p",
-    "",
-    ...request.cliArgs,
-    ...modelArgv(request.model)
-  ]),
-  opencode: adapter("opencode", ["auth", "list"], (request) => [
-    "run",
-    ...request.cliArgs,
+  gemini: adapter(
+    "gemini",
+    ["auth", "status"],
+    ["--prompt", ""],
+    (request) => modelArgv(request.model)
+  ),
+  copilot: adapter("copilot", ["auth", "status"], ["-p", ""], (request) => modelArgv(request.model)),
+  opencode: adapter("opencode", ["auth", "list"], ["run"], (request) => [
     ...modelArgv(request.model),
     ...request.reasoningEffort === void 0 ? [] : ["--variant", request.reasoningEffort],
     "-"
   ])
 };
 var adapterKeys = Object.keys(EXTERNAL_HARNESS_ADAPTERS).sort();
-var harnessKeys = [...SUPPORTED_HARNESSES].sort();
-if (adapterKeys.join("\0") !== harnessKeys.join("\0")) {
+var harnessKeys2 = [...SUPPORTED_HARNESSES].sort();
+if (adapterKeys.join("\0") !== harnessKeys2.join("\0")) {
   throw new Error("External harness adapter registry does not cover SUPPORTED_HARNESSES exactly.");
 }
 var reviewCommandRequest = (request) => ({
   cliArgs: request.cliArgs ?? [],
+  freshSessionArgv: REVIEW_SESSION_POLICIES[request.harness].freshSessionArgv,
   workspace: request.workspace,
   prompt: request.prompt
 });
+var buildReviewCommand = (request) => {
+  const cleanSession = validateReviewCliArgs(request.harness, request.cliArgs ?? []);
+  if (!cleanSession.ok) throw new Error(cleanSession.detail);
+  return {
+    ...EXTERNAL_HARNESS_ADAPTERS[request.harness].buildCommand(reviewCommandRequest(request)),
+    env: buildReviewEnvironment()
+  };
+};
 var CAPTURED_STDOUT_LIMIT = 262144;
 var AUTHENTICATION_TIMEOUT_MS = 3e4;
-var runProcess = (executable, argv, cwd, stdin, outputMode = "ignore", timeoutMs) => new Promise((resolve5, reject) => {
+var runProcess = (executable, argv, cwd, stdin, outputMode = "ignore", timeoutMs, env) => new Promise((resolve5, reject) => {
   let settled = false;
   const child = (0, import_child_process2.spawn)(executable, argv, {
     cwd,
     shell: false,
+    ...env ? { env } : {},
     stdio: [
       stdin === void 0 ? "ignore" : "pipe",
       outputMode === "capture" ? "pipe" : outputMode,
@@ -3416,7 +3530,8 @@ var authenticateHarness = async (commandSpec, adapter2, timeoutMs = AUTHENTICATI
       commandSpec.cwd,
       void 0,
       "ignore",
-      timeoutMs
+      timeoutMs,
+      commandSpec.env
     );
     if (result.timedOut === true) {
       return {
@@ -3444,11 +3559,13 @@ var dependencies = {
     commandSpec.argv,
     commandSpec.cwd,
     commandSpec.stdin,
-    options?.captureStdout === true ? "capture" : "inherit"
+    options?.captureStdout === true ? "capture" : "inherit",
+    void 0,
+    commandSpec.env
   )
 };
 var errorMessage = (error) => error instanceof Error ? error.message : String(error);
-var dispatch = async (harness, input, overrides, label, captureStdout = false) => {
+var dispatch = async (harness, reasoningEffort, buildCommand, overrides, label, captureStdout = false) => {
   const active = { ...dependencies, ...overrides };
   const adapter2 = EXTERNAL_HARNESS_ADAPTERS[harness];
   if (!adapter2) {
@@ -3458,7 +3575,7 @@ var dispatch = async (harness, input, overrides, label, captureStdout = false) =
       detail: `No adapter is registered for ${harness}.`
     };
   }
-  if (input.reasoningEffort !== void 0 && (harness === "cursor" || harness === "gemini" || harness === "copilot")) {
+  if (reasoningEffort !== void 0 && (harness === "cursor" || harness === "gemini" || harness === "copilot")) {
     return {
       kind: "fallback",
       reason: "unsupported-reasoning-effort",
@@ -3473,7 +3590,7 @@ var dispatch = async (harness, input, overrides, label, captureStdout = false) =
       detail: `${executable} is unavailable.`
     };
   }
-  const commandSpec = adapter2.buildCommand(input);
+  const commandSpec = buildCommand();
   const authentication = await active.authenticate(commandSpec, adapter2);
   if (!authentication.ok) {
     return {
@@ -3493,10 +3610,23 @@ var dispatch = async (harness, input, overrides, label, captureStdout = false) =
     };
   }
 };
-var dispatchReview = async (request, overrides = {}) => dispatch(request.harness, reviewCommandRequest(request), overrides, "review", true);
+var dispatchReview = async (request, overrides = {}) => {
+  const cleanSession = validateReviewCliArgs(request.harness, request.cliArgs ?? []);
+  if (!cleanSession.ok) {
+    return { kind: "fallback", reason: "clean-session-unavailable", detail: cleanSession.detail };
+  }
+  return dispatch(
+    request.harness,
+    void 0,
+    () => buildReviewCommand(request),
+    overrides,
+    "review",
+    true
+  );
+};
 
 // src/skill-scripts/shared/harness-availability.ts
-var AVAILABILITY_REGISTRY_VERSION = 4;
+var AVAILABILITY_REGISTRY_VERSION = 5;
 var AVAILABLE_TTL_MS = 30 * 60 * 1e3;
 var UNAVAILABLE_TTL_MS = 5 * 60 * 1e3;
 var PROBE_TIMEOUT_MS = 2e4;
@@ -3527,6 +3657,7 @@ var runProbe = (command, timeoutMs) => new Promise((resolve5) => {
   const child = (0, import_child_process3.spawn)(command.executable, command.argv, {
     cwd: command.cwd,
     shell: false,
+    ...command.env ? { env: command.env } : {},
     stdio: ["pipe", "pipe", "pipe"]
   });
   child.stdout?.setEncoding("utf8");
@@ -3606,13 +3737,15 @@ var writeCache = (cachePath, entry) => {
     }
   }
 };
-var cacheKey = (harness, executableIdentity, invocation) => (0, import_crypto2.createHash)("sha256").update(
+var cacheKey = (harness, executableIdentity, invocation, purpose) => (0, import_crypto2.createHash)("sha256").update(
   JSON.stringify({
     harness,
     executableIdentity,
     cliArgsHash: invocation.cliArgsHash,
     normalizationVersion: HARNESS_CONFIGURATION_NORMALIZATION_VERSION,
-    probeRegistryVersion: AVAILABILITY_REGISTRY_VERSION
+    probeRegistryVersion: AVAILABILITY_REGISTRY_VERSION,
+    purpose,
+    ...purpose === "review" ? { reviewSessionPolicyVersion: REVIEW_SESSION_POLICY_VERSION } : {}
   })
 ).digest("hex");
 var readinessEvidence = () => {
@@ -3662,19 +3795,31 @@ var invocationFor = (request, harness) => {
 var checkHarnessAvailability = async (request, overrides = {}) => {
   const active = { ...defaultDependencies, ...overrides };
   const now = active.now();
-  if (request.harness === void 0 || request.harness === request.currentHarness) {
-    return {
-      harness: request.harness ?? request.currentHarness,
-      available: true,
-      observedAt: now,
-      expiresAt: now,
-      reason: "Native/current harness targets do not require a probe.",
-      source: "bypass"
-    };
-  }
+  const purpose = request.purpose ?? "task";
+  const bypass = (target) => ({
+    harness: target,
+    available: true,
+    observedAt: now,
+    expiresAt: now,
+    reason: "Native/current harness targets do not require a probe.",
+    source: "bypass"
+  });
   const harness = request.harness;
+  if (harness === void 0) {
+    return purpose === "review" ? outcome(
+      request.currentHarness,
+      false,
+      now,
+      "Review readiness requires an explicit harness."
+    ) : bypass(request.currentHarness);
+  }
+  if (purpose === "task" && harness === request.currentHarness) return bypass(harness);
   const invocation = invocationFor(request, harness);
   if (!invocation) return outcome(harness, false, now, "Harness configuration is invalid.");
+  if (purpose === "review") {
+    const cleanSession = validateReviewCliArgs(harness, invocation.cliArgs);
+    if (!cleanSession.ok) return outcome(harness, false, now, cleanSession.detail);
+  }
   const definition = HARNESS_AVAILABILITY_REGISTRY[harness];
   const executableIdentity = active.resolveExecutable(definition.executable);
   if (!executableIdentity)
@@ -3684,7 +3829,7 @@ var checkHarnessAvailability = async (request, overrides = {}) => {
       now,
       `Harness executable '${definition.executable}' was not found on PATH.`
     );
-  const key = cacheKey(harness, executableIdentity, invocation);
+  const key = cacheKey(harness, executableIdentity, invocation, purpose);
   const cachePath = path8.join(request.strikethrooRoot, AVAILABILITY_CACHE_RELATIVE_PATH);
   const cached = readCache(cachePath).entries.find(
     (entry) => entry.key === key && entry.expiresAt > now
@@ -3714,11 +3859,13 @@ var checkHarnessAvailability = async (request, overrides = {}) => {
   }
   try {
     const evidence = readinessEvidence();
-    const command = definition.buildCommand(
-      probeWorkspace,
-      invocation.cliArgs,
-      readinessPrompt(evidence)
-    );
+    const prompt = readinessPrompt(evidence);
+    const command = purpose === "review" ? buildReviewCommand({
+      harness,
+      cliArgs: invocation.cliArgs,
+      workspace: probeWorkspace,
+      prompt
+    }) : definition.buildCommand(probeWorkspace, invocation.cliArgs, prompt);
     const probe = await active.runProbe(
       { ...command, executable: executableIdentity },
       PROBE_TIMEOUT_MS
@@ -3745,11 +3892,11 @@ var discoverHarnesses = async (request, overrides = {}) => {
     return {
       outcomes: SUPPORTED_HARNESSES.map((harness) => ({
         harness,
-        available: harness === request.currentHarness,
+        available: false,
         observedAt: now,
         expiresAt: now,
-        reason: harness === request.currentHarness ? "Native/current harness targets do not require a probe." : "Harness configuration is invalid.",
-        source: harness === request.currentHarness ? "bypass" : "probe"
+        reason: "Harness configuration is invalid.",
+        source: "probe"
       })),
       reviewerCandidates: [],
       configurationErrors: configuration.errors
@@ -3764,7 +3911,8 @@ var discoverHarnesses = async (request, overrides = {}) => {
             workspace: request.workspace,
             harness,
             currentHarness: request.currentHarness,
-            invocation: configuration.config[harness]
+            invocation: configuration.config[harness],
+            purpose: "review"
           },
           overrides
         );
@@ -3781,11 +3929,11 @@ var discoverHarnesses = async (request, overrides = {}) => {
       }
     })
   );
-  const reviewerCandidates = SUPPORTED_HARNESSES.filter((harness) => {
-    if (harness === request.currentHarness) return false;
-    const outcome2 = outcomes.find((candidate) => candidate.harness === harness);
-    return outcome2?.available === true;
-  });
+  const isReady = (harness) => outcomes.find((candidate) => candidate.harness === harness)?.available === true;
+  const alternatives = SUPPORTED_HARNESSES.filter(
+    (harness) => harness !== request.currentHarness && isReady(harness)
+  );
+  const reviewerCandidates = isReady(request.currentHarness) ? [...alternatives, request.currentHarness] : alternatives;
   const reviewerInvocations = Object.fromEntries(
     reviewerCandidates.map((harness) => [harness, { cliArgs: configuration.config[harness].cliArgs }])
   );
@@ -4232,9 +4380,10 @@ var runReview = async (request, overrides = {}) => {
   if (harness === void 0) {
     return skip(
       "no-reviewer-candidate",
-      `No reviewer candidate; review gate skipped. ${request.currentHarness} is excluded as the current harness. ` + SUPPORTED_HARNESSES.filter((candidate) => candidate !== request.currentHarness).map((candidate) => {
+      "No harness passed the clean-session readiness check; review gate skipped. " + SUPPORTED_HARNESSES.map((candidate) => {
         const outcome2 = discovery.outcomes.find((item) => item.harness === candidate);
-        return `${candidate}: ${outcome2?.reason ?? "No availability outcome was reported."}` + (outcome2?.source === "cache" ? " (cached readiness result)" : "");
+        const label = candidate === request.currentHarness ? `${candidate} (current harness)` : candidate;
+        return `${label}: ${outcome2?.reason ?? "No availability outcome was reported."}` + (outcome2?.source === "cache" ? " (cached readiness result)" : "");
       }).join(" ")
     );
   }

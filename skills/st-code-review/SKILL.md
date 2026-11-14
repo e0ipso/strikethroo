@@ -1,6 +1,6 @@
 ---
 name: st-code-review
-description: Use when the blueprint execution gate asks for an independent second-harness review of a Strikethroo plan's cumulative diff in this repository — triggers include code review gate, review the plan diff, second-model review, CODE_REVIEW hook, review the cumulative diff. Do not use to review a single task, to review code outside a Strikethroo plan, or to give general code-quality or style opinions.
+description: Use when the blueprint execution gate asks for an independent review of a Strikethroo plan's cumulative diff in this repository — triggers include code review gate, review the plan diff, independent review, CODE_REVIEW hook, review the cumulative diff. Do not use to review a single task, to review code outside a Strikethroo plan, or to give general code-quality or style opinions.
 ---
 
 <!--
@@ -11,7 +11,7 @@ description: Use when the blueprint execution gate asks for an independent secon
 
 # st-code-review
 
-Review a Strikethroo plan's cumulative diff as an independent reviewer, running on a different harness than the one that wrote the code. `<root>` is the workspace root the dispatch supplies.
+Review a Strikethroo plan's cumulative diff as an independent reviewer. You run in a fresh session, independent of the implementation conversation. `<root>` is the workspace root the dispatch supplies.
 
 Your findings are recorded, not applied. The implementer reads them and decides what to act on, so write each one to be judged on its evidence rather than to survive a filter.
 

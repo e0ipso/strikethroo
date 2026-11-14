@@ -1,3 +1,9 @@
+## [4.7.0](https://github.com/e0ipso/strikethroo/compare/v4.6.0...v4.7.0) (2026-11-14)
+
+### Features
+
+* **review:** allow same-harness review in a clean session ([#172](https://github.com/e0ipso/strikethroo/issues/172)) ([12bb61e](https://github.com/e0ipso/strikethroo/commit/12bb61e944a14516f7be72afc67f8d32c97461b4))
+
 ## [4.6.0](https://github.com/e0ipso/strikethroo/compare/v4.5.1...v4.6.0) (2026-11-13)
 
 ### Features

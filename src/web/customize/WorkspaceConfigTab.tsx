@@ -527,8 +527,8 @@ function ConfigForm({ file, readError }: { file: ConfigFile; readError?: Error }
             className="max-w-3xl font-sans text-sm leading-relaxed text-ink-2"
           >
             Off by default, including when this setting is absent from config.yaml. Turn it on to
-            request a report-only review on a second harness after execution. The CODE_REVIEW.md
-            hook supplies the review instructions and must also be present and nonempty.
+            request a report-only review in a clean session after execution. The CODE_REVIEW.md hook
+            supplies the review instructions and must also be present and nonempty.
           </p>
         </section>
 
@@ -585,7 +585,7 @@ function ConfigForm({ file, readError }: { file: ConfigFile; readError?: Error }
               specified. If none remain in the selected profile, tasks use the current
               harness&apos;s default model and reasoning. Turn this on to also allow targets on
               other harnesses. This applies to custom selectors too. Code review has its own opt-in
-              above and uses a second harness when enabled.
+              above and runs in a clean session when enabled.
             </p>
             {routing.profiles.map((profile, index) => (
               <ProfileCard

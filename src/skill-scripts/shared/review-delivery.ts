@@ -58,7 +58,7 @@ export interface ReviewerPromptInput {
 export const buildReviewerPrompt = (input: ReviewerPromptInput): string =>
   `Strikethroo code review gate — Plan ${input.planId}.
 
-You are the independent reviewer on a different harness than the implementer.
+You are the independent reviewer, running in a fresh session. Do not resume or consult any earlier conversation. All context comes from the mandate, plan, schema, and diff named below.
 Do not edit, create, or delete source files. Do not run formatters or commit.
 Report finding counts, then print one complete findings document as your final output.
 

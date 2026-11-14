@@ -28,7 +28,7 @@ flowchart LR
     style J fill:#c8e6c9
 ```
 
-One human gate sits before any code exists: you **review** the plan, looping back to edit until it is right. Then you run it, and **review** the result. An optional automated review gate runs in between: a discovered second harness critiques the cumulative diff and records its findings for you, before your read of the result.
+One human gate sits before any code exists: you **review** the plan, looping back to edit until it is right. Then you run it, and **review** the result. An optional automated review gate runs in between: a reviewer in a clean session critiques the cumulative diff and records its findings for you, before your read of the result.
 
 That distribution of effort is deliberate, not incidental. Attention is **rationed toward the point where a correction is cheapest** -- a misunderstanding costs one sentence to fix in the plan and a full review cycle to fix in the diff. So the plan gets your careful read, and the task blueprint gets generated for you rather than reviewed by you. See [Why Strikethroo](why.html) for the reasoning in full.
 
@@ -111,7 +111,7 @@ Each task's implementation notes capture what actually happened during execution
 
 ### 5. Automated Code Review (Optional)
 
-After `POST_EXECUTION` reports green, an opted-in code review gate runs when `code_review.enabled` is explicitly `true`, a second harness is discovered, and the [`CODE_REVIEW`](customization.html#code_review) hook is present and non-empty. A discovered reviewer harness critiques the cumulative diff against the plan's requirements and emits schema-validated findings.
+After `POST_EXECUTION` reports green, an opted-in code review gate runs when `code_review.enabled` is explicitly `true`, at least one harness passes the clean-session readiness check, and the [`CODE_REVIEW`](customization.html#code_review) hook is present and non-empty. Strikethroo prefers a ready harness other than the current one, in stable order, and falls back to the current harness. The reviewer starts in a clean session, critiques the cumulative diff against the plan's requirements, and emits schema-validated findings.
 
 **How it works:**
 

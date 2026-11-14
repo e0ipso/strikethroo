@@ -344,7 +344,7 @@ test.describe('Customize section (Playwright, fixture)', () => {
     });
     await expect(externalExecution).not.toBeChecked();
     await expect(externalExecution).toHaveAccessibleDescription(
-      /code review has its own opt-in above and uses a second harness when enabled/i
+      /code review has its own opt-in above and runs in a clean session when enabled/i
     );
     await externalExecution.check();
 

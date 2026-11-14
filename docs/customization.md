@@ -99,7 +99,7 @@ The LLM verifies all tasks reached `completed` status, checks that documentation
 
 **When:** After `POST_EXECUTION` reports green, before execution summary and archival.
 
-Terminal review gate, terminal only — runs once per plan, creates no task files, never mutates the blueprint. When `code_review.enabled` is explicitly `true`, a second harness is discovered, and this hook is present and non-empty, a reviewer harness critiques the cumulative diff and emits schema-validated findings (`review.xml`). The findings are recorded for the implementer to read and act on; nothing is applied automatically. Any fix you then make forces a full `POST_EXECUTION` re-run before execution is declared complete.
+Terminal review gate, terminal only — runs once per plan, creates no task files, never mutates the blueprint. When `code_review.enabled` is explicitly `true`, at least one harness passes the clean-session readiness check, and this hook is present and non-empty, a reviewer critiques the cumulative diff and emits schema-validated findings (`review.xml`). Reviewer selection prefers a ready harness other than the current one, in stable order, and falls back to the current harness. Another harness is a best-effort diversity measure. It does not prove another provider or model. Every reviewer starts in a clean session and receives only the mandate, the plan, the schema, and the diff. The findings are recorded for the implementer to read and act on; nothing is applied automatically. Any fix you then make forces a full `POST_EXECUTION` re-run before execution is declared complete.
 
 Reviewer discovery uses the same local `harnesses.<name>.cli_args` and readiness check as task dispatch. Permission flags may give the reviewer CLI technical write access, but the reviewer prompt still says to detect and report without changing source files. The reviewer prints its findings document to stdout; the Strikethroo process writes `review.xml` and checks the artifact and diff. Local harness permissions do not turn review findings into automatic fixes.
 
@@ -217,7 +217,7 @@ Do not put API keys, tokens, headers, or other secrets in `cli_args`. Command-li
 
 ### External harness readiness
 
-Strikethroo checks an external harness before using it for a task or code review. Native targets and targets on the current harness do not incur the external readiness requests or apply external harness arguments.
+Strikethroo checks an external harness before using it for a task or code review. For task dispatch, native targets and targets on the current harness do not incur the external readiness requests or apply external harness arguments. Code review readiness differs. It launches the CLI of every candidate harness, the current harness included, in a separate process.
 
 For an external target, Strikethroo makes one request in a disposable Git directory using the exact configured arguments. The prompt tells the harness to run a shell command that creates one nonce-bearing file. Strikethroo verifies the file contents and removes the directory afterward. A zero exit without the file is a failed check.
 
@@ -237,11 +237,29 @@ On Windows, `PATHEXT` suffixes such as `.exe` are tried. That detection was exer
 
 Task dispatch and code review use the same harness baseline that passed readiness. A resolved external task request captures its task path and content digest, workspace, plan and task IDs, model settings, and exact harness arguments. Execution accepts that request alone, refuses any task-file edit made after resolution, and uses the captured arguments. The task skill marks the task in progress before resolution; blueprint execution finishes assignment hooks before resolving its requests. Workers can update their task after launch. Configuration edits affect the next resolution. The executable and credentials still come from the launch environment. A zero exit code means only that the external process completed. Task status and verification evidence decide whether a task completed; the review gate separately requires a valid findings document.
 
+### Clean review sessions
+
+Every reviewer starts a new conversation. A new process alone does not guarantee that, because a configured argument can resume an old session. Review therefore applies two rules.
+
+- Review rejects `harnesses.<name>.cli_args` entries that reuse, select, fork, or attach to a session. It reports a `clean-session-unavailable` diagnostic that names the entry. It never removes an argument silently. Task dispatch passes `cli_args` unchanged, so these arguments stay valid for tasks.
+- The reviewer process does not inherit the session variables that a parent harness exports, such as `CLAUDE_CODE_SESSION_ID` and `CODEX_THREAD_ID`. Credentials, `PATH`, and CLI home directories stay.
+
+The rejected arguments for each harness are:
+
+- `claude`: `--continue`, `-c`, `--resume`, `-r`, `--session-id`, `--fork-session`, `--from-pr`, `--teleport`, `--cloud`, `--remote`.
+- `codex`: the `resume` and `fork` subcommands.
+- `cursor`: `--resume`, `--continue`, and the `resume`, `ls`, and `persist` subcommands.
+- `gemini`: `--resume`, `-r`, `--list-sessions`, `--delete-session`.
+- `copilot`: `--resume`, `-r`, `--continue`, `--session-id`, `--connect`.
+- `opencode`: `--continue`, `-c`, `--session`, `-s`, `--fork`, `--attach`.
+
+Readiness for review starts each candidate CLI, the current harness included, in a separate process with these rules applied. A candidate whose `cli_args` contain a rejected entry is not ready. Remove the entry to make the harness a review candidate again.
+
 ### Execution routing
 
 The `execution_routing` section defines named **execution profiles**. Task generation persists the selected profile, and dispatch chooses a configured model target immediately before delegation. The shipped local template contains `docs-and-config`, `standard-implementation`, and `complex-architecture` profiles with an ordered model matrix. Edit the models for the CLIs installed on the local machine. Setting `profiles: {}` disables routing; tasks with no `execution_profile` use the current harness and its normal defaults. `enabled: false` also turns routing off while keeping every profile in place, so the matrix can be paused and restored; the key is optional and absent means on. The Customize section's Config tab exposes it as the Enable execution routing checkbox.
 
-`allow_external_harness_execution` defaults to `false`, including in existing configs that omit it. Task-to-profile classification stays the same. Before target selection, dispatch keeps only targets whose `harness` matches the orchestrator or is omitted. If none remain in the selected profile, it uses the current harness's defaults without model or reasoning overrides. Set the option to `true` to allow other harnesses. The Config tab exposes this as **Allow external harness execution**. The code review gate still uses a second harness regardless of this setting.
+`allow_external_harness_execution` defaults to `false`, including in existing configs that omit it. Task-to-profile classification stays the same. Before target selection, dispatch keeps only targets whose `harness` matches the orchestrator or is omitted. If none remain in the selected profile, it uses the current harness's defaults without model or reasoning overrides. Set the option to `true` to allow other harnesses. The Config tab exposes this as **Allow external harness execution**. This setting does not affect code review. Review selects its harness as described in [`code_review`](#code_review).
 
 The following configuration is **an example** — profile names, descriptions, and model identifiers are placeholders to adapt, not defaults Strikethroo recognizes:
 

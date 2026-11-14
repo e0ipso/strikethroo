@@ -31,7 +31,7 @@ Most spec-driven tools optimize the input: better spec in, better code out, huma
 <div class="st-card">
 <span class="st-card__icon st-card__icon--git-fork" aria-hidden="true"></span>
 <p class="st-card__title">Nobody marks their own homework</p>
-<p>The optional review gate runs on a <em>different</em> harness than the one that wrote the code &mdash; the current harness is structurally excluded from the candidate set, not merely deprioritized. The reviewer detects and never fixes; its findings are recorded for you to judge.</p>
+<p>The optional review gate starts the reviewer in a clean session that sees only the mandate, the plan, and the diff. Strikethroo prefers another ready harness and falls back to the current one. Another harness is best effort, not proof of another model. The reviewer detects and never fixes; its findings are recorded for you to judge.</p>
 </div>
 <div class="st-card">
 <span class="st-card__icon st-card__icon--sliders-horizontal" aria-hidden="true"></span>
@@ -103,7 +103,7 @@ flowchart LR
 `st-execute-blueprint` decomposes the plan into atomic tasks and builds the dependency-mapped blueprint itself when one does not exist yet. Run `/st-generate-tasks 64` on its own only when you want to inspect or hand-tune the blueprint before execution starts.
 
 {% capture context_note %}
-Your review lands on the plan, before any code exists &mdash; that is where a correction costs a sentence. Each step runs with clean context: the planning agent sees only the work order, and each execution sub-agent receives only its specific task. After execution, an optional automated review gate runs on a discovered second harness, critiques the cumulative diff, and records its findings for you to act on.
+Your review lands on the plan, before any code exists &mdash; that is where a correction costs a sentence. Each step runs with clean context: the planning agent sees only the work order, and each execution sub-agent receives only its specific task. After execution, an optional automated review gate runs in a clean reviewer session, critiques the cumulative diff, and records its findings for you to act on.
 {% endcapture %}
 {% include callout.html variant="note" title="WHY THE GATES MATTER" content=context_note %}
 

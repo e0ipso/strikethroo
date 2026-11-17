@@ -19,9 +19,13 @@
 #   execution_routing — automatic per-task execution routing. Profiles are
 #     arbitrary, project-defined routing categories;
 #     each `description` tells the task-generation LLM when the profile
-#     applies, and `models` is a list of exact execution targets (`model`
-#     required; `harness` and `reasoning_effort` optional; values are copied
-#     verbatim — no aliases, defaults, or translation). Task generation saves
+#     applies, and `models` is a list of execution targets (`model` required;
+#     `harness` and `reasoning_effort` optional). `model` is an exact id or a
+#     family name such as `gpt-sol` or `grok`. For a harness other than Claude,
+#     the readiness check asks that harness to list its models and map each
+#     family name to the newest listed id at the target's effort; Strikethroo
+#     accepts only ids that appear in the list. Claude names pass through,
+#     because Claude resolves `opus` and `sonnet` itself. Task generation saves
 #     only the selected profile. Immediately before each task delegation, the
 #     first eligible, non-avoided target in configured order is selected by default. One
 #     optional global `resolver.script` (repository-relative) can instead
@@ -37,12 +41,16 @@ code_review:
 
 # Reviews use the strongest model for each harness at `xhigh` effort.
 # Task routing appends its model and effort after these defaults.
+# Model names here and in execution_routing can be exact ids or families.
+# Claude resolves `opus` and `sonnet` itself. For other harnesses, the
+# readiness check maps each family name (`gpt-sol`, `grok-xhigh`) to the
+# newest id that harness lists, so new releases are used without edits.
 harnesses:
   claude:
     cli_args:
       - --dangerously-skip-permissions
       - --model
-      - claude-opus-5-5
+      - opus
       - --effort
       - xhigh
   codex:
@@ -50,14 +58,14 @@ harnesses:
       - --sandbox
       - workspace-write
       - --config
-      - 'model="gpt-6.1-sol"'
+      - 'model="gpt-sol"'
       - --config
       - 'model_reasoning_effort="xhigh"'
   cursor:
     cli_args:
       - --force
       - --model
-      - grok-4.7-xhigh
+      - grok-xhigh
   gemini:
     cli_args:
       - --approval-mode
@@ -82,14 +90,15 @@ execution_routing:
         yaml, json, jekyll, markdown-authoring. Complexity score roughly 3-4.
         Choose this only when the task requires no cross-module code reasoning.
       models:
-        - model: claude-sonnet-5-5
+        - model: sonnet
           harness: claude
           reasoning_effort: medium
-        - model: gpt-6.1-terra
+        - model: gpt-terra
           harness: codex
           reasoning_effort: low
-        - model: grok-4.7-low
+        - model: grok
           harness: cursor
+          reasoning_effort: low
     standard-implementation:
       description: >-
         Everyday feature and bug-fix work scoped to a handful of files with
@@ -101,14 +110,15 @@ execution_routing:
         profile when a task fits neither docs-and-config nor
         complex-architecture.
       models:
-        - model: claude-sonnet-5-5
+        - model: opus
           harness: claude
-          reasoning_effort: high
-        - model: gpt-6.1-sol
+          reasoning_effort: medium
+        - model: gpt-sol
           harness: codex
           reasoning_effort: high
-        - model: grok-4.7-high
+        - model: grok
           harness: cursor
+          reasoning_effort: high
     complex-architecture:
       description: >-
         High-difficulty, cross-cutting, or design-heavy work: data-model and
@@ -121,11 +131,12 @@ execution_routing:
         mcp-protocol, secure-coding, html-sanitization. Complexity score roughly
         6-7, or any task with wide blast radius regardless of score.
       models:
-        - model: claude-opus-5-5
+        - model: opus
           harness: claude
           reasoning_effort: xhigh
-        - model: gpt-6.1-sol
+        - model: gpt-sol
           harness: codex
           reasoning_effort: xhigh
-        - model: grok-4.7-xhigh
+        - model: grok
           harness: cursor
+          reasoning_effort: xhigh

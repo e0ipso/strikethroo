@@ -128,7 +128,7 @@ function move<T>(array: T[], index: number, delta: number): T[] {
   return next;
 }
 
-/** One editable target row: harness, exact model, optional reasoning effort. */
+/** One editable target row: harness, model id or family, optional reasoning effort. */
 function TargetRow({
   target,
   index,
@@ -163,10 +163,10 @@ function TargetRow({
       </select>
       <input
         data-testid="routing-target-model"
-        aria-label="Exact model identifier"
+        aria-label="Model identifier or family"
         className={cn(FIELD, 'min-w-0 flex-1 font-mono')}
         type="text"
-        placeholder="exact-model-id (copied verbatim)"
+        placeholder="model id or family, e.g. gpt-sol"
         value={target.model}
         onChange={e => onChange({ ...target, model: e.target.value })}
       />

@@ -21,6 +21,7 @@ import { URL } from 'url';
 import { promisify } from 'util';
 import * as yaml from 'js-yaml';
 import { ProfileError } from './types';
+import { getConfigFiles } from './conflict-detector';
 
 const execFileAsync = promisify(execFile);
 
@@ -163,6 +164,11 @@ export interface PreparedProfileImport {
    * The profile's validated manifest
    */
   manifest: ProfileManifest;
+  /**
+   * `config/` paths the package supplies, relative to the workspace root
+   * (for example `config/hooks/PRE_PLAN.md`), sorted
+   */
+  configFiles: string[];
   /**
    * Resolved provenance: the clone URL or the absolute local package path,
    * with any URL credentials removed (see {@link redactSourceCredentials})
@@ -320,10 +326,12 @@ export async function prepareProfileImport(
 
     const manifest = await validateProfilePackage(profileDir);
     const stagingDir = await stageEffectiveTemplates(shippedTemplateDir, profileDir, tempDirs);
+    const configFiles = await getConfigFiles(profileDir);
 
     return {
       stagingDir,
       manifest,
+      configFiles,
       source: redactSourceCredentials(source.location),
       cleanup,
     };

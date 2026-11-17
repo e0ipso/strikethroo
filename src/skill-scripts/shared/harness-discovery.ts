@@ -5,6 +5,7 @@ import {
   type HarnessAvailabilityOutcome,
 } from './harness-availability';
 import { loadHarnessConfiguration } from './harness-configuration';
+import { resolveCliArgs } from './cli-args-models';
 
 /**
  * Harness discovery: "which harnesses are installed and responsive right
@@ -30,7 +31,10 @@ export interface HarnessDiscoveryResult {
    * `SUPPORTED_HARNESSES` order, then the current harness when it is ready too.
    */
   reviewerCandidates: Harness[];
-  /** Exact invocation identity that made each reviewer candidate ready. */
+  /**
+   * Exact invocation that made each reviewer candidate ready, with the model
+   * names in its `cli_args` replaced by the ids the probe mapped.
+   */
   reviewerInvocations?: Partial<
     Record<
       Harness,
@@ -76,10 +80,11 @@ export const discoverHarnesses = async (
     };
   }
 
+  const resolvedCliArgs = new Map<Harness, readonly string[]>();
   const outcomes = await Promise.all(
     SUPPORTED_HARNESSES.map(async harness => {
       try {
-        return await checkHarnessAvailability(
+        const outcome = await checkHarnessAvailability(
           {
             strikethrooRoot: request.strikethrooRoot,
             workspace: request.workspace,
@@ -90,6 +95,19 @@ export const discoverHarnesses = async (
           },
           overrides
         );
+        if (!outcome.available) return outcome;
+        // A reviewer runs with the model its cli_args select, so a name that
+        // cannot be mapped makes the harness unavailable for review.
+        const cliArgs = resolveCliArgs(
+          harness,
+          configuration.config[harness].cliArgs,
+          outcome.models
+        );
+        if (cliArgs.kind === 'unresolved') {
+          return { ...outcome, available: false, reason: cliArgs.detail };
+        }
+        resolvedCliArgs.set(harness, cliArgs.cliArgs);
+        return outcome;
       } catch (error) {
         const now = Date.now();
         return {
@@ -114,7 +132,10 @@ export const discoverHarnesses = async (
     : alternatives;
 
   const reviewerInvocations = Object.fromEntries(
-    reviewerCandidates.map(harness => [harness, { cliArgs: configuration.config[harness].cliArgs }])
+    reviewerCandidates.map(harness => [
+      harness,
+      { cliArgs: resolvedCliArgs.get(harness) ?? configuration.config[harness].cliArgs },
+    ])
   );
 
   return { outcomes, reviewerCandidates, reviewerInvocations };

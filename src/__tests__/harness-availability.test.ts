@@ -9,9 +9,17 @@ import {
   AVAILABLE_TTL_MS,
   checkHarnessAvailability,
   HARNESS_AVAILABILITY_REGISTRY,
+  MODEL_MAPPING_PROBE_TIMEOUT_MS,
+  PROBE_TIMEOUT_MS,
+  UNAVAILABLE_TTL_MS,
   type HarnessAvailabilityDependencies,
 } from '../skill-scripts/shared/harness-availability';
 import { EXTERNAL_HARNESS_ADAPTERS } from '../skill-scripts/shared/external-dispatch';
+import {
+  MODEL_MAP_FILE,
+  modelRequestKey,
+  type ModelRequest,
+} from '../skill-scripts/shared/model-aliases';
 import { loadHarnessConfiguration } from '../skill-scripts/shared/harness-configuration';
 import { SUPPORTED_HARNESSES } from '../types';
 
@@ -63,6 +71,137 @@ describe('harness availability', () => {
       fs.writeFileSync(path.join(command.cwd, evidence.file), evidence.content);
       return { exitCode: 0 };
     },
+  });
+
+  describe('model alias mapping', () => {
+    const solRequest: ModelRequest = { model: 'gpt-sol', reasoningEffort: 'high' };
+
+    const mappingProbe = (answer: unknown) => {
+      const calls: { stdin: string; timeout: number }[] = [];
+      const base = successfulProbe();
+      const dependencies: Pick<HarnessAvailabilityDependencies, 'resolveExecutable' | 'runProbe'> =
+        {
+          resolveExecutable: base.resolveExecutable,
+          runProbe: async (command, timeout) => {
+            calls.push({ stdin: command.stdin, timeout });
+            if (command.stdin.includes(MODEL_MAP_FILE)) {
+              fs.writeFileSync(path.join(command.cwd, MODEL_MAP_FILE), JSON.stringify(answer));
+            }
+            return base.runProbe(command, timeout);
+          },
+        };
+      return { calls, dependencies };
+    };
+
+    const answer = {
+      listCommand: 'codex debug models',
+      models: ['gpt-6.1-sol', 'gpt-6-sol', 'gpt-6.1-terra'],
+      aliases: { '1': 'gpt-6.1-sol', '2': 'gpt-6.1-terra' },
+    };
+
+    it('maps cli_args names and retries without them when the CLI rejects one', async () => {
+      writeConfig([]);
+      const loaded = (() => {
+        fs.writeFileSync(
+          path.join(root, 'config', 'config.yaml'),
+          'harnesses:\n  codex:\n    cli_args:\n      - --config\n      - model="gpt-sol"\n'
+        );
+        const config = loadHarnessConfiguration(root);
+        if (config.kind !== 'config') throw new Error(config.errors.join(' '));
+        return config.config.codex;
+      })();
+      const { calls, dependencies } = mappingProbe(answer);
+      const argvs: string[][] = [];
+      const result = await checkHarnessAvailability(
+        { ...request(), harness: 'codex', currentHarness: 'claude', invocation: loaded },
+        {
+          ...dependencies,
+          runProbe: async (command, timeout) => {
+            argvs.push(command.argv);
+            if (command.argv.includes('model="gpt-sol"')) return { exitCode: 1 };
+            return dependencies.runProbe(command, timeout);
+          },
+        }
+      );
+      expect(argvs).toHaveLength(2);
+      expect(argvs[1]).not.toContain('--config');
+      expect(calls).toHaveLength(1);
+      expect(calls[0]!.stdin).toContain('1: "gpt-sol"\n');
+      expect(result).toMatchObject({
+        available: true,
+        models: {
+          source: 'list',
+          resolved: { [modelRequestKey({ model: 'gpt-sol' })]: 'gpt-6.1-sol' },
+        },
+      });
+    });
+
+    it('maps the requested names during the probe and caches them with the result', async () => {
+      writeConfig([]);
+      const { calls, dependencies } = mappingProbe(answer);
+
+      const first = await checkHarnessAvailability(
+        { ...request(), modelRequests: [solRequest] },
+        dependencies
+      );
+      expect(first).toMatchObject({
+        available: true,
+        source: 'probe',
+        models: { source: 'list', resolved: { [modelRequestKey(solRequest)]: 'gpt-6.1-sol' } },
+      });
+      expect(calls).toHaveLength(1);
+      expect(calls[0]!.timeout).toBe(MODEL_MAPPING_PROBE_TIMEOUT_MS);
+      expect(calls[0]!.stdin).toContain('1: "gpt-sol", reasoning effort "high"');
+
+      const cached = await checkHarnessAvailability(
+        { ...request(), modelRequests: [solRequest] },
+        dependencies
+      );
+      expect(cached).toMatchObject({ source: 'cache', models: first.models });
+      expect(calls).toHaveLength(1);
+    });
+
+    it('probes again when the configured names change', async () => {
+      writeConfig([]);
+      const { calls, dependencies } = mappingProbe(answer);
+      await checkHarnessAvailability({ ...request(), modelRequests: [solRequest] }, dependencies);
+      const changed = await checkHarnessAvailability(
+        { ...request(), modelRequests: [solRequest, { model: 'gpt-terra' }] },
+        dependencies
+      );
+      expect(changed.source).toBe('probe');
+      expect(calls).toHaveLength(2);
+    });
+
+    it('reports no answer when the model wrote none', async () => {
+      writeConfig([]);
+      const result = await checkHarnessAvailability(
+        { ...request(), modelRequests: [solRequest] },
+        successfulProbe()
+      );
+      expect(result).toMatchObject({ available: true, models: { source: 'none', resolved: {} } });
+      expect(result.expiresAt - result.observedAt).toBe(UNAVAILABLE_TTL_MS);
+    });
+
+    it('asks for no mapping without requested names', async () => {
+      writeConfig([]);
+      const { calls, dependencies } = mappingProbe(answer);
+      const result = await checkHarnessAvailability(request(), dependencies);
+      expect(result.models).toBeUndefined();
+      expect(calls[0]!.stdin).not.toContain(MODEL_MAP_FILE);
+      expect(calls[0]!.timeout).toBe(PROBE_TIMEOUT_MS);
+    });
+
+    it('ignores requested names on review probes', async () => {
+      writeConfig([]);
+      const { calls, dependencies } = mappingProbe(answer);
+      const result = await checkHarnessAvailability(
+        { ...request(), purpose: 'review', modelRequests: [solRequest] },
+        dependencies
+      );
+      expect(result.models).toBeUndefined();
+      expect(calls[0]!.stdin).not.toContain(MODEL_MAP_FILE);
+    });
   });
 
   it('derives one configured command from each shared adapter', () => {

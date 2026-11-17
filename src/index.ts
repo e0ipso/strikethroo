@@ -25,8 +25,26 @@ import {
   getPackageVersion,
   CURRENT_WORKSPACE_SCHEMA_VERSION,
 } from './metadata';
-import { detectConflicts, getConfigFiles } from './conflict-detector';
-import { promptForConflicts } from './prompts';
+import {
+  classifyRefresh,
+  detectConflicts,
+  getConfigFiles,
+  INSTALL_ONLY_CONFIG_FILES,
+  RefreshKind,
+} from './conflict-detector';
+import {
+  detectManagedConflicts,
+  hashContent,
+  ManagedFile,
+  ManagedOutcome,
+  refreshManagedFiles,
+  replaceManagedFile,
+} from './managed-files';
+import {
+  promptForConflicts,
+  showIncomingInstallOnlyDiff,
+  showReplacedLocalChangesDiff,
+} from './prompts';
 import { HarnessRegistry } from './harnesses';
 import { prepareProfileImport, PreparedProfileImport, ProfileManifest } from './profiles';
 import { toTerminalText } from './skill-scripts/shared/terminal-text';
@@ -189,32 +207,23 @@ export async function init(options: InitOptions): Promise<CommandResult> {
       ensureProjectDirectory(resolvePath(baseDir), resolvePath(baseDir, '.ai/strikethroo', dir));
     }
 
-    // Copy common templates to .ai/strikethroo with conflict detection
+    // Plan the harness agent files via the registry; the refresh writes them
+    const agentFilesByHarness = await planHarnessFiles(harnesses);
+
+    // Refresh .ai/strikethroo and the agent files with conflict detection
     console.log(`  ${chalk.green('✓')} Copying common template files`);
-    await copyCommonTemplates(baseDir, options.force || false, preparedProfile?.stagingDir);
-
-    // Record strikethroo profile provenance in the freshly written metadata
-    if (preparedProfile) {
-      await recordProfileProvenance(
-        resolvePath(baseDir, '.ai/strikethroo/.init-metadata.json'),
-        preparedProfile.manifest.name,
-        preparedProfile.source
-      );
-    }
-
-    // Create harness-specific directories and copy templates via the registry
-    const allCreatedAgentFiles: Map<string, string[]> = new Map();
-    for (const harness of harnesses) {
+    for (const harness of agentFilesByHarness.keys()) {
       console.log(`  ${chalk.green('✓')} Setting up ${harness} harness configuration`);
-      const adapter = HarnessRegistry.get(harness);
-      if (!adapter) {
-        throw new Error(`No registered harness adapter for: ${harness}`);
-      }
-      const created = await adapter.install(baseDir);
-      if (created.length > 0) {
-        allCreatedAgentFiles.set(harness, created);
-      }
     }
+    await refreshWorkspace(baseDir, options.force || false, {
+      sourceDir: preparedProfile?.stagingDir ?? getTemplatePath('strikethroo'),
+      agentFiles: [...agentFilesByHarness.values()].flat(),
+      importedProfile: preparedProfile && {
+        name: preparedProfile.manifest.name,
+        source: preparedProfile.source,
+        configFiles: preparedProfile.configFiles,
+      },
+    });
 
     // Persist harness selection only after successful setup
     await recordHarnessSelection(metadataPath, harnesses);
@@ -229,10 +238,11 @@ export async function init(options: InitOptions): Promise<CommandResult> {
       console.log(`    ${chalk.blue('●')} ${file}`);
     }
 
-    for (const [harness, files] of allCreatedAgentFiles) {
+    for (const [harness, files] of agentFilesByHarness) {
+      if (files.length === 0) continue;
       console.log(chalk.cyan(`  ${harness} Agents:`));
       for (const file of files) {
-        console.log(`    ${chalk.blue('●')} ${file}`);
+        console.log(`    ${chalk.blue('●')} ${resolvePath(baseDir, file.relativePath)}`);
       }
     }
 
@@ -311,25 +321,18 @@ function displayProfileSection(manifest: ProfileManifest, source: string): void 
 }
 
 /**
- * Record strikethroo profile provenance in the just-written metadata file.
- *
- * Small wrapper around load/save so `createMetadata` and the no-profile
- * metadata shape stay untouched: the `profile` field exists only when a
- * profile was imported.
+ * Plan the agent files of every selected harness through the registry.
  */
-async function recordProfileProvenance(
-  metadataPath: string,
-  name: string,
-  source: string
-): Promise<void> {
-  const metadata = await loadMetadata(metadataPath);
-  if (!metadata) {
-    throw new Error(
-      `Cannot record strikethroo profile provenance: metadata file missing or invalid at ${metadataPath}`
-    );
+async function planHarnessFiles(harnesses: Harness[]): Promise<Map<Harness, ManagedFile[]>> {
+  const planned = new Map<Harness, ManagedFile[]>();
+  for (const harness of harnesses) {
+    const adapter = HarnessRegistry.get(harness);
+    if (!adapter) {
+      throw new Error(`No registered harness adapter for: ${harness}`);
+    }
+    planned.set(harness, await adapter.plan());
   }
-  metadata.profile = { name, source, importedAt: new Date().toISOString() };
-  await saveMetadata(metadataPath, metadata);
+  return planned;
 }
 
 /**
@@ -346,43 +349,70 @@ async function recordHarnessSelection(metadataPath: string, harnesses: Harness[]
   await saveMetadata(metadataPath, metadata);
 }
 
-/**
- * What a refresh did with one incoming `config/` path, and the hash the
- * metadata records for it afterwards.
- *
- * Every kind except `kept` leaves the incoming bytes on disk, so it records the
- * incoming hash. `kept` records the previously recorded baseline, or nothing
- * when there was none: hashing the kept destination instead would make the
- * user's edit the baseline, and the next refresh would find no divergence and
- * overwrite it without a prompt. A kept untracked path therefore stays
- * untracked and is asked about again.
- */
+/** What a refresh did with one incoming `config/` path, and the hash it records. */
 interface RefreshOutcome {
   relativePath: string;
-  kind: 'installed' | 'refreshed' | 'kept' | 'overwritten' | 'unchanged';
+  kind: RefreshKind;
   hash: string | undefined;
 }
 
+/** A profile imported by this refresh. */
+interface ImportedProfile {
+  name: string;
+  source: string;
+  /** `config/` paths the profile package supplies. */
+  configFiles: string[];
+}
+
+/** What one workspace refresh writes besides the shipped `config/` tree. */
+interface WorkspaceRefreshInput {
+  /**
+   * Source template tree: the shipped `templates/strikethroo/` path, or a
+   * profile staging tree.
+   */
+  sourceDir: string;
+  /** Harness agent files, by project-relative path. */
+  agentFiles: ManagedFile[];
+  importedProfile?: ImportedProfile;
+}
+
+/** Project-relative path of the workspace ignore file in `managedFiles`. */
+const WORKSPACE_IGNORE_MANAGED_PATH = path.join('.ai', 'strikethroo', WORKSPACE_IGNORE_FILE);
+
+/** Whether an answer authorizes replacing the file. */
+function isOverwrite(resolution: ConflictResolution | undefined): boolean {
+  return resolution === 'overwrite' || resolution === 'overwrite-all';
+}
+
 /**
- * Copy common template files to .ai/strikethroo directory with conflict detection
+ * Refresh the workspace templates, the workspace `.gitignore`, and the harness
+ * agent files.
  *
- * Each incoming `config/` path gets its own outcome, so one conflict never stops
- * another path from being installed, refreshed, or restored. Missing or
- * unusable metadata is not a first install: every existing destination is then
- * untracked, and each one that differs from its incoming file needs a decision
- * before anything is written. An empty or byte-identical tree needs none, and
- * `force` is the only route that skips the question. The tracked tree is
- * written first and the metadata last; a failed copy throws before
+ * Every `config/` path and agent file gets its own outcome, so one conflict
+ * never stops another file from being installed, refreshed, or restored. All
+ * conflicts are collected first and asked about in one prompt, so a session
+ * that cannot prompt fails before anything is written. Missing or unusable
+ * metadata is not a first install: every existing destination is then
+ * untracked, and each one that differs from its incoming file needs a
+ * decision. `force` is the only route that skips the question.
+ *
+ * Three rules sit on top of the conflict check:
+ * - Install-only paths (`INSTALL_ONLY_CONFIG_FILES`) are written only when
+ *   absent and never asked about; a changed incoming version shows a diff once.
+ * - Files the recorded profile supplied are asked about, never refreshed
+ *   silently, on a refresh that does not import a profile.
+ * - The workspace `.gitignore` is always replaced, and local changes it had
+ *   are shown as a diff.
+ *
+ * Files are written first and the metadata last; a failed write throws before
  * `saveMetadata` runs, leaving the previous metadata in place.
- *
- * @param sourceDir - Source template tree; defaults to the shipped
- *   `templates/strikethroo/` path, overridden by a profile staging tree
  */
-async function copyCommonTemplates(
+async function refreshWorkspace(
   baseDir: string,
   force: boolean,
-  sourceDir: string = getTemplatePath('strikethroo')
+  input: WorkspaceRefreshInput
 ): Promise<void> {
+  const { sourceDir, agentFiles, importedProfile } = input;
   const destDir = resolvePath(baseDir, '.ai/strikethroo');
   const metadataPath = resolvePath(destDir, '.init-metadata.json');
 
@@ -402,15 +432,22 @@ async function copyCommonTemplates(
 
   const existingMetadata = await loadMetadata(metadataPath);
   const baseline = existingMetadata?.files ?? {};
+  const managedBaseline = existingMetadata?.managedFiles ?? {};
+  const protectedPaths = new Set<string>(
+    importedProfile ? [] : (existingMetadata?.profile?.files ?? [])
+  );
 
   let resolutions = new Map<string, ConflictResolution>();
   if (!force) {
-    const conflicts = await detectConflicts(destDir, sourceDir, baseline);
+    const conflicts = [
+      ...(await detectConflicts(destDir, sourceDir, baseline, protectedPaths)),
+      ...detectManagedConflicts(projectRoot, agentFiles, managedBaseline),
+    ];
     if (conflicts.length > 0) {
       if (!existingMetadata) {
         console.log(
           chalk.yellow(
-            '\n⚠  .init-metadata.json is missing or unusable, so nothing under config/ has a trusted baseline.'
+            '\n⚠  .init-metadata.json is missing or unusable, so no file has a trusted baseline.'
           )
         );
       }
@@ -422,11 +459,28 @@ async function copyCommonTemplates(
       resolutions = await promptForConflicts(conflicts);
     }
   }
+  const overwrite = (relativePath: string): boolean =>
+    force || isOverwrite(resolutions.get(relativePath));
 
-  const outcomes = await refreshConfigTree(sourceDir, destDir, baseline, resolutions, force);
+  const outcomes = await refreshConfigTree(sourceDir, destDir, baseline, overwrite, protectedPaths);
   await copyUntrackedTemplateFiles(sourceDir, destDir);
-  await copyWorkspaceIgnoreFile(sourceDir, destDir);
-  await createMetadata(metadataPath, existingMetadata, recordBaselines(baseline, outcomes));
+  const ignoreHash = await refreshWorkspaceIgnoreFile(
+    sourceDir,
+    projectRoot,
+    managedBaseline[WORKSPACE_IGNORE_MANAGED_PATH]
+  );
+  const agentOutcomes = await refreshManagedFiles(
+    projectRoot,
+    agentFiles,
+    managedBaseline,
+    overwrite
+  );
+
+  await createMetadata(metadataPath, existingMetadata, {
+    files: recordBaselines(baseline, outcomes),
+    managedFiles: recordManagedBaselines(ignoreHash, agentOutcomes),
+    profile: recordProfile(existingMetadata, importedProfile, outcomes),
+  });
 }
 
 /**
@@ -436,22 +490,30 @@ async function refreshConfigTree(
   sourceDir: string,
   destDir: string,
   baseline: Record<string, string>,
-  resolutions: Map<string, ConflictResolution>,
-  force: boolean
+  overwrite: (relativePath: string) => boolean,
+  protectedPaths: ReadonlySet<string>
 ): Promise<RefreshOutcome[]> {
   const outcomes: RefreshOutcome[] = [];
   for (const relativePath of await getConfigFiles(sourceDir)) {
     const sourcePath = path.join(sourceDir, relativePath);
     const destPath = path.join(destDir, relativePath);
-    const outcome = await decideRefreshOutcome(
-      destPath,
-      await calculateFileHash(sourcePath),
-      baseline[relativePath],
-      resolutions.get(relativePath),
-      force
-    );
+    const installOnly = INSTALL_ONLY_CONFIG_FILES.has(relativePath);
+    const incomingHash = await calculateFileHash(sourcePath);
+    const outcome = await decideRefreshOutcome(destPath, installOnly, {
+      incomingHash,
+      recordedHash: baseline[relativePath],
+      protectedBaseline: protectedPaths.has(relativePath),
+      overwrite: overwrite(relativePath),
+    });
     if (outcome.kind !== 'kept' && outcome.kind !== 'unchanged') {
       await fs.copy(sourcePath, destPath, { overwrite: true });
+    }
+    if (installOnly && outcome.kind === 'kept' && baseline[relativePath] !== incomingHash) {
+      showIncomingInstallOnlyDiff(
+        relativePath,
+        await fs.readFile(destPath, 'utf-8'),
+        await fs.readFile(sourcePath, 'utf-8')
+      );
     }
     outcomes.push({ relativePath, ...outcome });
   }
@@ -459,34 +521,35 @@ async function refreshConfigTree(
 }
 
 /**
- * Classify one destination against its incoming file and recorded baseline.
+ * Classify one `config/` destination (see `classifyRefresh`).
  *
- * A destination that diverged from its baseline, or that has no baseline, is
- * replaced only by `force` or an explicit `overwrite` answer; with no answer it
- * is kept, because only the prompt may authorize destroying a file this refresh
- * did not write. A kept destination with no baseline records none.
+ * An existing install-only destination is always kept, whatever its baseline,
+ * answer, or `force`, and records the incoming hash so the same incoming
+ * version is shown to the user only once.
  */
 async function decideRefreshOutcome(
   destPath: string,
-  incomingHash: string,
-  recordedHash: string | undefined,
-  resolution: ConflictResolution | undefined,
-  force: boolean
+  installOnly: boolean,
+  incoming: {
+    incomingHash: string;
+    recordedHash: string | undefined;
+    protectedBaseline: boolean;
+    overwrite: boolean;
+  }
 ): Promise<Pick<RefreshOutcome, 'kind' | 'hash'>> {
-  if (!(await exists(destPath))) {
-    return { kind: 'installed', hash: incomingHash };
+  const currentHash = (await exists(destPath)) ? await calculateFileHash(destPath) : undefined;
+  if (installOnly && currentHash !== undefined && currentHash !== incoming.incomingHash) {
+    return { kind: 'kept', hash: incoming.incomingHash };
   }
-  const currentHash = await calculateFileHash(destPath);
-  if (currentHash === incomingHash) {
-    return { kind: 'unchanged', hash: incomingHash };
-  }
-  if (recordedHash !== undefined && currentHash === recordedHash) {
-    return { kind: 'refreshed', hash: incomingHash };
-  }
-  if (force || resolution === 'overwrite' || resolution === 'overwrite-all') {
-    return { kind: 'overwritten', hash: incomingHash };
-  }
-  return { kind: 'kept', hash: recordedHash };
+  return classifyRefresh(
+    {
+      currentHash,
+      incomingHash: incoming.incomingHash,
+      recordedHash: incoming.recordedHash,
+      protectedBaseline: incoming.protectedBaseline,
+    },
+    incoming.overwrite
+  );
 }
 
 /**
@@ -511,10 +574,58 @@ function recordBaselines(
 }
 
 /**
+ * Build the `managedFiles` map: the workspace `.gitignore` plus the agent
+ * files of the current harness selection. Files of a deselected harness are
+ * no longer managed, so they drop out.
+ */
+function recordManagedBaselines(
+  ignoreHash: string,
+  agentOutcomes: ManagedOutcome[]
+): Record<string, string> {
+  const managed: Record<string, string> = { [WORKSPACE_IGNORE_MANAGED_PATH]: ignoreHash };
+  for (const { relativePath, hash } of agentOutcomes) {
+    if (hash !== undefined) {
+      managed[relativePath] = hash;
+    }
+  }
+  return managed;
+}
+
+/**
+ * Build the profile provenance for the new metadata.
+ *
+ * An import records the profile's `config/` files, minus install-only paths,
+ * which are never replaced anyway. A refresh without an import keeps only the
+ * profile files the user kept: an overwritten, refreshed, or unchanged file
+ * now holds the incoming version and needs no more protection.
+ */
+function recordProfile(
+  existingMetadata: InitMetadata | null,
+  importedProfile: ImportedProfile | undefined,
+  outcomes: RefreshOutcome[]
+): InitMetadata['profile'] {
+  if (importedProfile) {
+    return {
+      name: importedProfile.name,
+      source: importedProfile.source,
+      importedAt: new Date().toISOString(),
+      files: importedProfile.configFiles.filter(file => !INSTALL_ONLY_CONFIG_FILES.has(file)),
+    };
+  }
+  const previous = existingMetadata?.profile;
+  if (!previous?.files) return previous;
+  const kept = new Set(
+    outcomes.filter(outcome => outcome.kind === 'kept').map(outcome => outcome.relativePath)
+  );
+  return { ...previous, files: previous.files.filter(file => kept.has(file)) };
+}
+
+/**
  * Copy the template entries outside `config/`, such as `README.md`, verbatim.
  *
- * Only `config/` is hash-tracked, so these refresh on every run. The ignore
- * template is excluded here because it lands under a different name.
+ * They are Strikethroo-owned documentation, so they refresh on every run
+ * without a hash check. The ignore template is excluded here because it lands
+ * under a different name.
  */
 async function copyUntrackedTemplateFiles(sourceDir: string, destDir: string): Promise<void> {
   await fs.copy(sourceDir, destDir, {
@@ -527,15 +638,20 @@ async function copyUntrackedTemplateFiles(sourceDir: string, destDir: string): P
 }
 
 /**
- * Copy the workspace ignore template to its final `.gitignore` name.
+ * Write the workspace ignore template to its final `.gitignore` name.
  *
- * Runs on every init path, including the conflict path — conflict detection
- * and hash tracking are scoped to `config/`, so this file has no baseline to
- * compare against and is refreshed rather than prompted over. Refreshing is
- * the behaviour that matters here: a workspace initialized before an entry was
- * added would otherwise keep leaking the paths that entry covers.
+ * Runs on every init path and always writes the incoming version: a workspace
+ * initialized before an entry was added would otherwise keep leaking the paths
+ * that entry covers. When the local file had changes of its own, the replaced
+ * lines are shown as a diff so the user can re-apply them.
+ *
+ * @returns The hash of the written file, for `managedFiles`
  */
-async function copyWorkspaceIgnoreFile(sourceDir: string, destDir: string): Promise<void> {
+async function refreshWorkspaceIgnoreFile(
+  sourceDir: string,
+  projectRoot: string,
+  recordedHash: string | undefined
+): Promise<string> {
   const source = path.join(sourceDir, WORKSPACE_IGNORE_TEMPLATE);
   if (!(await exists(source))) {
     throw new Error(
@@ -543,27 +659,36 @@ async function copyWorkspaceIgnoreFile(sourceDir: string, destDir: string): Prom
         `templates/strikethroo/${WORKSPACE_IGNORE_TEMPLATE}.`
     );
   }
-  await fs.copy(source, path.join(destDir, WORKSPACE_IGNORE_FILE), { overwrite: true });
+  const file: ManagedFile = {
+    relativePath: WORKSPACE_IGNORE_MANAGED_PATH,
+    content: await fs.readFile(source, 'utf-8'),
+  };
+  const replaced = await replaceManagedFile(projectRoot, file, recordedHash);
+  if (replaced !== undefined) {
+    showReplacedLocalChangesDiff(file.relativePath, replaced, file.content);
+  }
+  return hashContent(file.content);
 }
 
 /**
- * Write the metadata for a completed refresh, carrying provenance and the
- * harness selection forward from the previous metadata.
+ * Write the metadata for a completed refresh, carrying the harness selection
+ * forward from the previous metadata.
  */
 async function createMetadata(
   metadataPath: string,
   existingMetadata: InitMetadata | null,
-  files: Record<string, string>
+  recorded: Pick<InitMetadata, 'files' | 'managedFiles' | 'profile'>
 ): Promise<void> {
   const metadata: InitMetadata = {
     version: getPackageVersion(),
     workspaceSchemaVersion: CURRENT_WORKSPACE_SCHEMA_VERSION,
     timestamp: new Date().toISOString(),
-    files,
+    files: recorded.files,
+    managedFiles: recorded.managedFiles,
   };
 
-  if (existingMetadata?.profile) {
-    metadata.profile = existingMetadata.profile;
+  if (recorded.profile) {
+    metadata.profile = recorded.profile;
   }
   if (existingMetadata?.harnesses) {
     metadata.harnesses = existingMetadata.harnesses;

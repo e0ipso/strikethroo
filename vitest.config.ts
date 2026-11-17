@@ -22,6 +22,8 @@ export default defineConfig({
       'src/__tests__/external-dispatch.test.ts',
       'src/__tests__/harness-configuration.test.ts',
       'src/__tests__/harness-availability.test.ts',
+      'src/__tests__/model-aliases.test.ts',
+      'src/__tests__/cli-args-models.test.ts',
       'src/__tests__/harness-discovery.test.ts',
       'src/__tests__/harness-registry.test.ts',
       'src/__tests__/profiles.integration.test.ts',

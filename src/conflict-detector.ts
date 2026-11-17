@@ -53,24 +53,96 @@ export async function getConfigFiles(rootDir: string): Promise<string[]> {
 export const NO_RECORDED_BASELINE = '';
 
 /**
- * Detect the incoming paths that need a decision before they are written.
+ * Incoming `config/` paths that `init` and `update` write only when the
+ * destination does not exist.
+ *
+ * `config/config.yaml` holds machine-local harness arguments, models, and
+ * preferences. A refresh never replaces an existing copy, not even with
+ * `--force` or when the copy still matches its recorded baseline. To adopt the
+ * incoming version, delete the file and run the refresh again.
+ */
+export const INSTALL_ONLY_CONFIG_FILES: ReadonlySet<string> = new Set([
+  path.join('config', 'config.yaml'),
+]);
+
+/** What a refresh does with one incoming file. */
+export type RefreshKind = 'installed' | 'refreshed' | 'kept' | 'overwritten' | 'unchanged';
+
+/** The hashes a refresh compares for one incoming file. */
+export interface RefreshState {
+  /** Hash of the destination, or `undefined` when it does not exist. */
+  currentHash: string | undefined;
+  incomingHash: string;
+  /** Hash recorded by the previous refresh, or `undefined` when untracked. */
+  recordedHash: string | undefined;
+  /**
+   * When true, a destination that matches its recorded hash is not replaced
+   * silently. Set for a file an imported profile supplied, on a refresh that
+   * does not import that profile again: the recorded hash is the profile's
+   * version, so a match means "the profile's file", not "an unedited default".
+   */
+  protectedBaseline?: boolean;
+}
+
+/**
+ * Whether replacing the destination needs the user's decision.
+ *
+ * A destination that is absent or byte-identical to the incoming file never
+ * does. Otherwise it does when there is no recorded hash, when it diverged
+ * from the recorded hash (the user changed it), or when its baseline is
+ * protected.
+ */
+export function needsDecision(state: RefreshState): boolean {
+  const { currentHash, incomingHash, recordedHash } = state;
+  if (currentHash === undefined || currentHash === incomingHash) return false;
+  return (
+    state.protectedBaseline === true || recordedHash === undefined || currentHash !== recordedHash
+  );
+}
+
+/**
+ * Classify one incoming file and give the hash the metadata records for it.
+ *
+ * Every kind except `kept` leaves the incoming bytes on disk, so it records
+ * the incoming hash. `kept` records the previous hash, or nothing when there
+ * was none: recording the kept file's own hash would make the user's edit the
+ * baseline, and the next refresh would replace it without asking.
+ *
+ * @param overwrite - `--force`, or an explicit overwrite answer for this path
+ */
+export function classifyRefresh(
+  state: RefreshState,
+  overwrite: boolean
+): { kind: RefreshKind; hash: string | undefined } {
+  if (state.currentHash === undefined) return { kind: 'installed', hash: state.incomingHash };
+  if (state.currentHash === state.incomingHash) {
+    return { kind: 'unchanged', hash: state.incomingHash };
+  }
+  if (!needsDecision(state)) return { kind: 'refreshed', hash: state.incomingHash };
+  if (overwrite) return { kind: 'overwritten', hash: state.incomingHash };
+  return { kind: 'kept', hash: state.recordedHash };
+}
+
+/**
+ * Detect the incoming `config/` paths that need a decision before they are
+ * written (see {@link needsDecision}).
  *
  * A destination is compared against its recorded baseline, not against the
  * incoming file: the question is whether the user changed it. A destination
- * with no recorded hash has nothing to compare against, so it conflicts
- * whenever it differs from the incoming file and carries
- * `NO_RECORDED_BASELINE`. A destination byte-identical to the incoming file is
- * never a conflict, tracked or not; writing it would change nothing.
+ * with no recorded hash carries `NO_RECORDED_BASELINE`. An existing
+ * install-only path is never a conflict, because the refresh keeps it.
  *
  * @param destDir - Destination directory (.ai/strikethroo)
  * @param templateDir - Source template directory from package
  * @param baseline - Recorded hashes by relative path; `{}` when no metadata
  *   can be trusted, which makes every existing destination untracked
+ * @param protectedPaths - Paths whose baseline match is not a silent refresh
  */
 export async function detectConflicts(
   destDir: string,
   templateDir: string,
-  baseline: Record<string, string>
+  baseline: Record<string, string>,
+  protectedPaths: ReadonlySet<string> = new Set()
 ): Promise<FileConflict[]> {
   const conflicts: FileConflict[] = [];
 
@@ -79,12 +151,17 @@ export async function detectConflicts(
     const newFilePath = path.join(templateDir, relativePath);
 
     if (!(await fs.pathExists(userFilePath))) continue;
+    if (INSTALL_ONLY_CONFIG_FILES.has(relativePath)) continue;
 
     const currentHash = await calculateFileHash(userFilePath);
-    if (currentHash === (await calculateFileHash(newFilePath))) continue;
-
     const originalHash = baseline[relativePath];
-    if (originalHash !== undefined && currentHash === originalHash) continue;
+    const state: RefreshState = {
+      currentHash,
+      incomingHash: await calculateFileHash(newFilePath),
+      recordedHash: originalHash,
+      protectedBaseline: protectedPaths.has(relativePath),
+    };
+    if (!needsDecision(state)) continue;
 
     conflicts.push({
       relativePath,

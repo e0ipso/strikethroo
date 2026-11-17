@@ -25,8 +25,8 @@ function isUntracked(conflict: FileConflict): boolean {
 function describeNonInteractiveRefusal(conflicts: FileConflict[]): string {
   const untracked = conflicts.filter(isUntracked);
   const lines = [
-    `${conflicts.length} file(s) under .ai/strikethroo/config/ differ from the incoming version and ` +
-      'need a decision, but standard input is not an interactive terminal so none can be asked:',
+    `${conflicts.length} file(s) differ from the incoming version and need a decision, but ` +
+      'standard input is not an interactive terminal so none can be asked:',
     ...conflicts.map(
       conflict => `  ${conflict.relativePath}${isUntracked(conflict) ? ' (not tracked)' : ''}`
     ),
@@ -68,22 +68,70 @@ function formatDiff(diff: string): string {
 }
 
 /**
- * Generate a unified diff between user's file and new file
- * @param conflict - FileConflict object with user and new file contents
- * @returns Formatted unified diff string
+ * Generate a colorized unified diff from the local file to the incoming file.
  */
-function generateDiff(conflict: FileConflict): string {
+function generateDiff(relativePath: string, localContent: string, incomingContent: string): string {
   const diff = createTwoFilesPatch(
-    `${conflict.relativePath} (your version)`,
-    `${conflict.relativePath} (new version)`,
-    conflict.userFileContent,
-    conflict.newFileContent,
+    `${relativePath} (your version)`,
+    `${relativePath} (new version)`,
+    localContent,
+    incomingContent,
     '',
     '',
     { context: 3 }
   );
 
   return formatDiff(diff);
+}
+
+/**
+ * Show the diff from a kept install-only file to its new incoming version.
+ *
+ * The refresh never writes the file, so this only informs: the user copies
+ * the parts they want, or deletes the file and runs the refresh again.
+ */
+export function showIncomingInstallOnlyDiff(
+  relativePath: string,
+  localContent: string,
+  incomingContent: string
+): void {
+  console.log('');
+  console.log(chalk.bold.yellow(`ℹ️  A new version of ${relativePath} is available`));
+  console.log('');
+  console.log(
+    chalk.yellow(
+      'Your local file was kept. A refresh never replaces it. Copy the changes you want from ' +
+        'the diff below, or delete the file and run the command again to install the new version.'
+    )
+  );
+  console.log('');
+  console.log(generateDiff(relativePath, localContent, incomingContent));
+  console.log('');
+}
+
+/**
+ * Show the local changes a refresh replaced in a file it must always update.
+ *
+ * The diff runs from the local file to the version now on disk, so the
+ * removed lines are the changes to re-apply.
+ */
+export function showReplacedLocalChangesDiff(
+  relativePath: string,
+  localContent: string,
+  incomingContent: string
+): void {
+  console.log('');
+  console.log(chalk.bold.yellow(`⚠️  ${relativePath} had local changes and was updated`));
+  console.log('');
+  console.log(
+    chalk.yellow(
+      'Strikethroo must keep this file current. Re-apply the lines you still need from the ' +
+        'diff below.'
+    )
+  );
+  console.log('');
+  console.log(generateDiff(relativePath, localContent, incomingContent));
+  console.log('');
 }
 
 /**
@@ -122,7 +170,11 @@ export async function promptForResolution(
   console.log('');
 
   // Generate and display unified diff
-  const diff = generateDiff(conflict);
+  const diff = generateDiff(
+    conflict.relativePath,
+    conflict.userFileContent,
+    conflict.newFileContent
+  );
   console.log(diff);
   console.log('');
 

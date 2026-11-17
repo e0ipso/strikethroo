@@ -17,11 +17,24 @@ import {
   type StructuredCommand,
 } from './external-dispatch';
 import { REVIEW_SESSION_POLICY_VERSION, validateReviewCliArgs } from './review-session-policy';
+import {
+  isModelMap,
+  mergeModelRequests,
+  MODEL_MAP_FILE,
+  modelMappingPrompt,
+  modelRequestsHash,
+  readModelMapping,
+  type ModelMap,
+  type ModelRequest,
+} from './model-aliases';
+import { cliArgsModelRequests, withoutModelOptions } from './cli-args-models';
 
-export const AVAILABILITY_REGISTRY_VERSION = 5;
+export const AVAILABILITY_REGISTRY_VERSION = 7;
 export const AVAILABLE_TTL_MS = 30 * 60 * 1000;
 export const UNAVAILABLE_TTL_MS = 5 * 60 * 1000;
 export const PROBE_TIMEOUT_MS = 20_000;
+/** A probe that also lists models and maps aliases runs two commands, so it gets longer. */
+export const MODEL_MAPPING_PROBE_TIMEOUT_MS = 90_000;
 export const AVAILABILITY_CACHE_RELATIVE_PATH = path.join('runtime', 'harness-availability.json');
 
 const CACHE_VERSION = 2;
@@ -55,6 +68,8 @@ export interface HarnessAvailabilityOutcome {
   expiresAt: number;
   reason: string;
   source: 'cache' | 'probe' | 'bypass';
+  /** Validated alias mapping, present when the probe was asked for one. */
+  models?: ModelMap;
 }
 
 type CacheEntry = Omit<HarnessAvailabilityOutcome, 'source'> & { key: string };
@@ -122,9 +137,9 @@ const runProbe = (command: StructuredCommand, timeoutMs: number): Promise<ProbeR
     child.stdin?.end(command.stdin);
   });
 
-const probeFailureReason = (probe: ProbeResult): string => {
+const probeFailureReason = (probe: ProbeResult, timeoutMs: number): string => {
   const reason = probe.timedOut
-    ? `Harness readiness check timed out after ${PROBE_TIMEOUT_MS} ms.`
+    ? `Harness readiness check timed out after ${timeoutMs} ms.`
     : probe.error
       ? `Harness readiness check could not launch: ${probe.error}`
       : probe.exitCode !== 0
@@ -157,7 +172,8 @@ const isCacheEntry = (value: unknown): value is CacheEntry => {
     Number.isFinite(entry.observedAt) &&
     typeof entry.expiresAt === 'number' &&
     Number.isFinite(entry.expiresAt) &&
-    typeof entry.reason === 'string'
+    typeof entry.reason === 'string' &&
+    (entry.models === undefined || isModelMap(entry.models))
   );
 };
 
@@ -200,7 +216,8 @@ const cacheKey = (
   harness: Harness,
   executableIdentity: string,
   invocation: NormalizedHarnessInvocation,
-  purpose: AvailabilityPurpose
+  purpose: AvailabilityPurpose,
+  modelRequests: readonly ModelRequest[]
 ): string =>
   createHash('sha256')
     .update(
@@ -214,6 +231,7 @@ const cacheKey = (
         ...(purpose === 'review'
           ? { reviewSessionPolicyVersion: REVIEW_SESSION_POLICY_VERSION }
           : {}),
+        ...(modelRequests.length > 0 ? { modelRequests: modelRequestsHash(modelRequests) } : {}),
       })
     )
     .digest('hex');
@@ -273,6 +291,12 @@ export interface CheckHarnessAvailabilityRequest {
   invocation?: NormalizedHarnessInvocation;
   /** Defaults to `task`. */
   purpose?: AvailabilityPurpose;
+  /**
+   * Routing model names to map to the harness's listed ids during the probe.
+   * Used only for `task` probes. The model names in the harness's `cli_args`
+   * are always added. Part of the cache key, so a changed set re-probes.
+   */
+  modelRequests?: readonly ModelRequest[];
 }
 
 const outcome = (
@@ -345,7 +369,11 @@ export const checkHarnessAvailability = async (
       `Harness executable '${definition.executable}' was not found on PATH.`
     );
 
-  const key = cacheKey(harness, executableIdentity, invocation, purpose);
+  const modelRequests = mergeModelRequests(
+    purpose === 'task' ? [...(request.modelRequests ?? [])] : [],
+    cliArgsModelRequests(harness, invocation.cliArgs)
+  );
+  const key = cacheKey(harness, executableIdentity, invocation, purpose, modelRequests);
   const cachePath = path.join(request.strikethrooRoot, AVAILABILITY_CACHE_RELATIVE_PATH);
   const cached = readCache(cachePath).entries.find(
     entry => entry.key === key && entry.expiresAt > now
@@ -379,30 +407,47 @@ export const checkHarnessAvailability = async (
 
   try {
     const evidence = readinessEvidence();
-    const prompt = readinessPrompt(evidence);
-    const command =
-      purpose === 'review'
-        ? buildReviewCommand({
-            harness,
-            cliArgs: invocation.cliArgs,
-            workspace: probeWorkspace,
-            prompt,
-          })
-        : definition.buildCommand(probeWorkspace, invocation.cliArgs, prompt);
-    const probe = await active.runProbe(
-      { ...command, executable: executableIdentity },
-      PROBE_TIMEOUT_MS
-    );
+    const prompt =
+      readinessPrompt(evidence) +
+      (modelRequests.length > 0 ? modelMappingPrompt(harness, modelRequests) : '');
+    const timeoutMs = modelRequests.length > 0 ? MODEL_MAPPING_PROBE_TIMEOUT_MS : PROBE_TIMEOUT_MS;
+    const runWith = (cliArgs: readonly string[]): Promise<ProbeResult> => {
+      const command =
+        purpose === 'review'
+          ? buildReviewCommand({ harness, cliArgs, workspace: probeWorkspace, prompt })
+          : definition.buildCommand(probeWorkspace, cliArgs, prompt);
+      return active.runProbe({ ...command, executable: executableIdentity }, timeoutMs);
+    };
+    let probe = await runWith(invocation.cliArgs);
+    // A CLI that rejects a family name in cli_args exits at once. Retry with
+    // the CLI's default model, so the probe can still map the name.
+    const withoutModels = withoutModelOptions(harness, invocation.cliArgs);
+    if (
+      probe.exitCode !== 0 &&
+      !probe.timedOut &&
+      !probe.error &&
+      withoutModels.length !== invocation.cliArgs.length
+    ) {
+      fs.rmSync(path.join(probeWorkspace, MODEL_MAP_FILE), { force: true });
+      probe = await runWith(withoutModels);
+    }
     const available =
       probe.exitCode === 0 && !probe.timedOut && hasReadinessEvidence(probeWorkspace, evidence);
-    return complete(
-      outcome(
-        harness,
-        available,
-        now,
-        available ? 'Harness readiness verified.' : probeFailureReason(probe)
-      )
+    const result = outcome(
+      harness,
+      available,
+      now,
+      available ? 'Harness readiness verified.' : probeFailureReason(probe, timeoutMs)
     );
+    if (!available || modelRequests.length === 0) return complete(result);
+    const models = readModelMapping(probeWorkspace, modelRequests);
+    // A ready harness whose model list could not be read is retried sooner:
+    // until then its names use unverified mappings or pass through.
+    return complete({
+      ...result,
+      models,
+      ...(models.source === 'list' ? {} : { expiresAt: now + UNAVAILABLE_TTL_MS }),
+    });
   } finally {
     fs.rmSync(probeWorkspace, { recursive: true, force: true });
   }

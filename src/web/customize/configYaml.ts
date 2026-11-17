@@ -390,7 +390,7 @@ export function validateRoutingForm(routing: RoutingForm): string[] {
     }
     profile.targets.forEach((target, index) => {
       if (target.model.trim() === '') {
-        errors.push(`${label}, target ${index + 1}: an exact model identifier is required.`);
+        errors.push(`${label}, target ${index + 1}: a model identifier or family is required.`);
       }
       const harness = target.harness.trim();
       if (harness !== '' && !(SUPPORTED_HARNESSES as readonly string[]).includes(harness)) {

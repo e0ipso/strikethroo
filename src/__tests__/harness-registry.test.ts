@@ -39,6 +39,19 @@ describe('HarnessRegistry', () => {
     expect(created).toContain(agentPath);
   });
 
+  it('plan lists project-relative files matching what install writes, without writing', async () => {
+    const planned = await HarnessRegistry.get('codex')!.plan();
+    expect(planned.map(file => file.relativePath)).toEqual([
+      path.join('.codex', 'agents', 'plan-creator.toml'),
+    ]);
+    expect(await fs.pathExists(path.join(tempDir, '.codex'))).toBe(false);
+
+    await HarnessRegistry.get('codex')!.install(tempDir);
+    expect(await fs.readFile(path.join(tempDir, planned[0]!.relativePath), 'utf-8')).toBe(
+      planned[0]!.content
+    );
+  });
+
   it('install converts to TOML for codex', async () => {
     await HarnessRegistry.get('codex')!.install(tempDir);
 

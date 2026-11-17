@@ -312,12 +312,24 @@ export interface InitMetadata {
      * ISO timestamp of the import
      */
     importedAt: string;
+    /**
+     * `config/` paths the profile supplied and the workspace still holds in
+     * the profile's version. A refresh without `--profile` asks before it
+     * replaces one of them. Absent on workspaces imported before it existed.
+     */
+    files?: string[];
   };
   /**
    * Last successfully installed harness selection, normalized and validated.
    * Absent on legacy workspaces until the next successful init.
    */
   harnesses?: Harness[];
+  /**
+   * Hashes of the files Strikethroo writes outside `config/` (harness agent
+   * files and the workspace `.gitignore`), keyed by path relative to the
+   * project root. Absent on workspaces initialized before it existed.
+   */
+  managedFiles?: Record<string, string>;
 }
 
 /**
@@ -325,7 +337,8 @@ export interface InitMetadata {
  */
 export interface FileConflict {
   /**
-   * Relative path from .ai/strikethroo/ directory
+   * Path shown to the user: relative to .ai/strikethroo/ for `config/` files,
+   * relative to the project root for managed files such as agent files
    */
   relativePath: string;
   /**

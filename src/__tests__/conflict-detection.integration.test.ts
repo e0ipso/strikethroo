@@ -18,7 +18,11 @@ import { load } from 'js-yaml';
 import { init } from '../index';
 import { update, buildSkillsInstallerArgs } from '../update';
 import { loadMetadata, saveMetadata, calculateFileHash } from '../metadata';
-import { promptForConflicts } from '../prompts';
+import {
+  promptForConflicts,
+  showIncomingInstallOnlyDiff,
+  showReplacedLocalChangesDiff,
+} from '../prompts';
 import { metadataGate } from '../validation/metadata-gate';
 import { FileSystemError, type ConflictResolution } from '../types';
 
@@ -52,6 +56,8 @@ vi.mock('chalk', () => {
 // in automated tests anyway. The key is to test the metadata and detection logic.
 vi.mock('../prompts', () => ({
   promptForConflicts: vi.fn().mockResolvedValue(new Map()),
+  showIncomingInstallOnlyDiff: vi.fn(),
+  showReplacedLocalChangesDiff: vi.fn(),
 }));
 
 describe('Conflict Detection Integration Tests', () => {
@@ -400,6 +406,8 @@ describe('Workspace refresh outcomes', () => {
   const PROFILE_MANIFEST =
     'schema_version: 1\nname: refresh-fixture\ndescription: Stages a changed and a new incoming hook\n';
   const promptMock = vi.mocked(promptForConflicts);
+  const diffMock = vi.mocked(showIncomingInstallOnlyDiff);
+  const replacedDiffMock = vi.mocked(showReplacedLocalChangesDiff);
 
   let sandbox: string;
   let project: string;
@@ -436,6 +444,8 @@ describe('Workspace refresh outcomes', () => {
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     promptMock.mockReset();
+    diffMock.mockReset();
+    replacedDiffMock.mockReset();
     expect((await init({ harnesses: 'claude', destinationDirectory: project })).success).toBe(true);
   });
 
@@ -454,11 +464,10 @@ describe('Workspace refresh outcomes', () => {
     { command: 'update', enabled: true },
     { command: 'update', enabled: false },
   ])(
-    'preserves review enabled=$enabled through kept $command refreshes until overwrite',
+    'never replaces an existing config.yaml (review enabled=$enabled) on $command, even with force',
     async ({ command, enabled }) => {
       const configRel = 'config/config.yaml';
       const configPath = path.join(workspace, configRel);
-      const shipped = await shippedContent(configRel);
       const baseline = (await loadMetadata(metadataPath))!.files[configRel];
       const customized = `# Explicit local review preference\ncode_review:\n  enabled: ${enabled}\n`;
       await fs.writeFile(configPath, customized, 'utf8');
@@ -474,33 +483,20 @@ describe('Workspace refresh outcomes', () => {
         );
         vi.stubEnv('PATH', `${fakeBin}${path.delimiter}${process.env.PATH ?? ''}`);
       }
-      const refresh = () =>
+      const refresh = (force: boolean) =>
         command === 'update'
-          ? update({ destinationDirectory: project })
-          : init({ destinationDirectory: project });
-
-      answerEveryConflict('keep');
-      for (const run of [1, 2]) {
-        expect((await refresh()).success).toBe(true);
-        expect(promptMock).toHaveBeenCalledTimes(run);
-        expect(promptedPaths(run - 1)).toEqual([configRel]);
-        expect(promptMock.mock.calls[run - 1]![0][0]?.originalHash).toBe(baseline);
-        expect(await fs.readFile(configPath, 'utf8')).toBe(customized);
-        expect((await loadMetadata(metadataPath))!.files[configRel]).toBe(baseline);
-        expect(await calculateFileHash(configPath)).not.toBe(baseline);
-      }
+          ? update({ destinationDirectory: project, force })
+          : init({ destinationDirectory: project, force });
 
       answerEveryConflict('overwrite');
-      expect((await refresh()).success).toBe(true);
-      expect(promptMock).toHaveBeenCalledTimes(3);
-      expect(promptedPaths(2)).toEqual([configRel]);
-      expect(await fs.readFile(configPath, 'utf8')).toBe(shipped);
-      expect((load(shipped) as { code_review: { enabled: boolean } }).code_review.enabled).toBe(
-        false
-      );
-      expect((await loadMetadata(metadataPath))!.files[configRel]).toBe(
-        await calculateFileHash(configPath)
-      );
+      for (const force of [false, false, true]) {
+        expect((await refresh(force)).success).toBe(true);
+        expect(promptMock).not.toHaveBeenCalled();
+        // The incoming version did not change, so there is nothing to show.
+        expect(diffMock).not.toHaveBeenCalled();
+        expect(await fs.readFile(configPath, 'utf8')).toBe(customized);
+        expect((await loadMetadata(metadataPath))!.files[configRel]).toBe(baseline);
+      }
 
       if (command === 'update') {
         const calls = (await fs.readFile(installerLog, 'utf8'))
@@ -516,6 +512,45 @@ describe('Workspace refresh outcomes', () => {
       }
     }
   );
+
+  it('keeps config.yaml and shows the diff once when the incoming version changed', async () => {
+    const configRel = 'config/config.yaml';
+    const configPath = path.join(workspace, configRel);
+    const shipped = await shippedContent(configRel);
+    const stale = '# Shipped by an older release\ncode_review:\n  enabled: false\n';
+    await fs.writeFile(configPath, stale, 'utf8');
+    const metadata = (await loadMetadata(metadataPath))!;
+    metadata.files[configRel] = await calculateFileHash(configPath);
+    await saveMetadata(metadataPath, metadata);
+
+    expect((await init({ destinationDirectory: project })).success).toBe(true);
+    expect(promptMock).not.toHaveBeenCalled();
+    expect(diffMock).toHaveBeenCalledTimes(1);
+    expect(diffMock).toHaveBeenCalledWith(configRel, stale, shipped);
+    expect(await fs.readFile(configPath, 'utf8')).toBe(stale);
+    expect((await loadMetadata(metadataPath))!.files[configRel]).toBe(
+      await calculateFileHash(path.join(SHIPPED_TEMPLATE_DIR, configRel))
+    );
+
+    // The same incoming version is not shown again.
+    expect((await init({ destinationDirectory: project, force: true })).success).toBe(true);
+    expect(diffMock).toHaveBeenCalledTimes(1);
+    expect(await fs.readFile(configPath, 'utf8')).toBe(stale);
+  });
+
+  it('installs config.yaml again when it was deleted', async () => {
+    const configRel = 'config/config.yaml';
+    const configPath = path.join(workspace, configRel);
+    const shipped = await shippedContent(configRel);
+    await fs.remove(configPath);
+
+    expect((await init({ destinationDirectory: project })).success).toBe(true);
+    expect(await fs.readFile(configPath, 'utf8')).toBe(shipped);
+    expect((await loadMetadata(metadataPath))!.files[configRel]).toBe(
+      await calculateFileHash(configPath)
+    );
+    expect(load(shipped)).toMatchObject({ code_review: { enabled: false } });
+  });
 
   it('keeps a customization across repeated refreshes and prompts for it every time', async () => {
     const hookPath = path.join(workspace, 'config/hooks/PRE_PLAN.md');
@@ -669,6 +704,138 @@ describe('Workspace refresh outcomes', () => {
     // The preflight runs before the first write, so nothing was restored either.
     expect(await fs.pathExists(restoredPath)).toBe(false);
   });
+
+  describe('agent files', () => {
+    const agentRel = path.join('.claude', 'agents', 'plan-creator.md');
+    const agentPath = (): string => path.join(project, agentRel);
+
+    async function setManagedBaseline(hash: string | undefined): Promise<void> {
+      const metadata = (await loadMetadata(metadataPath))!;
+      if (hash === undefined) {
+        delete metadata.managedFiles;
+      } else {
+        metadata.managedFiles = { ...metadata.managedFiles, [agentRel]: hash };
+      }
+      await saveMetadata(metadataPath, metadata);
+    }
+
+    it('records agent file hashes on install', async () => {
+      expect((await loadMetadata(metadataPath))!.managedFiles?.[agentRel]).toBe(
+        await calculateFileHash(agentPath())
+      );
+    });
+
+    it('asks before replacing an edited agent file, keeps it, and asks again', async () => {
+      const shipped = await fs.readFile(agentPath(), 'utf-8');
+      const edited = `${shipped}\n# Local agent edit\n`;
+      await fs.writeFile(agentPath(), edited, 'utf-8');
+
+      answerEveryConflict('keep');
+      for (const run of [1, 2]) {
+        expect((await init({ destinationDirectory: project })).success).toBe(true);
+        expect(promptedPaths(run - 1)).toEqual([agentRel]);
+        expect(await fs.readFile(agentPath(), 'utf-8')).toBe(edited);
+      }
+
+      answerEveryConflict('overwrite');
+      expect((await init({ destinationDirectory: project })).success).toBe(true);
+      expect(await fs.readFile(agentPath(), 'utf-8')).toBe(shipped);
+      expect((await loadMetadata(metadataPath))!.managedFiles?.[agentRel]).toBe(
+        await calculateFileHash(agentPath())
+      );
+    });
+
+    it('replaces an edited agent file without asking only with force', async () => {
+      const shipped = await fs.readFile(agentPath(), 'utf-8');
+      await fs.writeFile(agentPath(), '# Local agent edit\n', 'utf-8');
+      expect((await init({ destinationDirectory: project, force: true })).success).toBe(true);
+      expect(promptMock).not.toHaveBeenCalled();
+      expect(await fs.readFile(agentPath(), 'utf-8')).toBe(shipped);
+    });
+
+    it('refreshes an unedited agent file silently', async () => {
+      const shipped = await fs.readFile(agentPath(), 'utf-8');
+      await fs.writeFile(agentPath(), '# Shipped by an older release\n', 'utf-8');
+      await setManagedBaseline(await calculateFileHash(agentPath()));
+
+      expect((await init({ destinationDirectory: project })).success).toBe(true);
+      expect(promptMock).not.toHaveBeenCalled();
+      expect(await fs.readFile(agentPath(), 'utf-8')).toBe(shipped);
+    });
+
+    it('treats a differing agent file as untracked when no baseline was recorded', async () => {
+      const legacy = '# Written before agent files were tracked\n';
+      await fs.writeFile(agentPath(), legacy, 'utf-8');
+      await setManagedBaseline(undefined);
+
+      answerEveryConflict('keep');
+      expect((await init({ destinationDirectory: project })).success).toBe(true);
+      expect(promptedPaths(0)).toEqual([agentRel]);
+      expect(promptMock.mock.calls[0]![0][0]?.originalHash).toBe('');
+      expect(await fs.readFile(agentPath(), 'utf-8')).toBe(legacy);
+      expect((await loadMetadata(metadataPath))!.managedFiles?.[agentRel]).toBeUndefined();
+    });
+  });
+
+  describe('workspace .gitignore', () => {
+    const ignoreRel = path.join('.ai', 'strikethroo', '.gitignore');
+    const ignorePath = (): string => path.join(project, ignoreRel);
+
+    it('shows nothing when the .gitignore has no local changes', async () => {
+      expect((await init({ destinationDirectory: project })).success).toBe(true);
+      expect(replacedDiffMock).not.toHaveBeenCalled();
+    });
+
+    it('replaces an edited .gitignore and shows the replaced local lines once', async () => {
+      const shipped = await fs.readFile(ignorePath(), 'utf-8');
+      const edited = `${shipped}local-only/\n`;
+      await fs.writeFile(ignorePath(), edited, 'utf-8');
+
+      expect((await init({ destinationDirectory: project })).success).toBe(true);
+      expect(promptMock).not.toHaveBeenCalled();
+      expect(replacedDiffMock).toHaveBeenCalledTimes(1);
+      expect(replacedDiffMock).toHaveBeenCalledWith(ignoreRel, edited, shipped);
+      expect(await fs.readFile(ignorePath(), 'utf-8')).toBe(shipped);
+
+      expect((await init({ destinationDirectory: project })).success).toBe(true);
+      expect(replacedDiffMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('profile-supplied files', () => {
+    const hookRel = 'config/hooks/PRE_PLAN.md';
+    const PROFILE_HOOK = '# Profile PRE_PLAN\n';
+
+    beforeEach(async () => {
+      const profileDir = path.join(sandbox, 'profile');
+      await fs.ensureDir(path.join(profileDir, 'config', 'hooks'));
+      await fs.writeFile(path.join(profileDir, 'profile.yaml'), PROFILE_MANIFEST, 'utf-8');
+      await fs.writeFile(path.join(profileDir, hookRel), PROFILE_HOOK, 'utf-8');
+      expect((await init({ destinationDirectory: project, profile: profileDir })).success).toBe(
+        true
+      );
+      expect((await loadMetadata(metadataPath))!.profile?.files).toEqual([hookRel]);
+      promptMock.mockReset();
+    });
+
+    it('asks before a refresh without the profile replaces a profile file', async () => {
+      const hookPath = path.join(workspace, hookRel);
+      answerEveryConflict('keep');
+      expect((await init({ destinationDirectory: project })).success).toBe(true);
+      expect(promptedPaths(0)).toEqual([hookRel]);
+      expect(await fs.readFile(hookPath, 'utf-8')).toBe(PROFILE_HOOK);
+      expect((await loadMetadata(metadataPath))!.profile?.files).toEqual([hookRel]);
+
+      answerEveryConflict('overwrite');
+      expect((await init({ destinationDirectory: project })).success).toBe(true);
+      expect(await fs.readFile(hookPath, 'utf-8')).toBe(await shippedContent(hookRel));
+      expect((await loadMetadata(metadataPath))!.profile?.files).toEqual([]);
+
+      promptMock.mockReset();
+      expect((await init({ destinationDirectory: project })).success).toBe(true);
+      expect(promptMock).not.toHaveBeenCalled();
+    });
+  });
 });
 
 /**
@@ -730,6 +897,38 @@ describe('Untrusted baseline gate (CLI, non-interactive stdin)', () => {
 
   afterEach(async () => {
     await fs.remove(sandbox);
+  });
+
+  it('refuses before writing anything when an agent file was edited', async () => {
+    expectNoDecisionAsked(runInit('--harnesses', 'claude'));
+    const agentPath = path.join(project, '.claude/agents/plan-creator.md');
+    await fs.writeFile(agentPath, '# Mine, hands off\n', 'utf-8');
+    await fs.writeFile(hookPath(), '# stale shipped hook\n', 'utf-8');
+    const metadata = (await loadMetadata(metadataPath))!;
+    metadata.files[HOOK] = await calculateFileHash(hookPath());
+    await saveMetadata(metadataPath, metadata);
+    const before = await metadataBytes();
+
+    const result = runInit();
+    expect(result.status).toBe(1);
+    expect(result.output).toContain(path.join('.claude', 'agents', 'plan-creator.md'));
+    expect(result.output).toContain('--force');
+    expect(await fs.readFile(agentPath, 'utf-8')).toBe('# Mine, hands off\n');
+    // The refusal happens before the refresh, so the stale hook is not updated either.
+    expect(await fs.readFile(hookPath(), 'utf-8')).toBe('# stale shipped hook\n');
+    expect(await metadataBytes()).toBe(before);
+  });
+
+  it('prints the replaced lines of an edited .gitignore', async () => {
+    expectNoDecisionAsked(runInit('--harnesses', 'claude'));
+    const ignorePath = path.join(workspace, '.gitignore');
+    await fs.appendFile(ignorePath, 'local-only/\n', 'utf-8');
+
+    const result = runInit();
+    expect(result.status).toBe(0);
+    expect(result.output).toContain('.gitignore had local changes and was updated');
+    expect(result.output).toContain('-local-only/');
+    expect(await fs.readFile(ignorePath, 'utf-8')).not.toContain('local-only/');
   });
 
   it('installs into an empty destination without asking anything', async () => {

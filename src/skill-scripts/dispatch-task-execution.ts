@@ -9,6 +9,8 @@ import { checkHarnessAvailability } from './shared/harness-availability';
 import { loadHarnessConfiguration } from './shared/harness-configuration';
 import { isExecutionProfileName, loadRoutingConfig } from './shared/execution-routing';
 import { readYamlFrontmatter } from './shared/task-frontmatter';
+import { collectModelRequests, resolveModel } from './shared/model-aliases';
+import { resolveCliArgs } from './shared/cli-args-models';
 
 /** A resolved invocation plus the exact task revision it may execute. Content stays on stdin. */
 type ExecutionRequest = Omit<RoutedDispatchRequest, 'taskMarkdown' | 'cliArgs'> & {
@@ -21,7 +23,19 @@ type ResolvedRoute =
   | { kind: 'native-override'; model: string; reasoningEffort?: string }
   | { kind: 'fallback'; reason: string; detail: string }
   | { kind: 'infrastructure-failure'; detail: string }
-  | ({ kind: 'external-override'; harness: Harness; model: string; reasoningEffort?: string } & {
+  | ({
+      kind: 'external-override';
+      harness: Harness;
+      model: string;
+      /** The configured name, present only when alias resolution changed it. */
+      requestedModel?: string;
+      /**
+       * Present when the probe could not list models and the model mapped the
+       * name from its own knowledge: the id was not checked against a list.
+       */
+      modelUnverified?: true;
+      reasoningEffort?: string;
+    } & {
       handoff: string;
     });
 
@@ -169,12 +183,29 @@ export const resolveDispatchRoute = async (
       harness,
       currentHarness: request.currentHarness,
       invocation,
+      modelRequests: collectModelRequests(configResult.config, harness),
     });
-    if (availability.available) {
+    const resolution = availability.available
+      ? resolveModel(harness, availability.models, {
+          model: selection.target.model,
+          ...(selection.target.reasoning_effort === undefined
+            ? {}
+            : { reasoningEffort: selection.target.reasoning_effort }),
+        })
+      : undefined;
+    if (resolution?.kind === 'unresolved') {
+      unavailable.push(`${harness} (${resolution.detail})`);
+      avoided.add(selection.id);
+      continue;
+    }
+    if (availability.available && resolution) {
+      // The target's own --model follows cli_args and selects the model, so a
+      // cli_args name that cannot be mapped is passed through unchanged.
+      const cliArgs = resolveCliArgs(harness, invocation.cliArgs, availability.models);
       const execution: ExecutionRequest = {
         harness,
-        cliArgs: invocation.cliArgs,
-        model: selection.target.model,
+        cliArgs: cliArgs.kind === 'resolved' ? cliArgs.cliArgs : invocation.cliArgs,
+        model: resolution.model,
         ...(selection.target.reasoning_effort === undefined
           ? {}
           : { reasoningEffort: selection.target.reasoning_effort }),
@@ -188,6 +219,12 @@ export const resolveDispatchRoute = async (
         kind: 'external-override',
         harness,
         model: execution.model,
+        ...(execution.model === selection.target.model
+          ? {}
+          : { requestedModel: selection.target.model }),
+        ...(resolution.kind === 'resolved' && !resolution.verified
+          ? { modelUnverified: true as const }
+          : {}),
         ...(execution.reasoningEffort === undefined
           ? {}
           : { reasoningEffort: execution.reasoningEffort }),

@@ -24,6 +24,8 @@ Harness `cli_args` pass through byte-for-byte with `shell: false`. Like hooks an
 
 Resolution captures an external task's path, content digest, workspace, IDs, model settings, and exact CLI arguments. `execute` consumes only that request. Any task edit between resolution and launch requires fresh resolution; configuration edits affect future resolutions. The single-task skill marks in-progress before resolution, and blueprint assignment hooks finish before resolution. Workers can edit their task after launch. Executable lookup and credentials still use the launch environment.
 
+Routing `model` values may be family names. `shared/model-aliases.ts` resolves them during the task readiness probe: the probe model runs its harness's model-list command and writes a mapping, and only ids in the reported list are accepted. If it cannot list them, it maps names from its own knowledge; those ids are accepted on shape alone and the route reports `modelUnverified: true`. The mapping is cached in the availability entry, whose key includes the requested names; dispatch reads only the cache. Claude and current-harness targets pass through unresolved, because native subagent tools take their own names. Model options inside `harnesses.<name>.cli_args` (`--model`, Codex `-m` and `--config model=`) are mapped by the same probe through `shared/cli-args-models.ts`; task dispatch rewrites them when mapped and keeps them otherwise, since the target's `--model` comes later and wins.
+
 Profile names are exact non-empty strings. Whitespace-only names fail before task writes; names containing other characters retain their surrounding whitespace through config editing, assignment, and dispatch.
 
 <!-- kk:related:start -->

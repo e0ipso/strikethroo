@@ -16,7 +16,7 @@ import * as path from 'path';
 import { Harness, SUPPORTED_HARNESSES } from '../types';
 import { getAgentFormat, convertAgentMdToToml } from '../utils';
 import { HarnessAdapter, registerHarnessAdapter } from './registry';
-import { ensureContainedDirectory, writeFileAtomic } from '../skill-scripts/shared/safe-fs';
+import { ManagedFile, writeManagedFile } from '../managed-files';
 
 /**
  * Absolute path to the shared agent templates directory.
@@ -34,44 +34,45 @@ function agentDirFor(harness: Harness, projectRoot: string): string {
 }
 
 /**
- * Write the agent files for a harness under `projectRoot`, overwriting any
- * existing files. Returns the absolute paths written. Shared by `install` and
- * `update` — the operation is idempotent. Writes are contained below the
- * project: a symbolic link at the harness directory, the agent directory, or
- * an agent file is refused, never written through.
+ * List the agent files a harness installs, with their content, by path
+ * relative to `projectRoot`. Reads only the shipped templates; writes nothing.
  */
-async function writeAgentFiles(harness: Harness, projectRoot: string): Promise<string[]> {
+async function planAgentFiles(harness: Harness): Promise<ManagedFile[]> {
   const sourceAgentsDir = getAgentsTemplateDir();
   if (!(await fs.pathExists(sourceAgentsDir))) {
     return [];
   }
 
-  const agentFiles = (await fs.readdir(sourceAgentsDir)).filter(f => f.endsWith('.md'));
   const formatInfo = getAgentFormat(harness);
-  const root = path.resolve(projectRoot || '.');
-  const targetDir = agentDirFor(harness, projectRoot);
-  const ensured = ensureContainedDirectory(root, targetDir);
-  if ('error' in ensured) {
-    throw new Error(`Cannot install ${harness} agents into ${targetDir}: ${ensured.message}`);
-  }
-
-  const writtenFiles: string[] = [];
+  const agentFiles = (await fs.readdir(sourceAgentsDir)).filter(f => f.endsWith('.md')).sort();
+  const planned: ManagedFile[] = [];
   for (const agentFile of agentFiles) {
-    const sourcePath = path.join(sourceAgentsDir, agentFile);
-    const content = await fs.readFile(sourcePath, 'utf-8');
-    const baseName = path.basename(agentFile, '.md');
-    const targetPath = path.join(targetDir, baseName + formatInfo.extension);
-
-    const output = formatInfo.format === 'toml' ? convertAgentMdToToml(content) : content;
-    const written = await writeFileAtomic(root, targetPath, output, { mode: 0o644 });
-    if ('error' in written) {
-      throw new Error(`Cannot write ${targetPath}: ${written.message}`);
-    }
-
-    writtenFiles.push(targetPath);
+    const content = await fs.readFile(path.join(sourceAgentsDir, agentFile), 'utf-8');
+    planned.push({
+      relativePath: path.join(
+        formatInfo.directory,
+        path.basename(agentFile, '.md') + formatInfo.extension
+      ),
+      content: formatInfo.format === 'toml' ? convertAgentMdToToml(content) : content,
+    });
   }
+  return planned;
+}
 
-  return writtenFiles;
+/**
+ * Write every planned agent file for a harness, replacing existing files.
+ * Returns the absolute paths written. Writes are contained below the project:
+ * a symbolic link at the harness directory, the agent directory, or an agent
+ * file is refused, never written through.
+ */
+async function writeAgentFiles(harness: Harness, projectRoot: string): Promise<string[]> {
+  const root = path.resolve(projectRoot || '.');
+  const written: string[] = [];
+  for (const file of await planAgentFiles(harness)) {
+    await writeManagedFile(root, file);
+    written.push(path.join(root, file.relativePath));
+  }
+  return written;
 }
 
 /**
@@ -83,6 +84,9 @@ export function createAgentAdapter(id: Harness): HarnessAdapter {
     id,
     async detect(projectRoot: string): Promise<boolean> {
       return fs.pathExists(agentDirFor(id, projectRoot));
+    },
+    async plan(): Promise<ManagedFile[]> {
+      return planAgentFiles(id);
     },
     async install(projectRoot: string): Promise<string[]> {
       return writeAgentFiles(id, projectRoot);

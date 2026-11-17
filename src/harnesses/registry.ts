@@ -12,18 +12,24 @@
  */
 
 import { Harness } from '../types';
+import type { ManagedFile } from '../managed-files';
 
 /**
  * Describes the lifecycle of a single harness.
  *
- * All paths are resolved against `projectRoot`. `install` and `update` return
- * the absolute paths of the files they wrote.
+ * All paths are resolved against `projectRoot`. `install` and `update` write
+ * every planned file unconditionally and return the absolute paths written.
  */
 export interface HarnessAdapter {
   /** The harness this adapter manages. */
   id: Harness;
   /** Resolve to `true` when the harness is already present under `projectRoot`. */
   detect(projectRoot: string): Promise<boolean>;
+  /**
+   * List the files the harness installs, by project-relative path, without
+   * writing anything. `init` uses it to ask before replacing an edited file.
+   */
+  plan(): Promise<ManagedFile[]>;
   /** Create the harness's files under `projectRoot`; resolve to the paths written. */
   install(projectRoot: string): Promise<string[]>;
   /** Re-apply the harness's files (idempotent); resolve to the paths written. */

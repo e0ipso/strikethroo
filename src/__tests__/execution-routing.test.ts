@@ -102,7 +102,12 @@ describe('loadRoutingConfig', () => {
     ]);
     expect(result.config.profiles.map(profile => profile.targets.length)).toEqual([3, 3, 3]);
     expect(result.config.profiles[0]?.targets[0]).toEqual({
-      model: 'claude-sonnet-5-5',
+      model: 'sonnet',
+      harness: 'claude',
+      reasoning_effort: 'medium',
+    });
+    expect(result.config.profiles[1]?.targets[0]).toEqual({
+      model: 'opus',
       harness: 'claude',
       reasoning_effort: 'medium',
     });

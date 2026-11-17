@@ -214,6 +214,123 @@ describe('dispatch task execution entrypoint', () => {
     }
   });
 
+  describe('model alias resolution', () => {
+    /** A fake cursor-agent that proves readiness and answers the model-list request. */
+    const aliasFixture = (
+      aliases: Record<string, string>,
+      models = ['grok-4.6-xhigh', 'grok-4.7-high', 'grok-4.7-xhigh']
+    ) => {
+      const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'st-dispatch-alias-'));
+      const bundle = makeBundle(directory);
+      fs.mkdirSync(path.join(directory, '.ai/strikethroo/config'), { recursive: true });
+      fs.writeFileSync(
+        path.join(directory, '.ai/strikethroo/config/config.yaml'),
+        'harnesses:\n  cursor:\n    cli_args:\n      - --model\n      - grok-xhigh\n' +
+          'execution_routing:\n  allow_external_harness_execution: true\n  profiles:\n' +
+          '    alias:\n      description: Alias route.\n      models:\n' +
+          '        - model: grok\n          harness: cursor\n          reasoning_effort: xhigh\n' +
+          '        - model: native/model\n          harness: codex\n'
+      );
+      const answer = {
+        listCommand: 'cursor-agent --list-models',
+        models,
+        aliases,
+      };
+      fs.writeFileSync(
+        path.join(directory, 'cursor-agent'),
+        `#!${process.execPath}
+const fs = require('fs');
+const path = require('path');
+let input = '';
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', chunk => { input += chunk; });
+process.stdin.on('end', () => {
+  const proof = /STRIKETHROO_READINESS=(\\{[^\\n]+\\})/.exec(input);
+  if (proof) {
+    const evidence = JSON.parse(proof[1]);
+    fs.writeFileSync(path.join(process.cwd(), evidence.file), evidence.content);
+  }
+  if (input.includes('strikethroo-models.json')) {
+    fs.writeFileSync(path.join(process.cwd(), 'strikethroo-models.json'), ${JSON.stringify(
+      JSON.stringify(answer)
+    )});
+  }
+});
+`,
+        { mode: 0o700 }
+      );
+      const taskFile = path.join(directory, 'task.md');
+      fs.writeFileSync(
+        taskFile,
+        '---\nid: 3\nstatus: pending\nexecution_profile: alias\n---\n# Task\n'
+      );
+      const env = {
+        ...process.env,
+        PATH: `${directory}${path.delimiter}${process.env.PATH ?? ''}`,
+      };
+      return { directory, bundle, taskFile, env };
+    };
+
+    it('resolves a family name to the listed id the probe mapped', () => {
+      const { directory, bundle, taskFile, env } = aliasFixture({
+        '1': 'grok-4.7-xhigh',
+        '2': 'grok-4.7-xhigh',
+      });
+      try {
+        const result = run(bundle, ['resolve', taskFile, 'codex', directory, '12', '3'], env);
+        expect(result.status).toBe(0);
+        const route = JSON.parse(result.stdout) as { handoff: string };
+        expect(route).toMatchObject({
+          kind: 'external-override',
+          harness: 'cursor',
+          model: 'grok-4.7-xhigh',
+          requestedModel: 'grok',
+          reasoningEffort: 'xhigh',
+        });
+        expect(route).not.toHaveProperty('modelUnverified');
+        const handoff = JSON.parse(Buffer.from(route.handoff, 'base64url').toString('utf8'));
+        expect(handoff.model).toBe('grok-4.7-xhigh');
+        expect(handoff.cliArgs).toEqual(['--model', 'grok-4.7-xhigh']);
+      } finally {
+        fs.rmSync(directory, { recursive: true, force: true });
+      }
+    });
+
+    it('uses an unverified mapping from knowledge when the probe lists no models', () => {
+      const { directory, bundle, taskFile, env } = aliasFixture(
+        { '1': 'grok-4.7-xhigh', '2': 'grok-4.7-xhigh' },
+        []
+      );
+      try {
+        const result = run(bundle, ['resolve', taskFile, 'codex', directory, '12', '3'], env);
+        expect(result.status).toBe(0);
+        expect(JSON.parse(result.stdout)).toMatchObject({
+          kind: 'external-override',
+          harness: 'cursor',
+          model: 'grok-4.7-xhigh',
+          requestedModel: 'grok',
+          modelUnverified: true,
+        });
+      } finally {
+        fs.rmSync(directory, { recursive: true, force: true });
+      }
+    });
+
+    it('moves to the next target when the name maps to no listed id', () => {
+      const { directory, bundle, taskFile, env } = aliasFixture({ '1': 'grok-9-xhigh' });
+      try {
+        const result = run(bundle, ['resolve', taskFile, 'codex', directory, '12', '3'], env);
+        expect(result.status).toBe(0);
+        expect(JSON.parse(result.stdout)).toEqual({
+          kind: 'native-override',
+          model: 'native/model',
+        });
+      } finally {
+        fs.rmSync(directory, { recursive: true, force: true });
+      }
+    });
+  });
+
   it('retries an unavailable external target and selects the current harness', () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'st-dispatch-'));
     const bundle = makeBundle(directory);

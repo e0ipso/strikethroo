@@ -57,6 +57,39 @@ describe('harness discovery', () => {
     expect(result.outcomes.every(outcome => outcome.source !== 'bypass')).toBe(true);
   });
 
+  it('gives reviewers the mapped cli_args model and drops a harness whose name cannot be mapped', async () => {
+    fs.mkdirSync(path.join(root, 'config'), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, 'config/config.yaml'),
+      'harnesses:\n  codex:\n    cli_args:\n      - --config\n      - model="gpt-sol"\n' +
+        '  cursor:\n    cli_args:\n      - --model\n      - grok-xhigh\n'
+    );
+    const dependencies = successfulDependencies();
+    const delegate = dependencies.runProbe;
+    const runProbe = vi.fn(async (command: { cwd: string; stdin: string; executable: string }) => {
+      if (command.stdin.includes('strikethroo-models.json')) {
+        const models = command.executable.endsWith('/codex') ? ['gpt-6.1-sol'] : ['grok-4.7-low'];
+        fs.writeFileSync(
+          path.join(command.cwd, 'strikethroo-models.json'),
+          JSON.stringify({
+            models,
+            aliases: { '1': models[0] === 'gpt-6.1-sol' ? 'gpt-6.1-sol' : 'grok-9' },
+          })
+        );
+      }
+      return delegate(command);
+    });
+
+    const result = await discoverHarnesses(request(), { ...dependencies, runProbe });
+
+    expect(result.reviewerInvocations?.codex?.cliArgs).toEqual(['--config', 'model="gpt-6.1-sol"']);
+    expect(result.reviewerCandidates).not.toContain('cursor');
+    expect(result.outcomes.find(outcome => outcome.harness === 'cursor')).toMatchObject({
+      available: false,
+      reason: expect.stringContaining('harnesses.cursor.cli_args'),
+    });
+  });
+
   it('offers only the current harness when no alternative is ready', async () => {
     const dependencies = successfulDependencies();
     const delegate = dependencies.runProbe;

@@ -1,3 +1,9 @@
+## [4.8.0](https://github.com/e0ipso/strikethroo/compare/v4.7.0...v4.8.0) (2026-11-17)
+
+### Features
+
+* protect local files and resolve model names ([#174](https://github.com/e0ipso/strikethroo/issues/174)) ([c381a03](https://github.com/e0ipso/strikethroo/commit/c381a0356732a0e159634df13cb4f3270e1444e5))
+
 ## [4.7.0](https://github.com/e0ipso/strikethroo/compare/v4.6.0...v4.7.0) (2026-11-14)
 
 ### Features

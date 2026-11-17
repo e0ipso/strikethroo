@@ -34,9 +34,9 @@ __export(dispatch_task_execution_exports, {
   resolveDispatchRoute: () => resolveDispatchRoute
 });
 module.exports = __toCommonJS(dispatch_task_execution_exports);
-var fs5 = __toESM(require("fs"));
-var import_crypto3 = require("crypto");
-var path8 = __toESM(require("path"));
+var fs6 = __toESM(require("fs"));
+var import_crypto4 = require("crypto");
+var path9 = __toESM(require("path"));
 
 // src/types.ts
 var SUPPORTED_HARNESSES = [
@@ -531,11 +531,11 @@ var dispatchExternalTask = async (request, overrides = {}) => dispatch(
 );
 
 // src/skill-scripts/shared/harness-availability.ts
-var import_crypto2 = require("crypto");
+var import_crypto3 = require("crypto");
 var import_child_process3 = require("child_process");
-var fs3 = __toESM(require("fs"));
+var fs4 = __toESM(require("fs"));
 var os = __toESM(require("os"));
-var path6 = __toESM(require("path"));
+var path7 = __toESM(require("path"));
 
 // src/skill-scripts/shared/harness-configuration.ts
 var import_crypto = require("crypto");
@@ -3186,12 +3186,210 @@ var loadHarnessConfiguration = (strikethrooRoot) => {
   return { kind: "config", config: Object.freeze(entries) };
 };
 
+// src/skill-scripts/shared/model-aliases.ts
+var import_crypto2 = require("crypto");
+var fs3 = __toESM(require("fs"));
+var path6 = __toESM(require("path"));
+var MODEL_MAP_SOURCES = /* @__PURE__ */ new Set([
+  "list",
+  "knowledge",
+  "none"
+]);
+var NATIVE_ALIAS_HARNESSES = /* @__PURE__ */ new Set(["claude"]);
+var MODEL_LIST_COMMANDS = {
+  codex: "codex debug models",
+  cursor: "cursor-agent --list-models"
+};
+var MODEL_MAP_FILE = "strikethroo-models.json";
+var MODEL_MAP_VERSION = 4;
+var MAX_MODEL_MAP_BYTES = 256 * 1024;
+var MAX_LISTED_MODELS = 2e3;
+var MODEL_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/@+=,[\]-]{0,199}$/;
+var modelRequestKey = (request) => JSON.stringify([request.model, request.reasoningEffort ?? null]);
+var mergeModelRequests = (...groups) => {
+  const requests = /* @__PURE__ */ new Map();
+  for (const request of groups.flat()) requests.set(modelRequestKey(request), request);
+  return [...requests.entries()].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([, request]) => request);
+};
+var collectModelRequests = (config, harness) => {
+  if (NATIVE_ALIAS_HARNESSES.has(harness)) return [];
+  return mergeModelRequests(
+    config.profiles.flatMap(
+      (profile) => profile.targets.filter((target) => target.harness === harness).map(
+        (target) => target.reasoning_effort === void 0 ? { model: target.model } : { model: target.model, reasoningEffort: target.reasoning_effort }
+      )
+    )
+  );
+};
+var modelRequestsHash = (requests) => (0, import_crypto2.createHash)("sha256").update(JSON.stringify({ version: MODEL_MAP_VERSION, requests: requests.map(modelRequestKey) })).digest("hex");
+var modelMappingPrompt = (harness, requests) => [
+  "",
+  MODEL_LIST_COMMANDS[harness] === void 0 ? "Then run the command your harness provides to list the models you can use, such as its model-list subcommand or flag. Do not guess the list." : `Then run \`${MODEL_LIST_COMMANDS[harness]}\` to list the models you can use. If that command fails, find the model-list command your harness provides. Do not guess the list.`,
+  `Create ${MODEL_MAP_FILE} in the current workspace with JSON of this exact shape:`,
+  '{"listCommand": "<the command you ran>", "models": ["<every model id it printed>"], "aliases": {"<request number>": "<one id from models>"}}',
+  'Map each request below to exactly one id from "models". A request names an exact id or a model family. For a family, choose the newest version in that family. When the ids encode a reasoning effort, choose the id with the requested effort, or with the effort the name ends with, such as "-xhigh". Leave out a request you cannot map.',
+  'If you cannot list the models, set "listCommand" to "" and "models" to [], and map each request from what you know about the model ids your harness accepts. Map an exact id to itself. Leave out a request you are not sure of.',
+  "Requests:",
+  ...requests.map(
+    (request, index) => `${index + 1}: ${JSON.stringify(request.model)}` + (request.reasoningEffort === void 0 ? "" : `, reasoning effort ${JSON.stringify(request.reasoningEffort)}`)
+  ),
+  ""
+].join("\n");
+var isModelId = (value) => typeof value === "string" && MODEL_ID_PATTERN.test(value);
+var isRecord = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+var NO_ANSWER = { source: "none", resolved: {} };
+var parseModelMapping = (content, requests) => {
+  let parsed;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return NO_ANSWER;
+  }
+  if (!isRecord(parsed)) return NO_ANSWER;
+  const models = Array.isArray(parsed.models) ? parsed.models : [];
+  const listed = new Set(models.slice(0, MAX_LISTED_MODELS).filter(isModelId));
+  const aliases = isRecord(parsed.aliases) ? parsed.aliases : {};
+  const fromList = listed.size > 0;
+  const resolved = {};
+  requests.forEach((request, index) => {
+    const candidate = listed.has(request.model) ? request.model : aliases[String(index + 1)];
+    if (isModelId(candidate) && (!fromList || listed.has(candidate))) {
+      resolved[modelRequestKey(request)] = candidate;
+    }
+  });
+  return { source: fromList ? "list" : "knowledge", resolved };
+};
+var readModelMapping = (workspace, requests) => {
+  const target = path6.join(workspace, MODEL_MAP_FILE);
+  try {
+    const stats = fs3.lstatSync(target);
+    if (!stats.isFile() || stats.size > MAX_MODEL_MAP_BYTES) return NO_ANSWER;
+    return parseModelMapping(fs3.readFileSync(target, "utf8"), requests);
+  } catch {
+    return NO_ANSWER;
+  }
+};
+var isModelMap = (value) => isRecord(value) && MODEL_MAP_SOURCES.has(value.source) && isRecord(value.resolved) && Object.values(value.resolved).every(isModelId);
+var resolveModel = (harness, map, request) => {
+  if (NATIVE_ALIAS_HARNESSES.has(harness) || map === void 0) {
+    return { kind: "pass-through", model: request.model };
+  }
+  const model = map.resolved[modelRequestKey(request)];
+  if (model !== void 0) return { kind: "resolved", model, verified: map.source === "list" };
+  if (map.source !== "list") return { kind: "pass-through", model: request.model };
+  return {
+    kind: "unresolved",
+    detail: `model "${request.model}" is not in the ${harness} model list and could not be mapped`
+  };
+};
+
+// src/skill-scripts/shared/cli-args-models.ts
+var MODEL_OPTION_SYNTAX = {
+  claude: { flags: ["--model"], configFlags: [] },
+  codex: { flags: ["--model", "-m"], configFlags: ["--config", "-c"] },
+  cursor: { flags: ["--model"], configFlags: [] },
+  gemini: { flags: ["--model", "-m"], configFlags: [] },
+  copilot: { flags: ["--model"], configFlags: [] },
+  opencode: { flags: ["--model", "-m"], configFlags: [] }
+};
+var MODEL_SETTING_PATTERN = /^model\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"']+))$/;
+var parseSetting = (value) => {
+  const match = MODEL_SETTING_PATTERN.exec(value);
+  if (!match) return void 0;
+  const quote = match[1] !== void 0 ? '"' : match[2] !== void 0 ? "'" : "";
+  return {
+    model: match[1] ?? match[2] ?? match[3],
+    render: (model) => `model=${quote}${model}${quote}`
+  };
+};
+var optionAt = (syntax, cliArgs, index) => {
+  const element = cliArgs[index];
+  const next = cliArgs[index + 1];
+  if (syntax.flags.includes(element) && next !== void 0) {
+    return { start: index, span: 2, model: next, render: (model) => [element, model] };
+  }
+  if (syntax.configFlags.includes(element) && next !== void 0) {
+    const setting2 = parseSetting(next);
+    if (setting2) {
+      return {
+        start: index,
+        span: 2,
+        model: setting2.model,
+        render: (model) => [element, setting2.render(model)]
+      };
+    }
+  }
+  const equals = element.indexOf("=");
+  if (!element.startsWith("--") || equals === -1) return void 0;
+  const flag = element.slice(0, equals);
+  const value = element.slice(equals + 1);
+  if (syntax.flags.includes(flag)) {
+    return { start: index, span: 1, model: value, render: (model) => [`${flag}=${model}`] };
+  }
+  const setting = syntax.configFlags.includes(flag) ? parseSetting(value) : void 0;
+  return setting ? {
+    start: index,
+    span: 1,
+    model: setting.model,
+    render: (model) => [`${flag}=${setting.render(model)}`]
+  } : void 0;
+};
+var findModelOptions = (harness, cliArgs) => {
+  const syntax = MODEL_OPTION_SYNTAX[harness];
+  const options = [];
+  for (let index = 0; index < cliArgs.length; index += 1) {
+    const option = optionAt(syntax, cliArgs, index);
+    if (!option) continue;
+    if (isModelId(option.model)) options.push(option);
+    index += option.span - 1;
+  }
+  return options;
+};
+var rewrite = (cliArgs, options, replace) => {
+  const result = [];
+  let index = 0;
+  for (const option of options) {
+    result.push(...cliArgs.slice(index, option.start), ...replace(option));
+    index = option.start + option.span;
+  }
+  result.push(...cliArgs.slice(index));
+  return result;
+};
+var cliArgsModelRequests = (harness, cliArgs) => NATIVE_ALIAS_HARNESSES.has(harness) ? [] : findModelOptions(harness, cliArgs).map((option) => ({ model: option.model }));
+var withoutModelOptions = (harness, cliArgs) => NATIVE_ALIAS_HARNESSES.has(harness) ? [...cliArgs] : rewrite(cliArgs, findModelOptions(harness, cliArgs), () => []);
+var resolveCliArgs = (harness, cliArgs, map) => {
+  if (NATIVE_ALIAS_HARNESSES.has(harness)) {
+    return { kind: "resolved", cliArgs: [...cliArgs], verified: true };
+  }
+  const options = findModelOptions(harness, cliArgs);
+  const models = [];
+  let verified = true;
+  for (const option of options) {
+    const resolution = resolveModel(harness, map, { model: option.model });
+    if (resolution.kind === "unresolved") {
+      return {
+        kind: "unresolved",
+        detail: `harnesses.${harness}.cli_args: ${resolution.detail}`
+      };
+    }
+    if (resolution.kind === "resolved" && !resolution.verified) verified = false;
+    models.push(resolution.model);
+  }
+  let next = 0;
+  return {
+    kind: "resolved",
+    cliArgs: rewrite(cliArgs, options, (option) => option.render(models[next++])),
+    verified
+  };
+};
+
 // src/skill-scripts/shared/harness-availability.ts
-var AVAILABILITY_REGISTRY_VERSION = 5;
+var AVAILABILITY_REGISTRY_VERSION = 7;
 var AVAILABLE_TTL_MS = 30 * 60 * 1e3;
 var UNAVAILABLE_TTL_MS = 5 * 60 * 1e3;
 var PROBE_TIMEOUT_MS = 2e4;
-var AVAILABILITY_CACHE_RELATIVE_PATH = path6.join("runtime", "harness-availability.json");
+var MODEL_MAPPING_PROBE_TIMEOUT_MS = 9e4;
+var AVAILABILITY_CACHE_RELATIVE_PATH = path7.join("runtime", "harness-availability.json");
 var CACHE_VERSION = 2;
 var availabilityDefinition = (harness) => {
   const adapter2 = EXTERNAL_HARNESS_ADAPTERS[harness];
@@ -3247,8 +3445,8 @@ var runProbe = (command, timeoutMs) => new Promise((resolve4) => {
   child.stdin?.on("error", () => void 0);
   child.stdin?.end(command.stdin);
 });
-var probeFailureReason = (probe) => {
-  const reason = probe.timedOut ? `Harness readiness check timed out after ${PROBE_TIMEOUT_MS} ms.` : probe.error ? `Harness readiness check could not launch: ${probe.error}` : probe.exitCode !== 0 ? `Harness readiness check exited ${probe.exitCode}.` : "Harness exited 0 but did not create the required readiness file with the expected content.";
+var probeFailureReason = (probe, timeoutMs) => {
+  const reason = probe.timedOut ? `Harness readiness check timed out after ${timeoutMs} ms.` : probe.error ? `Harness readiness check could not launch: ${probe.error}` : probe.exitCode !== 0 ? `Harness readiness check exited ${probe.exitCode}.` : "Harness exited 0 but did not create the required readiness file with the expected content.";
   const diagnostics = [
     probe.stderr?.trim() ? `stderr: ${probe.stderr.trim().slice(-4096)}` : "",
     probe.stdout?.trim() ? `stdout: ${probe.stdout.trim().slice(-4096)}` : ""
@@ -3264,12 +3462,12 @@ var isHarness = (value) => typeof value === "string" && SUPPORTED_HARNESSES.incl
 var isCacheEntry = (value) => {
   if (!value || typeof value !== "object") return false;
   const entry = value;
-  return typeof entry.key === "string" && isHarness(entry.harness) && typeof entry.available === "boolean" && typeof entry.observedAt === "number" && Number.isFinite(entry.observedAt) && typeof entry.expiresAt === "number" && Number.isFinite(entry.expiresAt) && typeof entry.reason === "string";
+  return typeof entry.key === "string" && isHarness(entry.harness) && typeof entry.available === "boolean" && typeof entry.observedAt === "number" && Number.isFinite(entry.observedAt) && typeof entry.expiresAt === "number" && Number.isFinite(entry.expiresAt) && typeof entry.reason === "string" && (entry.models === void 0 || isModelMap(entry.models));
 };
 var emptyCache = () => ({ version: CACHE_VERSION, entries: [] });
 var readCache = (cachePath) => {
   try {
-    const parsed = JSON.parse(fs3.readFileSync(cachePath, "utf8"));
+    const parsed = JSON.parse(fs4.readFileSync(cachePath, "utf8"));
     if (!parsed || typeof parsed !== "object") return emptyCache();
     const record = parsed;
     if (record.version !== CACHE_VERSION || !Array.isArray(record.entries)) return emptyCache();
@@ -3279,26 +3477,26 @@ var readCache = (cachePath) => {
   }
 };
 var writeCache = (cachePath, entry) => {
-  fs3.mkdirSync(path6.dirname(cachePath), { recursive: true });
+  fs4.mkdirSync(path7.dirname(cachePath), { recursive: true });
   const cache = readCache(cachePath);
   const existingIndex = cache.entries.findIndex((candidate) => candidate.key === entry.key);
   if (existingIndex === -1) cache.entries.push(entry);
   else if (cache.entries[existingIndex].observedAt <= entry.observedAt) {
     cache.entries[existingIndex] = entry;
   }
-  const temporary = `${cachePath}.${process.pid}.${(0, import_crypto2.randomUUID)()}.tmp`;
+  const temporary = `${cachePath}.${process.pid}.${(0, import_crypto3.randomUUID)()}.tmp`;
   try {
-    fs3.writeFileSync(temporary, `${JSON.stringify(cache, null, 2)}
+    fs4.writeFileSync(temporary, `${JSON.stringify(cache, null, 2)}
 `, { mode: 384 });
-    fs3.renameSync(temporary, cachePath);
+    fs4.renameSync(temporary, cachePath);
   } finally {
     try {
-      fs3.unlinkSync(temporary);
+      fs4.unlinkSync(temporary);
     } catch {
     }
   }
 };
-var cacheKey = (harness, executableIdentity, invocation, purpose) => (0, import_crypto2.createHash)("sha256").update(
+var cacheKey = (harness, executableIdentity, invocation, purpose, modelRequests) => (0, import_crypto3.createHash)("sha256").update(
   JSON.stringify({
     harness,
     executableIdentity,
@@ -3306,11 +3504,12 @@ var cacheKey = (harness, executableIdentity, invocation, purpose) => (0, import_
     normalizationVersion: HARNESS_CONFIGURATION_NORMALIZATION_VERSION,
     probeRegistryVersion: AVAILABILITY_REGISTRY_VERSION,
     purpose,
-    ...purpose === "review" ? { reviewSessionPolicyVersion: REVIEW_SESSION_POLICY_VERSION } : {}
+    ...purpose === "review" ? { reviewSessionPolicyVersion: REVIEW_SESSION_POLICY_VERSION } : {},
+    ...modelRequests.length > 0 ? { modelRequests: modelRequestsHash(modelRequests) } : {}
   })
 ).digest("hex");
 var readinessEvidence = () => {
-  const nonce = (0, import_crypto2.randomUUID)();
+  const nonce = (0, import_crypto3.randomUUID)();
   return {
     file: "strikethroo-readiness.txt",
     content: `strikethroo-readiness:${nonce}
@@ -3321,7 +3520,7 @@ var readinessPrompt = (evidence) => `Run a shell command that creates ${evidence
 STRIKETHROO_READINESS=${JSON.stringify(evidence)}
 `;
 var initializeProbeWorkspace = () => {
-  const workspace = fs3.mkdtempSync(path6.join(os.tmpdir(), "strikethroo-harness-probe-"));
+  const workspace = fs4.mkdtempSync(path7.join(os.tmpdir(), "strikethroo-harness-probe-"));
   const initialized = (0, import_child_process3.spawnSync)("git", ["init", "--quiet"], {
     cwd: workspace,
     shell: false,
@@ -3329,13 +3528,13 @@ var initializeProbeWorkspace = () => {
     timeout: 5e3
   });
   if (initialized.status === 0 && !initialized.error) return workspace;
-  fs3.rmSync(workspace, { recursive: true, force: true });
+  fs4.rmSync(workspace, { recursive: true, force: true });
   return void 0;
 };
 var hasReadinessEvidence = (workspace, evidence) => {
-  const target = path6.join(workspace, evidence.file);
+  const target = path7.join(workspace, evidence.file);
   try {
-    return fs3.lstatSync(target).isFile() && fs3.readFileSync(target, "utf8") === evidence.content;
+    return fs4.lstatSync(target).isFile() && fs4.readFileSync(target, "utf8") === evidence.content;
   } catch {
     return false;
   }
@@ -3390,8 +3589,12 @@ var checkHarnessAvailability = async (request, overrides = {}) => {
       now,
       `Harness executable '${definition.executable}' was not found on PATH.`
     );
-  const key = cacheKey(harness, executableIdentity, invocation, purpose);
-  const cachePath = path6.join(request.strikethrooRoot, AVAILABILITY_CACHE_RELATIVE_PATH);
+  const modelRequests = mergeModelRequests(
+    purpose === "task" ? [...request.modelRequests ?? []] : [],
+    cliArgsModelRequests(harness, invocation.cliArgs)
+  );
+  const key = cacheKey(harness, executableIdentity, invocation, purpose, modelRequests);
+  const cachePath = path7.join(request.strikethrooRoot, AVAILABILITY_CACHE_RELATIVE_PATH);
   const cached = readCache(cachePath).entries.find(
     (entry) => entry.key === key && entry.expiresAt > now
   );
@@ -3420,34 +3623,40 @@ var checkHarnessAvailability = async (request, overrides = {}) => {
   }
   try {
     const evidence = readinessEvidence();
-    const prompt = readinessPrompt(evidence);
-    const command = purpose === "review" ? buildReviewCommand({
-      harness,
-      cliArgs: invocation.cliArgs,
-      workspace: probeWorkspace,
-      prompt
-    }) : definition.buildCommand(probeWorkspace, invocation.cliArgs, prompt);
-    const probe = await active.runProbe(
-      { ...command, executable: executableIdentity },
-      PROBE_TIMEOUT_MS
-    );
+    const prompt = readinessPrompt(evidence) + (modelRequests.length > 0 ? modelMappingPrompt(harness, modelRequests) : "");
+    const timeoutMs = modelRequests.length > 0 ? MODEL_MAPPING_PROBE_TIMEOUT_MS : PROBE_TIMEOUT_MS;
+    const runWith = (cliArgs) => {
+      const command = purpose === "review" ? buildReviewCommand({ harness, cliArgs, workspace: probeWorkspace, prompt }) : definition.buildCommand(probeWorkspace, cliArgs, prompt);
+      return active.runProbe({ ...command, executable: executableIdentity }, timeoutMs);
+    };
+    let probe = await runWith(invocation.cliArgs);
+    const withoutModels = withoutModelOptions(harness, invocation.cliArgs);
+    if (probe.exitCode !== 0 && !probe.timedOut && !probe.error && withoutModels.length !== invocation.cliArgs.length) {
+      fs4.rmSync(path7.join(probeWorkspace, MODEL_MAP_FILE), { force: true });
+      probe = await runWith(withoutModels);
+    }
     const available = probe.exitCode === 0 && !probe.timedOut && hasReadinessEvidence(probeWorkspace, evidence);
-    return complete(
-      outcome(
-        harness,
-        available,
-        now,
-        available ? "Harness readiness verified." : probeFailureReason(probe)
-      )
+    const result = outcome(
+      harness,
+      available,
+      now,
+      available ? "Harness readiness verified." : probeFailureReason(probe, timeoutMs)
     );
+    if (!available || modelRequests.length === 0) return complete(result);
+    const models = readModelMapping(probeWorkspace, modelRequests);
+    return complete({
+      ...result,
+      models,
+      ...models.source === "list" ? {} : { expiresAt: now + UNAVAILABLE_TTL_MS }
+    });
   } finally {
-    fs3.rmSync(probeWorkspace, { recursive: true, force: true });
+    fs4.rmSync(probeWorkspace, { recursive: true, force: true });
   }
 };
 
 // src/skill-scripts/shared/execution-routing.ts
-var path7 = __toESM(require("path"));
-var fs4 = __toESM(require("fs"));
+var path8 = __toESM(require("path"));
+var fs5 = __toESM(require("fs"));
 var EXECUTION_ROUTING_SECTION = "execution_routing";
 var isPlainObject4 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 var isNonEmptyString = (value) => typeof value === "string" && value.trim().length > 0;
@@ -3527,10 +3736,10 @@ var validateProfile = (name, raw, supportedHarnesses, errors) => {
   return { name, description: raw.description.trim(), targets };
 };
 var loadRoutingConfig = (strikethrooRoot, supportedHarnesses) => {
-  const configPath = path7.join(strikethrooRoot, WORKSPACE_CONFIG_RELPATH);
+  const configPath = path8.join(strikethrooRoot, WORKSPACE_CONFIG_RELPATH);
   let contents;
   try {
-    contents = fs4.readFileSync(configPath, "utf8");
+    contents = fs5.readFileSync(configPath, "utf8");
   } catch {
     return { kind: "no-config" };
   }
@@ -3607,7 +3816,7 @@ var emit = (result, exitCode) => {
   process.exit(exitCode);
 };
 var errorMessage2 = (error) => error instanceof Error ? error.message : String(error);
-var taskDigest = (markdown) => (0, import_crypto3.createHash)("sha256").update(markdown).digest("hex");
+var taskDigest = (markdown) => (0, import_crypto4.createHash)("sha256").update(markdown).digest("hex");
 var encodeHandoff = (request) => Buffer.from(JSON.stringify(request), "utf8").toString("base64url");
 var decodeHandoff = (encoded) => {
   let value;
@@ -3623,7 +3832,7 @@ var decodeHandoff = (encoded) => {
   }))
     throw new Error("Resolved execution request has an invalid shape.");
   const request = value;
-  if (!SUPPORTED_HARNESSES.includes(request.harness) || !path8.isAbsolute(request.workspace) || !path8.isAbsolute(request.taskFile) || !/^[a-f0-9]{64}$/.test(request.taskDigest) || !Array.isArray(request.cliArgs) || request.cliArgs.some((arg) => typeof arg !== "string" || arg === "" || arg.includes("\0")) || "reasoningEffort" in request && (typeof request.reasoningEffort !== "string" || request.reasoningEffort.trim() === "" || request.reasoningEffort.includes("\0")))
+  if (!SUPPORTED_HARNESSES.includes(request.harness) || !path9.isAbsolute(request.workspace) || !path9.isAbsolute(request.taskFile) || !/^[a-f0-9]{64}$/.test(request.taskDigest) || !Array.isArray(request.cliArgs) || request.cliArgs.some((arg) => typeof arg !== "string" || arg === "" || arg.includes("\0")) || "reasoningEffort" in request && (typeof request.reasoningEffort !== "string" || request.reasoningEffort.trim() === "" || request.reasoningEffort.includes("\0")))
     throw new Error("Resolved execution request has an invalid shape.");
   return request;
 };
@@ -3692,13 +3901,24 @@ var resolveDispatchRoute = async (request) => {
       workspace: request.workspace,
       harness,
       currentHarness: request.currentHarness,
-      invocation
+      invocation,
+      modelRequests: collectModelRequests(configResult.config, harness)
     });
-    if (availability.available) {
+    const resolution = availability.available ? resolveModel(harness, availability.models, {
+      model: selection.target.model,
+      ...selection.target.reasoning_effort === void 0 ? {} : { reasoningEffort: selection.target.reasoning_effort }
+    }) : void 0;
+    if (resolution?.kind === "unresolved") {
+      unavailable.push(`${harness} (${resolution.detail})`);
+      avoided.add(selection.id);
+      continue;
+    }
+    if (availability.available && resolution) {
+      const cliArgs = resolveCliArgs(harness, invocation.cliArgs, availability.models);
       const execution = {
         harness,
-        cliArgs: invocation.cliArgs,
-        model: selection.target.model,
+        cliArgs: cliArgs.kind === "resolved" ? cliArgs.cliArgs : invocation.cliArgs,
+        model: resolution.model,
         ...selection.target.reasoning_effort === void 0 ? {} : { reasoningEffort: selection.target.reasoning_effort },
         workspace: request.workspace,
         planId: request.planId,
@@ -3710,6 +3930,8 @@ var resolveDispatchRoute = async (request) => {
         kind: "external-override",
         harness,
         model: execution.model,
+        ...execution.model === selection.target.model ? {} : { requestedModel: selection.target.model },
+        ...resolution.kind === "resolved" && !resolution.verified ? { modelUnverified: true } : {},
         ...execution.reasoningEffort === void 0 ? {} : { reasoningEffort: execution.reasoningEffort },
         handoff: encodeHandoff(execution)
       };
@@ -3729,7 +3951,7 @@ var main = async () => {
   const [mode, ...args] = process.argv.slice(2);
   if (mode === "execute" && args.length === 1) {
     const request = decodeHandoff(args[0]);
-    const taskMarkdown = fs5.readFileSync(request.taskFile, "utf8");
+    const taskMarkdown = fs6.readFileSync(request.taskFile, "utf8");
     if (taskDigest(taskMarkdown) !== request.taskDigest) {
       throw new Error(
         `Task ${request.taskId} changed after route resolution. This request cannot be executed.`
@@ -3755,14 +3977,14 @@ var main = async () => {
   if (!args.every(Boolean) || !planId.trim() || !taskId.trim() || !SUPPORTED_HARNESSES.includes(currentHarness)) {
     emit({ kind: "infrastructure-failure", detail: "Task dispatch arguments are invalid." }, 2);
   }
-  const taskPath = path8.resolve(taskFile);
-  const projectRoot = path8.resolve(workspace);
+  const taskPath = path9.resolve(taskFile);
+  const projectRoot = path9.resolve(workspace);
   const route = await resolveDispatchRoute({
-    taskMarkdown: fs5.readFileSync(taskPath, "utf8"),
+    taskMarkdown: fs6.readFileSync(taskPath, "utf8"),
     taskFile: taskPath,
     currentHarness,
     workspace: projectRoot,
-    strikethrooRoot: path8.join(projectRoot, ".ai", "strikethroo"),
+    strikethrooRoot: path9.join(projectRoot, ".ai", "strikethroo"),
     planId,
     taskId
   });

@@ -1,3 +1,9 @@
+## [4.9.1](https://github.com/e0ipso/strikethroo/compare/v4.9.0...v4.9.1) (2026-11-18)
+
+### Bug Fixes
+
+* **deps:** update bundled npm and drop resolved audit exclusions ([#179](https://github.com/e0ipso/strikethroo/issues/179)) ([6bfcd7d](https://github.com/e0ipso/strikethroo/commit/6bfcd7db5ece4677259c155891c75b426063cf35)), closes [#157](https://github.com/e0ipso/strikethroo/issues/157) [#159](https://github.com/e0ipso/strikethroo/issues/159) [#160](https://github.com/e0ipso/strikethroo/issues/160) [#163](https://github.com/e0ipso/strikethroo/issues/163)
+
 ## [4.9.0](https://github.com/e0ipso/strikethroo/compare/v4.8.1...v4.9.0) (2026-11-18)
 
 ### Features

@@ -701,6 +701,37 @@ process.exit(Number(process.env.NPX_EXIT_CODE || '0'));
       expect(await fs.pathExists(path.join(testDir, 'npx-log.json'))).toBe(true);
     });
 
+    it('keeps customized files without prompting when --ignore is explicit', async () => {
+      initWorkspace('claude');
+      const target = path.join(testDir, '.ai/strikethroo/config/STRIKETHROO.md');
+      const customized = '# Custom project context\n';
+      await fs.writeFile(target, customized);
+      await writeFakeNpx(path.join(testDir, 'fake-bin'));
+
+      const result = runUpdate('--harnesses claude --ignore');
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('config/STRIKETHROO.md');
+      expect(await fs.readFile(target, 'utf8')).toBe(customized);
+      expect(await fs.pathExists(path.join(testDir, 'npx-log.json'))).toBe(true);
+
+      // The kept file is still a conflict for a run without --ignore.
+      expect(runUpdate('--harnesses claude').exitCode).not.toBe(0);
+    });
+
+    it('rejects --force together with --ignore', async () => {
+      initWorkspace('claude');
+      const target = path.join(testDir, '.ai/strikethroo/config/STRIKETHROO.md');
+      const customized = '# Custom project context\n';
+      await fs.writeFile(target, customized);
+      await writeFakeNpx(path.join(testDir, 'fake-bin'));
+
+      const result = runUpdate('--force --ignore');
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain('cannot be used with');
+      expect(await fs.readFile(target, 'utf8')).toBe(customized);
+      expect(await fs.pathExists(path.join(testDir, 'npx-log.json'))).toBe(false);
+    });
+
     it('keeps a refreshed workspace when the installer fails and reports recovery', async () => {
       initWorkspace('claude');
       const before = await fs.readJson(metadataPath());

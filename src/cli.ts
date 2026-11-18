@@ -6,7 +6,7 @@
  * Handles command-line argument parsing and routing to appropriate handlers
  */
 
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 import chalk from 'chalk';
 import { isIP } from 'net';
 import { init } from './index';
@@ -20,6 +20,14 @@ import { update } from './update';
 import { getPackageVersion } from './metadata';
 
 const program = new Command();
+
+/** `--ignore`: the keep-everything sibling of `--force`. */
+function ignoreOption(): Option {
+  return new Option(
+    '--ignore',
+    'Keep all customized files without prompting (cannot be combined with --force)'
+  ).conflicts('force');
+}
 
 program
   .name('strikethroo')
@@ -38,6 +46,7 @@ program
     'Directory to create project structure in (default: current directory)'
   )
   .option('--force', 'Force overwrite all files without prompting')
+  .addOption(ignoreOption())
   .option(
     '--profile <value>',
     'Strikethroo profile to import: local folder, <user>/<repo> GitHub shorthand, or full git URL'
@@ -71,6 +80,7 @@ program
     'Directory containing the initialized workspace (default: current directory)'
   )
   .option('--force', 'Force overwrite all files without prompting')
+  .addOption(ignoreOption())
   .option(
     '--profile <value>',
     'Strikethroo profile to import: local folder, <user>/<repo> GitHub shorthand, or full git URL'

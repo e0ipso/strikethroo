@@ -22,4 +22,4 @@ kk_confidence: high
 
 Agent files use the same rules through `src/managed-files.ts`, with hashes in `managedFiles` (project-relative keys); all conflicts go to one prompt before any write. The workspace `.gitignore` is always replaced, with a diff when it had local changes. `profile.files` lists profile-supplied paths; a refresh without `--profile` treats a baseline match on them as a conflict (`protectedBaseline` in `classifyRefresh`).
 
-Missing or unparsable metadata means no baseline, so every differing file conflicts. Without a TTY the prompt throws, which leaves `--force` as the only non-interactive route. Metadata is written last.
+Missing or unparsable metadata means no baseline, so every differing file conflicts. Without a TTY the prompt throws, which leaves `--force` (overwrite all) and `--ignore` (keep all) as the non-interactive routes. `--ignore` produces `kept` outcomes, so it records the old baseline like a keep answer. Metadata is written last.

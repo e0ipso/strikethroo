@@ -36,6 +36,11 @@ export interface InitOptions {
    */
   force?: boolean;
   /**
+   * Keep every conflicting local file without prompting. Cannot be combined
+   * with `force`.
+   */
+  ignore?: boolean;
+  /**
    * Optional strikethroo profile to import: local folder path,
    * <user>/<repo> GitHub shorthand, or full git URL
    */
@@ -62,6 +67,11 @@ export interface UpdateOptions {
    * Force overwrite all files without prompting
    */
   force?: boolean;
+  /**
+   * Keep every conflicting local file without prompting. Cannot be combined
+   * with `force`.
+   */
+  ignore?: boolean;
   /**
    * Optional strikethroo profile to import: local folder path,
    * <user>/<repo> GitHub shorthand, or full git URL

@@ -1,3 +1,9 @@
+## [4.8.1](https://github.com/e0ipso/strikethroo/compare/v4.8.0...v4.8.1) (2026-11-18)
+
+### Bug Fixes
+
+* prompt for config.yaml conflicts like other config files ([#176](https://github.com/e0ipso/strikethroo/issues/176)) ([c366954](https://github.com/e0ipso/strikethroo/commit/c3669545865a6d7e0d15bf1de8157f8f30c791d2)), closes [#174](https://github.com/e0ipso/strikethroo/issues/174)
+
 ## [4.8.0](https://github.com/e0ipso/strikethroo/compare/v4.7.0...v4.8.0) (2026-11-17)
 
 ### Features

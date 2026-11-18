@@ -126,7 +126,7 @@ export async function writeManagedFile(projectRoot: string, file: ManagedFile): 
  * Apply one outcome per managed file: install, refresh, overwrite, or keep.
  *
  * @param overwrite - Whether the user authorized replacing this path
- *   (`--force` or an explicit overwrite answer)
+ *   (`--force` or an explicit overwrite answer; never with `--ignore`)
  */
 export async function refreshManagedFiles(
   projectRoot: string,

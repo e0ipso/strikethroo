@@ -38,8 +38,8 @@ function describeNonInteractiveRefusal(conflicts: FileConflict[]): string {
     );
   }
   lines.push(
-    'Re-run in a terminal to decide per file, or pass --force to overwrite every conflicting ' +
-      'file with the incoming version.'
+    'Re-run in a terminal to decide per file, pass --force to overwrite every conflicting ' +
+      'file with the incoming version, or pass --ignore to keep every local copy.'
   );
   return lines.join('\n');
 }
@@ -198,7 +198,8 @@ export async function promptForResolution(
  *
  * Refuses up front when standard input is not a terminal: a prompt that cannot
  * be answered must not be rendered, and the caller treats the thrown error as
- * a failed refresh with nothing written. `--force` is the non-interactive route.
+ * a failed refresh with nothing written. `--force` and `--ignore` are the
+ * non-interactive routes.
  *
  * @param conflicts - Array of FileConflict objects
  * @returns Map of relative paths to resolution decisions

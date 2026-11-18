@@ -148,6 +148,7 @@ export async function update(options: UpdateOptions): Promise<UpdateResult> {
     harnesses,
     destinationDirectory: options.destinationDirectory,
     force: options.force,
+    ignore: options.ignore,
     profile: options.profile,
     mode: 'update',
   });

@@ -495,6 +495,49 @@ describe('Workspace refresh outcomes', () => {
     expect(await fs.readFile(configPath, 'utf8')).toBe(await shippedContent(configRel));
   });
 
+  it('keeps every conflicting file with ignore, without asking, and refreshes the rest', async () => {
+    const configRel = 'config/config.yaml';
+    const configPath = path.join(workspace, configRel);
+    const agentRel = path.join('.claude', 'agents', 'plan-creator.md');
+    const agentPath = path.join(project, agentRel);
+    const hookRel = 'config/hooks/PRE_PLAN.md';
+    const hookPath = path.join(workspace, hookRel);
+    const before = (await loadMetadata(metadataPath))!;
+
+    await fs.writeFile(configPath, '# Local edit\n', 'utf8');
+    await fs.writeFile(agentPath, '# Local agent edit\n', 'utf8');
+    await fs.remove(hookPath);
+
+    expect((await init({ destinationDirectory: project, ignore: true })).success).toBe(true);
+    expect(promptMock).not.toHaveBeenCalled();
+    expect(await fs.readFile(configPath, 'utf8')).toBe('# Local edit\n');
+    expect(await fs.readFile(agentPath, 'utf8')).toBe('# Local agent edit\n');
+    expect(await fs.readFile(hookPath, 'utf8')).toBe(await shippedContent(hookRel));
+
+    // Kept files keep their old baselines, so a later prompted run asks again.
+    const after = (await loadMetadata(metadataPath))!;
+    expect(after.files[configRel]).toBe(before.files[configRel]);
+    expect(after.managedFiles?.[agentRel]).toBe(before.managedFiles?.[agentRel]);
+
+    const logged = consoleLogSpy.mock.calls.flat().join('\n');
+    expect(logged).toContain('--ignore kept 2 file(s)');
+    expect(logged).toContain(configRel);
+    expect(logged).toContain(agentRel);
+  });
+
+  it('rejects force together with ignore before writing anything', async () => {
+    const configPath = path.join(workspace, 'config/config.yaml');
+    await fs.writeFile(configPath, '# Local edit\n', 'utf8');
+    const metadataBefore = await fs.readFile(metadataPath, 'utf8');
+
+    const result = await init({ destinationDirectory: project, force: true, ignore: true });
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('--force and --ignore cannot be used together');
+    expect(promptMock).not.toHaveBeenCalled();
+    expect(await fs.readFile(configPath, 'utf8')).toBe('# Local edit\n');
+    expect(await fs.readFile(metadataPath, 'utf8')).toBe(metadataBefore);
+  });
+
   it('refreshes an unedited config.yaml silently when the incoming version changed', async () => {
     const configRel = 'config/config.yaml';
     const configPath = path.join(workspace, configRel);

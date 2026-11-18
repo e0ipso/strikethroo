@@ -95,7 +95,8 @@ export function needsDecision(state: RefreshState): boolean {
  * was none: recording the kept file's own hash would make the user's edit the
  * baseline, and the next refresh would replace it without asking.
  *
- * @param overwrite - `--force`, or an explicit overwrite answer for this path
+ * @param overwrite - `--force`, or an explicit overwrite answer for this path;
+ *   always false under `--ignore`
  */
 export function classifyRefresh(
   state: RefreshState,

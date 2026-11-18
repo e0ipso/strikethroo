@@ -12,6 +12,7 @@ import {
   InitOptions,
   CommandResult,
   ConflictResolution,
+  FileConflict,
   InitMetadata,
   Harness,
   FileSystemError,
@@ -154,7 +155,8 @@ export async function init(options: InitOptions): Promise<CommandResult> {
     const resolvedBaseDir = resolvePath(baseDir);
     const metadataPath = resolvePath(baseDir, '.ai/strikethroo/.init-metadata.json');
 
-    // Resolve harnesses before any destination mutation
+    // Resolve the conflict policy and harnesses before any destination mutation
+    const conflictPolicy = resolveConflictPolicy(options);
     const existingMetadata = await loadMetadata(metadataPath);
     const { harnesses } = resolveInitHarnesses({
       explicit: options.harnesses,
@@ -205,7 +207,7 @@ export async function init(options: InitOptions): Promise<CommandResult> {
     for (const harness of agentFilesByHarness.keys()) {
       console.log(`  ${chalk.green('✓')} Setting up ${harness} harness configuration`);
     }
-    await refreshWorkspace(baseDir, options.force || false, {
+    await refreshWorkspace(baseDir, conflictPolicy, {
       sourceDir: preparedProfile?.stagingDir ?? getTemplatePath('strikethroo'),
       agentFiles: [...agentFilesByHarness.values()].flat(),
       importedProfile: preparedProfile && {
@@ -369,6 +371,26 @@ interface WorkspaceRefreshInput {
 /** Project-relative path of the workspace ignore file in `managedFiles`. */
 const WORKSPACE_IGNORE_MANAGED_PATH = path.join('.ai', 'strikethroo', WORKSPACE_IGNORE_FILE);
 
+/**
+ * How a refresh settles a conflicting file: ask the user, overwrite it with
+ * the incoming version (`--force`), or keep the local copy (`--ignore`).
+ */
+type ConflictPolicy = 'prompt' | 'overwrite' | 'keep';
+
+/**
+ * Map the `--force` and `--ignore` flags to one conflict policy.
+ *
+ * @throws Error when both flags are set
+ */
+function resolveConflictPolicy(options: Pick<InitOptions, 'force' | 'ignore'>): ConflictPolicy {
+  if (options.force && options.ignore) {
+    throw new Error('--force and --ignore cannot be used together.');
+  }
+  if (options.force) return 'overwrite';
+  if (options.ignore) return 'keep';
+  return 'prompt';
+}
+
 /** Whether an answer authorizes replacing the file. */
 function isOverwrite(resolution: ConflictResolution | undefined): boolean {
   return resolution === 'overwrite' || resolution === 'overwrite-all';
@@ -384,7 +406,8 @@ function isOverwrite(resolution: ConflictResolution | undefined): boolean {
  * that cannot prompt fails before anything is written. Missing or unusable
  * metadata is not a first install: every existing destination is then
  * untracked, and each one that differs from its incoming file needs a
- * decision. `force` is the only route that skips the question.
+ * decision. The `overwrite` and `keep` policies skip the question and settle
+ * every conflict the same way; `keep` still lists the files it kept.
  *
  * Two rules sit on top of the conflict check:
  * - Files the recorded profile supplied are asked about, never refreshed
@@ -397,7 +420,7 @@ function isOverwrite(resolution: ConflictResolution | undefined): boolean {
  */
 async function refreshWorkspace(
   baseDir: string,
-  force: boolean,
+  policy: ConflictPolicy,
   input: WorkspaceRefreshInput
 ): Promise<void> {
   const { sourceDir, agentFiles, importedProfile } = input;
@@ -426,12 +449,14 @@ async function refreshWorkspace(
   );
 
   let resolutions = new Map<string, ConflictResolution>();
-  if (!force) {
+  if (policy !== 'overwrite') {
     const conflicts = [
       ...(await detectConflicts(destDir, sourceDir, baseline, protectedPaths)),
       ...detectManagedConflicts(projectRoot, agentFiles, managedBaseline),
     ];
-    if (conflicts.length > 0) {
+    if (policy === 'keep') {
+      reportKeptConflicts(conflicts);
+    } else if (conflicts.length > 0) {
       if (!existingMetadata) {
         console.log(
           chalk.yellow(
@@ -448,7 +473,7 @@ async function refreshWorkspace(
     }
   }
   const overwrite = (relativePath: string): boolean =>
-    force || isOverwrite(resolutions.get(relativePath));
+    policy === 'overwrite' || isOverwrite(resolutions.get(relativePath));
 
   const outcomes = await refreshConfigTree(sourceDir, destDir, baseline, overwrite, protectedPaths);
   await copyUntrackedTemplateFiles(sourceDir, destDir);
@@ -469,6 +494,23 @@ async function refreshWorkspace(
     managedFiles: recordManagedBaselines(ignoreHash, agentOutcomes),
     profile: recordProfile(existingMetadata, importedProfile, outcomes),
   });
+}
+
+/**
+ * List the conflicting files that `--ignore` keeps, so the user knows which
+ * local copies did not receive the incoming version.
+ */
+function reportKeptConflicts(conflicts: FileConflict[]): void {
+  if (conflicts.length === 0) return;
+  console.log(
+    chalk.yellow(
+      `\n⚠  --ignore kept ${conflicts.length} file(s) that differ from the incoming version:`
+    )
+  );
+  for (const conflict of conflicts) {
+    console.log(chalk.yellow(`    ${conflict.relativePath}`));
+  }
+  console.log('');
 }
 
 /**

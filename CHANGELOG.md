@@ -1,3 +1,9 @@
+## [4.9.0](https://github.com/e0ipso/strikethroo/compare/v4.8.1...v4.9.0) (2026-11-18)
+
+### Features
+
+* add --ignore flag to keep local files without prompting ([#178](https://github.com/e0ipso/strikethroo/issues/178)) ([a1c0411](https://github.com/e0ipso/strikethroo/commit/a1c0411cc5811be7cae62ec1693736b41b93379d)), closes [#177](https://github.com/e0ipso/strikethroo/issues/177)
+
 ## [4.8.1](https://github.com/e0ipso/strikethroo/compare/v4.8.0...v4.8.1) (2026-11-18)
 
 ### Bug Fixes

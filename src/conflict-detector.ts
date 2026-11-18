@@ -52,19 +52,6 @@ export async function getConfigFiles(rootDir: string): Promise<string[]> {
  */
 export const NO_RECORDED_BASELINE = '';
 
-/**
- * Incoming `config/` paths that `init` and `update` write only when the
- * destination does not exist.
- *
- * `config/config.yaml` holds machine-local harness arguments, models, and
- * preferences. A refresh never replaces an existing copy, not even with
- * `--force` or when the copy still matches its recorded baseline. To adopt the
- * incoming version, delete the file and run the refresh again.
- */
-export const INSTALL_ONLY_CONFIG_FILES: ReadonlySet<string> = new Set([
-  path.join('config', 'config.yaml'),
-]);
-
 /** What a refresh does with one incoming file. */
 export type RefreshKind = 'installed' | 'refreshed' | 'kept' | 'overwritten' | 'unchanged';
 
@@ -129,8 +116,7 @@ export function classifyRefresh(
  *
  * A destination is compared against its recorded baseline, not against the
  * incoming file: the question is whether the user changed it. A destination
- * with no recorded hash carries `NO_RECORDED_BASELINE`. An existing
- * install-only path is never a conflict, because the refresh keeps it.
+ * with no recorded hash carries `NO_RECORDED_BASELINE`.
  *
  * @param destDir - Destination directory (.ai/strikethroo)
  * @param templateDir - Source template directory from package
@@ -151,7 +137,6 @@ export async function detectConflicts(
     const newFilePath = path.join(templateDir, relativePath);
 
     if (!(await fs.pathExists(userFilePath))) continue;
-    if (INSTALL_ONLY_CONFIG_FILES.has(relativePath)) continue;
 
     const currentHash = await calculateFileHash(userFilePath);
     const originalHash = baseline[relativePath];

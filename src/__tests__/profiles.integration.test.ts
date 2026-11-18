@@ -44,7 +44,6 @@ vi.mock('chalk', () => {
 // pre-answered paths never reach them, and the conflict test asserts the call.
 vi.mock('../prompts', () => ({
   promptForConflicts: vi.fn().mockResolvedValue(new Map()),
-  showIncomingInstallOnlyDiff: vi.fn(),
   showReplacedLocalChangesDiff: vi.fn(),
 }));
 vi.mock('inquirer', () => ({ __esModule: true, default: { prompt: vi.fn() } }));
@@ -418,7 +417,7 @@ describe('Profiles Integration', () => {
       expect(await fs.readFile(modifiedPath, 'utf-8')).toBe(modifiedContent);
     });
 
-    it('keeps an existing config.yaml when a profile import supplies one', async () => {
+    it('replaces an unedited config.yaml when a profile import supplies one', async () => {
       const profileDir = path.join(sandbox, 'profile');
       const destDir = path.join(sandbox, 'project');
       await makeFixtureProfile(profileDir);
@@ -427,18 +426,15 @@ describe('Profiles Integration', () => {
         true
       );
       const configPath = path.join(destDir, '.ai/strikethroo/config/config.yaml');
-      const before = await fs.readFile(configPath, 'utf-8');
 
       const imported = await init({
         harnesses: 'claude',
         destinationDirectory: destDir,
         profile: profileDir,
-        force: true,
       });
       expect(imported.success).toBe(true);
 
-      expect(await fs.readFile(configPath, 'utf-8')).toBe(before);
-      expect(before).not.toBe(CONFIG_YAML_SENTINEL);
+      expect(await fs.readFile(configPath, 'utf-8')).toBe(CONFIG_YAML_SENTINEL);
       expect(
         await fs.readFile(path.join(destDir, '.ai/strikethroo/config/hooks/PRE_PLAN.md'), 'utf-8')
       ).toBe(PRE_PLAN_SENTINEL);

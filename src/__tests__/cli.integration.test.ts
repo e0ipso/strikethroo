@@ -667,58 +667,25 @@ process.exit(Number(process.env.NPX_EXIT_CODE || '0'));
       expect(await fs.pathExists(path.join(testDir, 'npx-log.json'))).toBe(false);
     });
 
-    it.each([true, false])(
-      'keeps review enabled=%s in config.yaml on noninteractive updates, also with --force',
-      async enabled => {
-        initWorkspace();
-        await writeFakeNpx(path.join(testDir, 'fake-bin'));
-        const configPath = path.join(testDir, '.ai/strikethroo/config/config.yaml');
-        const shipped = await fs.readFile(configPath, 'utf8');
-        const baseline = (await fs.readJson(metadataPath())).files['config/config.yaml'];
-
-        expect(runUpdate().exitCode).toBe(0);
-        expect(await fs.readFile(configPath, 'utf8')).toBe(shipped);
-        expect((load(shipped) as { code_review: { enabled: boolean } }).code_review.enabled).toBe(
-          false
-        );
-
-        const customized = `# Explicit local review preference\ncode_review:\n  enabled: ${enabled}\n`;
-        await fs.writeFile(configPath, customized, 'utf8');
-        for (const flags of ['', '', '--force']) {
-          await fs.remove(path.join(testDir, 'npx-log.json'));
-          const result = runUpdate(flags);
-          expect(result.exitCode).toBe(0);
-          expect(result.stdout).not.toContain('A new version of config/config.yaml');
-          expect(await fs.readFile(configPath, 'utf8')).toBe(customized);
-          expect((await fs.readJson(metadataPath())).files['config/config.yaml']).toBe(baseline);
-          expect(await fs.pathExists(path.join(testDir, 'npx-log.json'))).toBe(true);
-        }
-      }
-    );
-
-    it('shows the config.yaml diff once when the incoming version changed', async () => {
+    it('treats an edited config.yaml as a conflict on noninteractive updates', async () => {
       initWorkspace();
       await writeFakeNpx(path.join(testDir, 'fake-bin'));
       const configPath = path.join(testDir, '.ai/strikethroo/config/config.yaml');
-      const local = '# Local configuration from an older release\ncode_review:\n  enabled: true\n';
-      await fs.writeFile(configPath, local, 'utf8');
-      const metadata = await fs.readJson(metadataPath());
-      metadata.files['config/config.yaml'] = 'hash-of-an-older-shipped-version';
-      await fs.writeJson(metadataPath(), metadata);
+      const shipped = await fs.readFile(configPath, 'utf8');
+      expect((load(shipped) as { code_review: { enabled: boolean } }).code_review.enabled).toBe(
+        false
+      );
 
-      const first = runUpdate();
-      expect(first.exitCode).toBe(0);
-      expect(first.stdout).toContain('A new version of config/config.yaml is available');
-      expect(first.stdout).toContain('config/config.yaml (your version)');
-      expect(first.stdout).toContain('config/config.yaml (new version)');
-      expect(first.stdout).toContain('-# Local configuration from an older release');
-      expect(first.stdout).toContain('+# Strikethroo workspace configuration.');
-      expect(await fs.readFile(configPath, 'utf8')).toBe(local);
+      const customized = '# Explicit local review preference\ncode_review:\n  enabled: true\n';
+      await fs.writeFile(configPath, customized, 'utf8');
+      const blocked = runUpdate();
+      expect(blocked.exitCode).not.toBe(0);
+      expect(blocked.stdout + blocked.stderr).toContain('config/config.yaml');
+      expect(await fs.readFile(configPath, 'utf8')).toBe(customized);
+      expect(await fs.pathExists(path.join(testDir, 'npx-log.json'))).toBe(false);
 
-      const second = runUpdate();
-      expect(second.exitCode).toBe(0);
-      expect(second.stdout).not.toContain('A new version of config/config.yaml');
-      expect(await fs.readFile(configPath, 'utf8')).toBe(local);
+      expect(runUpdate('--force').exitCode).toBe(0);
+      expect(await fs.readFile(configPath, 'utf8')).toBe(shipped);
     });
 
     it('overwrites customized files when --force is explicit', async () => {

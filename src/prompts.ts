@@ -85,31 +85,6 @@ function generateDiff(relativePath: string, localContent: string, incomingConten
 }
 
 /**
- * Show the diff from a kept install-only file to its new incoming version.
- *
- * The refresh never writes the file, so this only informs: the user copies
- * the parts they want, or deletes the file and runs the refresh again.
- */
-export function showIncomingInstallOnlyDiff(
-  relativePath: string,
-  localContent: string,
-  incomingContent: string
-): void {
-  console.log('');
-  console.log(chalk.bold.yellow(`ℹ️  A new version of ${relativePath} is available`));
-  console.log('');
-  console.log(
-    chalk.yellow(
-      'Your local file was kept. A refresh never replaces it. Copy the changes you want from ' +
-        'the diff below, or delete the file and run the command again to install the new version.'
-    )
-  );
-  console.log('');
-  console.log(generateDiff(relativePath, localContent, incomingContent));
-  console.log('');
-}
-
-/**
  * Show the local changes a refresh replaced in a file it must always update.
  *
  * The diff runs from the local file to the version now on disk, so the

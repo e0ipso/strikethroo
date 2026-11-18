@@ -25,13 +25,7 @@ import {
   getPackageVersion,
   CURRENT_WORKSPACE_SCHEMA_VERSION,
 } from './metadata';
-import {
-  classifyRefresh,
-  detectConflicts,
-  getConfigFiles,
-  INSTALL_ONLY_CONFIG_FILES,
-  RefreshKind,
-} from './conflict-detector';
+import { classifyRefresh, detectConflicts, getConfigFiles, RefreshKind } from './conflict-detector';
 import {
   detectManagedConflicts,
   hashContent,
@@ -40,11 +34,7 @@ import {
   refreshManagedFiles,
   replaceManagedFile,
 } from './managed-files';
-import {
-  promptForConflicts,
-  showIncomingInstallOnlyDiff,
-  showReplacedLocalChangesDiff,
-} from './prompts';
+import { promptForConflicts, showReplacedLocalChangesDiff } from './prompts';
 import { HarnessRegistry } from './harnesses';
 import { prepareProfileImport, PreparedProfileImport, ProfileManifest } from './profiles';
 import { toTerminalText } from './skill-scripts/shared/terminal-text';
@@ -396,9 +386,7 @@ function isOverwrite(resolution: ConflictResolution | undefined): boolean {
  * untracked, and each one that differs from its incoming file needs a
  * decision. `force` is the only route that skips the question.
  *
- * Three rules sit on top of the conflict check:
- * - Install-only paths (`INSTALL_ONLY_CONFIG_FILES`) are written only when
- *   absent and never asked about; a changed incoming version shows a diff once.
+ * Two rules sit on top of the conflict check:
  * - Files the recorded profile supplied are asked about, never refreshed
  *   silently, on a refresh that does not import a profile.
  * - The workspace `.gitignore` is always replaced, and local changes it had
@@ -497,23 +485,14 @@ async function refreshConfigTree(
   for (const relativePath of await getConfigFiles(sourceDir)) {
     const sourcePath = path.join(sourceDir, relativePath);
     const destPath = path.join(destDir, relativePath);
-    const installOnly = INSTALL_ONLY_CONFIG_FILES.has(relativePath);
-    const incomingHash = await calculateFileHash(sourcePath);
-    const outcome = await decideRefreshOutcome(destPath, installOnly, {
-      incomingHash,
+    const outcome = await decideRefreshOutcome(destPath, {
+      incomingHash: await calculateFileHash(sourcePath),
       recordedHash: baseline[relativePath],
       protectedBaseline: protectedPaths.has(relativePath),
       overwrite: overwrite(relativePath),
     });
     if (outcome.kind !== 'kept' && outcome.kind !== 'unchanged') {
       await fs.copy(sourcePath, destPath, { overwrite: true });
-    }
-    if (installOnly && outcome.kind === 'kept' && baseline[relativePath] !== incomingHash) {
-      showIncomingInstallOnlyDiff(
-        relativePath,
-        await fs.readFile(destPath, 'utf-8'),
-        await fs.readFile(sourcePath, 'utf-8')
-      );
     }
     outcomes.push({ relativePath, ...outcome });
   }
@@ -522,14 +501,9 @@ async function refreshConfigTree(
 
 /**
  * Classify one `config/` destination (see `classifyRefresh`).
- *
- * An existing install-only destination is always kept, whatever its baseline,
- * answer, or `force`, and records the incoming hash so the same incoming
- * version is shown to the user only once.
  */
 async function decideRefreshOutcome(
   destPath: string,
-  installOnly: boolean,
   incoming: {
     incomingHash: string;
     recordedHash: string | undefined;
@@ -538,9 +512,6 @@ async function decideRefreshOutcome(
   }
 ): Promise<Pick<RefreshOutcome, 'kind' | 'hash'>> {
   const currentHash = (await exists(destPath)) ? await calculateFileHash(destPath) : undefined;
-  if (installOnly && currentHash !== undefined && currentHash !== incoming.incomingHash) {
-    return { kind: 'kept', hash: incoming.incomingHash };
-  }
   return classifyRefresh(
     {
       currentHash,
@@ -594,8 +565,7 @@ function recordManagedBaselines(
 /**
  * Build the profile provenance for the new metadata.
  *
- * An import records the profile's `config/` files, minus install-only paths,
- * which are never replaced anyway. A refresh without an import keeps only the
+ * An import records the profile's `config/` files. A refresh without an import keeps only the
  * profile files the user kept: an overwritten, refreshed, or unchanged file
  * now holds the incoming version and needs no more protection.
  */
@@ -609,7 +579,7 @@ function recordProfile(
       name: importedProfile.name,
       source: importedProfile.source,
       importedAt: new Date().toISOString(),
-      files: importedProfile.configFiles.filter(file => !INSTALL_ONLY_CONFIG_FILES.has(file)),
+      files: importedProfile.configFiles,
     };
   }
   const previous = existingMetadata?.profile;

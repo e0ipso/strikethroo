@@ -92,6 +92,144 @@
         "active": true,
         "notes": "ReDoS in braces@3.0.3 (GHSA-vfj7-8cjw-p6xm). The advisory names no patched version and 3.0.3 is the latest published release, so no upgrade exists; micromatch@4.0.8 and @semantic-release/commit-analyzer@13.0.1 are both current and pin it. Reached only from release tooling and from typescript-eslint's fast-glob, matching our own releaseRules and lint globs, never user input. Recheck when braces publishes above 3.0.3 or micromatch drops it."
       }
+    },
+    {
+      "GHSA-fc5q-39xc-vjpf|@modyfi/vite-plugin-yaml>@rollup/pluginutils>picomatch": {
+        "active": true,
+        "notes": "ReDoS through single-branch repeated extglobs in picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf). The advisory names no patched version and 4.0.7 is the latest published release, so no upgrade exists. Every path is development, build, or release tooling (vite, vitest, typescript-eslint, lint-staged, semantic-release, npm and node-gyp); `npm ls picomatch --omit=dev` is empty, so the published CLI does not ship it. These tools match globs from our own config and repository paths, never user input. Recheck when picomatch publishes above 4.0.7."
+      }
+    },
+    {
+      "GHSA-fc5q-39xc-vjpf|@npmcli/arborist>@npmcli/run-script>node-gyp>tinyglobby>fdir>picomatch>": {
+        "active": true,
+        "notes": "ReDoS through single-branch repeated extglobs in picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf). The advisory names no patched version and 4.0.7 is the latest published release, so no upgrade exists. Every path is development, build, or release tooling (vite, vitest, typescript-eslint, lint-staged, semantic-release, npm and node-gyp); `npm ls picomatch --omit=dev` is empty, so the published CLI does not ship it. These tools match globs from our own config and repository paths, never user input. Recheck when picomatch publishes above 4.0.7."
+      }
+    },
+    {
+      "GHSA-fc5q-39xc-vjpf|@npmcli/metavuln-calculator>pacote>@npmcli/run-script>node-gyp>tinyglobby>fdir>picomatch>": {
+        "active": true,
+        "notes": "ReDoS through single-branch repeated extglobs in picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf). The advisory names no patched version and 4.0.7 is the latest published release, so no upgrade exists. Every path is development, build, or release tooling (vite, vitest, typescript-eslint, lint-staged, semantic-release, npm and node-gyp); `npm ls picomatch --omit=dev` is empty, so the published CLI does not ship it. These tools match globs from our own config and repository paths, never user input. Recheck when picomatch publishes above 4.0.7."
+      }
+    },
+    {
+      "GHSA-fc5q-39xc-vjpf|@npmcli/run-script>node-gyp>tinyglobby>fdir>picomatch>": {
+        "active": true,
+        "notes": "ReDoS through single-branch repeated extglobs in picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf). The advisory names no patched version and 4.0.7 is the latest published release, so no upgrade exists. Every path is development, build, or release tooling (vite, vitest, typescript-eslint, lint-staged, semantic-release, npm and node-gyp); `npm ls picomatch --omit=dev` is empty, so the published CLI does not ship it. These tools match globs from our own config and repository paths, never user input. Recheck when picomatch publishes above 4.0.7."
+      }
+    },
+    {
+      "GHSA-fc5q-39xc-vjpf|@semantic-release/commit-analyzer>micromatch>picomatch>": {
+        "active": true,
+        "notes": "ReDoS through single-branch repeated extglobs in picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf). The advisory names no patched version and 4.0.7 is the latest published release, so no upgrade exists. Every path is development, build, or release tooling (vite, vitest, typescript-eslint, lint-staged, semantic-release, npm and node-gyp); `npm ls picomatch --omit=dev` is empty, so the published CLI does not ship it. These tools match globs from our own config and repository paths, never user input. Recheck when picomatch publishes above 4.0.7."
+      }
+    },
+    {
+      "GHSA-fc5q-39xc-vjpf|@semantic-release/git>micromatch>picomatch": {
+        "active": true,
+        "notes": "ReDoS through single-branch repeated extglobs in picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf). The advisory names no patched version and 4.0.7 is the latest published release, so no upgrade exists. Every path is development, build, or release tooling (vite, vitest, typescript-eslint, lint-staged, semantic-release, npm and node-gyp); `npm ls picomatch --omit=dev` is empty, so the published CLI does not ship it. These tools match globs from our own config and repository paths, never user input. Recheck when picomatch publishes above 4.0.7."
+      }
+    },
+    {
+      "GHSA-fc5q-39xc-vjpf|@semantic-release/npm>npm>libnpmdiff>@npmcli/arborist>@npmcli/run-script>node-gyp>tinyglobby>fdir>picomatch>": {
+        "active": true,
+        "notes": "ReDoS through single-branch repeated extglobs in picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf). The advisory names no patched version and 4.0.7 is the latest published release, so no upgrade exists. Every path is development, build, or release tooling (vite, vitest, typescript-eslint, lint-staged, semantic-release, npm and node-gyp); `npm ls picomatch --omit=dev` is empty, so the published CLI does not ship it. These tools match globs from our own config and repository paths, never user input. Recheck when picomatch publishes above 4.0.7."
+      }
+    },
+    {
+      "GHSA-fc5q-39xc-vjpf|@typescript-eslint/eslint-plugin>@typescript-eslint/type-utils>@typescript-eslint/typescript-estree>fast-glob>micromatch>picomatch": {
+        "active": true,
+        "notes": "ReDoS through single-branch repeated extglobs in picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf). The advisory names no patched version and 4.0.7 is the latest published release, so no upgrade exists. Every path is development, build, or release tooling (vite, vitest, typescript-eslint, lint-staged, semantic-release, npm and node-gyp); `npm ls picomatch --omit=dev` is empty, so the published CLI does not ship it. These tools match globs from our own config and repository paths, never user input. Recheck when picomatch publishes above 4.0.7."
+      }
+    },
+    {
+      "GHSA-fc5q-39xc-vjpf|@typescript-eslint/parser>@typescript-eslint/typescript-estree>fast-glob>micromatch>picomatch": {
+        "active": true,
+        "notes": "ReDoS through single-branch repeated extglobs in picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf). The advisory names no patched version and 4.0.7 is the latest published release, so no upgrade exists. Every path is development, build, or release tooling (vite, vitest, typescript-eslint, lint-staged, semantic-release, npm and node-gyp); `npm ls picomatch --omit=dev` is empty, so the published CLI does not ship it. These tools match globs from our own config and repository paths, never user input. Recheck when picomatch publishes above 4.0.7."
+      }
+    },
+    {
+      "GHSA-fc5q-39xc-vjpf|@typescript-eslint/utils>@typescript-eslint/typescript-estree>fast-glob>micromatch>picomatch>": {
+        "active": true,
+        "notes": "ReDoS through single-branch repeated extglobs in picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf). The advisory names no patched version and 4.0.7 is the latest published release, so no upgrade exists. Every path is development, build, or release tooling (vite, vitest, typescript-eslint, lint-staged, semantic-release, npm and node-gyp); `npm ls picomatch --omit=dev` is empty, so the published CLI does not ship it. These tools match globs from our own config and repository paths, never user input. Recheck when picomatch publishes above 4.0.7."
+      }
+    },
+    {
+      "GHSA-fc5q-39xc-vjpf|@vitejs/plugin-react>vite>tinyglobby>fdir>picomatch": {
+        "active": true,
+        "notes": "ReDoS through single-branch repeated extglobs in picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf). The advisory names no patched version and 4.0.7 is the latest published release, so no upgrade exists. Every path is development, build, or release tooling (vite, vitest, typescript-eslint, lint-staged, semantic-release, npm and node-gyp); `npm ls picomatch --omit=dev` is empty, so the published CLI does not ship it. These tools match globs from our own config and repository paths, never user input. Recheck when picomatch publishes above 4.0.7."
+      }
+    },
+    {
+      "GHSA-fc5q-39xc-vjpf|@vitest/coverage-v8>vitest>vite>tinyglobby>fdir>picomatch>": {
+        "active": true,
+        "notes": "ReDoS through single-branch repeated extglobs in picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf). The advisory names no patched version and 4.0.7 is the latest published release, so no upgrade exists. Every path is development, build, or release tooling (vite, vitest, typescript-eslint, lint-staged, semantic-release, npm and node-gyp); `npm ls picomatch --omit=dev` is empty, so the published CLI does not ship it. These tools match globs from our own config and repository paths, never user input. Recheck when picomatch publishes above 4.0.7."
+      }
+    },
+    {
+      "GHSA-fc5q-39xc-vjpf|libnpmexec>@npmcli/arborist>@npmcli/run-script>node-gyp>tinyglobby>fdir>picomatch>": {
+        "active": true,
+        "notes": "ReDoS through single-branch repeated extglobs in picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf). The advisory names no patched version and 4.0.7 is the latest published release, so no upgrade exists. Every path is development, build, or release tooling (vite, vitest, typescript-eslint, lint-staged, semantic-release, npm and node-gyp); `npm ls picomatch --omit=dev` is empty, so the published CLI does not ship it. These tools match globs from our own config and repository paths, never user input. Recheck when picomatch publishes above 4.0.7."
+      }
+    },
+    {
+      "GHSA-fc5q-39xc-vjpf|libnpmfund>@npmcli/arborist>@npmcli/run-script>node-gyp>tinyglobby>fdir>picomatch>": {
+        "active": true,
+        "notes": "ReDoS through single-branch repeated extglobs in picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf). The advisory names no patched version and 4.0.7 is the latest published release, so no upgrade exists. Every path is development, build, or release tooling (vite, vitest, typescript-eslint, lint-staged, semantic-release, npm and node-gyp); `npm ls picomatch --omit=dev` is empty, so the published CLI does not ship it. These tools match globs from our own config and repository paths, never user input. Recheck when picomatch publishes above 4.0.7."
+      }
+    },
+    {
+      "GHSA-fc5q-39xc-vjpf|libnpmpack>@npmcli/arborist>@npmcli/run-script>node-gyp>tinyglobby>fdir>picomatch>": {
+        "active": true,
+        "notes": "ReDoS through single-branch repeated extglobs in picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf). The advisory names no patched version and 4.0.7 is the latest published release, so no upgrade exists. Every path is development, build, or release tooling (vite, vitest, typescript-eslint, lint-staged, semantic-release, npm and node-gyp); `npm ls picomatch --omit=dev` is empty, so the published CLI does not ship it. These tools match globs from our own config and repository paths, never user input. Recheck when picomatch publishes above 4.0.7."
+      }
+    },
+    {
+      "GHSA-fc5q-39xc-vjpf|libnpmversion>@npmcli/run-script>node-gyp>tinyglobby>fdir>picomatch>": {
+        "active": true,
+        "notes": "ReDoS through single-branch repeated extglobs in picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf). The advisory names no patched version and 4.0.7 is the latest published release, so no upgrade exists. Every path is development, build, or release tooling (vite, vitest, typescript-eslint, lint-staged, semantic-release, npm and node-gyp); `npm ls picomatch --omit=dev` is empty, so the published CLI does not ship it. These tools match globs from our own config and repository paths, never user input. Recheck when picomatch publishes above 4.0.7."
+      }
+    },
+    {
+      "GHSA-fc5q-39xc-vjpf|lint-staged>picomatch": {
+        "active": true,
+        "notes": "ReDoS through single-branch repeated extglobs in picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf). The advisory names no patched version and 4.0.7 is the latest published release, so no upgrade exists. Every path is development, build, or release tooling (vite, vitest, typescript-eslint, lint-staged, semantic-release, npm and node-gyp); `npm ls picomatch --omit=dev` is empty, so the published CLI does not ship it. These tools match globs from our own config and repository paths, never user input. Recheck when picomatch publishes above 4.0.7."
+      }
+    },
+    {
+      "GHSA-fc5q-39xc-vjpf|micromatch>picomatch>": {
+        "active": true,
+        "notes": "ReDoS through single-branch repeated extglobs in picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf). The advisory names no patched version and 4.0.7 is the latest published release, so no upgrade exists. Every path is development, build, or release tooling (vite, vitest, typescript-eslint, lint-staged, semantic-release, npm and node-gyp); `npm ls picomatch --omit=dev` is empty, so the published CLI does not ship it. These tools match globs from our own config and repository paths, never user input. Recheck when picomatch publishes above 4.0.7."
+      }
+    },
+    {
+      "GHSA-fc5q-39xc-vjpf|node-gyp>tinyglobby>fdir>picomatch>": {
+        "active": true,
+        "notes": "ReDoS through single-branch repeated extglobs in picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf). The advisory names no patched version and 4.0.7 is the latest published release, so no upgrade exists. Every path is development, build, or release tooling (vite, vitest, typescript-eslint, lint-staged, semantic-release, npm and node-gyp); `npm ls picomatch --omit=dev` is empty, so the published CLI does not ship it. These tools match globs from our own config and repository paths, never user input. Recheck when picomatch publishes above 4.0.7."
+      }
+    },
+    {
+      "GHSA-fc5q-39xc-vjpf|pacote>@npmcli/run-script>node-gyp>tinyglobby>fdir>picomatch>": {
+        "active": true,
+        "notes": "ReDoS through single-branch repeated extglobs in picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf). The advisory names no patched version and 4.0.7 is the latest published release, so no upgrade exists. Every path is development, build, or release tooling (vite, vitest, typescript-eslint, lint-staged, semantic-release, npm and node-gyp); `npm ls picomatch --omit=dev` is empty, so the published CLI does not ship it. These tools match globs from our own config and repository paths, never user input. Recheck when picomatch publishes above 4.0.7."
+      }
+    },
+    {
+      "GHSA-fc5q-39xc-vjpf|picomatch>": {
+        "active": true,
+        "notes": "ReDoS through single-branch repeated extglobs in picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf). The advisory names no patched version and 4.0.7 is the latest published release, so no upgrade exists. Every path is development, build, or release tooling (vite, vitest, typescript-eslint, lint-staged, semantic-release, npm and node-gyp); `npm ls picomatch --omit=dev` is empty, so the published CLI does not ship it. These tools match globs from our own config and repository paths, never user input. Recheck when picomatch publishes above 4.0.7."
+      }
+    },
+    {
+      "GHSA-fc5q-39xc-vjpf|semantic-release>@semantic-release/github>tinyglobby>fdir>picomatch": {
+        "active": true,
+        "notes": "ReDoS through single-branch repeated extglobs in picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf). The advisory names no patched version and 4.0.7 is the latest published release, so no upgrade exists. Every path is development, build, or release tooling (vite, vitest, typescript-eslint, lint-staged, semantic-release, npm and node-gyp); `npm ls picomatch --omit=dev` is empty, so the published CLI does not ship it. These tools match globs from our own config and repository paths, never user input. Recheck when picomatch publishes above 4.0.7."
+      }
+    },
+    {
+      "GHSA-fc5q-39xc-vjpf|tinyglobby>fdir>picomatch>": {
+        "active": true,
+        "notes": "ReDoS through single-branch repeated extglobs in picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf). The advisory names no patched version and 4.0.7 is the latest published release, so no upgrade exists. Every path is development, build, or release tooling (vite, vitest, typescript-eslint, lint-staged, semantic-release, npm and node-gyp); `npm ls picomatch --omit=dev` is empty, so the published CLI does not ship it. These tools match globs from our own config and repository paths, never user input. Recheck when picomatch publishes above 4.0.7."
+      }
     }
   ]
 }

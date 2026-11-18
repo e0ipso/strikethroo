@@ -164,7 +164,7 @@ Edit these files to tune project discipline. Empty a file to disable that shared
 
 ## Workspace configuration
 
-`.ai/strikethroo/config/config.yaml` is the workspace's single structured configuration file. Every configurable feature claims one top-level section in it. `init` creates the file from a template when it does not exist. Later `init` and `update` runs, including `--force` and `--profile`, never replace an existing copy. When a new release or profile brings a changed `config.yaml`, the run prints a diff from your copy to the new version, once per new version. To get the shipped version again, delete the file and re-run `init`.
+`.ai/strikethroo/config/config.yaml` is the workspace's single structured configuration file. Every configurable feature claims one top-level section in it. `init` creates the file from a template when it does not exist. Later `init` and `update` runs treat it like every other `config/` file. An unedited copy takes the new version silently. An edited copy is a conflict: the run shows the diff and asks whether to keep your file or overwrite it. `--force` overwrites it without asking.
 
 The workspace `.gitignore` ignores `config/config.yaml` by default. Harness permissions, installed models, and routing preferences usually differ between developers and machines, so a newly initialized project does not add this file to Git through normal `git add` commands. This is a default, not a security boundary. Anyone can force-add an ignored file, and ignore rules do not remove a file that Git already tracks.
 
@@ -346,7 +346,7 @@ At most one network attempt and one user-facing notice per workspace per 24 hour
 
 ## Strikethroo profiles
 
-Everything above — hooks, shared disciplines, `config.yaml`, templates, and the `STRIKETHROO.md` project context — can be packaged into a **strikethroo profile**: a shareable directory holding a `profile.yaml` manifest plus a sparse `config/` tree mirroring `.ai/strikethroo/config/`. This is the explicit way to distribute a starting `config.yaml` even though initialized workspaces ignore their local copy. Passing `--profile <value>` to `init` seeds the workspace from that package. The package's `config.yaml` is installed only when the workspace has none; an existing local copy is kept. Then the recipient can adjust harness permissions, models, and routing for that machine without committing those edits.
+Everything above — hooks, shared disciplines, `config.yaml`, templates, and the `STRIKETHROO.md` project context — can be packaged into a **strikethroo profile**: a shareable directory holding a `profile.yaml` manifest plus a sparse `config/` tree mirroring `.ai/strikethroo/config/`. This is the explicit way to distribute a starting `config.yaml` even though initialized workspaces ignore their local copy. Passing `--profile <value>` to `init` seeds the workspace from that package. The package's `config.yaml` replaces an unedited local copy; an edited one is a conflict, and the import asks before it replaces it. Then the recipient can adjust harness permissions, models, and routing for that machine without committing those edits.
 
 Not to be confused with the **execution profiles** of [execution routing](#execution-routing) above: those are task-routing concepts selected at dispatch time, while a strikethroo profile is a setup package consumed once at `init`.
 
@@ -368,7 +368,7 @@ npx strikethroo init --harnesses claude --profile https://gitlab.com/team/profil
 
 The profile's files overlay the shipped defaults and then flow through the normal `init` machinery — conflict prompts, `--force`, and hash tracking treat profile-supplied files exactly like stock ones. Validation is all-or-nothing and runs before any workspace mutation; there is no partial import. A package whose `profile.yaml` or `config/` is a symbolic link, or that holds a symbolic link anywhere inside `config/`, is rejected, because a package must carry its own copies of every file.
 
-{% include callout.html variant="warning" title="IMPORT ONLY PROFILES YOU TRUST" content="A profile can replace your hooks, and in a workspace without a `config.yaml` it installs one, including harness `cli_args` and any routing selector script. Those run with your agent's permissions and are not sandboxed. Read the package before importing it." %}
+{% include callout.html variant="warning" title="IMPORT ONLY PROFILES YOU TRUST" content="A profile can replace your hooks, and it can install or replace `config.yaml`, including harness `cli_args` and any routing selector script. Those run with your agent's permissions and are not sandboxed. Read the package before importing it." %}
 
 Imports are **fork-and-forget**: the profile seeds your workspace once, and from then on the files are yours — no link back, no updates to pull. A subsequent plain `init` uses the shipped defaults again. The only trace is a `profile` field in `.init-metadata.json` recording the name, source, and import date — display and forensics only, nothing reads it for behavior.
 

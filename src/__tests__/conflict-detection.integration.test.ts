@@ -16,13 +16,9 @@ import * as os from 'os';
 import * as path from 'path';
 import { load } from 'js-yaml';
 import { init } from '../index';
-import { update, buildSkillsInstallerArgs } from '../update';
+import { update } from '../update';
 import { loadMetadata, saveMetadata, calculateFileHash } from '../metadata';
-import {
-  promptForConflicts,
-  showIncomingInstallOnlyDiff,
-  showReplacedLocalChangesDiff,
-} from '../prompts';
+import { promptForConflicts, showReplacedLocalChangesDiff } from '../prompts';
 import { metadataGate } from '../validation/metadata-gate';
 import { FileSystemError, type ConflictResolution } from '../types';
 
@@ -56,7 +52,6 @@ vi.mock('chalk', () => {
 // in automated tests anyway. The key is to test the metadata and detection logic.
 vi.mock('../prompts', () => ({
   promptForConflicts: vi.fn().mockResolvedValue(new Map()),
-  showIncomingInstallOnlyDiff: vi.fn(),
   showReplacedLocalChangesDiff: vi.fn(),
 }));
 
@@ -406,7 +401,6 @@ describe('Workspace refresh outcomes', () => {
   const PROFILE_MANIFEST =
     'schema_version: 1\nname: refresh-fixture\ndescription: Stages a changed and a new incoming hook\n';
   const promptMock = vi.mocked(promptForConflicts);
-  const diffMock = vi.mocked(showIncomingInstallOnlyDiff);
   const replacedDiffMock = vi.mocked(showReplacedLocalChangesDiff);
 
   let sandbox: string;
@@ -444,7 +438,6 @@ describe('Workspace refresh outcomes', () => {
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     promptMock.mockReset();
-    diffMock.mockReset();
     replacedDiffMock.mockReset();
     expect((await init({ harnesses: 'claude', destinationDirectory: project })).success).toBe(true);
   });
@@ -458,84 +451,64 @@ describe('Workspace refresh outcomes', () => {
     vi.unstubAllEnvs();
   });
 
-  it.each([
-    { command: 'init', enabled: true },
-    { command: 'init', enabled: false },
-    { command: 'update', enabled: true },
-    { command: 'update', enabled: false },
-  ])(
-    'never replaces an existing config.yaml (review enabled=$enabled) on $command, even with force',
-    async ({ command, enabled }) => {
+  it.each(['init', 'update'] as const)(
+    'asks about an edited config.yaml on %s like any other config file',
+    async command => {
       const configRel = 'config/config.yaml';
       const configPath = path.join(workspace, configRel);
       const baseline = (await loadMetadata(metadataPath))!.files[configRel];
-      const customized = `# Explicit local review preference\ncode_review:\n  enabled: ${enabled}\n`;
+      const customized = '# Explicit local review preference\ncode_review:\n  enabled: true\n';
       await fs.writeFile(configPath, customized, 'utf8');
 
-      const installerLog = path.join(sandbox, 'installer-log.jsonl');
       if (command === 'update') {
         const fakeBin = path.join(sandbox, 'fake-bin');
         await fs.ensureDir(fakeBin);
-        await fs.writeFile(
-          path.join(fakeBin, 'npx'),
-          `#!${process.execPath}\nrequire('fs').appendFileSync(${JSON.stringify(installerLog)}, JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd() }) + '\\n');\n`,
-          { mode: 0o755 }
-        );
+        await fs.writeFile(path.join(fakeBin, 'npx'), `#!${process.execPath}\n`, { mode: 0o755 });
         vi.stubEnv('PATH', `${fakeBin}${path.delimiter}${process.env.PATH ?? ''}`);
       }
-      const refresh = (force: boolean) =>
+      const refresh = () =>
         command === 'update'
-          ? update({ destinationDirectory: project, force })
-          : init({ destinationDirectory: project, force });
+          ? update({ destinationDirectory: project })
+          : init({ destinationDirectory: project });
+
+      answerEveryConflict('keep');
+      expect((await refresh()).success).toBe(true);
+      expect(promptedPaths(0)).toContain(configRel);
+      expect(await fs.readFile(configPath, 'utf8')).toBe(customized);
+      expect((await loadMetadata(metadataPath))!.files[configRel]).toBe(baseline);
 
       answerEveryConflict('overwrite');
-      for (const force of [false, false, true]) {
-        expect((await refresh(force)).success).toBe(true);
-        expect(promptMock).not.toHaveBeenCalled();
-        // The incoming version did not change, so there is nothing to show.
-        expect(diffMock).not.toHaveBeenCalled();
-        expect(await fs.readFile(configPath, 'utf8')).toBe(customized);
-        expect((await loadMetadata(metadataPath))!.files[configRel]).toBe(baseline);
-      }
-
-      if (command === 'update') {
-        const calls = (await fs.readFile(installerLog, 'utf8'))
-          .trim()
-          .split('\n')
-          .map(line => JSON.parse(line));
-        expect(calls).toEqual(
-          Array.from({ length: 3 }, () => ({
-            argv: buildSkillsInstallerArgs(),
-            cwd: project,
-          }))
-        );
-      }
+      expect((await refresh()).success).toBe(true);
+      expect(promptedPaths(1)).toContain(configRel);
+      expect(await fs.readFile(configPath, 'utf8')).toBe(await shippedContent(configRel));
+      expect((await loadMetadata(metadataPath))!.files[configRel]).toBe(baseline);
     }
   );
 
-  it('keeps config.yaml and shows the diff once when the incoming version changed', async () => {
+  it('overwrites an edited config.yaml with force, without asking', async () => {
     const configRel = 'config/config.yaml';
     const configPath = path.join(workspace, configRel);
-    const shipped = await shippedContent(configRel);
-    const stale = '# Shipped by an older release\ncode_review:\n  enabled: false\n';
-    await fs.writeFile(configPath, stale, 'utf8');
+    await fs.writeFile(configPath, '# Local edit\n', 'utf8');
+
+    expect((await init({ destinationDirectory: project, force: true })).success).toBe(true);
+    expect(promptMock).not.toHaveBeenCalled();
+    expect(await fs.readFile(configPath, 'utf8')).toBe(await shippedContent(configRel));
+  });
+
+  it('refreshes an unedited config.yaml silently when the incoming version changed', async () => {
+    const configRel = 'config/config.yaml';
+    const configPath = path.join(workspace, configRel);
+    await fs.writeFile(configPath, '# Shipped by an older release\n', 'utf8');
     const metadata = (await loadMetadata(metadataPath))!;
     metadata.files[configRel] = await calculateFileHash(configPath);
     await saveMetadata(metadataPath, metadata);
 
     expect((await init({ destinationDirectory: project })).success).toBe(true);
     expect(promptMock).not.toHaveBeenCalled();
-    expect(diffMock).toHaveBeenCalledTimes(1);
-    expect(diffMock).toHaveBeenCalledWith(configRel, stale, shipped);
-    expect(await fs.readFile(configPath, 'utf8')).toBe(stale);
+    expect(await fs.readFile(configPath, 'utf8')).toBe(await shippedContent(configRel));
     expect((await loadMetadata(metadataPath))!.files[configRel]).toBe(
-      await calculateFileHash(path.join(SHIPPED_TEMPLATE_DIR, configRel))
+      await calculateFileHash(configPath)
     );
-
-    // The same incoming version is not shown again.
-    expect((await init({ destinationDirectory: project, force: true })).success).toBe(true);
-    expect(diffMock).toHaveBeenCalledTimes(1);
-    expect(await fs.readFile(configPath, 'utf8')).toBe(stale);
   });
 
   it('installs config.yaml again when it was deleted', async () => {

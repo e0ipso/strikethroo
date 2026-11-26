@@ -25,7 +25,6 @@ export default defineConfig({
       'src/__tests__/model-aliases.test.ts',
       'src/__tests__/cli-args-models.test.ts',
       'src/__tests__/harness-discovery.test.ts',
-      'src/__tests__/harness-registry.test.ts',
       'src/__tests__/profiles.integration.test.ts',
       'src/__tests__/review-findings.integration.test.ts',
       'src/__tests__/review-gate-prompt.test.ts',

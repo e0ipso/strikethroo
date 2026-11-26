@@ -27,16 +27,8 @@ import {
   CURRENT_WORKSPACE_SCHEMA_VERSION,
 } from './metadata';
 import { classifyRefresh, detectConflicts, getConfigFiles, RefreshKind } from './conflict-detector';
-import {
-  detectManagedConflicts,
-  hashContent,
-  ManagedFile,
-  ManagedOutcome,
-  refreshManagedFiles,
-  replaceManagedFile,
-} from './managed-files';
+import { hashContent, ManagedFile, replaceManagedFile } from './managed-files';
 import { promptForConflicts, showReplacedLocalChangesDiff } from './prompts';
-import { HarnessRegistry } from './harnesses';
 import { prepareProfileImport, PreparedProfileImport, ProfileManifest } from './profiles';
 import { toTerminalText } from './skill-scripts/shared/terminal-text';
 
@@ -141,8 +133,8 @@ async function exists(filepath: string): Promise<boolean> {
 /**
  * Initialize a new Strikethroo project
  *
- * Creates directory structures and copies template files based on the selected harnesses.
- * Validates input, creates necessary directories, and copies appropriate templates.
+ * Creates or refreshes the shared `.ai/strikethroo/` workspace from the bundled
+ * templates and records the validated harness selection in its metadata.
  *
  * @param options - Initialization options containing harness selection
  * @returns CommandResult indicating success or failure with details
@@ -199,17 +191,10 @@ export async function init(options: InitOptions): Promise<CommandResult> {
       ensureProjectDirectory(resolvePath(baseDir), resolvePath(baseDir, '.ai/strikethroo', dir));
     }
 
-    // Plan the harness agent files via the registry; the refresh writes them
-    const agentFilesByHarness = await planHarnessFiles(harnesses);
-
-    // Refresh .ai/strikethroo and the agent files with conflict detection
+    // Refresh .ai/strikethroo with conflict detection
     console.log(`  ${chalk.green('✓')} Copying common template files`);
-    for (const harness of agentFilesByHarness.keys()) {
-      console.log(`  ${chalk.green('✓')} Setting up ${harness} harness configuration`);
-    }
     await refreshWorkspace(baseDir, conflictPolicy, {
       sourceDir: preparedProfile?.stagingDir ?? getTemplatePath('strikethroo'),
-      agentFiles: [...agentFilesByHarness.values()].flat(),
       importedProfile: preparedProfile && {
         name: preparedProfile.manifest.name,
         source: preparedProfile.source,
@@ -228,14 +213,6 @@ export async function init(options: InitOptions): Promise<CommandResult> {
     const commonFiles = await collectFiles(resolvePath(baseDir, '.ai/strikethroo'));
     for (const file of commonFiles) {
       console.log(`    ${chalk.blue('●')} ${file}`);
-    }
-
-    for (const [harness, files] of agentFilesByHarness) {
-      if (files.length === 0) continue;
-      console.log(chalk.cyan(`  ${harness} Agents:`));
-      for (const file of files) {
-        console.log(`    ${chalk.blue('●')} ${resolvePath(baseDir, file.relativePath)}`);
-      }
     }
 
     // ========== FOOTER SECTION ==========
@@ -313,21 +290,6 @@ function displayProfileSection(manifest: ProfileManifest, source: string): void 
 }
 
 /**
- * Plan the agent files of every selected harness through the registry.
- */
-async function planHarnessFiles(harnesses: Harness[]): Promise<Map<Harness, ManagedFile[]>> {
-  const planned = new Map<Harness, ManagedFile[]>();
-  for (const harness of harnesses) {
-    const adapter = HarnessRegistry.get(harness);
-    if (!adapter) {
-      throw new Error(`No registered harness adapter for: ${harness}`);
-    }
-    planned.set(harness, await adapter.plan());
-  }
-  return planned;
-}
-
-/**
  * Record the successfully installed harness selection in metadata.
  */
 async function recordHarnessSelection(metadataPath: string, harnesses: Harness[]): Promise<void> {
@@ -363,8 +325,6 @@ interface WorkspaceRefreshInput {
    * profile staging tree.
    */
   sourceDir: string;
-  /** Harness agent files, by project-relative path. */
-  agentFiles: ManagedFile[];
   importedProfile?: ImportedProfile;
 }
 
@@ -397,10 +357,9 @@ function isOverwrite(resolution: ConflictResolution | undefined): boolean {
 }
 
 /**
- * Refresh the workspace templates, the workspace `.gitignore`, and the harness
- * agent files.
+ * Refresh the workspace templates and the workspace `.gitignore`.
  *
- * Every `config/` path and agent file gets its own outcome, so one conflict
+ * Every `config/` path gets its own outcome, so one conflict
  * never stops another file from being installed, refreshed, or restored. All
  * conflicts are collected first and asked about in one prompt, so a session
  * that cannot prompt fails before anything is written. Missing or unusable
@@ -423,7 +382,7 @@ async function refreshWorkspace(
   policy: ConflictPolicy,
   input: WorkspaceRefreshInput
 ): Promise<void> {
-  const { sourceDir, agentFiles, importedProfile } = input;
+  const { sourceDir, importedProfile } = input;
   const destDir = resolvePath(baseDir, '.ai/strikethroo');
   const metadataPath = resolvePath(destDir, '.init-metadata.json');
 
@@ -450,10 +409,7 @@ async function refreshWorkspace(
 
   let resolutions = new Map<string, ConflictResolution>();
   if (policy !== 'overwrite') {
-    const conflicts = [
-      ...(await detectConflicts(destDir, sourceDir, baseline, protectedPaths)),
-      ...detectManagedConflicts(projectRoot, agentFiles, managedBaseline),
-    ];
+    const conflicts = await detectConflicts(destDir, sourceDir, baseline, protectedPaths);
     if (policy === 'keep') {
       reportKeptConflicts(conflicts);
     } else if (conflicts.length > 0) {
@@ -482,16 +438,10 @@ async function refreshWorkspace(
     projectRoot,
     managedBaseline[WORKSPACE_IGNORE_MANAGED_PATH]
   );
-  const agentOutcomes = await refreshManagedFiles(
-    projectRoot,
-    agentFiles,
-    managedBaseline,
-    overwrite
-  );
 
   await createMetadata(metadataPath, existingMetadata, {
     files: recordBaselines(baseline, outcomes),
-    managedFiles: recordManagedBaselines(ignoreHash, agentOutcomes),
+    managedFiles: { [WORKSPACE_IGNORE_MANAGED_PATH]: ignoreHash },
     profile: recordProfile(existingMetadata, importedProfile, outcomes),
   });
 }
@@ -584,24 +534,6 @@ function recordBaselines(
     }
   }
   return files;
-}
-
-/**
- * Build the `managedFiles` map: the workspace `.gitignore` plus the agent
- * files of the current harness selection. Files of a deselected harness are
- * no longer managed, so they drop out.
- */
-function recordManagedBaselines(
-  ignoreHash: string,
-  agentOutcomes: ManagedOutcome[]
-): Record<string, string> {
-  const managed: Record<string, string> = { [WORKSPACE_IGNORE_MANAGED_PATH]: ignoreHash };
-  for (const { relativePath, hash } of agentOutcomes) {
-    if (hash !== undefined) {
-      managed[relativePath] = hash;
-    }
-  }
-  return managed;
 }
 
 /**

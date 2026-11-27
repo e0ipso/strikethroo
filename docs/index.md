@@ -64,7 +64,7 @@ Every codebase has its own conventions, and Strikethroo bends to them instead of
 <div class="st-card">
 <span class="st-card__icon st-card__icon--package" aria-hidden="true"></span>
 <p class="st-card__title">1. Bootstrap the workspace</p>
-<p>Create the shared <code>.ai/strikethroo/</code> workspace and copy the harness agents.</p>
+<p>Create the shared <code>.ai/strikethroo/</code> workspace.</p>
 <pre class="highlight"><code>npx strikethroo init --harnesses claude</code></pre>
 </div>
 <div class="st-card">

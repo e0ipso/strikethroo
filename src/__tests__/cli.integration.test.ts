@@ -123,19 +123,18 @@ describe('CLI Integration', () => {
       ).not.toBe('');
     });
 
-    it('bootstraps .ai/strikethroo and copies Claude agents', async () => {
+    it('bootstraps .ai/strikethroo without writing Claude agents', async () => {
       const result = executeCommand(`node "${cliPath}" init --harnesses claude`);
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('Strikethroo initialized successfully!');
 
       await verifyStrikethrooBootstrap(testDir);
-      expect(await fs.pathExists(path.join(testDir, '.claude/agents'))).toBe(true);
-      expect(await fs.pathExists(path.join(testDir, '.claude/agents/plan-creator.md'))).toBe(true);
+      expect(await fs.pathExists(path.join(testDir, '.claude/agents'))).toBe(false);
     });
   });
 
   describe('init — non-Claude harnesses', () => {
-    it('bootstraps .ai/strikethroo and creates per-harness agent files', async () => {
+    it('bootstraps .ai/strikethroo without writing per-harness agent files', async () => {
       const result = executeCommand(
         `node "${cliPath}" init --harnesses gemini,codex,cursor,copilot,opencode`
       );
@@ -145,13 +144,15 @@ describe('CLI Integration', () => {
 
       await verifyStrikethrooBootstrap(testDir);
 
-      expect(await fs.pathExists(path.join(testDir, '.gemini/agents/plan-creator.md'))).toBe(true);
-      expect(await fs.pathExists(path.join(testDir, '.codex/agents/plan-creator.toml'))).toBe(true);
-      expect(await fs.pathExists(path.join(testDir, '.cursor/agents/plan-creator.md'))).toBe(true);
-      expect(await fs.pathExists(path.join(testDir, '.github/agents/plan-creator.md'))).toBe(true);
-      expect(await fs.pathExists(path.join(testDir, '.opencode/agents/plan-creator.md'))).toBe(
-        true
-      );
+      for (const dir of [
+        '.gemini/agents',
+        '.codex/agents',
+        '.cursor/agents',
+        '.github/agents',
+        '.opencode/agents',
+      ]) {
+        expect(await fs.pathExists(path.join(testDir, dir))).toBe(false);
+      }
     });
 
     it('emits a skill-install notice', async () => {
@@ -247,45 +248,14 @@ describe('CLI Integration', () => {
       );
       expect(result.exitCode).toBe(0);
       await verifyStrikethrooBootstrap(testDir);
-      expect(await fs.pathExists(path.join(testDir, '.claude/agents'))).toBe(true);
     });
   });
 
-  describe('init — codex TOML output', () => {
-    it('creates valid TOML agent for codex', async () => {
-      const result = executeCommand(`node "${cliPath}" init --harnesses codex`);
-      expect(result.exitCode).toBe(0);
-      const tomlContent = await fs.readFile(
-        path.join(testDir, '.codex/agents/plan-creator.toml'),
-        'utf-8'
-      );
-      expect(tomlContent).toContain('name = "plan-creator"');
-      expect(tomlContent).toContain('description =');
-      expect(tomlContent).toContain('developer_instructions = """');
-    });
-  });
-
-  describe('init — copilot .md extension', () => {
-    it('creates .md file for copilot', async () => {
-      const result = executeCommand(`node "${cliPath}" init --harnesses copilot`);
-      expect(result.exitCode).toBe(0);
-      expect(await fs.pathExists(path.join(testDir, '.github/agents/plan-creator.md'))).toBe(true);
-    });
-
+  describe('init — copilot harness name', () => {
     it('rejects the replaced github identifier', () => {
       const result = executeCommand(`node "${cliPath}" init --harnesses github`);
       expect(result.exitCode).toBe(1);
       expect(result.stdout + result.stderr).toContain('copilot');
-    });
-  });
-
-  describe('init — multi-harness simultaneous output', () => {
-    it('creates agent files for multiple harnesses simultaneously', async () => {
-      const result = executeCommand(`node "${cliPath}" init --harnesses claude,codex,copilot`);
-      expect(result.exitCode).toBe(0);
-      expect(await fs.pathExists(path.join(testDir, '.claude/agents/plan-creator.md'))).toBe(true);
-      expect(await fs.pathExists(path.join(testDir, '.codex/agents/plan-creator.toml'))).toBe(true);
-      expect(await fs.pathExists(path.join(testDir, '.github/agents/plan-creator.md'))).toBe(true);
     });
   });
 
@@ -401,19 +371,15 @@ describe('CLI Integration', () => {
 
       const afterFirst = await fs.readJson(metadataPath());
       expect(afterFirst.harnesses).toEqual(['claude']);
-      expect(await fs.pathExists(path.join(testDir, '.claude/agents/plan-creator.md'))).toBe(true);
 
       const reused = executeCommand(`node "${cliPath}" init --force`);
       expect(reused.exitCode).toBe(0);
       expect(reused.stdout).toContain('Harnesses: claude');
-      expect(await fs.pathExists(path.join(testDir, '.claude/agents/plan-creator.md'))).toBe(true);
 
       const override = executeCommand(`node "${cliPath}" init --harnesses gemini --force`);
       expect(override.exitCode).toBe(0);
       const afterOverride = await fs.readJson(metadataPath());
       expect(afterOverride.harnesses).toEqual(['gemini']);
-      expect(await fs.pathExists(path.join(testDir, '.gemini/agents/plan-creator.md'))).toBe(true);
-      expect(await fs.pathExists(path.join(testDir, '.claude/agents/plan-creator.md'))).toBe(true);
 
       const metadataBeforeLegacy = await fs.readJson(metadataPath());
       const originalTimestamp = metadataBeforeLegacy.timestamp;
@@ -447,7 +413,6 @@ describe('CLI Integration', () => {
       expect(second.exitCode).toBe(0);
 
       await verifyStrikethrooBootstrap(testDir);
-      expect(await fs.pathExists(path.join(testDir, '.claude/agents/plan-creator.md'))).toBe(true);
     });
   });
 
@@ -612,7 +577,6 @@ process.exit(Number(process.env.NPX_EXIT_CODE || '0'));
       expect(output).toContain('Workflow skills: updated');
       expect(output).toContain('fresh session');
       expect(output).not.toContain('npx skills add e0ipso/strikethroo');
-      expect(await fs.pathExists(path.join(testDir, '.gemini/agents/plan-creator.md'))).toBe(true);
 
       const metadata = await fs.readJson(metadataPath());
       expect(metadata.harnesses).toEqual(['gemini']);

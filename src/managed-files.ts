@@ -1,10 +1,10 @@
 /**
  * Managed Files
  *
- * Files Strikethroo writes outside `.ai/strikethroo/config/`: the harness agent
- * files and the workspace `.gitignore`. Their hashes live in the metadata
- * `managedFiles` map, keyed by project-relative path, so a refresh can tell an
- * unedited file from a local change.
+ * Files Strikethroo writes outside `.ai/strikethroo/config/`, currently the
+ * workspace `.gitignore`. Their hashes live in the metadata `managedFiles` map,
+ * keyed by project-relative path, so a refresh can tell an unedited file from a
+ * local change.
  *
  * Every read and write goes through the containment helpers: a symbolic link
  * at the file or at any parent below the project is refused, never followed.
@@ -12,31 +12,18 @@
 
 import * as crypto from 'crypto';
 import * as path from 'path';
-import { FileConflict, FileSystemError } from './types';
+import { FileSystemError } from './types';
 import {
   ensureContainedDirectory,
   readContainedFile,
   writeFileAtomic,
 } from './skill-scripts/shared/safe-fs';
-import {
-  classifyRefresh,
-  needsDecision,
-  NO_RECORDED_BASELINE,
-  RefreshKind,
-  RefreshState,
-} from './conflict-detector';
+import { needsDecision, RefreshState } from './conflict-detector';
 
 /** One file Strikethroo writes, by path relative to the project root. */
 export interface ManagedFile {
   relativePath: string;
   content: string;
-}
-
-/** What a refresh did with one managed file, and the hash it records. */
-export interface ManagedOutcome {
-  relativePath: string;
-  kind: RefreshKind;
-  hash: string | undefined;
 }
 
 /** SHA-256 of the UTF-8 bytes of `content`, as hex. */
@@ -79,33 +66,6 @@ function stateOf(
 }
 
 /**
- * List the managed files that need a decision before they are replaced.
- *
- * @param baseline - Recorded hashes by project-relative path; `{}` when the
- *   workspace has none, which makes every differing file untracked
- */
-export function detectManagedConflicts(
-  projectRoot: string,
-  files: ManagedFile[],
-  baseline: Record<string, string>
-): FileConflict[] {
-  const conflicts: FileConflict[] = [];
-  for (const file of files) {
-    const current = readManagedFile(projectRoot, file.relativePath);
-    const state = stateOf(current, file, baseline[file.relativePath]);
-    if (current === undefined || !needsDecision(state)) continue;
-    conflicts.push({
-      relativePath: file.relativePath,
-      userFileContent: current,
-      newFileContent: file.content,
-      originalHash: state.recordedHash ?? NO_RECORDED_BASELINE,
-      currentHash: state.currentHash as string,
-    });
-  }
-  return conflicts;
-}
-
-/**
  * Write one managed file atomically, creating its parent directories.
  *
  * @throws FileSystemError when a directory or the file is a link
@@ -120,31 +80,6 @@ export async function writeManagedFile(projectRoot: string, file: ManagedFile): 
   if ('error' in written) {
     throw new FileSystemError(`Cannot write ${file.relativePath}: ${written.message}`);
   }
-}
-
-/**
- * Apply one outcome per managed file: install, refresh, overwrite, or keep.
- *
- * @param overwrite - Whether the user authorized replacing this path
- *   (`--force` or an explicit overwrite answer; never with `--ignore`)
- */
-export async function refreshManagedFiles(
-  projectRoot: string,
-  files: ManagedFile[],
-  baseline: Record<string, string>,
-  overwrite: (relativePath: string) => boolean
-): Promise<ManagedOutcome[]> {
-  const outcomes: ManagedOutcome[] = [];
-  for (const file of files) {
-    const current = readManagedFile(projectRoot, file.relativePath);
-    const state = stateOf(current, file, baseline[file.relativePath]);
-    const outcome = classifyRefresh(state, overwrite(file.relativePath));
-    if (outcome.kind !== 'kept' && outcome.kind !== 'unchanged') {
-      await writeManagedFile(projectRoot, file);
-    }
-    outcomes.push({ relativePath: file.relativePath, ...outcome });
-  }
-  return outcomes;
 }
 
 /**

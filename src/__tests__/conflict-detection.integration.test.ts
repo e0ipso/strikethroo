@@ -18,6 +18,7 @@ import { load } from 'js-yaml';
 import { init } from '../index';
 import { update } from '../update';
 import { loadMetadata, saveMetadata, calculateFileHash } from '../metadata';
+import { hashContent } from '../managed-files';
 import { promptForConflicts, showReplacedLocalChangesDiff } from '../prompts';
 import { metadataGate } from '../validation/metadata-gate';
 import { FileSystemError, type ConflictResolution } from '../types';
@@ -370,7 +371,7 @@ describe('Conflict Detection Integration Tests', () => {
       expect(await fs.readdir(linkedTarget)).toEqual([]);
     });
 
-    it('refuses linked config/ subdirectories and agent files without writing through them', async () => {
+    it('refuses linked config/ subdirectories without writing through them', async () => {
       // A linked config/hooks redirects every hook write.
       const linkedHooks = path.join(outside, 'hooks');
       await fs.ensureDir(linkedHooks);
@@ -380,18 +381,6 @@ describe('Conflict Detection Integration Tests', () => {
       expect(hooks.success).toBe(false);
       expect(hooks.message).toMatch(/symbolic link/);
       expect(await fs.readdir(linkedHooks)).toEqual([]);
-      await fs.remove(path.join(project, '.ai'));
-
-      // A planted agent file pointing at a user file is not overwritten.
-      await fs.ensureDir(path.join(project, '.claude/agents'));
-      await fs.symlink(sentinel, path.join(project, '.claude/agents/plan-creator.md'));
-      const agents = await init({
-        harnesses: 'claude',
-        destinationDirectory: project,
-        force: true,
-      });
-      expect(agents.success).toBe(false);
-      expect(await fs.readFile(sentinel, 'utf-8')).toBe('untouched');
     });
   });
 });
@@ -498,31 +487,25 @@ describe('Workspace refresh outcomes', () => {
   it('keeps every conflicting file with ignore, without asking, and refreshes the rest', async () => {
     const configRel = 'config/config.yaml';
     const configPath = path.join(workspace, configRel);
-    const agentRel = path.join('.claude', 'agents', 'plan-creator.md');
-    const agentPath = path.join(project, agentRel);
     const hookRel = 'config/hooks/PRE_PLAN.md';
     const hookPath = path.join(workspace, hookRel);
     const before = (await loadMetadata(metadataPath))!;
 
     await fs.writeFile(configPath, '# Local edit\n', 'utf8');
-    await fs.writeFile(agentPath, '# Local agent edit\n', 'utf8');
     await fs.remove(hookPath);
 
     expect((await init({ destinationDirectory: project, ignore: true })).success).toBe(true);
     expect(promptMock).not.toHaveBeenCalled();
     expect(await fs.readFile(configPath, 'utf8')).toBe('# Local edit\n');
-    expect(await fs.readFile(agentPath, 'utf8')).toBe('# Local agent edit\n');
     expect(await fs.readFile(hookPath, 'utf8')).toBe(await shippedContent(hookRel));
 
     // Kept files keep their old baselines, so a later prompted run asks again.
     const after = (await loadMetadata(metadataPath))!;
     expect(after.files[configRel]).toBe(before.files[configRel]);
-    expect(after.managedFiles?.[agentRel]).toBe(before.managedFiles?.[agentRel]);
 
     const logged = consoleLogSpy.mock.calls.flat().join('\n');
-    expect(logged).toContain('--ignore kept 2 file(s)');
+    expect(logged).toContain('--ignore kept 1 file(s)');
     expect(logged).toContain(configRel);
-    expect(logged).toContain(agentRel);
   });
 
   it('rejects force together with ignore before writing anything', async () => {
@@ -721,75 +704,23 @@ describe('Workspace refresh outcomes', () => {
     expect(await fs.pathExists(restoredPath)).toBe(false);
   });
 
-  describe('agent files', () => {
+  it('leaves an agent file from an older release alone and stops tracking it', async () => {
+    // Releases before the plan-creator agent was removed installed it and
+    // recorded its hash in managedFiles.
     const agentRel = path.join('.claude', 'agents', 'plan-creator.md');
-    const agentPath = (): string => path.join(project, agentRel);
+    const agentPath = path.join(project, agentRel);
+    const legacy = '---\nname: plan-creator\n---\nLegacy agent\n';
+    await fs.ensureDir(path.dirname(agentPath));
+    await fs.writeFile(agentPath, legacy, 'utf-8');
+    const metadata = (await loadMetadata(metadataPath))!;
+    metadata.managedFiles = { ...metadata.managedFiles, [agentRel]: hashContent(legacy) };
+    await saveMetadata(metadataPath, metadata);
 
-    async function setManagedBaseline(hash: string | undefined): Promise<void> {
-      const metadata = (await loadMetadata(metadataPath))!;
-      if (hash === undefined) {
-        delete metadata.managedFiles;
-      } else {
-        metadata.managedFiles = { ...metadata.managedFiles, [agentRel]: hash };
-      }
-      await saveMetadata(metadataPath, metadata);
-    }
-
-    it('records agent file hashes on install', async () => {
-      expect((await loadMetadata(metadataPath))!.managedFiles?.[agentRel]).toBe(
-        await calculateFileHash(agentPath())
-      );
-    });
-
-    it('asks before replacing an edited agent file, keeps it, and asks again', async () => {
-      const shipped = await fs.readFile(agentPath(), 'utf-8');
-      const edited = `${shipped}\n# Local agent edit\n`;
-      await fs.writeFile(agentPath(), edited, 'utf-8');
-
-      answerEveryConflict('keep');
-      for (const run of [1, 2]) {
-        expect((await init({ destinationDirectory: project })).success).toBe(true);
-        expect(promptedPaths(run - 1)).toEqual([agentRel]);
-        expect(await fs.readFile(agentPath(), 'utf-8')).toBe(edited);
-      }
-
-      answerEveryConflict('overwrite');
-      expect((await init({ destinationDirectory: project })).success).toBe(true);
-      expect(await fs.readFile(agentPath(), 'utf-8')).toBe(shipped);
-      expect((await loadMetadata(metadataPath))!.managedFiles?.[agentRel]).toBe(
-        await calculateFileHash(agentPath())
-      );
-    });
-
-    it('replaces an edited agent file without asking only with force', async () => {
-      const shipped = await fs.readFile(agentPath(), 'utf-8');
-      await fs.writeFile(agentPath(), '# Local agent edit\n', 'utf-8');
-      expect((await init({ destinationDirectory: project, force: true })).success).toBe(true);
-      expect(promptMock).not.toHaveBeenCalled();
-      expect(await fs.readFile(agentPath(), 'utf-8')).toBe(shipped);
-    });
-
-    it('refreshes an unedited agent file silently', async () => {
-      const shipped = await fs.readFile(agentPath(), 'utf-8');
-      await fs.writeFile(agentPath(), '# Shipped by an older release\n', 'utf-8');
-      await setManagedBaseline(await calculateFileHash(agentPath()));
-
-      expect((await init({ destinationDirectory: project })).success).toBe(true);
-      expect(promptMock).not.toHaveBeenCalled();
-      expect(await fs.readFile(agentPath(), 'utf-8')).toBe(shipped);
-    });
-
-    it('treats a differing agent file as untracked when no baseline was recorded', async () => {
-      const legacy = '# Written before agent files were tracked\n';
-      await fs.writeFile(agentPath(), legacy, 'utf-8');
-      await setManagedBaseline(undefined);
-
-      answerEveryConflict('keep');
-      expect((await init({ destinationDirectory: project })).success).toBe(true);
-      expect(promptedPaths(0)).toEqual([agentRel]);
-      expect(promptMock.mock.calls[0]![0][0]?.originalHash).toBe('');
-      expect(await fs.readFile(agentPath(), 'utf-8')).toBe(legacy);
-      expect((await loadMetadata(metadataPath))!.managedFiles?.[agentRel]).toBeUndefined();
+    expect((await init({ destinationDirectory: project })).success).toBe(true);
+    expect(promptMock).not.toHaveBeenCalled();
+    expect(await fs.readFile(agentPath, 'utf-8')).toBe(legacy);
+    expect((await loadMetadata(metadataPath))!.managedFiles).toEqual({
+      [path.join('.ai', 'strikethroo', '.gitignore')]: expect.any(String),
     });
   });
 
@@ -915,10 +846,9 @@ describe('Untrusted baseline gate (CLI, non-interactive stdin)', () => {
     await fs.remove(sandbox);
   });
 
-  it('refuses before writing anything when an agent file was edited', async () => {
+  it('refuses before writing anything when a config file was edited', async () => {
     expectNoDecisionAsked(runInit('--harnesses', 'claude'));
-    const agentPath = path.join(project, '.claude/agents/plan-creator.md');
-    await fs.writeFile(agentPath, '# Mine, hands off\n', 'utf-8');
+    await fs.writeFile(otherHookPath(), CUSTOM, 'utf-8');
     await fs.writeFile(hookPath(), '# stale shipped hook\n', 'utf-8');
     const metadata = (await loadMetadata(metadataPath))!;
     metadata.files[HOOK] = await calculateFileHash(hookPath());
@@ -927,9 +857,9 @@ describe('Untrusted baseline gate (CLI, non-interactive stdin)', () => {
 
     const result = runInit();
     expect(result.status).toBe(1);
-    expect(result.output).toContain(path.join('.claude', 'agents', 'plan-creator.md'));
+    expect(result.output).toContain(OTHER_HOOK);
     expect(result.output).toContain('--force');
-    expect(await fs.readFile(agentPath, 'utf-8')).toBe('# Mine, hands off\n');
+    expect(await fs.readFile(otherHookPath(), 'utf-8')).toBe(CUSTOM);
     // The refusal happens before the refresh, so the stale hook is not updated either.
     expect(await fs.readFile(hookPath(), 'utf-8')).toBe('# stale shipped hook\n');
     expect(await metadataBytes()).toBe(before);

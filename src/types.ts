@@ -335,9 +335,9 @@ export interface InitMetadata {
    */
   harnesses?: Harness[];
   /**
-   * Hashes of the files Strikethroo writes outside `config/` (harness agent
-   * files and the workspace `.gitignore`), keyed by path relative to the
-   * project root. Absent on workspaces initialized before it existed.
+   * Hashes of the files Strikethroo writes outside `config/` (the workspace
+   * `.gitignore`), keyed by path relative to the project root. Absent on
+   * workspaces initialized before it existed.
    */
   managedFiles?: Record<string, string>;
 }
@@ -347,8 +347,7 @@ export interface InitMetadata {
  */
 export interface FileConflict {
   /**
-   * Path shown to the user: relative to .ai/strikethroo/ for `config/` files,
-   * relative to the project root for managed files such as agent files
+   * Path shown to the user, relative to .ai/strikethroo/
    */
   relativePath: string;
   /**

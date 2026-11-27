@@ -5,7 +5,7 @@
  * or cause data corruption. Skips simple wrappers and obvious functionality.
  */
 
-import { parseHarnesses, validateHarnesses, convertAgentMdToToml, getAgentFormat } from '../utils';
+import { parseHarnesses, validateHarnesses } from '../utils';
 import { resolveInitHarnesses, normalizeSavedHarnesses } from '../resolve-init-harnesses';
 import { Harness } from '../types';
 
@@ -100,62 +100,6 @@ describe('Critical Utils Business Logic', () => {
 
     it('accepts valid saved lists', () => {
       expect(normalizeSavedHarnesses(['claude', 'gemini'])).toEqual(['claude', 'gemini']);
-    });
-  });
-
-  describe('convertAgentMdToToml', () => {
-    it('converts markdown with YAML frontmatter to TOML', () => {
-      const md = [
-        '---',
-        'name: plan-creator',
-        'description: Creates strategic plans',
-        '---',
-        '# Instructions',
-        '',
-        'Do the thing.',
-      ].join('\n');
-
-      const toml = convertAgentMdToToml(md);
-      expect(toml).toContain('name = "plan-creator"');
-      expect(toml).toContain('description = "Creates strategic plans"');
-      expect(toml).toContain('developer_instructions = """');
-      expect(toml).toContain('# Instructions');
-      expect(toml).toContain('Do the thing.');
-    });
-
-    it('produces valid TOML when input has no frontmatter', () => {
-      const md = '# Just a heading\n\nSome body text.';
-      const toml = convertAgentMdToToml(md);
-      expect(toml).toContain('name = ""');
-      expect(toml).toContain('description = ""');
-      expect(toml).toContain('developer_instructions = """');
-      expect(toml).toContain('# Just a heading');
-    });
-  });
-
-  describe('getAgentFormat', () => {
-    it('returns TOML format for codex', () => {
-      expect(getAgentFormat('codex')).toEqual({
-        format: 'toml',
-        extension: '.toml',
-        directory: '.codex/agents',
-      });
-    });
-
-    it('returns .md extension for copilot', () => {
-      expect(getAgentFormat('copilot')).toEqual({
-        format: 'md',
-        extension: '.md',
-        directory: '.github/agents',
-      });
-    });
-
-    it('returns .md extension for claude', () => {
-      expect(getAgentFormat('claude')).toEqual({
-        format: 'md',
-        extension: '.md',
-        directory: '.claude/agents',
-      });
     });
   });
 });
